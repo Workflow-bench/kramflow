@@ -37,6 +37,7 @@ export default function GreenRoomDisplayPage() {
   const progress = session ? appState.progressBySession[appState.activeSessionId] : undefined;
   const total = session?.items.length ?? 0;
   const currentOrder = progress?.currentOrder ?? null;
+  const isFinished = currentOrder !== null && currentOrder > total;
 
   const display = useRegisterDisplay("Green Room Display", "green-room", null, (command) => {
     if (command.type === "reload") window.location.reload();
@@ -88,7 +89,7 @@ export default function GreenRoomDisplayPage() {
             <div className="flex flex-col justify-center">
               <p className="text-caption uppercase tracking-wide text-muted-2">On Stage Now</p>
               <p className="text-hero text-primary mt-3" style={{ fontSize: "clamp(3rem, 5vw, 4.5rem)" }}>
-                {live ? live.title : "Not Started"}
+                {live ? live.title : isFinished ? "Session Finished" : "Not Started"}
               </p>
               {live?.presenter && <p className="text-title text-muted mt-3">{live.presenter}</p>}
               <p

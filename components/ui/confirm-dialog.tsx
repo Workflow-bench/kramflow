@@ -17,6 +17,11 @@ export interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: "default" | "danger";
+  // Optional: callers whose onConfirm does async work can show this instead
+  // of leaving the dialog's own confirm button with no in-progress feedback
+  // at all (previously true for every caller — Jump, Display Manager,
+  // Broadcast Center's emergency/destructive confirms all shared this gap).
+  loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -28,6 +33,7 @@ export function ConfirmDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   tone = "default",
+  loading = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -37,11 +43,11 @@ export function ConfirmDialog({
     if (!open) return;
     confirmRef.current?.focus();
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel();
+      if (e.key === "Escape" && !loading) onCancel();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onCancel]);
+  }, [open, loading, onCancel]);
 
   return (
     <AnimatePresence>
@@ -53,7 +59,7 @@ export function ConfirmDialog({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-6"
-          onClick={onCancel}
+          onClick={loading ? undefined : onCancel}
         >
           <motion.div
             role="alertdialog"
@@ -81,11 +87,12 @@ export function ConfirmDialog({
                 variant={tone === "danger" ? "danger" : "primary"}
                 size="md"
                 className="flex-1"
+                loading={loading}
                 onClick={onConfirm}
               >
                 {confirmLabel}
               </Button>
-              <Button variant="ghost" size="md" className="flex-1" onClick={onCancel}>
+              <Button variant="ghost" size="md" className="flex-1" disabled={loading} onClick={onCancel}>
                 {cancelLabel}
               </Button>
             </div>

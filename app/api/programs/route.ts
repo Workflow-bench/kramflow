@@ -30,23 +30,39 @@ export async function POST(request: Request) {
   }
 
   const supabase = supabaseAdmin();
-  let sortOrder = parsed.data.sortOrder;
-  if (sortOrder === undefined) {
-    const { data: maxRow } = await supabase
-      .from("programs")
-      .select("sort_order")
-      .eq("session_id", parsed.data.sessionId)
-      .order("sort_order", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    sortOrder = (maxRow?.sort_order ?? 0) + 1;
-  }
+  const row = toProgramRow(parsed.data);
 
-  const { data, error } = await supabase
-    .from("programs")
-    .insert(toProgramRow({ ...parsed.data, sortOrder }))
-    .select()
-    .single();
+  // Atomic: computing "next sort_order" and inserting used to be two
+  // separate round trips, which could collide when two "Add item" requests
+  // landed close together (see supabase/schema.sql's insert_program_at_end
+  // for the race and the pg_advisory_xact_lock fix).
+  const { data, error } = await supabase.rpc("insert_program_at_end", {
+    p_session_id: parsed.data.sessionId,
+    p_sort_order: parsed.data.sortOrder ?? null,
+    p_section_label: row.section_label ?? null,
+    p_type: row.type,
+    p_name: row.name,
+    p_description: row.description ?? null,
+    p_presenter: row.presenter ?? null,
+    p_presenter_requirement: row.presenter_requirement ?? null,
+    p_presenter_contact: row.presenter_contact ?? null,
+    p_duration: row.duration,
+    p_start_time: row.start_time ?? null,
+    p_end_time: row.end_time ?? null,
+    p_audio_mics: row.audio_mics,
+    p_audio_track: row.audio_track,
+    p_video_sidescreen: row.video_sidescreen,
+    p_backdrop: row.backdrop,
+    p_video_ppt_needed: row.video_ppt_needed,
+    p_hall_lights: row.hall_lights ?? null,
+    p_stage_lights: row.stage_lights ?? null,
+    p_camera_angle: row.camera_angle ?? null,
+    p_props: row.props ?? null,
+    p_curtains: row.curtains ?? null,
+    p_remarks: row.remarks ?? null,
+    p_status: row.status,
+    p_color_tag: row.color_tag ?? null,
+  });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, program: data });
+  return NextResponse.json({ ok: true, program: Array.isArray(data) ? data[0] : data });
 }

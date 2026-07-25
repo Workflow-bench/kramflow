@@ -107,7 +107,11 @@ function getServerSnapshot(): LiveState {
 // from a fresh read, so simply resending the same action succeeds once the
 // other write has landed; a second conflict in a row is astronomically
 // unlikely for single-operator-driven actions, so this doesn't loop.
-async function sendAction(body: Record<string, unknown>, attempt = 0): Promise<void> {
+//
+// Returns a boolean (not just void) so callers that need to distinguish a
+// real failure from a real success — to show an error instead of a false
+// "it worked" — can await this and branch on the result.
+async function sendAction(body: Record<string, unknown>, attempt = 0): Promise<boolean> {
   try {
     const res = await fetch("/api/live", {
       method: "PATCH",
@@ -115,9 +119,14 @@ async function sendAction(body: Record<string, unknown>, attempt = 0): Promise<v
       body: JSON.stringify(body),
     });
     if (res.status === 409 && attempt < 2) return sendAction(body, attempt + 1);
-    if (!res.ok) console.error("[store] action failed:", body.action, res.status);
+    if (!res.ok) {
+      console.error("[store] action failed:", body.action, res.status);
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error("[store] action failed:", body.action, err);
+    return false;
   }
 }
 

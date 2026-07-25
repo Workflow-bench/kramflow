@@ -99,7 +99,24 @@ export default function OperatorPage() {
       {session ? (
         <div className="flex-1 xl:min-h-0 grid grid-cols-1 xl:grid-cols-[1fr_340px_280px] 2xl:grid-cols-[1fr_400px_320px]">
           <div className="min-w-0 xl:min-h-0 xl:overflow-y-auto px-4 sm:px-6 xl:px-12 py-6 xl:py-8">
-            <SectionLabel>Program</SectionLabel>
+            <div className="flex items-center justify-between gap-4">
+              <SectionLabel>Program</SectionLabel>
+              {/* A progress bar already exists in the page footer, but it's
+                  easy to miss down there while scanning the rundown — this
+                  slim one sits right where the eye already is, readable
+                  peripherally without looking away from the item list. */}
+              <span className="text-caption text-muted-2 tabular-nums shrink-0">
+                {Math.min(progress?.currentOrder ?? 0, session.items.length)} / {session.items.length}
+              </span>
+            </div>
+            <div className="h-1 w-full rounded-full bg-card overflow-hidden mt-2">
+              <div
+                className="h-full rounded-full bg-muted-2"
+                style={{
+                  width: `${session.items.length > 0 ? Math.min(1, (progress?.currentOrder ?? 0) / session.items.length) * 100 : 0}%`,
+                }}
+              />
+            </div>
             <div className="mt-4">
               <ProgramList session={session} />
             </div>

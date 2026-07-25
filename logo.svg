@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%">
+  <!-- 
+    Project: CF Monogram Identity
+    Background: Removed (Transparent)
+    Fill: Pure White 
+  -->
+  <g fill="#FFFFFF">
+    <!-- Top Parallelogram Shape -->
+    <path d="M 113 78 
+             L 163 78 
+             L 151 98 
+             L 101 98 Z" />
+             
+    <!-- Main Sweeping 'CF' Shape -->
+    <path d="M 96 106 
+             L 188 106 
+             L 176 126 
+             L 108 126 
+             C 108 143, 138 158, 165 158 
+             L 153 178 
+             L 103 178 
+             C 78 178, 68 153, 77 138 
+             L 96 106 Z" />
+  </g>
+</svg>
+

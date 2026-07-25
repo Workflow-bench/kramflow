@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEventStore } from "@/lib/store";
 import type { AlertSeverity } from "@/lib/types";
 import { SectionLabel } from "@/components/tv/section-label";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 const severities: { value: AlertSeverity; label: string; tone: string }[] = [
@@ -17,8 +18,29 @@ const severities: { value: AlertSeverity; label: string; tone: string }[] = [
 
 export function AlertComposer() {
   const { state, setAlert, dismissAlert } = useEventStore();
+  const toast = useToast();
   const [message, setMessage] = useState("");
   const [severity, setSeverity] = useState<AlertSeverity>("warning");
+  const [posting, setPosting] = useState(false);
+  // Ref, not just the `posting` state — a rapid click burst fires every
+  // click before React re-renders with the disabled button, so a state-only
+  // guard lets all of them through. Confirmed live on the identical pattern
+  // in app/(operator)/broadcast/page.tsx (5 clicks -> 5 live broadcasts).
+  const postingRef = useRef(false);
+
+  async function handlePost() {
+    if (postingRef.current) return;
+    postingRef.current = true;
+    setPosting(true);
+    const ok = await setAlert({ message: message.trim(), severity });
+    postingRef.current = false;
+    setPosting(false);
+    if (ok) {
+      setMessage("");
+    } else {
+      toast.error("Couldn't post the alert — try again");
+    }
+  }
 
   if (state.alert) {
     return (
@@ -66,10 +88,8 @@ export function AlertComposer() {
           size="sm"
           className="w-full"
           disabled={!message.trim()}
-          onClick={() => {
-            setAlert({ message: message.trim(), severity });
-            setMessage("");
-          }}
+          loading={posting}
+          onClick={handlePost}
         >
           Post Alert
         </Button>

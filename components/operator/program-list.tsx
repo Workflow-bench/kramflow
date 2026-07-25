@@ -136,7 +136,14 @@ function ItemRow({
         {program.kicker && <p className="text-caption text-muted-2 truncate">{program.kicker}</p>}
         <div className="flex items-center gap-2">
           <p className="text-body text-primary truncate">{program.title}</p>
-          {hasNotes && <span className="h-1.5 w-1.5 rounded-full bg-status-orange shrink-0" />}
+          {hasNotes && (
+            <span className="h-1.5 w-1.5 rounded-full bg-status-orange shrink-0" title="Has stage notes" />
+          )}
+          {program.colorTag && (
+            <Badge tone="orange" className="shrink-0 normal-case">
+              {program.colorTag}
+            </Badge>
+          )}
         </div>
 
         {/* Mobile: presenter/time/duration collapse under the title instead

@@ -39,11 +39,18 @@ interface ProgramFormProps {
   sessionOptions: { id: string; label: string }[];
   programId?: string; // present -> edit (PATCH), absent -> create (POST)
   initial?: Partial<ProgramInput>;
+  // The row's version as of when this form was opened — required for edits.
+  // Confirmed live that without this, two people editing the same item
+  // within the same stale-data window silently overwrite each other with
+  // no error to either party (the form PATCHes its whole snapshot, not a
+  // diff). See app/api/programs/[id]/route.ts's optimistic-concurrency
+  // check, same pattern as live_state/display_state.
+  version?: number;
   onSaved: () => void;
   onCancel: () => void;
 }
 
-export function ProgramForm({ sessionId, sessionOptions, programId, initial, onSaved, onCancel }: ProgramFormProps) {
+export function ProgramForm({ sessionId, sessionOptions, programId, initial, version, onSaved, onCancel }: ProgramFormProps) {
   const [values, setValues] = useState<ProgramInput>({ ...EMPTY, ...initial, sessionId });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
@@ -60,11 +67,15 @@ export function ProgramForm({ sessionId, sessionOptions, programId, initial, onS
       const res = await fetch(programId ? `/api/programs/${programId}` : "/api/programs", {
         method: programId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(programId ? { ...values, version } : values),
       });
       const data = await res.json();
       if (!res.ok) {
-        setErrors(data.errors?.fieldErrors ?? {});
+        if (res.status === 409) {
+          setErrors({ form: [data.error ?? "This item was changed by someone else — reload the cue sheet and try again"] });
+        } else {
+          setErrors(data.errors?.fieldErrors ?? {});
+        }
         return;
       }
       onSaved();

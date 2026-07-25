@@ -70,6 +70,33 @@ exact method.
 surfaces use the top of this range (`64px`–`80px` between stacked sections);
 the denser operator dashboard uses the middle (`24px`–`40px`).
 
+This is a documented convention, not an enforced token — unlike color and
+type (`app/globals.css`'s `@theme inline` block), there's no `--spacing-*`
+custom property or Tailwind config extension backing it, so nothing stops a
+new component from reaching for an arbitrary value instead. In practice the
+scale has held (spot-checked across the app), but it's worth knowing the
+enforcement is convention-and-code-review, not the build.
+
+## Elevation
+
+Flat by default. `shadow-lg` appears in exactly three places in the entire
+codebase — the toast (`components/ui/toast.tsx`), Presenter's floating
+control bar (`app/presenter/page.tsx`), and the broadcast overlay
+(`components/display-engine/broadcast-overlay.tsx`) — and every one of them
+is a genuinely floating element sitting above the page content, not a card
+or panel. Cards, panels, and dialogs stay flat (`bg-card`, a `border`, no
+shadow) even when stacked or layered; separation there comes from the
+background-color step between `background` → `card` → `card-hover`, not
+from elevation.
+
+The rule: reach for `shadow-lg` only when something is floating free of the
+page's normal layout (fixed-position, appears above other content, would
+look wrong if it just "sat" on the page like a card does). Everything else
+stays flat. This was already true in practice before it was written down
+here — confirmed by grepping the whole codebase for `shadow` — so treat this
+as documenting an existing, consistently-applied decision, not introducing
+a new one.
+
 ## TV safe area
 
 A **fixed** margin, not a proportion of the screen: `clamp(48px, 4vw, 64px)`

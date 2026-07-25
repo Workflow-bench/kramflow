@@ -31,6 +31,7 @@ export function PinGate({ children }: { children: React.ReactNode }) {
 function PinScreen({ onUnlock }: { onUnlock: () => void }) {
   const [digits, setDigits] = useState("");
   const [error, setError] = useState(false);
+  const [lockedMessage, setLockedMessage] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -44,15 +45,23 @@ function PinScreen({ onUnlock }: { onUnlock: () => void }) {
   async function submitPin(pin: string) {
     setVerifying(true);
     setError(false);
+    setLockedMessage(null);
     try {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pin }),
       });
-      const data: { ok: boolean } = await res.json();
+      const data: { ok: boolean; retryAfterSeconds?: number } = await res.json();
       if (data.ok) {
         onUnlock();
+        return;
+      }
+      if (res.status === 429) {
+        const wait = data.retryAfterSeconds ?? 30;
+        setLockedMessage(`Too many attempts — wait ${wait}s`);
+        setDigits("");
+        setVerifying(false);
         return;
       }
     } catch {
@@ -65,6 +74,7 @@ function PinScreen({ onUnlock }: { onUnlock: () => void }) {
 
   function setDigitsAndMaybeSubmit(next: string) {
     setError(false);
+    setLockedMessage(null);
     setDigits(next);
     if (next.length === PIN_LENGTH) submitPin(next);
   }
@@ -116,7 +126,7 @@ function PinScreen({ onUnlock }: { onUnlock: () => void }) {
               className={cn(
                 "h-3.5 w-3.5 rounded-full border transition-colors",
                 i < digits.length ? "bg-primary border-primary" : "border-white/20",
-                error && "border-status-red"
+                (error || lockedMessage) && "border-status-red"
               )}
             />
           ))}
@@ -125,11 +135,11 @@ function PinScreen({ onUnlock }: { onUnlock: () => void }) {
         <p
           className={cn(
             "text-caption mt-4 h-5 transition-opacity",
-            error ? "text-status-red opacity-100" : "opacity-0"
+            error || lockedMessage ? "text-status-red opacity-100" : "opacity-0"
           )}
           role="alert"
         >
-          Incorrect PIN
+          {lockedMessage ?? "Incorrect PIN"}
         </p>
 
         <div className="grid grid-cols-3 gap-4 mt-2">
