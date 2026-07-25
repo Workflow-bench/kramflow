@@ -35,6 +35,8 @@ export default function AvDisplayPage() {
   const next = session ? getNext(session, appState) : null;
   const progress = session ? appState.progressBySession[appState.activeSessionId] : undefined;
   const currentOrder = progress?.currentOrder ?? null;
+  const total = session?.items.length ?? 0;
+  const isFinished = currentOrder !== null && currentOrder > total;
 
   const display = useRegisterDisplay("AV Waiting Room Display", "av", null, (command) => {
     if (command.type === "reload") window.location.reload();
@@ -99,7 +101,7 @@ export default function AvDisplayPage() {
             <div className="flex flex-col justify-center">
               <p className="text-caption uppercase tracking-wide text-muted-2">Current Cue</p>
               <p className="text-hero text-primary mt-3" style={{ fontSize: "clamp(2.75rem, 4.5vw, 4rem)" }}>
-                {live ? live.title : "Not Started"}
+                {live ? live.title : isFinished ? "Session Finished" : "Not Started"}
               </p>
               <p
                 className="tabular-nums font-semibold leading-none mt-6"

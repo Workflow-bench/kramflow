@@ -83,11 +83,20 @@ function isSectionLabel(text: string): boolean {
   return /^day\s+\d/i.test(text) || /section\s*\d/i.test(text) || norm(text).toLowerCase() === "conclusion";
 }
 
+// Only strips the footnote asterisk and turns hyphens into spaces — it used
+// to also strip a trailing "-N"/"-N.M" counter (meant to collapse
+// "Video-1"/"Video-2" into a plain "Video"), but every real "Word-N" item
+// with no per-instance description text (Emcee-1..4, MC Skit-1..7, etc. —
+// confirmed against the real SS26 cue sheet) is a genuinely distinct
+// segment, not a repeat: stripping the number made 39 of 244 real program
+// items across the weekend collapse into duplicate on-screen names with no
+// way to tell them apart on the Operator/Green Room/AV/Presenter screens.
+// "Video-N" rows never actually hit this fallback in practice since they
+// all carry their own description text.
 function prettifyItemCode(code: string): string {
   if (!code) return "";
   return norm(code)
     .replace(/[*]+$/g, "")
-    .replace(/-\d+(\.\d+)?$/g, "")
     .replace(/-/g, " ")
     .trim();
 }

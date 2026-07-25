@@ -7,35 +7,51 @@ import { cn } from "@/lib/utils";
 
 type ToastTone = "success" | "error";
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface ToastItem {
   id: number;
   tone: ToastTone;
   message: string;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  success: (message: string) => void;
+  success: (message: string, action?: ToastAction) => void;
   error: (message: string) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const AUTO_DISMISS_MS = 3500;
+// Longer window when there's an action (e.g. "Undo") to actually click —
+// 3.5s is enough to read a message, not enough to read it, decide, and act.
+const AUTO_DISMISS_WITH_ACTION_MS = 6000;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const nextId = useRef(0);
 
-  const push = useCallback((tone: ToastTone, message: string) => {
+  const push = useCallback((tone: ToastTone, message: string, action?: ToastAction) => {
     const id = nextId.current++;
-    setItems((prev) => [...prev, { id, tone, message }]);
-    setTimeout(() => {
-      setItems((prev) => prev.filter((t) => t.id !== id));
-    }, AUTO_DISMISS_MS);
+    setItems((prev) => [...prev, { id, tone, message, action }]);
+    setTimeout(
+      () => {
+        setItems((prev) => prev.filter((t) => t.id !== id));
+      },
+      action ? AUTO_DISMISS_WITH_ACTION_MS : AUTO_DISMISS_MS
+    );
+  }, []);
+
+  const dismiss = useCallback((id: number) => {
+    setItems((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   const value: ToastContextValue = {
-    success: (message: string) => push("success", message),
+    success: (message: string, action?: ToastAction) => push("success", message, action),
     error: (message: string) => push("error", message),
   };
 
@@ -63,6 +79,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 <XCircle className="h-4 w-4 text-status-red shrink-0" strokeWidth={2} />
               )}
               <span className="text-primary">{item.message}</span>
+              {item.action && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    item.action?.onClick();
+                    dismiss(item.id);
+                  }}
+                  className="text-caption font-semibold uppercase tracking-wide text-status-blue hover:text-primary cursor-pointer ml-1 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded"
+                >
+                  {item.action.label}
+                </button>
+              )}
             </motion.div>
           ))}
         </AnimatePresence>

@@ -49,8 +49,16 @@ create table if not exists programs (
   color_tag text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  updated_by text
+  updated_by text,
+  -- Optimistic-concurrency guard for app/api/programs/[id]/route.ts's PATCH.
+  -- Confirmed live: two operators editing the same item within the same
+  -- stale-data window (one bumps duration, the other adds a stage note)
+  -- both got a 200 back, but whoever's PATCH landed second silently wiped
+  -- the other's change — the form PATCHes its entire snapshot, not a diff.
+  -- Same version-column pattern already used for live_state/display_state.
+  version integer not null default 0
 );
+alter table programs add column if not exists version integer not null default 0;
 
 create index if not exists programs_session_id_idx on programs(session_id);
 create unique index if not exists programs_session_sort_order_idx on programs(session_id, sort_order);
@@ -97,6 +105,95 @@ begin
     backdrop boolean, video_ppt_needed boolean, hall_lights text, stage_lights text, camera_angle text,
     props text, curtains text, remarks text, status text, color_tag text
   );
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- insert_program_at_end — atomic "find the next sort_order for this
+-- session, then insert" for app/api/programs/route.ts's POST handler.
+-- Previously done as two round trips from Node (select max(sort_order),
+-- then insert); two "Add item" requests landing close together could both
+-- read the same max and then collide on programs_session_sort_order_idx,
+-- crashing the second request. pg_advisory_xact_lock serializes concurrent
+-- calls for the same session_id only — other sessions are unaffected —
+-- and the lock releases automatically at the end of the transaction.
+--
+-- p_sort_order is nullable: pass an explicit position to insert there, or
+-- null to append at the end (mirrors programInputSchema's optional
+-- sortOrder). id/created_at/updated_at intentionally omitted, same
+-- reasoning as replace_session_programs above.
+-- ---------------------------------------------------------------------------
+create or replace function insert_program_at_end(
+  p_session_id text,
+  p_sort_order integer,
+  p_section_label text, p_type text, p_name text, p_description text,
+  p_presenter text, p_presenter_requirement text, p_presenter_contact text, p_duration integer,
+  p_start_time text, p_end_time text, p_audio_mics boolean, p_audio_track boolean, p_video_sidescreen text,
+  p_backdrop boolean, p_video_ppt_needed boolean, p_hall_lights text, p_stage_lights text, p_camera_angle text,
+  p_props text, p_curtains text, p_remarks text, p_status text, p_color_tag text
+)
+returns programs
+language plpgsql
+as $$
+declare
+  v_sort_order integer;
+  v_row programs;
+begin
+  perform pg_advisory_xact_lock(hashtext(p_session_id));
+
+  if p_sort_order is null then
+    select coalesce(max(sort_order), 0) + 1 into v_sort_order from programs where session_id = p_session_id;
+  else
+    v_sort_order := p_sort_order;
+  end if;
+
+  insert into programs (
+    sort_order, session_id, section_label, type, name, description,
+    presenter, presenter_requirement, presenter_contact, duration,
+    start_time, end_time, audio_mics, audio_track, video_sidescreen,
+    backdrop, video_ppt_needed, hall_lights, stage_lights, camera_angle,
+    props, curtains, remarks, status, color_tag
+  ) values (
+    v_sort_order, p_session_id, p_section_label, p_type, p_name, p_description,
+    p_presenter, p_presenter_requirement, p_presenter_contact, p_duration,
+    p_start_time, p_end_time, p_audio_mics, p_audio_track, p_video_sidescreen,
+    p_backdrop, p_video_ppt_needed, p_hall_lights, p_stage_lights, p_camera_angle,
+    p_props, p_curtains, p_remarks, p_status, p_color_tag
+  )
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- swap_program_order — atomically swap two programs' sort_order, for the
+-- Cue Sheet editor's move-up/move-down reordering
+-- (app/(operator)/operator/cue-sheet/page.tsx). A naive client-side swap
+-- (PATCH A to B's order, then PATCH B to A's order) would violate
+-- programs_session_sort_order_idx's uniqueness the instant the first PATCH
+-- lands, since both rows would briefly share a sort_order. Routing through
+-- -1 first (sort_order is always >= 1 in practice) avoids that, and running
+-- all three updates inside one function keeps the whole swap in a single
+-- transaction — no other request can observe the intermediate state.
+-- ---------------------------------------------------------------------------
+create or replace function swap_program_order(p_id_a uuid, p_id_b uuid)
+returns void
+language plpgsql
+as $$
+declare
+  v_order_a integer;
+  v_order_b integer;
+begin
+  select sort_order into v_order_a from programs where id = p_id_a;
+  select sort_order into v_order_b from programs where id = p_id_b;
+  if v_order_a is null or v_order_b is null then
+    raise exception 'One or both program ids not found';
+  end if;
+
+  update programs set sort_order = -1, version = version + 1 where id = p_id_a;
+  update programs set sort_order = v_order_a, version = version + 1 where id = p_id_b;
+  update programs set sort_order = v_order_b, version = version + 1 where id = p_id_a;
 end;
 $$;
 

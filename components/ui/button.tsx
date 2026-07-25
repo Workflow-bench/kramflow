@@ -1,16 +1,25 @@
 import { forwardRef } from "react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg" | "xl";
 
+// `loading` exists because it didn't: four call sites this session each
+// hand-rolled their own busy convention ("Posting…", "Sending…", "Saving…",
+// "Jumping…") because there was nothing shared to reach for. A spinner next
+// to the unchanged label avoids needing a verb-form per call site at all —
+// the label stays put, so the button doesn't reflow, and `loading` implies
+// `disabled` so it also close the double-submit gap for free.
 export const Button = forwardRef<
   HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size }
->(function Button({ variant = "secondary", size = "md", className, ...props }, ref) {
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size; loading?: boolean }
+>(function Button({ variant = "secondary", size = "md", loading = false, disabled, className, children, ...props }, ref) {
   return (
     <button
       ref={ref}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -26,6 +35,9 @@ export const Button = forwardRef<
         className
       )}
       {...props}
-    />
+    >
+      {loading && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />}
+      {children}
+    </button>
   );
 });

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, Plus, Upload, Pencil, Trash2, CalendarPlus } from "lucide-react";
+import { ChevronLeft, ChevronUp, ChevronDown, Plus, Upload, Pencil, Trash2, CalendarPlus } from "lucide-react";
 import { useSessions } from "@/lib/use-sessions";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { SectionLabel } from "@/components/tv/section-label";
 import { ProgramForm } from "@/components/forms/program-form";
 import { SessionForm } from "@/components/forms/session-form";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 
 interface ProgramRow extends ParsedProgram {
   id: string;
+  version: number;
 }
 
 function rowToInput(row: ProgramRow): Partial<ProgramInput> {
@@ -56,11 +58,20 @@ export default function CueSheetPage() {
 
   const [rows, setRows] = useState<ProgramRow[] | null>(null);
   const [loadingRows, setLoadingRows] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [panel, setPanel] = useState<
     "none" | "upload" | "create" | "create-session" | { edit: ProgramRow } | { editSession: Session }
   >("none");
-  const deleteConfirm = useConfirmDialog<ProgramRow>();
+  const deleteConfirm = useConfirmDialog<ProgramRow[]>();
   const deleteSessionConfirm = useConfirmDialog<Session>();
+  // Deletes are delayed, not immediate — the row disappears from view right
+  // away, but the actual DELETE only fires after this window, so "Undo" in
+  // the toast can cancel it outright instead of needing to reconstruct a
+  // deleted row. Keyed by a joined id string since bulk delete removes
+  // several rows as one undoable action, not one timer per row.
+  const pendingDeleteTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   async function loadRows(sessionId: string) {
     setLoadingRows(true);
@@ -86,13 +97,65 @@ export default function CueSheetPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId]);
 
-  async function handleDeleteConfirmed() {
-    const row = deleteConfirm.pending;
-    if (!row) return;
-    await fetch(`/api/programs/${row.id}`, { method: "DELETE" });
-    toast.success("Item deleted");
+  function scheduleDelete(toRemove: ProgramRow[]) {
+    const ids = toRemove.map((r) => r.id);
+    const key = ids.join(",");
+    setRows((prev) => (prev ? prev.filter((r) => !ids.includes(r.id)) : prev));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.delete(id));
+      return next;
+    });
+
+    const timer = setTimeout(async () => {
+      pendingDeleteTimers.current.delete(key);
+      await Promise.all(ids.map((id) => fetch(`/api/programs/${id}`, { method: "DELETE" })));
+    }, 5000);
+    pendingDeleteTimers.current.set(key, timer);
+
+    toast.success(ids.length === 1 ? "Item deleted" : `${ids.length} items deleted`, {
+      label: "Undo",
+      onClick: () => {
+        const pending = pendingDeleteTimers.current.get(key);
+        if (pending) {
+          clearTimeout(pending);
+          pendingDeleteTimers.current.delete(key);
+        }
+        setRows((prev) => (prev ? [...prev, ...toRemove].sort((a, b) => a.sort_order - b.sort_order) : prev));
+      },
+    });
+  }
+
+  function handleDeleteConfirmed() {
+    const rowsToDelete = deleteConfirm.pending;
     deleteConfirm.cancel();
-    loadRows(activeSessionId);
+    if (!rowsToDelete || rowsToDelete.length === 0) return;
+    scheduleDelete(rowsToDelete);
+  }
+
+  // sort_order swap only makes sense against the full, unfiltered order —
+  // reorder controls are hidden while a search is active (see the row
+  // markup below) so this always operates on real neighbors, not
+  // neighbors-in-the-filtered-view.
+  async function moveItem(row: ProgramRow, direction: -1 | 1) {
+    if (!rows) return;
+    const sorted = [...rows].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = sorted.findIndex((r) => r.id === row.id);
+    const partner = sorted[idx + direction];
+    if (idx < 0 || !partner) return;
+
+    setReorderingId(row.id);
+    const res = await fetch("/api/programs/swap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idA: row.id, idB: partner.id }),
+    });
+    setReorderingId(null);
+    if (res.ok) {
+      loadRows(activeSessionId);
+    } else {
+      toast.error("Couldn't reorder — try again");
+    }
   }
 
   async function handleDeleteSessionConfirmed() {
@@ -108,6 +171,18 @@ export default function CueSheetPage() {
   }
 
   const sessionOptions = sessions.map((s) => ({ id: s.id, label: `${s.dayLabel} • ${s.sessionLabel}` }));
+
+  // No search existed here at all — unlike Broadcast Center, which has
+  // one for a much shorter list. At the real cue sheet's actual scale
+  // (244 items across 6 sessions, measured directly from the real file),
+  // scrolling to find one item by eye stops being reasonable.
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q || !rows) return rows;
+    return rows.filter(
+      (r) => r.name.toLowerCase().includes(q) || (r.presenter ?? "").toLowerCase().includes(q)
+    );
+  }, [rows, search]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -160,6 +235,8 @@ export default function CueSheetPage() {
                   type="button"
                   onClick={() => {
                     setSelectedSessionId(s.id);
+                    setSearch("");
+                    setSelected(new Set());
                     loadRows(s.id);
                   }}
                   className="cursor-pointer"
@@ -243,6 +320,7 @@ export default function CueSheetPage() {
               sessionOptions={sessionOptions}
               programId={panel.edit.id}
               initial={rowToInput(panel.edit)}
+              version={panel.edit.version}
               onSaved={() => {
                 setPanel("none");
                 toast.success("Item updated");
@@ -255,25 +333,109 @@ export default function CueSheetPage() {
 
         {panel === "none" && (
           <div>
-            <SectionLabel>Items</SectionLabel>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <SectionLabel>
+                Items{rows && rows.length > 0 ? ` (${filteredRows?.length ?? 0} of ${rows.length})` : ""}
+              </SectionLabel>
+              {rows && rows.length > 0 && (
+                <Input
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setSelected(new Set());
+                  }}
+                  placeholder="Search items or presenters…"
+                  aria-label="Search items"
+                  className="w-full sm:w-64 h-9"
+                />
+              )}
+            </div>
+
+            {selected.size > 0 && (
+              <div className="mt-3 flex items-center justify-between gap-4 rounded-lg bg-card border border-white/10 px-4 py-2.5">
+                <p className="text-caption text-muted">{selected.size} selected</p>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+                    Clear
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => {
+                      const toDelete = (filteredRows ?? []).filter((r) => selected.has(r.id));
+                      deleteConfirm.request(toDelete);
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                    Delete {selected.size}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="mt-3 flex flex-col">
               {loadingRows && <p className="text-body text-muted py-4">Loading…</p>}
               {!loadingRows && rows === null && (
                 <p className="text-body text-muted py-4">Select a session to view its items.</p>
               )}
               {!loadingRows && rows?.length === 0 && <p className="text-body text-muted py-4">No items yet.</p>}
-              {rows?.map((row) => (
+              {!loadingRows && rows && rows.length > 0 && filteredRows?.length === 0 && (
+                <p className="text-body text-muted py-4">No items match &ldquo;{search}&rdquo;.</p>
+              )}
+              {filteredRows?.map((row, i) => (
                 <div
                   key={row.id}
                   className="flex items-center gap-3 py-3 px-3 rounded-lg border-b border-white/5 hover:bg-card transition-colors"
                 >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(row.id)}
+                    onChange={(e) => {
+                      setSelected((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(row.id);
+                        else next.delete(row.id);
+                        return next;
+                      });
+                    }}
+                    aria-label={`Select ${row.name}`}
+                    className="h-4 w-4 rounded border-white/20 bg-background accent-white cursor-pointer shrink-0"
+                  />
                   <span className="w-8 text-caption text-muted-2 tabular-nums shrink-0">{row.sort_order}</span>
                   <div className="min-w-0 flex-1">
                     <p className="text-body text-primary truncate">{row.name}</p>
                     {row.presenter && <p className="text-caption text-muted-2 truncate">{row.presenter}</p>}
                   </div>
+                  <span className="hidden sm:inline text-caption text-muted-2 tabular-nums shrink-0 w-16 text-right">
+                    {row.start_time ?? ""}
+                  </span>
+                  <span className="hidden sm:inline text-caption text-muted-2 tabular-nums shrink-0 w-10 text-right">
+                    {row.duration > 0 ? `${row.duration}m` : "—"}
+                  </span>
                   {row.status !== "confirmed" && (
                     <span className="text-caption text-muted-2 uppercase tracking-wide shrink-0">{row.status}</span>
+                  )}
+                  {!search.trim() && (
+                    <div className="hidden sm:flex flex-col shrink-0">
+                      <button
+                        type="button"
+                        aria-label="Move up"
+                        disabled={i === 0 || reorderingId !== null}
+                        onClick={() => moveItem(row, -1)}
+                        className="text-muted-2 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer p-0.5"
+                      >
+                        <ChevronUp className="h-3.5 w-3.5" strokeWidth={2} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Move down"
+                        disabled={i === (filteredRows?.length ?? 0) - 1 || reorderingId !== null}
+                        onClick={() => moveItem(row, 1)}
+                        className="text-muted-2 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer p-0.5"
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
+                      </button>
+                    </div>
                   )}
                   <button
                     type="button"
@@ -286,7 +448,7 @@ export default function CueSheetPage() {
                   <button
                     type="button"
                     aria-label="Delete"
-                    onClick={() => deleteConfirm.request(row)}
+                    onClick={() => deleteConfirm.request([row])}
                     className="text-muted-2 hover:text-status-red cursor-pointer p-1.5 shrink-0"
                   >
                     <Trash2 className="h-4 w-4" strokeWidth={2} />
@@ -300,8 +462,12 @@ export default function CueSheetPage() {
 
       <ConfirmDialog
         open={deleteConfirm.isOpen}
-        title={`Delete "${deleteConfirm.pending?.name}"?`}
-        description="This can't be undone."
+        title={
+          deleteConfirm.pending?.length === 1
+            ? `Delete "${deleteConfirm.pending[0].name}"?`
+            : `Delete ${deleteConfirm.pending?.length ?? 0} items?`
+        }
+        description="You'll get a few seconds to undo it after."
         confirmLabel="Delete"
         tone="danger"
         onConfirm={handleDeleteConfirmed}
@@ -382,8 +548,8 @@ function UploadPanel({ onDone, onCancel }: { onDone: () => void; onCancel: () =>
 
       {!preview && (
         <div className="flex items-center gap-3">
-          <Button variant="secondary" onClick={handlePreview} disabled={!file || busy}>
-            {busy ? "Parsing…" : "Preview"}
+          <Button variant="secondary" onClick={handlePreview} disabled={!file} loading={busy}>
+            Preview
           </Button>
           <Button variant="ghost" onClick={onCancel} disabled={busy}>
             Cancel
@@ -409,8 +575,8 @@ function UploadPanel({ onDone, onCancel }: { onDone: () => void; onCancel: () =>
             </ul>
           )}
           <div className="flex items-center gap-3">
-            <Button variant="primary" onClick={handleConfirm} disabled={busy || preview.errors.length > 0}>
-              {busy ? "Importing…" : "Confirm import"}
+            <Button variant="primary" onClick={handleConfirm} disabled={preview.errors.length > 0} loading={busy}>
+              Confirm import
             </Button>
             <Button variant="ghost" onClick={onCancel} disabled={busy}>
               Cancel

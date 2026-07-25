@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { ChevronLeft, Pause, Play, Square, ChevronRight } from "lucide-react";
 import { useEventStore } from "@/lib/store";
+import { useKeyboardShortcuts } from "@/lib/display-engine/use-keyboard-shortcuts";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SectionLabel } from "@/components/tv/section-label";
@@ -44,10 +45,40 @@ export function ControlsPanel({ session }: { session: Session }) {
     }
   }
 
+  // Presenter already has a real shortcut set (Space/±/R/F/H/Esc) — the
+  // Operator Dashboard, where the highest-frequency actions actually live,
+  // had none. Reuses the same generic hook (never global — scoped to this
+  // page, ignored while typing in an input) rather than a second
+  // implementation. Disabled while a confirm dialog is open or the session
+  // hasn't started, so e.g. pressing H during the Start confirmation can't
+  // fire Hold in the background.
+  useKeyboardShortcuts(
+    {
+      ArrowRight: () => {
+        if (!isLastItem && pending === null) run("next", () => next(max));
+      },
+      ArrowLeft: () => {
+        if (currentOrder !== min && pending === null) run("previous", () => previous(min));
+      },
+      h: () => {
+        if (pending === null) run("hold", togglePause);
+      },
+      H: () => {
+        if (pending === null) run("hold", togglePause);
+      },
+    },
+    confirmKind === null && currentOrder !== null && !isFinished
+  );
+
   return (
     <div className="flex flex-col gap-10">
       <div>
-        <SectionLabel>Controls</SectionLabel>
+        <div className="flex items-center justify-between gap-3">
+          <SectionLabel>Controls</SectionLabel>
+          {currentOrder !== null && !isFinished && (
+            <p className="text-caption text-muted-2 tabular-nums">← → Next/Prev · H Hold</p>
+          )}
+        </div>
         <div className="mt-3 flex flex-col gap-3">
           {currentOrder === null ? (
             <Button
@@ -141,9 +172,10 @@ export function ControlsPanel({ session }: { session: Session }) {
         title="Start the session?"
         description="This puts the first item live on every connected display."
         confirmLabel="Start"
-        onConfirm={() => {
+        loading={pending === "start"}
+        onConfirm={async () => {
+          await run("start", start);
           setConfirmKind(null);
-          run("start", start);
         }}
         onCancel={() => setConfirmKind(null)}
       />
@@ -153,10 +185,11 @@ export function ControlsPanel({ session }: { session: Session }) {
         title="Finish the session?"
         description="This marks the session complete on every connected display. You can still use Previous to go back."
         confirmLabel="Finish Session"
+        loading={pending === "finish"}
         tone="danger"
-        onConfirm={() => {
+        onConfirm={async () => {
+          await run("finish", () => finish(max));
           setConfirmKind(null);
-          run("finish", () => finish(max));
         }}
         onCancel={() => setConfirmKind(null)}
       />

@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { getLive, type Session } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { effectiveNotes, getLive, type LiveState, type Session } from "@/lib/types";
 import { useEventStore } from "@/lib/store";
 import { useCountdown } from "@/lib/use-countdown";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { ProgressBar } from "@/components/tv/progress-bar";
 import { HoldBadge } from "@/components/tv/hold-badge";
 import { SectionLabel } from "@/components/tv/section-label";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 
 export function LiveDetailsPanel({ session }: { session: Session }) {
   const { state, setNotes } = useEventStore();
+  const toast = useToast();
   const live = getLive(session, state);
   const progress = state.progressBySession[state.activeSessionId];
   const currentOrder = progress?.currentOrder ?? null;
@@ -34,12 +37,12 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
     setDraft(live?.notes ?? "");
   }
 
-  if (currentOrder === null || isFinished || !live) {
+  if (isFinished) return <SessionSummary session={session} state={state} />;
+
+  if (currentOrder === null || !live) {
     return (
       <div className="h-full flex items-center">
-        <p className="text-body text-muted-2">
-          {isFinished ? "Session finished." : "Press Start to begin the program."}
-        </p>
+        <p className="text-body text-muted-2">Press Start to begin the program.</p>
       </div>
     );
   }
@@ -49,11 +52,9 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
   async function handleSave() {
     if (!live) return;
     setSaving(true);
-    try {
-      await setNotes(live.id, draft);
-    } finally {
-      setSaving(false);
-    }
+    const ok = await setNotes(live.id, draft);
+    setSaving(false);
+    if (!ok) toast.error("Couldn't save notes — try again");
   }
 
   return (
@@ -88,8 +89,8 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
         <div className="flex items-center justify-between">
           <SectionLabel>Notes</SectionLabel>
           {dirty && (
-            <Button variant="primary" size="sm" onClick={handleSave} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
+            <Button variant="primary" size="sm" onClick={handleSave} loading={saving}>
+              Save
             </Button>
           )}
         </div>
@@ -102,6 +103,120 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
           className="mt-3 w-full flex-1 min-h-24 rounded-lg bg-card border border-white/10 px-4 py-3 text-body text-primary placeholder:text-muted-2 outline-none focus:border-white/25 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background resize-none"
         />
       </div>
+    </div>
+  );
+}
+
+interface ActivityRow {
+  detail: string | null;
+  created_at: string;
+}
+
+function formatMinutes(total: number): string {
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function formatClockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+// The center panel used to just say "Session finished." for the rest of
+// the operator's shift — the single largest piece of screen real estate
+// doing nothing at exactly the moment there's the most to review.
+//
+// activity_log has no session_id column (it's a short shared operator
+// history, not per-session analytics — see components/operator/
+// activity-log.tsx), so "this session's" actual start/finish can't be
+// queried directly. Heuristic instead: the newest "Finished session" entry
+// is the one that just triggered this view (finishing is a deliberate,
+// infrequent action), and the newest "Started" entry before it is when
+// this run began. Good enough for a same-shift summary; deliberately not
+// attempted across a session switch, where it'd shown nothing rather than
+// something misleading.
+function SessionSummary({ session, state }: { session: Session; state: LiveState }) {
+  const [rows, setRows] = useState<ActivityRow[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabaseBrowser()
+      .from("activity_log")
+      .select("detail, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50)
+      .then(({ data }) => {
+        if (!cancelled && data) setRows(data as ActivityRow[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const items = session.items.filter((i) => i.type === "item");
+  const breaks = session.items.filter((i) => i.type === "break");
+  const scheduledMinutes = session.items.reduce((sum, i) => sum + i.durationMinutes, 0);
+  const notesCount = session.items.filter((i) => effectiveNotes(state, i).length > 0).length;
+
+  let startedAt: string | null = null;
+  let finishedAt: string | null = null;
+  let alertCount = 0;
+  if (rows) {
+    const finishIdx = rows.findIndex((r) => r.detail === "Finished session");
+    if (finishIdx >= 0) {
+      finishedAt = rows[finishIdx].created_at;
+      const startIdx = rows.findIndex((r, i) => i > finishIdx && r.detail === "Started");
+      if (startIdx >= 0) {
+        startedAt = rows[startIdx].created_at;
+        alertCount = rows.slice(startIdx + 1, finishIdx).filter((r) => r.detail?.startsWith("Alert:")).length;
+      }
+    }
+  }
+  const actualMinutes =
+    startedAt && finishedAt ? Math.round((Date.parse(finishedAt) - Date.parse(startedAt)) / 60000) : null;
+
+  return (
+    <div className="h-full flex flex-col justify-center">
+      <SectionLabel>Session Summary</SectionLabel>
+      <p className="text-subtitle text-primary mt-2">
+        {session.dayLabel} · {session.sessionLabel}
+      </p>
+      {startedAt && finishedAt && (
+        <p className="text-caption text-muted-2 mt-1">
+          {formatClockTime(startedAt)} – {formatClockTime(finishedAt)}
+        </p>
+      )}
+
+      <div className="grid grid-cols-2 gap-x-8 gap-y-5 mt-8 max-w-sm">
+        <Stat label="Items run" value={String(items.length)} />
+        <Stat label="Breaks" value={String(breaks.length)} />
+        <Stat label="Scheduled" value={formatMinutes(scheduledMinutes)} />
+        <Stat label="Actual runtime" value={actualMinutes !== null ? formatMinutes(actualMinutes) : "—"} />
+      </div>
+
+      {(notesCount > 0 || alertCount > 0) && (
+        <div className="mt-8 pt-6 border-t border-white/10 flex flex-col gap-1.5 max-w-sm">
+          {alertCount > 0 && (
+            <p className="text-caption text-muted">
+              {alertCount} alert{alertCount === 1 ? "" : "s"} raised during the session
+            </p>
+          )}
+          {notesCount > 0 && (
+            <p className="text-caption text-muted">
+              {notesCount} item{notesCount === 1 ? "" : "s"} had stage notes
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-title text-primary tabular-nums">{value}</p>
+      <p className="text-caption text-muted-2 mt-1">{label}</p>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, Copy, Send, Star, Trash2, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-context";
@@ -13,6 +13,7 @@ import {
   type DisplayType,
 } from "@/lib/display-engine/types";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { SectionLabel } from "@/components/tv/section-label";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
@@ -79,10 +80,20 @@ export default function BroadcastCenterPage() {
 
   const [draft, setDraft] = useState<BroadcastDraft>(EMPTY_DRAFT);
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [sending, setSending] = useState(false);
+  // A spam-click storm (5 clicks in the same synchronous burst) fires all 5
+  // as separate live broadcasts — confirmed live. `sending` (useState) can't
+  // stop it: state updates are deferred, so every click in the same burst
+  // still reads the stale `false` from the render that was current when the
+  // burst started. A ref mutates immediately, so the second click in the
+  // same burst already sees it flipped.
+  const sendingRef = useRef(false);
   const [tab, setTab] = useState<Tab>("history");
   const [search, setSearch] = useState("");
   const emergencyConfirm = useConfirmDialog<(typeof EMERGENCY_PRESETS)[number]>();
   const destructiveConfirm = useConfirmDialog<DestructiveAction>();
+  const [emergencySending, setEmergencySending] = useState(false);
+  const [destructiveLoading, setDestructiveLoading] = useState(false);
 
   function patchDraft(patch: Partial<BroadcastDraft>) {
     setDraft((d) => ({ ...d, ...patch }));
@@ -97,16 +108,22 @@ export default function BroadcastCenterPage() {
     setScheduleEnabled(false);
   }
 
-  function handleSend() {
-    if (!draft.title.trim()) return;
-    if (scheduleEnabled && draft.scheduledFor) {
-      scheduleBroadcast(draft, draft.scheduledFor);
-      toast.success("Broadcast scheduled");
+  async function handleSend() {
+    if (!draft.title.trim() || sendingRef.current) return;
+    sendingRef.current = true;
+    setSending(true);
+    const res =
+      scheduleEnabled && draft.scheduledFor
+        ? await scheduleBroadcast(draft, draft.scheduledFor)
+        : await sendBroadcast(draft);
+    sendingRef.current = false;
+    setSending(false);
+    if (res && res.ok) {
+      toast.success(scheduleEnabled && draft.scheduledFor ? "Broadcast scheduled" : "Broadcast sent");
+      resetCompose();
     } else {
-      sendBroadcast(draft);
-      toast.success("Broadcast sent");
+      toast.error("Couldn't send the broadcast — try again");
     }
-    resetCompose();
   }
 
   function loadIntoCompose(source: BroadcastDraft) {
@@ -115,17 +132,25 @@ export default function BroadcastCenterPage() {
     setTab("history");
   }
 
-  function handleDestructiveConfirm() {
+  async function handleDestructiveConfirm() {
     const action = destructiveConfirm.pending;
     if (!action) return;
     switch (action.kind) {
-      case "clear-emergencies":
-        clearEmergencies();
+      case "clear-emergencies": {
+        setDestructiveLoading(true);
+        const results = await clearEmergencies();
+        setDestructiveLoading(false);
+        if (results.some((r) => !r || !r.ok)) toast.error("Some emergency broadcasts couldn't be cleared — try again");
         break;
-      case "cancel-scheduled":
-        cancelScheduled(action.id);
-        toast.success("Scheduled broadcast cancelled");
+      }
+      case "cancel-scheduled": {
+        setDestructiveLoading(true);
+        const res = await cancelScheduled(action.id);
+        setDestructiveLoading(false);
+        if (res && res.ok) toast.success("Scheduled broadcast cancelled");
+        else toast.error("Couldn't cancel — try again");
         break;
+      }
       case "delete-template":
         deleteTemplate(action.id);
         toast.success("Template deleted");
@@ -179,8 +204,13 @@ export default function BroadcastCenterPage() {
         </Button>
       </header>
 
-      {/* Emergency quick-send */}
-      <div className="px-4 sm:px-6 xl:px-12 pt-6">
+      {/* Emergency quick-send — a bordered zone, not just red buttons, so it
+          reads as categorically different from routine compose actions
+          below it. Previously these presets used the same rounded-pill
+          shape as secondary buttons elsewhere in the app, just tinted red —
+          the only signal that "Evacuate" carries more real-world
+          consequence than "Save Draft" was color alone. */}
+      <div className="mx-4 sm:mx-6 xl:mx-12 mt-6 rounded-card border-2 border-status-red/40 bg-status-red/[0.04] px-6 py-5">
         <SectionLabel>Emergency Broadcast — Overrides Every Display</SectionLabel>
         <div className="mt-3 flex flex-wrap gap-3">
           {EMERGENCY_PRESETS.map((preset) => (
@@ -397,7 +427,7 @@ export default function BroadcastCenterPage() {
             </div>
 
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <Button variant="primary" onClick={handleSend} disabled={!draft.title.trim()}>
+              <Button variant="primary" onClick={handleSend} disabled={!draft.title.trim()} loading={sending}>
                 <Send className="h-4 w-4" strokeWidth={2} />
                 {scheduleEnabled && draft.scheduledFor ? "Schedule" : "Send Now"}
               </Button>
@@ -457,30 +487,36 @@ export default function BroadcastCenterPage() {
               (filteredHistory.length === 0 ? (
                 <EmptyState text="No broadcasts sent yet." />
               ) : (
-                filteredHistory.map((m) => (
-                  <div key={m.id} className="rounded-card bg-card px-6 py-4 flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-caption uppercase tracking-wide text-muted-2">
-                        {m.type} • {new Date(m.createdAt).toLocaleString()}
-                      </p>
-                      <p className="text-body text-primary font-medium mt-1">{m.title}</p>
-                      {m.message && <p className="text-caption text-muted mt-1">{m.message}</p>}
-                      {m.acknowledgementRequired && (
-                        <p className="text-caption text-muted-2 mt-1">Acknowledged by {m.acknowledgedBy.length}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <IconButton label="Duplicate into compose" onClick={() => loadIntoCompose(toDraft(m))}>
-                        <Copy className="h-4 w-4" strokeWidth={2} />
-                      </IconButton>
-                      {engine.broadcasts.active.some((a) => a.id === m.id) && (
-                        <IconButton label="Dismiss" onClick={() => dismissBroadcast(m.id)}>
-                          <X className="h-4 w-4" strokeWidth={2} />
+                filteredHistory.map((m) => {
+                  const isActive = engine.broadcasts.active.some((a) => a.id === m.id);
+                  return (
+                    <div key={m.id} className="rounded-card bg-card px-6 py-4 flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-caption uppercase tracking-wide text-muted-2">
+                            {m.type} • {new Date(m.createdAt).toLocaleString()}
+                          </p>
+                          <Badge tone={isActive ? "green" : "muted"}>{isActive ? "Active" : "Dismissed"}</Badge>
+                        </div>
+                        <p className="text-body text-primary font-medium mt-1">{m.title}</p>
+                        {m.message && <p className="text-caption text-muted mt-1">{m.message}</p>}
+                        {m.acknowledgementRequired && (
+                          <p className="text-caption text-muted-2 mt-1">Acknowledged by {m.acknowledgedBy.length}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <IconButton label="Duplicate into compose" onClick={() => loadIntoCompose(toDraft(m))}>
+                          <Copy className="h-4 w-4" strokeWidth={2} />
                         </IconButton>
-                      )}
+                        {isActive && (
+                          <IconButton label="Dismiss" onClick={() => dismissBroadcast(m.id)}>
+                            <X className="h-4 w-4" strokeWidth={2} />
+                          </IconButton>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ))}
 
             {tab === "scheduled" &&
@@ -577,22 +613,25 @@ export default function BroadcastCenterPage() {
         description="This takes over every connected screen immediately."
         confirmLabel="Send Emergency"
         tone="danger"
-        onConfirm={() => {
+        loading={emergencySending}
+        onConfirm={async () => {
           const preset = emergencyConfirm.pending;
-          if (preset) {
-            sendBroadcast({
-              ...EMPTY_DRAFT,
-              type: "emergency",
-              title: preset.title,
-              message: preset.message,
-              priority: 3,
-              target: { kind: "all" },
-              acknowledgementRequired: true,
-              persistent: true,
-            });
-            toast.success("Emergency broadcast sent");
-          }
+          if (!preset) return;
+          setEmergencySending(true);
+          const res = await sendBroadcast({
+            ...EMPTY_DRAFT,
+            type: "emergency",
+            title: preset.title,
+            message: preset.message,
+            priority: 3,
+            target: { kind: "all" },
+            acknowledgementRequired: true,
+            persistent: true,
+          });
+          setEmergencySending(false);
           emergencyConfirm.cancel();
+          if (res && res.ok) toast.success("Emergency broadcast sent");
+          else toast.error("Couldn't send the emergency broadcast — try again immediately");
         }}
         onCancel={emergencyConfirm.cancel}
       />
@@ -617,6 +656,7 @@ export default function BroadcastCenterPage() {
         }
         confirmLabel={destructiveConfirm.pending?.kind === "clear-emergencies" ? "Clear" : "Delete"}
         tone="danger"
+        loading={destructiveLoading}
         onConfirm={handleDestructiveConfirm}
         onCancel={destructiveConfirm.cancel}
       />
