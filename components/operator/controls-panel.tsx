@@ -11,11 +11,29 @@ import { JumpControl } from "./jump-control";
 import { AlertComposer } from "./alert-composer";
 import { ActivityLog } from "./activity-log";
 import { OperatorBroadcastPanel } from "@/components/display-engine/operator-broadcast-panel";
+import { useToast } from "@/components/ui/toast";
 import type { Session } from "@/lib/types";
+
+const FAILURE_MESSAGE: Record<string, string> = {
+  next: "Couldn't advance to the next item — try again",
+  previous: "Couldn't go back — try again",
+  hold: "Couldn't toggle Hold — try again",
+  start: "Couldn't start the session — try again",
+  finish: "Couldn't finish the session — try again",
+};
 
 type ConfirmKind = "start" | "finish" | null;
 
-export function ControlsPanel({ session }: { session: Session }) {
+export function ControlsPanel({
+  session,
+  broadcastAction,
+}: {
+  session: Session;
+  /** Tells other connected /operator tabs what just happened here — see
+   *  lib/use-operator-presence.ts and R2-BUG-1 (a Hold silently cleared by
+   *  another tab's Next, with no indication to either operator). */
+  broadcastAction: (message: string) => void;
+}) {
   const { state, start, next, previous, finish, togglePause } = useEventStore();
   const progress = state.progressBySession[state.activeSessionId];
   const currentOrder = progress?.currentOrder ?? null;
@@ -32,13 +50,25 @@ export function ControlsPanel({ session }: { session: Session }) {
   // disabled prop from setPending.
   const [pending, setPending] = useState<"next" | "previous" | "hold" | "start" | "finish" | null>(null);
   const runningRef = useRef(false);
+  const toast = useToast();
 
-  async function run(kind: NonNullable<typeof pending>, action: () => Promise<unknown> | unknown) {
+  // sendAction() (lib/store.tsx) already returns false on failure so
+  // callers "can show an error instead of a false 'it worked'" — this
+  // wrapper used to await the action and discard that result, so Next/
+  // Previous/Hold (the three highest-frequency buttons in the app) failed
+  // completely silently during a backend outage (QA_REPORT_ROUND2.md
+  // R2-BUG-2). Every action here returns that same boolean now.
+  async function run(kind: NonNullable<typeof pending>, action: () => Promise<boolean>, successMessage?: string) {
     if (runningRef.current) return;
     runningRef.current = true;
     setPending(kind);
     try {
-      await action();
+      const ok = await action();
+      if (!ok) {
+        toast.error(FAILURE_MESSAGE[kind] ?? "That didn't work — try again");
+      } else if (successMessage) {
+        broadcastAction(successMessage);
+      }
     } finally {
       runningRef.current = false;
       setPending(null);
@@ -55,16 +85,16 @@ export function ControlsPanel({ session }: { session: Session }) {
   useKeyboardShortcuts(
     {
       ArrowRight: () => {
-        if (!isLastItem && pending === null) run("next", () => next(max));
+        if (!isLastItem && pending === null) run("next", () => next(max), "advanced to the next item");
       },
       ArrowLeft: () => {
-        if (currentOrder !== min && pending === null) run("previous", () => previous(min));
+        if (currentOrder !== min && pending === null) run("previous", () => previous(min), "went back to the previous item");
       },
       h: () => {
-        if (pending === null) run("hold", togglePause);
+        if (pending === null) run("hold", togglePause, state.pausedAt ? "resumed the show" : "put the show on Hold");
       },
       H: () => {
-        if (pending === null) run("hold", togglePause);
+        if (pending === null) run("hold", togglePause, state.pausedAt ? "resumed the show" : "put the show on Hold");
       },
     },
     confirmKind === null && currentOrder !== null && !isFinished
@@ -136,7 +166,7 @@ export function ControlsPanel({ session }: { session: Session }) {
                   variant="secondary"
                   size="md"
                   className="flex-1"
-                  onClick={() => run("hold", togglePause)}
+                  onClick={() => run("hold", togglePause, state.pausedAt ? "resumed the show" : "put the show on Hold")}
                   disabled={pending !== null}
                   aria-label={state.pausedAt ? "Resume" : "Hold"}
                 >
@@ -174,7 +204,7 @@ export function ControlsPanel({ session }: { session: Session }) {
         confirmLabel="Start"
         loading={pending === "start"}
         onConfirm={async () => {
-          await run("start", start);
+          await run("start", start, "started the session");
           setConfirmKind(null);
         }}
         onCancel={() => setConfirmKind(null)}
@@ -188,7 +218,7 @@ export function ControlsPanel({ session }: { session: Session }) {
         loading={pending === "finish"}
         tone="danger"
         onConfirm={async () => {
-          await run("finish", () => finish(max));
+          await run("finish", () => finish(max), "finished the session");
           setConfirmKind(null);
         }}
         onCancel={() => setConfirmKind(null)}

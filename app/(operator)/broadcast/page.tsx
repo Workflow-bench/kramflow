@@ -94,6 +94,11 @@ export default function BroadcastCenterPage() {
   const destructiveConfirm = useConfirmDialog<DestructiveAction>();
   const [emergencySending, setEmergencySending] = useState(false);
   const [destructiveLoading, setDestructiveLoading] = useState(false);
+  // Same rapid-multi-click gap as sendingRef above, just not yet closed on
+  // these two confirms — `loading` alone doesn't stop a burst of clicks
+  // that all land before React commits the first one's disabled state.
+  const emergencySendingRef = useRef(false);
+  const destructiveLoadingRef = useRef(false);
 
   function patchDraft(patch: Partial<BroadcastDraft>) {
     setDraft((d) => ({ ...d, ...patch }));
@@ -134,7 +139,16 @@ export default function BroadcastCenterPage() {
 
   async function handleDestructiveConfirm() {
     const action = destructiveConfirm.pending;
-    if (!action) return;
+    if (!action || destructiveLoadingRef.current) return;
+    destructiveLoadingRef.current = true;
+    try {
+      await runDestructiveAction(action);
+    } finally {
+      destructiveLoadingRef.current = false;
+    }
+  }
+
+  async function runDestructiveAction(action: DestructiveAction) {
     switch (action.kind) {
       case "clear-emergencies": {
         setDestructiveLoading(true);
@@ -616,7 +630,8 @@ export default function BroadcastCenterPage() {
         loading={emergencySending}
         onConfirm={async () => {
           const preset = emergencyConfirm.pending;
-          if (!preset) return;
+          if (!preset || emergencySendingRef.current) return;
+          emergencySendingRef.current = true;
           setEmergencySending(true);
           const res = await sendBroadcast({
             ...EMPTY_DRAFT,
@@ -628,6 +643,7 @@ export default function BroadcastCenterPage() {
             acknowledgementRequired: true,
             persistent: true,
           });
+          emergencySendingRef.current = false;
           setEmergencySending(false);
           emergencyConfirm.cancel();
           if (res && res.ok) toast.success("Emergency broadcast sent");

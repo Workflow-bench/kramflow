@@ -8,6 +8,7 @@ import { useEventStore } from "@/lib/store";
 import type { AlertSeverity } from "@/lib/types";
 import { SectionLabel } from "@/components/tv/section-label";
 import { useToast } from "@/components/ui/toast";
+import { AlertBanner } from "@/components/ui/alert-banner";
 import { cn } from "@/lib/utils";
 
 const severities: { value: AlertSeverity; label: string; tone: string }[] = [
@@ -46,7 +47,7 @@ export function AlertComposer() {
     return (
       <div>
         <SectionLabel>Active Alert</SectionLabel>
-        <p className="text-body text-primary mt-3">{state.alert.message}</p>
+        <AlertBanner alert={state.alert} className="mt-3" />
         <Button variant="secondary" size="sm" className="mt-4 w-full" onClick={dismissAlert}>
           <X className="h-4 w-4" strokeWidth={2} />
           Dismiss
