@@ -3,11 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventStore } from "@/lib/store";
+import { useControlLock } from "@/lib/use-control-lock";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 export function SessionSwitcher() {
-  const { state, selectSession } = useEventStore();
+  const { state, selectSession, claimControl } = useEventStore();
+  const { lockedByOther } = useControlLock(state);
+  const toast = useToast();
   const sessions = useSessions();
   const switchConfirm = useConfirmDialog<{ id: string; label: string }>();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -34,12 +38,24 @@ export function SessionSwitcher() {
 
   const currentSessionHasProgress = state.progressBySession[state.activeSessionId]?.currentOrder !== null;
 
+  // selectSession is one of app/api/live/route.ts's LOCKED_ACTIONS — switching
+  // the active session out from under whoever holds the control lock is
+  // exactly the kind of clobber it exists to prevent. Same escape hatch as
+  // components/operator/controls-panel.tsx's sequencing buttons.
+  function trySelectSession(sessionId: string) {
+    if (lockedByOther) {
+      toast.error("Locked by another operator", { label: "Take Over", onClick: () => claimControl(true) });
+      return;
+    }
+    selectSession(sessionId);
+  }
+
   function handleClick(sessionId: string, label: string) {
     if (sessionId === state.activeSessionId) return;
     if (currentSessionHasProgress) {
       switchConfirm.request({ id: sessionId, label });
     } else {
-      selectSession(sessionId);
+      trySelectSession(sessionId);
     }
   }
 
@@ -89,7 +105,7 @@ export function SessionSwitcher() {
         confirmLabel="Switch Session"
         tone="danger"
         onConfirm={() => {
-          if (switchConfirm.pending) selectSession(switchConfirm.pending.id);
+          if (switchConfirm.pending) trySelectSession(switchConfirm.pending.id);
           switchConfirm.cancel();
         }}
         onCancel={switchConfirm.cancel}

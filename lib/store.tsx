@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import type { Alert, LiveState } from "./types";
 import { supabaseBrowser } from "./supabase/client";
+import { getClientId } from "./client-id";
 
 // Live-state store — Supabase-backed (see supabase/schema.sql's `live_state`
 // singleton row and docs/ARCHITECTURE.md's "State flow"). Public shape is
@@ -25,6 +26,8 @@ const initialState: LiveState = {
   pausedAt: null,
   alert: null,
   notesOverrides: {},
+  controllerId: null,
+  controllerClaimedAt: null,
 };
 
 let cachedState: LiveState = initialState;
@@ -80,6 +83,8 @@ interface LiveStateRow {
   alert: Alert | null;
   progress_by_session: LiveState["progressBySession"];
   notes_overrides: LiveState["notesOverrides"];
+  controller_id: string | null;
+  controller_claimed_at: string | null;
 }
 
 function mapRow(row: LiveStateRow): LiveState {
@@ -89,6 +94,8 @@ function mapRow(row: LiveStateRow): LiveState {
     pausedAt: row.paused_at,
     alert: row.alert,
     notesOverrides: row.notes_overrides ?? {},
+    controllerId: row.controller_id ?? null,
+    controllerClaimedAt: row.controller_claimed_at ?? null,
   };
 }
 
@@ -199,32 +206,53 @@ async function sendAction(body: Record<string, unknown>, attempt = 0): Promise<b
 // fire-and-forget) so callers that need to disable a button until the
 // request lands (double-submit prevention) can await it. Callers that
 // don't care can keep calling these exactly as before.
+//
+// The sequencing actions below (the ones app/api/live/route.ts's
+// LOCKED_ACTIONS gates) send clientId so the server can tell "is this the
+// tab that holds the control lock" apart from "is this a different
+// operator." Alert/Notes/reset stay unlocked and don't need it.
 function selectSession(sessionId: string) {
-  return sendAction({ action: "selectSession", sessionId });
+  return sendAction({ action: "selectSession", sessionId, clientId: getClientId() });
 }
 
 function start() {
-  return sendAction({ action: "start" });
+  return sendAction({ action: "start", clientId: getClientId() });
 }
 
 function next(maxOrder: number) {
-  return sendAction({ action: "next", maxOrder });
+  return sendAction({ action: "next", maxOrder, clientId: getClientId() });
 }
 
 function previous(minOrder: number) {
-  return sendAction({ action: "previous", minOrder });
+  return sendAction({ action: "previous", minOrder, clientId: getClientId() });
 }
 
 function jumpTo(order: number) {
-  return sendAction({ action: "jumpTo", order });
+  return sendAction({ action: "jumpTo", order, clientId: getClientId() });
 }
 
 function finish(maxOrder: number) {
-  return sendAction({ action: "finish", maxOrder });
+  return sendAction({ action: "finish", maxOrder, clientId: getClientId() });
 }
 
 function togglePause() {
-  return sendAction({ action: "togglePause" });
+  return sendAction({ action: "togglePause", clientId: getClientId() });
+}
+
+// Sequencing control lock — opt-in (see LiveState.controllerId's doc
+// comment in lib/types.ts). `force` is only for an explicit "Take Over"
+// confirmation the UI shows when someone else already holds it; a plain
+// claim from an unclaimed or stale lock never needs it.
+function claimControl(force = false) {
+  return sendAction({ action: "claimControl", clientId: getClientId(), force });
+}
+
+function releaseControl() {
+  return sendAction({ action: "releaseControl", clientId: getClientId() });
+}
+
+function renewControl() {
+  return sendAction({ action: "renewControl", clientId: getClientId() });
 }
 
 function setAlert(alert: Alert) {
@@ -258,5 +286,8 @@ export function useEventStore() {
     dismissAlert,
     setNotes,
     reset,
+    claimControl,
+    releaseControl,
+    renewControl,
   };
 }

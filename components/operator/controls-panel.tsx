@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ChevronLeft, Pause, Play, Square, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, Pause, Play, Square, ChevronRight, Lock, Unlock } from "lucide-react";
 import { useEventStore } from "@/lib/store";
 import { useKeyboardShortcuts } from "@/lib/display-engine/use-keyboard-shortcuts";
+import { useControlLock } from "@/lib/use-control-lock";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SectionLabel } from "@/components/tv/section-label";
@@ -12,6 +13,7 @@ import { AlertComposer } from "./alert-composer";
 import { ActivityLog } from "./activity-log";
 import { OperatorBroadcastPanel } from "@/components/display-engine/operator-broadcast-panel";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 import type { Session } from "@/lib/types";
 
 const FAILURE_MESSAGE: Record<string, string> = {
@@ -22,7 +24,7 @@ const FAILURE_MESSAGE: Record<string, string> = {
   finish: "Couldn't finish the session — try again",
 };
 
-type ConfirmKind = "start" | "finish" | null;
+type ConfirmKind = "start" | "finish" | "takeover" | null;
 
 export function ControlsPanel({
   session,
@@ -34,7 +36,8 @@ export function ControlsPanel({
    *  another tab's Next, with no indication to either operator). */
   broadcastAction: (message: string) => void;
 }) {
-  const { state, start, next, previous, finish, togglePause } = useEventStore();
+  const { state, start, next, previous, finish, togglePause, claimControl, releaseControl, renewControl } =
+    useEventStore();
   const progress = state.progressBySession[state.activeSessionId];
   const currentOrder = progress?.currentOrder ?? null;
   const min = 1;
@@ -49,8 +52,23 @@ export function ControlsPanel({
   // dispatched in the same tick both run before React re-renders with the
   // disabled prop from setPending.
   const [pending, setPending] = useState<"next" | "previous" | "hold" | "start" | "finish" | null>(null);
+  const [takingOver, setTakingOver] = useState(false);
   const runningRef = useRef(false);
   const toast = useToast();
+  const { iHaveControl, lockedByOther } = useControlLock(state);
+
+  // Renew the claim every 15s while held — comfortably inside the server's
+  // 45s staleness window — so it survives as long as this tab is actually
+  // open, and lapses on its own (no explicit release needed) if the tab
+  // crashes or the browser closes.
+  useEffect(() => {
+    if (!iHaveControl) return;
+    const id = setInterval(renewControl, 15000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iHaveControl]);
+
+  const SEQUENCING_KINDS = new Set(["next", "previous", "hold", "start", "finish"]);
 
   // sendAction() (lib/store.tsx) already returns false on failure so
   // callers "can show an error instead of a false 'it worked'" — this
@@ -59,6 +77,17 @@ export function ControlsPanel({
   // completely silently during a backend outage (QA_REPORT_ROUND2.md
   // R2-BUG-2). Every action here returns that same boolean now.
   async function run(kind: NonNullable<typeof pending>, action: () => Promise<boolean>, successMessage?: string) {
+    // Client-side check purely for a faster, more specific message than
+    // "that didn't work" — app/api/live/route.ts enforces the real lock
+    // server-side regardless, so a stale read here (e.g. this tab hasn't
+    // gotten the latest Realtime update yet) just means the server's own
+    // 423 falls through to the generic failure toast below instead of this
+    // one. Either way the action never actually runs against a lock someone
+    // else holds.
+    if (lockedByOther && SEQUENCING_KINDS.has(kind)) {
+      toast.error("Locked by another operator", { label: "Take Over", onClick: () => setConfirmKind("takeover") });
+      return;
+    }
     if (runningRef.current) return;
     runningRef.current = true;
     setPending(kind);
@@ -107,6 +136,56 @@ export function ControlsPanel({
           <SectionLabel>Controls</SectionLabel>
           {currentOrder !== null && !isFinished && (
             <p className="text-caption text-muted-2 tabular-nums">← → Next/Prev · H Hold</p>
+          )}
+        </div>
+
+        {/* Opt-in sequencing lock (see lib/types.ts's LiveState.controllerId
+            doc comment) — unclaimed shows only a quiet "Take Control" link
+            so a single operator's screen looks exactly like it did before
+            this existed. QA_REPORT_ROUND2.md R2-BUG-1: this exists because
+            two /operator tabs could otherwise drive the same show with a
+            plain Next silently clearing another tab's just-set Hold. */}
+        <div className="mt-2 flex items-center gap-2 text-caption">
+          {iHaveControl ? (
+            <>
+              <span className="flex items-center gap-1.5 text-status-green">
+                <Lock className="h-3 w-3" strokeWidth={2} />
+                You have control
+              </span>
+              <button
+                type="button"
+                onClick={() => releaseControl()}
+                className="text-muted-2 hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded"
+              >
+                Release
+              </button>
+            </>
+          ) : lockedByOther ? (
+            <>
+              <span className="flex items-center gap-1.5 text-status-orange">
+                <Lock className="h-3 w-3" strokeWidth={2} />
+                Locked by another operator
+              </span>
+              <button
+                type="button"
+                onClick={() => setConfirmKind("takeover")}
+                className="text-status-orange hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded"
+              >
+                Take Over
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => claimControl()}
+              className={cn(
+                "flex items-center gap-1.5 text-muted-2 hover:text-primary cursor-pointer",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded"
+              )}
+            >
+              <Unlock className="h-3 w-3" strokeWidth={2} />
+              Take Control
+            </button>
           )}
         </div>
         <div className="mt-3 flex flex-col gap-3">
@@ -220,6 +299,24 @@ export function ControlsPanel({
         onConfirm={async () => {
           await run("finish", () => finish(max), "finished the session");
           setConfirmKind(null);
+        }}
+        onCancel={() => setConfirmKind(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmKind === "takeover"}
+        title="Take over control?"
+        description="Another operator is currently driving the show. Taking over lets you use Next/Previous/Hold/Jump/Start/Finish here — they won't be able to until they take control back."
+        confirmLabel="Take Over"
+        loading={takingOver}
+        tone="danger"
+        onConfirm={async () => {
+          setTakingOver(true);
+          const ok = await claimControl(true);
+          setTakingOver(false);
+          setConfirmKind(null);
+          if (ok) broadcastAction("took control");
+          else toast.error("Couldn't take control — try again");
         }}
         onCancel={() => setConfirmKind(null)}
       />
