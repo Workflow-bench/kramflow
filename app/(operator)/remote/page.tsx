@@ -25,18 +25,20 @@ import { formatClock } from "@/lib/display-engine/use-display-timer";
 import { useAuth } from "@/components/auth/auth-context";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { EMERGENCY_PRESETS } from "@/lib/display-engine/types";
+import { useControlLock } from "@/lib/use-control-lock";
 import { ProgressBar } from "@/components/tv/progress-bar";
 import { HoldBadge } from "@/components/tv/hold-badge";
 import { BigActionButton } from "@/components/remote/big-action-button";
 import { QuickActionButton } from "@/components/remote/quick-action-button";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 type Panel = "none" | "jump" | "alert" | "notes" | "broadcast";
 type ConfirmKind = "start" | "finish" | { session: string; label: string } | { jump: number } | null;
 
 export default function RemotePage() {
-  const { state, selectSession, start, next, previous, finish, togglePause, jumpTo, setAlert, setNotes } =
+  const { state, selectSession, start, next, previous, finish, togglePause, jumpTo, setAlert, setNotes, claimControl } =
     useEventStore();
   const { lock } = useAuth();
   const { sendBroadcast, state: engineState, setSpeakerReady } = useDisplayEngine();
@@ -47,6 +49,8 @@ export default function RemotePage() {
   const [pending, setPending] = useState<"next" | "previous" | "hold" | "start" | "finish" | null>(null);
   const runningRef = useRef(false);
   const emergencyConfirm = useConfirmDialog<(typeof EMERGENCY_PRESETS)[number]>();
+  const toast = useToast();
+  const { lockedByOther } = useControlLock(state);
 
   const progress = session ? state.progressBySession[state.activeSessionId] : undefined;
   const currentOrder = progress?.currentOrder ?? null;
@@ -60,16 +64,48 @@ export default function RemotePage() {
   const isLastItem = currentOrder === max;
   const currentSessionHasProgress = currentOrder !== null;
 
+  const SEQUENCING_KINDS = new Set(["next", "previous", "hold", "start", "finish"]);
+
   async function run(kind: NonNullable<typeof pending>, action: () => Promise<unknown> | unknown) {
+    // Same lock this surface's actions are gated by server-side
+    // (app/api/live/route.ts) — see components/operator/controls-panel.tsx
+    // for the full Take Control/Release/Take Over UI, which lives on
+    // /operator as the primary coordination surface. Remote is a lighter
+    // controller, so it gets a toast with the same "Take Over" escape
+    // hatch rather than its own persistent lock-status affordance.
+    if (lockedByOther && SEQUENCING_KINDS.has(kind)) {
+      toast.error("Locked by the operator dashboard", {
+        label: "Take Over",
+        onClick: () => claimControl(true),
+      });
+      return;
+    }
     if (runningRef.current) return;
     runningRef.current = true;
     setPending(kind);
     try {
-      await action();
+      const result = await action();
+      if (result === false) {
+        toast.error("That didn't work — try again");
+      }
     } finally {
       runningRef.current = false;
       setPending(null);
     }
+  }
+
+  // selectSession is server-side locked too (app/api/live/route.ts) since
+  // switching the active session out from under a controlling operator is
+  // exactly the kind of clobber the lock exists to prevent — same toast +
+  // Take Over escape hatch as the sequencing buttons in run(), just not
+  // routed through run() itself since this one has its own confirm-dialog
+  // branching before the actual call.
+  function trySelectSession(sessionId: string) {
+    if (lockedByOther) {
+      toast.error("Locked by the operator dashboard", { label: "Take Over", onClick: () => claimControl(true) });
+      return;
+    }
+    selectSession(sessionId);
   }
 
   function handleSessionClick(sessionId: string, label: string) {
@@ -77,7 +113,7 @@ export default function RemotePage() {
     if (currentSessionHasProgress) {
       setConfirmKind({ session: sessionId, label });
     } else {
-      selectSession(sessionId);
+      trySelectSession(sessionId);
     }
   }
 
@@ -354,7 +390,7 @@ export default function RemotePage() {
         tone="danger"
         onConfirm={() => {
           if (typeof confirmKind === "object" && confirmKind && "session" in confirmKind) {
-            selectSession(confirmKind.session);
+            trySelectSession(confirmKind.session);
           }
           setConfirmKind(null);
         }}

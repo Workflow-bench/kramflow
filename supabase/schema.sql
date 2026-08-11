@@ -218,11 +218,23 @@ create table if not exists live_state (
   -- requires it to still match at write time; a mismatch means someone
   -- else's write landed first, so the route returns 409 instead of
   -- silently overwriting.
-  version integer not null default 0
+  version integer not null default 0,
+  -- Sequencing control lock (Start/Next/Previous/Jump/Hold/Finish/switch-
+  -- session only — Alert/Notes stay collaborative). Opt-in: null means
+  -- unclaimed and every operator acts exactly as before this existed.
+  -- controller_id is a client-generated id (lib/client-id.ts), not a real
+  -- account — this app has no per-user identity by design (see
+  -- lib/server/auth-cookie.ts). app/api/live/route.ts treats a claim older
+  -- than its staleness window as abandoned and reclaimable without forcing,
+  -- so a crashed/closed controlling tab can't permanently lock the show.
+  controller_id text,
+  controller_claimed_at timestamptz
 );
 
 insert into live_state (id) values (1) on conflict (id) do nothing;
 alter table live_state add column if not exists version integer not null default 0;
+alter table live_state add column if not exists controller_id text;
+alter table live_state add column if not exists controller_claimed_at timestamptz;
 
 -- ---------------------------------------------------------------------------
 -- activity_log — short operator action history, not analytics (see plan)

@@ -83,6 +83,16 @@ export interface LiveState {
   pausedAt: string | null;
   alert: Alert | null;
   notesOverrides: Record<string, string>; // programId -> operator-edited notes
+  /** Which operator tab currently holds the sequencing control lock (Start/
+   *  Next/Previous/Jump/Hold/Finish/switch-session), or null when unclaimed
+   *  — see docs on app/api/live/route.ts's lock check. Opt-in: unclaimed
+   *  behaves exactly like before this existed, no forced workflow change
+   *  for a single operator. */
+  controllerId: string | null;
+  /** Renewed by the controller every ~15s while held; a claim older than
+   *  the server's staleness window is treated as abandoned (crashed tab,
+   *  closed browser) and can be reclaimed by anyone without forcing. */
+  controllerClaimedAt: string | null;
 }
 
 export function effectiveNotes(state: LiveState, program: Program): string {

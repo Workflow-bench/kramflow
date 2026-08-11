@@ -2,32 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabaseBrowser } from "./supabase/client";
+import { getClientId } from "./client-id";
 
 // QA_REPORT_ROUND2.md R2-BUG-1: two /operator tabs can drive the same show
 // with zero indication to either person that someone else is connected —
 // confirmed live (Tab A's Hold got silently cleared by Tab B's ordinary
-// Next). This is a lightweight presence signal, not conflict resolution —
-// per the fix prompt, real session locking/handoff is a separate design
-// decision out of scope here. Knowing someone else is driving is enough for
-// operators to coordinate themselves in the common case.
+// Next). This is the presence/coordination signal; the actual control lock
+// that prevents the silent-override case is separate state on live_state
+// itself (controllerId/controllerClaimedAt in lib/store.tsx), not part of
+// this presence channel — presence answers "who's connected," the lock
+// answers "who's allowed to drive right now."
 //
 // Uses a Supabase Realtime Presence channel — same client/connection
 // lib/store.tsx already opens (supabaseBrowser() is a singleton), just a
 // different named channel, since presence and postgres_changes are
 // different Realtime features on the same underlying socket. No schema
 // change, nothing persisted.
-
-const CLIENT_ID_KEY = "kramflow-operator-client-id";
-
-function getClientId(): string {
-  if (typeof window === "undefined") return "server";
-  let id = window.sessionStorage.getItem(CLIENT_ID_KEY);
-  if (!id) {
-    id = `op-${Math.random().toString(36).slice(2, 10)}`;
-    window.sessionStorage.setItem(CLIENT_ID_KEY, id);
-  }
-  return id;
-}
 
 export interface OperatorActionEvent {
   clientId: string;

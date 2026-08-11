@@ -18,6 +18,27 @@ interface LiveStateRow {
   progress_by_session: Record<string, { currentOrder: number | null; startedAt: string | null }>;
   notes_overrides: Record<string, string>;
   version: number;
+  controller_id: string | null;
+  controller_claimed_at: string | null;
+}
+
+// Sequencing actions are the ones that silently clobber another operator's
+// state (QA_REPORT_ROUND2.md R2-BUG-1 — Next clearing a Hold someone else
+// just set). Alert/Notes stay unlocked and collaborative on purpose — they
+// don't have the same "someone else's in-progress action gets erased"
+// failure mode, and gating them too would make ordinary multi-operator use
+// needlessly more locked-down than the bug this exists to fix.
+const LOCKED_ACTIONS = new Set(["start", "next", "previous", "jumpTo", "finish", "togglePause", "selectSession"]);
+
+// A claim older than this is treated as abandoned — the controlling tab
+// crashed, lost network, or was just closed without releasing — so it
+// can't permanently lock the show. Comfortably longer than the ~15s
+// heartbeat lib/store.tsx's controller renewal sends while held.
+const CONTROLLER_STALE_MS = 45_000;
+
+function isControllerActive(row: LiveStateRow): boolean {
+  if (!row.controller_id || !row.controller_claimed_at) return false;
+  return Date.now() - Date.parse(row.controller_claimed_at) < CONTROLLER_STALE_MS;
 }
 
 async function logActivity(action: string, detail: string) {
@@ -52,10 +73,49 @@ export async function PATCH(request: Request) {
   const activeProgress = () =>
     current.progress_by_session[current.active_session_id ?? ""] ?? { currentOrder: null, startedAt: null };
 
+  const clientId = typeof body.clientId === "string" ? body.clientId : null;
+
+  // Enforced here, not just hinted at client-side — the client's own lock
+  // check (components/operator/controls-panel.tsx) is a UX nicety so a
+  // locked-out operator doesn't have to click-and-fail to find out; this is
+  // what actually stops the R2-BUG-1 clobber if two operators' clicks land
+  // close enough together to race past the client-side check.
+  if (LOCKED_ACTIONS.has(action) && isControllerActive(current) && current.controller_id !== clientId) {
+    return NextResponse.json({ ok: false, error: "locked", controllerId: current.controller_id }, { status: 423 });
+  }
+
   let patch: Partial<LiveStateRow> = {};
   let detail = "";
 
   switch (action) {
+    case "claimControl": {
+      if (!clientId) return NextResponse.json({ ok: false }, { status: 400 });
+      const force = body.force === true;
+      if (isControllerActive(current) && current.controller_id !== clientId && !force) {
+        return NextResponse.json({ ok: false, error: "locked", controllerId: current.controller_id }, { status: 423 });
+      }
+      patch = { controller_id: clientId, controller_claimed_at: new Date().toISOString() };
+      detail = "Took control";
+      break;
+    }
+    case "renewControl": {
+      // Silent no-op if this tab doesn't (or no longer) hold the lock —
+      // e.g. it raced with someone else's takeover — rather than a loud
+      // failure for what's just a background heartbeat.
+      if (!clientId || current.controller_id !== clientId) {
+        return NextResponse.json({ ok: true, noop: true });
+      }
+      patch = { controller_claimed_at: new Date().toISOString() };
+      break;
+    }
+    case "releaseControl": {
+      if (!clientId || current.controller_id !== clientId) {
+        return NextResponse.json({ ok: true, noop: true });
+      }
+      patch = { controller_id: null, controller_claimed_at: null };
+      detail = "Released control";
+      break;
+    }
     case "selectSession": {
       const sessionId = body.sessionId;
       if (typeof sessionId !== "string") return NextResponse.json({ ok: false }, { status: 400 });
@@ -210,6 +270,10 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: "Conflict — live state changed, please retry" }, { status: 409 });
   }
 
-  await logActivity(action, detail);
+  // renewControl's success path deliberately leaves `detail` empty — it's
+  // a background heartbeat every ~15s while control is held, not a
+  // meaningful audit event; logging it would spam the Activity feed
+  // operators actually read with noise unrelated to the show itself.
+  if (detail) await logActivity(action, detail);
   return NextResponse.json({ ok: true });
 }
