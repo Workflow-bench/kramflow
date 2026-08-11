@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ChevronDown, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,14 @@ export function OperatorBroadcastPanel() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const emergencyConfirm = useConfirmDialog<(typeof EMERGENCY_PRESETS)[number]>();
+  const [emergencySending, setEmergencySending] = useState(false);
+  // Ref, not just `emergencySending` — ConfirmDialog's confirm button has no
+  // disabled-while-submitting state of its own, so a rapid multi-click
+  // burst fires onConfirm several times before React commits the `loading`
+  // prop's disabled attribute. QA_REPORT.md BUG-3: reproduced live here (3
+  // clicks -> 3 duplicate live emergency broadcasts) before this guard
+  // existed; see the identical pattern in components/operator/jump-control.tsx.
+  const emergencySendingRef = useRef(false);
 
   function send() {
     if (!title.trim()) return;
@@ -136,25 +144,30 @@ export function OperatorBroadcastPanel() {
         description="This takes over every connected screen immediately."
         confirmLabel="Send Emergency"
         tone="danger"
-        onConfirm={() => {
+        loading={emergencySending}
+        onConfirm={async () => {
           const preset = emergencyConfirm.pending;
-          if (preset) {
-            sendBroadcast({
-              type: "emergency",
-              title: preset.title,
-              message: preset.message,
-              icon: null,
-              priority: 3,
-              target: { kind: "all" },
-              expiresInMinutes: null,
-              durationSeconds: null,
-              acknowledgementRequired: true,
-              persistent: true,
-              scheduledFor: null,
-            });
-            toast.success("Emergency broadcast sent");
-          }
+          if (!preset || emergencySendingRef.current) return;
+          emergencySendingRef.current = true;
+          setEmergencySending(true);
+          const res = await sendBroadcast({
+            type: "emergency",
+            title: preset.title,
+            message: preset.message,
+            icon: null,
+            priority: 3,
+            target: { kind: "all" },
+            expiresInMinutes: null,
+            durationSeconds: null,
+            acknowledgementRequired: true,
+            persistent: true,
+            scheduledFor: null,
+          });
+          emergencySendingRef.current = false;
+          setEmergencySending(false);
           emergencyConfirm.cancel();
+          if (res && res.ok) toast.success("Emergency broadcast sent");
+          else toast.error("Couldn't send the emergency broadcast — try again immediately");
         }}
         onCancel={emergencyConfirm.cancel}
       />

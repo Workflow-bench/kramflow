@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, Circle } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2 } from "lucide-react";
 import { useEventStore } from "@/lib/store";
 import { useSessions } from "@/lib/use-sessions";
 import { getSessionById } from "@/lib/data/sessions";
@@ -14,22 +15,29 @@ import { TIMER_COLORS } from "@/lib/display-engine/colors";
 import { DisplayShell } from "@/components/display-engine/display-shell";
 import { HoldScreen } from "@/components/display-engine/hold-screen";
 import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay";
+import { TestMessageOverlay } from "@/components/display-engine/test-message-overlay";
+import { FullscreenPrompt } from "@/components/display-engine/fullscreen-prompt";
+import { useTestMessage } from "@/lib/display-engine/use-test-message";
+import { AlertBanner } from "@/components/ui/alert-banner";
 import { cn } from "@/lib/utils";
 
 /**
  * Green Room Display — new Display Engine route, distinct from and not
- * replacing the existing /green-room page. Read-only except for the
- * speaker-ready toggle, which is genuinely new information (see
- * DisplayEngineState.speakerReady in lib/display-engine/types.ts).
+ * replacing the existing /green-room page. Fully read-only, matching the
+ * "TV = zero controls" rule in docs/DESIGN_SYSTEM.md — the speaker-ready
+ * toggle used to live here but is a real interaction, not a glance, so
+ * it's now triggered from /remote instead (see
+ * DisplayEngineState.speakerReady in lib/display-engine/types.ts); this
+ * page only shows the resulting state.
  */
 export default function GreenRoomDisplayPage() {
   const { state: appState } = useEventStore();
   const sessions = useSessions();
   const session = getSessionById(sessions, appState.activeSessionId);
-  const { state: engine, setSpeakerReady } = useDisplayEngine();
+  const { state: engine } = useDisplayEngine();
 
   const { offsetMs } = useTimeSync();
-  useFullscreen();
+  const fullscreen = useFullscreen();
 
   const live = session ? getLive(session, appState) : null;
   const next = session ? getNext(session, appState) : null;
@@ -39,8 +47,12 @@ export default function GreenRoomDisplayPage() {
   const currentOrder = progress?.currentOrder ?? null;
   const isFinished = currentOrder !== null && currentOrder > total;
 
+  const { testMessage, showTestMessage } = useTestMessage();
+  const [fullscreenPrompt, setFullscreenPrompt] = useState(false);
   const display = useRegisterDisplay("Green Room Display", "green-room", null, (command) => {
     if (command.type === "reload") window.location.reload();
+    if (command.type === "test-message") showTestMessage(command.text, command.issuedAt);
+    if (command.type === "force-fullscreen") setFullscreenPrompt(true);
   });
 
   const autoInput =
@@ -58,10 +70,19 @@ export default function GreenRoomDisplayPage() {
     <DisplayShell>
       <HoldScreen hold={engine.hold} />
       {display && <BroadcastOverlay displayId={display.id} displayType="green-room" />}
+      <TestMessageOverlay message={testMessage} />
+      <FullscreenPrompt
+        visible={fullscreenPrompt}
+        onEnter={() => {
+          void fullscreen.enter();
+          setFullscreenPrompt(false);
+        }}
+        onDismiss={() => setFullscreenPrompt(false)}
+      />
 
       {!engine.hold.active && (
         <>
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between flex-wrap gap-y-3">
             <div>
               <p className="text-caption uppercase tracking-wide text-muted-2">
                 {session ? `${session.dayLabel} • ${session.sessionLabel}` : "KramFlow"}
@@ -85,22 +106,46 @@ export default function GreenRoomDisplayPage() {
             </div>
           </div>
 
-          <div className="flex-1 grid grid-cols-[1.4fr_1fr] gap-16 min-h-0 mt-8">
-            <div className="flex flex-col justify-center">
+          {appState.alert && <AlertBanner alert={appState.alert} className="mt-6" />}
+
+          <div className="flex-1 grid grid-cols-[1.4fr_1fr] gap-16 min-h-0 mt-8 overflow-y-auto">
+            {/* justify-start, not -center: centering doesn't clip — content
+                taller than this cell bled equally up *and down* past it,
+                which is what actually caused the "Queue Position" row below
+                to visually overlap the countdown at a short viewport
+                (QA_REPORT_ROUND2.md R2-BUG-4), not the outer shell's own
+                justify-between (already fixed separately). Top-aligning
+                this cell means it can only overflow downward, where the
+                page already scrolls, instead of in both directions. */}
+            <div className="min-h-0 flex flex-col justify-start">
               <p className="text-caption uppercase tracking-wide text-muted-2">On Stage Now</p>
               <p className="text-hero text-primary mt-3" style={{ fontSize: "clamp(3rem, 5vw, 4.5rem)" }}>
                 {live ? live.title : isFinished ? "Session Finished" : "Not Started"}
               </p>
               {live?.presenter && <p className="text-title text-muted mt-3">{live.presenter}</p>}
-              <p
-                className="tabular-nums font-semibold leading-none mt-8"
-                style={{ fontSize: "clamp(3.5rem, 6vw, 5.5rem)", color }}
-              >
-                {timer.isOverrun ? `+${timer.label}` : timer.label}
-              </p>
-              <p className="text-caption uppercase tracking-wide text-muted-2 mt-2">
-                {timer.isOverrun ? "over — countdown until called" : "remaining — countdown until called"}
-              </p>
+              {!isFinished && (
+                <>
+                  {/* QA_REPORT_ROUND2.md R2-BUG-6: this used to render
+                      unconditionally, so once a session finished (live ===
+                      null, autoInput === null) it fell back to the Display
+                      Engine's own separate manual-timer state — an unrelated
+                      leftover value (its schema default is 5:00), not the
+                      real last countdown — directly contradicting the
+                      "Session Finished" headline above it. Suppressing it
+                      when finished is correct rather than trying to freeze
+                      or relabel a value that was never actually this
+                      session's countdown to begin with. */}
+                  <p
+                    className="tabular-nums font-semibold leading-none mt-8"
+                    style={{ fontSize: "clamp(3.5rem, 6vw, 5.5rem)", color }}
+                  >
+                    {timer.isOverrun ? `+${timer.label}` : timer.label}
+                  </p>
+                  <p className="text-caption uppercase tracking-wide text-muted-2 mt-2">
+                    {timer.isOverrun ? "over — countdown until called" : "remaining — countdown until called"}
+                  </p>
+                </>
+              )}
 
               {live && (
                 <div className="mt-8 pt-6 border-t border-white/10 max-w-lg">
@@ -127,18 +172,17 @@ export default function GreenRoomDisplayPage() {
                     </p>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => setSpeakerReady(next.id, !nextReady)}
-                    className={cn(
-                      "mt-6 w-full flex items-center justify-center gap-3 rounded-full px-6 py-4 text-body font-semibold cursor-pointer transition-colors",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                      nextReady ? "bg-status-green/15 text-status-green" : "bg-white/5 text-muted hover:text-primary"
-                    )}
-                  >
-                    {nextReady ? <CheckCircle2 className="h-5 w-5" strokeWidth={2} /> : <Circle className="h-5 w-5" strokeWidth={2} />}
-                    {nextReady ? "Speaker Ready" : "Mark Speaker Ready"}
-                  </button>
+                  {nextReady && (
+                    <div
+                      className={cn(
+                        "mt-6 w-full flex items-center justify-center gap-3 rounded-full px-6 py-4 text-body font-semibold",
+                        "bg-status-green/15 text-status-green"
+                      )}
+                    >
+                      <CheckCircle2 className="h-5 w-5" strokeWidth={2} />
+                      Speaker Ready
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -160,7 +204,7 @@ export default function GreenRoomDisplayPage() {
           </div>
 
           {session && (
-            <div className="flex items-center justify-between text-caption text-muted-2 tabular-nums mt-6">
+            <div className="flex items-center justify-between text-caption text-muted-2 tabular-nums mt-auto pt-6">
               <span>Queue Position</span>
               <span>
                 {Math.min(currentOrder ?? 0, total)} / {total}

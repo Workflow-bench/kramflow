@@ -27,6 +27,10 @@ import { HOLD_PRESETS, type TimerMode } from "@/lib/display-engine/types";
 import { DisplayShell } from "@/components/display-engine/display-shell";
 import { HoldScreen } from "@/components/display-engine/hold-screen";
 import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay";
+import { TestMessageOverlay } from "@/components/display-engine/test-message-overlay";
+import { FullscreenPrompt } from "@/components/display-engine/fullscreen-prompt";
+import { useTestMessage } from "@/lib/display-engine/use-test-message";
+import { AlertBanner } from "@/components/ui/alert-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
@@ -59,9 +63,16 @@ export default function PresenterDisplayPage() {
   const [holdPresetIndex, setHoldPresetIndex] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
 
+  const { testMessage, showTestMessage } = useTestMessage();
+  const [fullscreenPrompt, setFullscreenPrompt] = useState(false);
   const display = useRegisterDisplay("Presenter Display", "presenter", null, (command) => {
-    if (command.type === "force-fullscreen") void fullscreen.enter();
+    // requestFullscreen() requires a real gesture on this device — a
+    // Realtime command can't provide one, so this shows a tappable prompt
+    // instead of calling fullscreen.enter() directly (see
+    // components/display-engine/fullscreen-prompt.tsx).
+    if (command.type === "force-fullscreen") setFullscreenPrompt(true);
     if (command.type === "reload") window.location.reload();
+    if (command.type === "test-message") showTestMessage(command.text, command.issuedAt);
   });
 
   const live = session ? getLive(session, appState) : null;
@@ -100,12 +111,21 @@ export default function PresenterDisplayPage() {
     <DisplayShell>
       <HoldScreen hold={engine.hold} />
       {display && <BroadcastOverlay displayId={display.id} displayType="presenter" size="large" />}
+      <TestMessageOverlay message={testMessage} />
+      <FullscreenPrompt
+        visible={fullscreenPrompt}
+        onEnter={() => {
+          void fullscreen.enter();
+          setFullscreenPrompt(false);
+        }}
+        onDismiss={() => setFullscreenPrompt(false)}
+      />
 
       {!engine.hold.active && (
         <>
           {/* Ambient info — top row, only in information-dense modes */}
           {(mode === "program" || mode === "countdown" || mode === "count-up" || mode === "session") && (
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between flex-wrap gap-y-3">
               <div>
                 <p className="text-caption uppercase tracking-wide text-muted-2">
                   {session ? `${session.dayLabel} • ${session.sessionLabel}` : "KramFlow"}
@@ -113,11 +133,7 @@ export default function PresenterDisplayPage() {
                 {live?.kicker && <p className="text-subtitle text-muted mt-1">{live.kicker}</p>}
               </div>
               <div className="flex items-center gap-3">
-                {appState.alert && (
-                  <span className="text-caption font-semibold uppercase tracking-wide text-status-red">
-                    {appState.alert.message}
-                  </span>
-                )}
+                {appState.alert && <AlertBanner alert={appState.alert} compact />}
                 <span
                   className={cn(
                     "text-caption font-semibold uppercase tracking-wide px-3 py-1 rounded-full",

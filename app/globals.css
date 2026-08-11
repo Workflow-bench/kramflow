@@ -84,3 +84,19 @@ body {
 .tv-safe-area {
   padding: clamp(48px, 4vw, 64px);
 }
+
+/* QA_REPORT_ROUND2.md: prefers-reduced-motion wasn't respected anywhere.
+   Framer Motion's own animations are handled globally via MotionConfig
+   (components/motion-preferences.tsx) — this covers everything else:
+   Tailwind's transition-* utility classes (hover/focus states) and the
+   fade-in keyframe above, neither of which MotionConfig reaches. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

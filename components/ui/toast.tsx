@@ -2,10 +2,10 @@
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type ToastTone = "success" | "error";
+type ToastTone = "success" | "error" | "info";
 
 interface ToastAction {
   label: string;
@@ -22,6 +22,7 @@ interface ToastItem {
 interface ToastContextValue {
   success: (message: string, action?: ToastAction) => void;
   error: (message: string) => void;
+  info: (message: string) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -53,6 +54,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const value: ToastContextValue = {
     success: (message: string, action?: ToastAction) => push("success", message, action),
     error: (message: string) => push("error", message),
+    info: (message: string) => push("info", message),
   };
 
   return (
@@ -70,14 +72,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               className={cn(
                 "pointer-events-auto flex items-center gap-2.5 rounded-lg bg-card px-4 py-3 text-body shadow-lg border",
                 item.tone === "success" && "border-status-green/20",
-                item.tone === "error" && "border-status-red/20"
+                item.tone === "error" && "border-status-red/20",
+                item.tone === "info" && "border-status-blue/20"
               )}
             >
-              {item.tone === "success" ? (
-                <CheckCircle2 className="h-4 w-4 text-status-green shrink-0" strokeWidth={2} />
-              ) : (
-                <XCircle className="h-4 w-4 text-status-red shrink-0" strokeWidth={2} />
-              )}
+              {item.tone === "success" && <CheckCircle2 className="h-4 w-4 text-status-green shrink-0" strokeWidth={2} />}
+              {item.tone === "error" && <XCircle className="h-4 w-4 text-status-red shrink-0" strokeWidth={2} />}
+              {item.tone === "info" && <Info className="h-4 w-4 text-status-blue shrink-0" strokeWidth={2} />}
               <span className="text-primary">{item.message}</span>
               {item.action && (
                 <button

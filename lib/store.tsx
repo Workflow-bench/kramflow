@@ -36,6 +36,44 @@ function notify() {
   for (const listener of listeners) listener();
 }
 
+// Connection health, separate from LiveState itself (which mirrors the DB
+// row shape 1:1 via mapRow — this isn't part of that). QA_REPORT_ROUND2.md
+// R2-BUG-3: after a simulated backend outage, public displays (which only
+// ever passively listen) recovered on their own, but the operator dashboard
+// kept showing stale state and needed a manual reload — the Realtime
+// subscription has no status callback at all here, so a channel that
+// errors out or times out just silently stops delivering updates, forever,
+// with nothing re-subscribing and nothing telling the operator their view
+// might be stale. `connectionStatus` surfaces that state; the reconnect
+// handling below (subscribe-status callback + visibilitychange) is what
+// actually fixes the desync, not just reports it.
+export type ConnectionStatus = "connected" | "reconnecting" | "disconnected";
+let connectionStatus: ConnectionStatus = "connected";
+const connectionListeners = new Set<() => void>();
+
+function setConnectionStatus(next: ConnectionStatus) {
+  if (connectionStatus === next) return;
+  connectionStatus = next;
+  for (const listener of connectionListeners) listener();
+}
+
+function subscribeConnection(callback: () => void): () => void {
+  connectionListeners.add(callback);
+  return () => connectionListeners.delete(callback);
+}
+
+function getConnectionSnapshot(): ConnectionStatus {
+  return connectionStatus;
+}
+
+function getConnectionServerSnapshot(): ConnectionStatus {
+  return "connected";
+}
+
+export function useConnectionStatus(): ConnectionStatus {
+  return useSyncExternalStore(subscribeConnection, getConnectionSnapshot, getConnectionServerSnapshot);
+}
+
 interface LiveStateRow {
   active_session_id: string | null;
   paused_at: string | null;
@@ -69,17 +107,44 @@ async function hydrate() {
   }
 }
 
-function ensureBrowserListeners() {
-  if (initialized || typeof window === "undefined") return;
-  initialized = true;
-
+function openLiveStateChannel() {
+  let wasEverConnected = false;
   supabaseBrowser()
     .channel("live-state-sync")
     .on("postgres_changes", { event: "*", schema: "public", table: "live_state" }, (payload) => {
       cachedState = mapRow(payload.new as LiveStateRow);
       notify();
     })
-    .subscribe();
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        setConnectionStatus("connected");
+        // Re-fetch on (re)connect, not just rely on the next change event —
+        // this is what actually closes the R2-BUG-3 gap: any updates that
+        // happened while this channel was down are otherwise never seen
+        // until something else changes live_state again.
+        if (wasEverConnected) hydrate();
+        wasEverConnected = true;
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        setConnectionStatus("reconnecting");
+      } else if (status === "CLOSED") {
+        setConnectionStatus("disconnected");
+      }
+    });
+}
+
+function ensureBrowserListeners() {
+  if (initialized || typeof window === "undefined") return;
+  initialized = true;
+
+  openLiveStateChannel();
+
+  // Defensive fallback independent of Realtime's own state — covers both
+  // "the channel silently died and nothing is telling us" and the
+  // Persona-B "phone locked for a few minutes" case from
+  // QA_REPORT_ROUND2.md. Cheap: one read of a single-row table.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") hydrate();
+  });
 }
 
 function subscribe(callback: () => void): () => void {

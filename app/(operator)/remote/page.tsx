@@ -1,12 +1,27 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ChevronLeft, Pause, Play, Square, AlertTriangle, NotebookPen, Hash, X, Send, Lock, Megaphone } from "lucide-react";
+import {
+  ChevronLeft,
+  Pause,
+  Play,
+  Square,
+  AlertTriangle,
+  NotebookPen,
+  Hash,
+  X,
+  Send,
+  Lock,
+  Megaphone,
+  CheckCircle2,
+  Circle,
+} from "lucide-react";
 import { useEventStore } from "@/lib/store";
 import { useSessions } from "@/lib/use-sessions";
 import { getSessionById } from "@/lib/data/sessions";
-import { getLive, getNext } from "@/lib/types";
+import { effectiveNotes, getLive, getNext } from "@/lib/types";
 import { useCountdown } from "@/lib/use-countdown";
+import { formatClock } from "@/lib/display-engine/use-display-timer";
 import { useAuth } from "@/components/auth/auth-context";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { EMERGENCY_PRESETS } from "@/lib/display-engine/types";
@@ -24,7 +39,7 @@ export default function RemotePage() {
   const { state, selectSession, start, next, previous, finish, togglePause, jumpTo, setAlert, setNotes } =
     useEventStore();
   const { lock } = useAuth();
-  const { sendBroadcast } = useDisplayEngine();
+  const { sendBroadcast, state: engineState, setSpeakerReady } = useDisplayEngine();
   const sessions = useSessions();
   const session = getSessionById(sessions, state.activeSessionId);
   const [panel, setPanel] = useState<Panel>("none");
@@ -37,6 +52,7 @@ export default function RemotePage() {
   const currentOrder = progress?.currentOrder ?? null;
   const live = session ? getLive(session, state) : null;
   const next_ = session ? getNext(session, state) : null;
+  const nextReady = next_ ? Boolean(engineState.speakerReady[next_.id]) : false;
   const countdown = useCountdown(progress?.startedAt ?? null, live?.durationMinutes ?? 0, state.pausedAt);
   const min = 1;
   const max = session?.items.length ?? 0;
@@ -104,20 +120,35 @@ export default function RemotePage() {
               type="button"
               onClick={() => handleSessionClick(s.id, `${s.dayLabel} ${s.sessionLabel}`)}
               aria-current={s.id === state.activeSessionId ? "true" : undefined}
+              aria-label={`${s.dayLabel} ${s.sessionLabel}`}
               className={cn(
-                "shrink-0 rounded-full px-3 py-1.5 text-caption font-medium cursor-pointer transition-colors",
+                "shrink-0 rounded-lg px-3 py-1.5 text-left cursor-pointer transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 s.id === state.activeSessionId ? "bg-card text-primary" : "text-muted-2"
               )}
             >
-              {s.dayLabel}
+              <p className="text-caption font-medium">{s.dayLabel}</p>
+              <p className={cn("text-caption", s.id === state.activeSessionId ? "text-muted" : "text-muted-2")}>
+                {s.sessionLabel}
+              </p>
             </button>
           ))}
         </div>
       </div>
 
       {/* Main focus — current + next, huge countdown */}
-      <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 text-center overflow-y-auto">
+      {/* QA_REPORT.md BUG-7: plain `justify-center` on a scrollable overflow
+          container centers the overflow itself, so at scroll position 0 the
+          browser shows the *middle* of a wrapped 3-line title, not the top —
+          the top line was scrolled off above the visible viewport by
+          default at 320-375px. `safe center` keeps the nice vertical
+          centering for the common case (title fits) but falls back to
+          start-alignment instead of clipping when content overflows, so the
+          top of a long title is always what's visible on load. */}
+      <div
+        className="flex-1 min-h-0 flex flex-col items-center px-6 text-center overflow-y-auto"
+        style={{ justifyContent: "safe center" }}
+      >
         {currentOrder === null ? (
           <p className="text-body text-muted">Not started</p>
         ) : isFinished ? (
@@ -133,7 +164,10 @@ export default function RemotePage() {
 
             {live && live.type === "item" && live.durationMinutes > 0 && (
               <div className="mt-8 w-full max-w-xs">
-                <p className="text-hero text-primary tabular-nums">{countdown.label}</p>
+                <p className={cn("text-hero tabular-nums", countdown.isOverrun ? "text-status-red" : "text-primary")}>
+                  {countdown.isOverrun ? "+" : ""}
+                  {formatClock(countdown.remainingSeconds)}
+                </p>
                 <div className="mt-4">
                   <ProgressBar
                     fraction={countdown.fraction}
@@ -147,6 +181,19 @@ export default function RemotePage() {
               <div className="mt-10 pt-6 border-t border-white/5 w-full max-w-xs">
                 <p className="text-caption uppercase tracking-wide text-muted-2">Next</p>
                 <p className="text-body text-primary mt-1.5">{next_.title}</p>
+
+                <button
+                  type="button"
+                  onClick={() => setSpeakerReady(next_.id, !nextReady)}
+                  className={cn(
+                    "mt-4 w-full flex items-center justify-center gap-2.5 rounded-full px-5 py-3 text-body font-semibold cursor-pointer transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    nextReady ? "bg-status-green/15 text-status-green" : "bg-white/5 text-muted hover:text-primary"
+                  )}
+                >
+                  {nextReady ? <CheckCircle2 className="h-4 w-4" strokeWidth={2} /> : <Circle className="h-4 w-4" strokeWidth={2} />}
+                  {nextReady ? "Speaker Ready" : "Mark Speaker Ready"}
+                </button>
               </div>
             )}
           </>
@@ -160,7 +207,7 @@ export default function RemotePage() {
             panel={panel}
             onClose={() => setPanel("none")}
             max={max}
-            currentNotes={live?.notes ?? ""}
+            currentNotes={live ? effectiveNotes(state, live) : ""}
             onRequestJump={(order) => {
               setConfirmKind({ jump: order });
               setPanel("none");

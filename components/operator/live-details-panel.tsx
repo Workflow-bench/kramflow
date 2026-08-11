@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { effectiveNotes, getLive, type LiveState, type Session } from "@/lib/types";
 import { useEventStore } from "@/lib/store";
 import { useCountdown } from "@/lib/use-countdown";
+import { formatClock } from "@/lib/display-engine/use-display-timer";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { ProgressBar } from "@/components/tv/progress-bar";
 import { HoldBadge } from "@/components/tv/hold-badge";
 import { SectionLabel } from "@/components/tv/section-label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 
 export function LiveDetailsPanel({ session }: { session: Session }) {
   const { state, setNotes } = useEventStore();
@@ -23,18 +25,28 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
   // Controlled + an explicit Save button, not save-on-blur — a stray click
   // away from the textarea (switching panels, clicking a control) used to
   // silently commit whatever was typed, with no review step.
-  const [draft, setDraft] = useState(live?.notes ?? "");
+  //
+  // Must seed/track against effectiveNotes (the notesOverrides-aware
+  // helper), not the raw live.notes field — live.notes is only the static
+  // cue-sheet value. Using the raw field meant this editor never showed a
+  // saved override (the operator's own prior edit, or one saved from
+  // /remote), even though every TV display correctly renders it via
+  // effectiveNotes() — the operator was the one person who couldn't see
+  // what was actually live, and typing from that stale blank baseline would
+  // silently clobber the real note on Save.
+  const liveNotes = live ? effectiveNotes(state, live) : "";
+  const [draft, setDraft] = useState(liveNotes);
   const [saving, setSaving] = useState(false);
   // Reset the draft whenever the live item or its stored notes change —
   // done during render (React's documented "adjusting state when a prop
   // changes" pattern) rather than in a useEffect, which would run an
   // extra render-after-commit cycle for what's really a synchronous
   // derivation.
-  const notesKey = `${live?.id ?? ""}:${live?.notes ?? ""}`;
+  const notesKey = `${live?.id ?? ""}:${liveNotes}`;
   const [trackedNotesKey, setTrackedNotesKey] = useState(notesKey);
   if (notesKey !== trackedNotesKey) {
     setTrackedNotesKey(notesKey);
-    setDraft(live?.notes ?? "");
+    setDraft(liveNotes);
   }
 
   if (isFinished) return <SessionSummary session={session} state={state} />;
@@ -47,7 +59,7 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
     );
   }
 
-  const dirty = draft !== (live.notes ?? "");
+  const dirty = draft !== liveNotes;
 
   async function handleSave() {
     if (!live) return;
@@ -70,8 +82,14 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
 
       {live.type === "item" && live.durationMinutes > 0 && (
         <div className="mt-8">
-          <p className="text-[3rem] leading-none font-semibold text-primary tabular-nums">
-            {countdown.label}
+          <p
+            className={cn(
+              "text-[3rem] leading-none font-semibold tabular-nums",
+              countdown.isOverrun ? "text-status-red" : "text-primary"
+            )}
+          >
+            {countdown.isOverrun ? "+" : ""}
+            {formatClock(countdown.remainingSeconds)}
           </p>
           <div className="mt-3">
             <ProgressBar
@@ -165,10 +183,22 @@ function SessionSummary({ session, state }: { session: Session; state: LiveState
     const finishIdx = rows.findIndex((r) => r.detail === "Finished session");
     if (finishIdx >= 0) {
       finishedAt = rows[finishIdx].created_at;
-      const startIdx = rows.findIndex((r, i) => i > finishIdx && r.detail === "Started");
-      if (startIdx >= 0) {
-        startedAt = rows[startIdx].created_at;
-        alertCount = rows.slice(startIdx + 1, finishIdx).filter((r) => r.detail?.startsWith("Alert:")).length;
+      // Walk backward in time from the finish looking for the "Started"
+      // that began this run. A "Switched session" entry in between means
+      // the log crossed into a different session's history before we found
+      // one — activity_log has no session_id, so that "Started" (if any)
+      // could belong to whatever session was active before the switch.
+      // Bail rather than pair mismatched Start/Finish across sessions.
+      for (let i = finishIdx + 1; i < rows.length; i++) {
+        const detail = rows[i].detail;
+        if (detail === "Switched session") break;
+        if (detail === "Started") {
+          startedAt = rows[i].created_at;
+          // rows is newest-first, so the run's window is the slice between
+          // the finish (older index bound) and this start (younger bound).
+          alertCount = rows.slice(finishIdx + 1, i).filter((r) => r.detail?.startsWith("Alert:")).length;
+          break;
+        }
       }
     }
   }
