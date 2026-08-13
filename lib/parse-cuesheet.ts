@@ -16,10 +16,23 @@ export interface ParsedSession {
   sort_order: number;
 }
 
+// Client-generated (crypto.randomUUID()) so replace_session_programs can
+// insert partitions and programs referencing them in the same call without
+// a temp_id-to-real-id mapping step — see supabase/schema.sql's comment on
+// that function.
+export interface ParsedPartition {
+  id: string;
+  session_id: string;
+  label: string;
+  sort_order: number;
+  start_time: string | null;
+}
+
 export interface ParsedProgram {
   sort_order: number;
   session_id: string;
   section_label: string | null;
+  partition_id: string | null;
   type: "item" | "break";
   name: string;
   description: string | null;
@@ -46,6 +59,7 @@ export interface ParsedProgram {
 
 export interface ParsedCueSheet {
   sessions: ParsedSession[];
+  partitions: ParsedPartition[];
   programs: ParsedProgram[];
 }
 
@@ -184,7 +198,10 @@ function parseSheet(sheetName: string, sheet: XLSX.WorkSheet, sessionSortOrder: 
 
   const sessionId = slugify(`${dayLabel}-${sessionLabel}`);
   const programs: ParsedProgram[] = [];
+  const partitions: ParsedPartition[] = [];
   let currentSection: string | null = null;
+  let currentPartitionId: string | null = null;
+  let partitionOrder = 0;
   let order = 0;
 
   for (let i = 3; i < rows.length; i++) {
@@ -221,6 +238,7 @@ function parseSheet(sheetName: string, sheet: XLSX.WorkSheet, sessionSortOrder: 
         sort_order: order,
         session_id: sessionId,
         section_label: currentSection,
+        partition_id: currentPartitionId,
         type: "item",
         name,
         description: description || null,
@@ -259,6 +277,7 @@ function parseSheet(sheetName: string, sheet: XLSX.WorkSheet, sessionSortOrder: 
         sort_order: order,
         session_id: sessionId,
         section_label: currentSection,
+        partition_id: currentPartitionId,
         type: "break",
         name: clean,
         description: null,
@@ -284,6 +303,15 @@ function parseSheet(sheetName: string, sheet: XLSX.WorkSheet, sessionSortOrder: 
       });
     } else if (isSectionLabel(label)) {
       currentSection = label;
+      partitionOrder += 1;
+      currentPartitionId = crypto.randomUUID();
+      partitions.push({
+        id: currentPartitionId,
+        session_id: sessionId,
+        label,
+        sort_order: partitionOrder,
+        start_time: null,
+      });
     }
     // Any other stray label row is ignored (defensive default).
   }
@@ -297,19 +325,21 @@ function parseSheet(sheetName: string, sheet: XLSX.WorkSheet, sessionSortOrder: 
     sort_order: sessionSortOrder,
   };
 
-  return { session, programs };
+  return { session, partitions, programs };
 }
 
 export function parseCueSheet(buffer: Buffer | ArrayBuffer): ParsedCueSheet {
   const wb = XLSX.read(buffer, { type: "buffer" });
   const sessions: ParsedSession[] = [];
+  const partitions: ParsedPartition[] = [];
   const programs: ParsedProgram[] = [];
 
   wb.SheetNames.forEach((name, i) => {
-    const { session, programs: sessionPrograms } = parseSheet(name, wb.Sheets[name], i);
+    const { session, partitions: sessionPartitions, programs: sessionPrograms } = parseSheet(name, wb.Sheets[name], i);
     sessions.push(session);
+    partitions.push(...sessionPartitions);
     programs.push(...sessionPrograms);
   });
 
-  return { sessions, programs };
+  return { sessions, partitions, programs };
 }

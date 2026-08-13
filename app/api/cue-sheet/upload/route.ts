@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/server/require-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { parseCueSheet, type ParsedProgram, type ParsedSession } from "@/lib/parse-cuesheet";
+import { parseCueSheet, type ParsedPartition, type ParsedProgram, type ParsedSession } from "@/lib/parse-cuesheet";
 import { programRowSchema } from "@/lib/validation/program";
 
 // POST a .xlsx file (multipart/form-data, field name "file").
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "No file provided" }, { status: 400 });
   }
 
-  let parsed: { sessions: ParsedSession[]; programs: ParsedProgram[] };
+  let parsed: { sessions: ParsedSession[]; partitions: ParsedPartition[]; programs: ParsedProgram[] };
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
     parsed = parseCueSheet(buffer);
@@ -83,6 +83,7 @@ export async function POST(request: Request) {
   const sessionIds = [...new Set(parsed.programs.map((p) => p.session_id))];
   const { error: replaceError } = await supabase.rpc("replace_session_programs", {
     p_session_ids: sessionIds,
+    p_partitions: parsed.partitions,
     p_programs: parsed.programs,
   });
   if (replaceError) return NextResponse.json({ ok: false, error: replaceError.message }, { status: 500 });

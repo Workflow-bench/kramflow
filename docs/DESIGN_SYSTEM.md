@@ -1,4 +1,17 @@
-# Design System
+# Design System — Stage surfaces
+
+> **Scope changed.** This file now governs the **Stage** surfaces only:
+> `/green-room`, `/av`, `/general`, `/presenter`, `/broadcast` — the TV and
+> display routes read from 5–15ft.
+>
+> The **Console** surfaces (`/operator`, `/operator/cue-sheet`) are governed
+> by [DESIGN.md](DESIGN.md).
+>
+> The two were previously one system, and the rules below — "No tables",
+> "No tiny text", "Cards should breathe", a 20px body and 84px hero — are
+> correct for a TV read across a room and wrong for a 244-row cue sheet
+> operated at 18–24in. Applying them to the console is what made it feel
+> bloated. Do not re-merge them.
 
 ## Four experiences, not one responsive page
 

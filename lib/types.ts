@@ -32,9 +32,20 @@ export interface Program {
   presenterRequirement: string | null;
   /** New — phone/walkie contact so Green Room can page a late presenter. */
   presenterContact: string | null;
+  /** Denormalized/legacy label — partitionId is the source of truth for
+   *  grouping now (see Partition below); kept for display fallback and
+   *  Excel-import compatibility. */
   sectionLabel: string | null;
+  /** Real partition identity, replacing sectionLabel-string-equality-plus-
+   *  adjacency as the way items are grouped. Null = unpartitioned. */
+  partitionId: string | null;
   scheduledStart: string | null;
   scheduledEnd: string | null;
+  /** When true, scheduledStart/scheduledEnd are derived from the owning
+   *  partition's startTime + cumulative durations (lib/schedule.ts),
+   *  overwritten at fetch time — not the literal value read from Excel
+   *  import. See lib/data/sessions.ts. */
+  timeIsComputed: boolean;
   durationMinutes: number;
   audio: AudioRequirement;
   video: VideoRequirement;
@@ -51,6 +62,22 @@ export interface Program {
   status: ProgramStatus;
   /** New — visual flag for critical cues on the operator's rundown list. */
   colorTag: string | null;
+  /** Which auditorium this item runs in — drives which production fields
+   *  are shown on the Add Item form (lib/form-config.ts's visibleIf). */
+  auditoriumId: string | null;
+}
+
+/** Real identity for what used to be just a freeform Program.sectionLabel
+ *  string grouped by array-adjacency comparison — see supabase/schema.sql's
+ *  partitions table comment for the full "partition bleeding" root cause. */
+export interface Partition {
+  id: string;
+  sessionId: string;
+  label: string;
+  sortOrder: number;
+  /** Anchor for the duration-cascade computation (lib/schedule.ts): "the
+   *  section's overall start time if it's the first item." */
+  startTime: string | null;
 }
 
 export interface Session {
@@ -60,6 +87,7 @@ export interface Session {
   dayLabel: string;
   sessionLabel: string;
   items: Program[];
+  partitions: Partition[];
 }
 
 export type AlertSeverity = "info" | "warning" | "critical";
