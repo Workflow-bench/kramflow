@@ -7,7 +7,13 @@ export function Input({
   return (
     <input
       className={cn(
-        "h-10 w-full rounded-lg bg-background border border-white/10 px-3.5 text-[15px] text-primary placeholder:text-muted-2 outline-none focus:border-white/25 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors",
+        "h-9 w-full rounded-control bg-background border border-line px-3 text-console-sm text-primary",
+        "placeholder:text-muted-2 outline-none",
+        "transition-[border-color,box-shadow] duration-[140ms] ease-out",
+        // Focus is the accent, never a status hue — a blue ring on a focused
+        // field would read as "this item is next".
+        "focus:border-accent focus:ring-[3px] focus:ring-accent/15",
+        "disabled:opacity-40 disabled:cursor-not-allowed",
         className
       )}
       {...props}

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
 import { MotionPreferences } from "@/components/motion-preferences";
 import "./globals.css";
@@ -8,6 +8,14 @@ const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+});
+
+// Scoped to measurement — start times, durations, countdowns, sort indices.
+// See the .tnum rule in globals.css for why titles stay on Inter.
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -25,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} dark h-full antialiased`}>
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} dark h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-background text-primary">
         <MotionPreferences>
           <ToastProvider>{children}</ToastProvider>

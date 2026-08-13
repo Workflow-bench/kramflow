@@ -6,13 +6,15 @@
 // swap is contained to this file plus lib/use-sessions.ts.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Program, Session } from "@/lib/types";
+import type { Partition, Program, Session } from "@/lib/types";
+import { computeScheduledTimes } from "@/lib/schedule";
 
 interface ProgramRow {
   id: string;
   sort_order: number;
   session_id: string;
   section_label: string | null;
+  partition_id: string | null;
   type: "item" | "break";
   name: string;
   description: string | null;
@@ -22,6 +24,7 @@ interface ProgramRow {
   duration: number;
   start_time: string | null;
   end_time: string | null;
+  time_is_computed: boolean;
   audio_mics: boolean;
   audio_track: boolean;
   video_sidescreen: "none" | "slides" | "live_feed";
@@ -35,6 +38,15 @@ interface ProgramRow {
   remarks: string | null;
   status: "confirmed" | "draft" | "cut" | "tbd";
   color_tag: string | null;
+  auditorium_id: string | null;
+}
+
+interface PartitionRow {
+  id: string;
+  session_id: string;
+  label: string;
+  sort_order: number;
+  start_time: string | null;
 }
 
 interface SessionRow {
@@ -62,8 +74,10 @@ export function mapProgramRow(row: ProgramRow): Program {
     presenterRequirement: row.presenter_requirement,
     presenterContact: row.presenter_contact,
     sectionLabel: row.section_label,
+    partitionId: row.partition_id,
     scheduledStart: row.start_time,
     scheduledEnd: row.end_time,
+    timeIsComputed: row.time_is_computed,
     durationMinutes: row.duration,
     audio: { mic: row.audio_mics, track: row.audio_track },
     video: { sidescreen: row.video_sidescreen, backdrop: row.backdrop, pptSide: row.video_ppt_needed },
@@ -79,10 +93,21 @@ export function mapProgramRow(row: ProgramRow): Program {
     notes: row.remarks,
     status: row.status,
     colorTag: row.color_tag,
+    auditoriumId: row.auditorium_id,
   };
 }
 
-function mapSessionRow(row: SessionRow, items: Program[]): Session {
+export function mapPartitionRow(row: PartitionRow): Partition {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    label: row.label,
+    sortOrder: row.sort_order,
+    startTime: row.start_time,
+  };
+}
+
+function mapSessionRow(row: SessionRow, items: Program[], partitions: Partition[]): Session {
   return {
     id: row.id,
     sheetName: row.sheet_name,
@@ -90,18 +115,24 @@ function mapSessionRow(row: SessionRow, items: Program[]): Session {
     dayLabel: row.day_label,
     sessionLabel: row.session_label,
     items,
+    partitions,
   };
 }
 
 export async function fetchSessions(client: SupabaseClient): Promise<Session[]> {
-  const [{ data: sessionRows, error: sessionsError }, { data: programRows, error: programsError }] =
-    await Promise.all([
-      client.from("sessions").select("*").order("sort_order", { ascending: true }),
-      client.from("programs").select("*").order("sort_order", { ascending: true }),
-    ]);
+  const [
+    { data: sessionRows, error: sessionsError },
+    { data: programRows, error: programsError },
+    { data: partitionRows, error: partitionsError },
+  ] = await Promise.all([
+    client.from("sessions").select("*").order("sort_order", { ascending: true }),
+    client.from("programs").select("*").order("sort_order", { ascending: true }),
+    client.from("partitions").select("*").order("sort_order", { ascending: true }),
+  ]);
 
   if (sessionsError) throw sessionsError;
   if (programsError) throw programsError;
+  if (partitionsError) throw partitionsError;
 
   const itemsBySession = new Map<string, Program[]>();
   for (const row of (programRows ?? []) as ProgramRow[]) {
@@ -110,7 +141,46 @@ export async function fetchSessions(client: SupabaseClient): Promise<Session[]> 
     itemsBySession.set(row.session_id, list);
   }
 
-  return ((sessionRows ?? []) as SessionRow[]).map((row) => mapSessionRow(row, itemsBySession.get(row.id) ?? []));
+  const partitionsBySession = new Map<string, Partition[]>();
+  for (const row of (partitionRows ?? []) as PartitionRow[]) {
+    const list = partitionsBySession.get(row.session_id) ?? [];
+    list.push(mapPartitionRow(row));
+    partitionsBySession.set(row.session_id, list);
+  }
+
+  // Item 6b's cascade is applied here, once, centrally — every consumer
+  // (av/general/green-room pages, the display-engine timeline, the cue
+  // sheet itself) reads scheduledStart/scheduledEnd off Program already
+  // resolved, so there's no separate "recompute" step any caller could
+  // forget to trigger after a duration/order change.
+  for (const [sessionId, items] of itemsBySession) {
+    const partitions = partitionsBySession.get(sessionId) ?? [];
+    if (partitions.length === 0) continue;
+    const partitionById = new Map(partitions.map((p) => [p.id, p]));
+    const byPartition = new Map<string, Program[]>();
+    for (const item of items) {
+      if (!item.partitionId) continue;
+      const list = byPartition.get(item.partitionId) ?? [];
+      list.push(item);
+      byPartition.set(item.partitionId, list);
+    }
+    const computedById = new Map<string, Program>();
+    for (const [partitionId, groupItems] of byPartition) {
+      const partition = partitionById.get(partitionId);
+      if (!partition) continue;
+      for (const computed of computeScheduledTimes(partition, groupItems)) {
+        computedById.set(computed.id, computed);
+      }
+    }
+    itemsBySession.set(
+      sessionId,
+      items.map((item) => computedById.get(item.id) ?? item)
+    );
+  }
+
+  return ((sessionRows ?? []) as SessionRow[]).map((row) =>
+    mapSessionRow(row, itemsBySession.get(row.id) ?? [], partitionsBySession.get(row.id) ?? [])
+  );
 }
 
 export function getSessionById(sessions: Session[], id: string): Session | undefined {

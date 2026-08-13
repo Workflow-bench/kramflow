@@ -1,11 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronUp, ChevronDown, Plus, Upload, Pencil, Trash2, CalendarPlus } from "lucide-react";
+import { ChevronLeft, GripVertical, Plus, Upload, Pencil, Trash2, CalendarPlus } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useSessions } from "@/lib/use-sessions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Panel } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
+import { ColorTagPicker } from "@/components/ui/color-tag-picker";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  ActionBar,
+  ActionBarButton,
+  ActionBarClear,
+  ActionBarCount,
+  ActionBarSeparator,
+} from "@/components/ui/action-bar";
 import { SectionLabel } from "@/components/tv/section-label";
 import { ProgramForm } from "@/components/forms/program-form";
 import { SessionForm } from "@/components/forms/session-form";
@@ -13,18 +42,52 @@ import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/toast";
 import type { ProgramInput } from "@/lib/validation/program";
 import type { ParsedProgram, ParsedSession } from "@/lib/parse-cuesheet";
-import type { Session } from "@/lib/types";
+import type { Partition, Session } from "@/lib/types";
+import { colorTagLabel, colorTagTone } from "@/lib/color-tags";
 import { cn } from "@/lib/utils";
 
 interface ProgramRow extends ParsedProgram {
   id: string;
   version: number;
+  time_is_computed: boolean;
+  auditorium_id: string | null;
+}
+
+interface PartitionGroup {
+  partitionId: string | null;
+  label: string | null;
+  rows: ProgramRow[];
+}
+
+// Groups an already sort_order-ordered row list into contiguous runs by
+// partitionId — real identity, not the old adjacency-plus-label-string
+// comparison (see supabase/schema.sql's partitions table comment). Each
+// group becomes its own SortableContext below, which is what actually
+// keeps drag-and-drop scoped within a single partition: a group's rows
+// are a separate DOM/dnd-kit subtree, so a drag physically can't land in
+// a different group.
+function groupByPartition(rows: ProgramRow[], partitionLabels: Map<string, string>): PartitionGroup[] {
+  const groups: PartitionGroup[] = [];
+  for (const row of rows) {
+    const last = groups[groups.length - 1];
+    if (last && last.partitionId === row.partition_id) {
+      last.rows.push(row);
+    } else {
+      groups.push({
+        partitionId: row.partition_id,
+        label: row.partition_id ? (partitionLabels.get(row.partition_id) ?? row.section_label) : null,
+        rows: [row],
+      });
+    }
+  }
+  return groups;
 }
 
 function rowToInput(row: ProgramRow): Partial<ProgramInput> {
   return {
     sessionId: row.session_id,
     sectionLabel: row.section_label,
+    partitionId: row.partition_id,
     type: row.type,
     name: row.name,
     description: row.description,
@@ -34,6 +97,7 @@ function rowToInput(row: ProgramRow): Partial<ProgramInput> {
     duration: row.duration,
     startTime: row.start_time,
     endTime: row.end_time,
+    timeIsComputed: row.time_is_computed,
     audioMics: row.audio_mics,
     audioTrack: row.audio_track,
     videoSidescreen: row.video_sidescreen,
@@ -47,6 +111,7 @@ function rowToInput(row: ProgramRow): Partial<ProgramInput> {
     remarks: row.remarks,
     status: row.status,
     colorTag: row.color_tag,
+    auditoriumId: row.auditorium_id,
   };
 }
 
@@ -58,9 +123,15 @@ export default function CueSheetPage() {
 
   const [rows, setRows] = useState<ProgramRow[] | null>(null);
   const [loadingRows, setLoadingRows] = useState(false);
+  const [auditoriums, setAuditoriums] = useState<{ id: string; name: string }[]>([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [reorderingId, setReorderingId] = useState<string | null>(null);
+  // Anchor for shift-click range select — the id of the last checkbox
+  // clicked without shift held, so a subsequent shift-click knows which
+  // range to select between "there" and "here."
+  const lastSelectedId = useRef<string | null>(null);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkApplying, setBulkApplying] = useState(false);
   const [panel, setPanel] = useState<
     "none" | "upload" | "create" | "create-session" | { edit: ProgramRow } | { editSession: Session }
   >("none");
@@ -96,6 +167,13 @@ export default function CueSheetPage() {
     if (activeSessionId && rows === null) loadRows(activeSessionId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId]);
+
+  useEffect(() => {
+    fetch("/api/auditoriums")
+      .then((res) => res.json())
+      .then((data) => setAuditoriums(data.auditoriums ?? []))
+      .catch(() => {});
+  }, []);
 
   function scheduleDelete(toRemove: ProgramRow[]) {
     const ids = toRemove.map((r) => r.id);
@@ -133,28 +211,120 @@ export default function CueSheetPage() {
     scheduleDelete(rowsToDelete);
   }
 
-  // sort_order swap only makes sense against the full, unfiltered order —
-  // reorder controls are hidden while a search is active (see the row
-  // markup below) so this always operates on real neighbors, not
-  // neighbors-in-the-filtered-view.
-  async function moveItem(row: ProgramRow, direction: -1 | 1) {
-    if (!rows) return;
-    const sorted = [...rows].sort((a, b) => a.sort_order - b.sort_order);
-    const idx = sorted.findIndex((r) => r.id === row.id);
-    const partner = sorted[idx + direction];
-    if (idx < 0 || !partner) return;
+  // Replaces the old up/down arrow swap-based reorder. Scoped to a single
+  // partition per drop (item 4's stated default: cross-partition drags are
+  // a separate explicit action via bulk-edit's "move to section," not a
+  // drag-and-drop drop target) — enforced by rendering one SortableContext
+  // per partition group below, so a drag physically can't land outside its
+  // own group's DOM subtree in the first place.
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
-    setReorderingId(row.id);
-    const res = await fetch("/api/programs/swap", {
+  async function handleDragEnd(group: PartitionGroup, groupIndex: number, allGroups: PartitionGroup[], event: DragEndEvent) {
+    setActiveDragId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = group.rows.findIndex((r) => r.id === active.id);
+    const newIndex = group.rows.findIndex((r) => r.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(group.rows, oldIndex, newIndex);
+    const movedId = String(active.id);
+    const newPosInGroup = reordered.findIndex((r) => r.id === movedId);
+    // Front of this partition's group — afterId is the last row of the
+    // *previous* group (so the move still lands inside this partition's
+    // own contiguous range), or null only if this is genuinely the first
+    // group in the whole session.
+    const afterId =
+      newPosInGroup === 0
+        ? (allGroups[groupIndex - 1]?.rows.at(-1)?.id ?? null)
+        : reordered[newPosInGroup - 1].id;
+
+    const res = await fetch("/api/programs/move", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idA: row.id, idB: partner.id }),
+      body: JSON.stringify({ id: movedId, afterId, partitionId: group.partitionId }),
     });
-    setReorderingId(null);
     if (res.ok) {
       loadRows(activeSessionId);
     } else {
       toast.error("Couldn't reorder — try again");
+    }
+  }
+
+  // shiftKey selects the whole range between the last-clicked checkbox and
+  // this one (against the current filtered/unfiltered order on screen —
+  // whatever's actually visible), matching the common spreadsheet/file-
+  // manager convention rather than inventing a new one.
+  function toggleSelected(id: string, checked: boolean, shiftKey: boolean) {
+    if (shiftKey && lastSelectedId.current && filteredRows) {
+      const ids = filteredRows.map((r) => r.id);
+      const a = ids.indexOf(lastSelectedId.current);
+      const b = ids.indexOf(id);
+      if (a !== -1 && b !== -1) {
+        const [from, to] = a < b ? [a, b] : [b, a];
+        setSelected((prev) => {
+          const next = new Set(prev);
+          for (let i = from; i <= to; i++) next.add(ids[i]);
+          return next;
+        });
+        lastSelectedId.current = id;
+        return;
+      }
+    }
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+    lastSelectedId.current = id;
+  }
+
+  async function handleBulkFieldEdit(field: string, value: string | null) {
+    setBulkApplying(true);
+    try {
+      const res = await fetch("/api/programs/bulk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selected), field, value }),
+      });
+      if (res.ok) {
+        toast.success(`${selected.size} items updated`);
+        setBulkEditOpen(false);
+        setSelected(new Set());
+        loadRows(activeSessionId);
+      } else {
+        toast.error("Couldn't apply the bulk edit — try again");
+      }
+    } finally {
+      setBulkApplying(false);
+    }
+  }
+
+  async function handleBulkMoveToPartition(partitionId: string | null) {
+    setBulkApplying(true);
+    try {
+      const res = await fetch("/api/programs/bulk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selected), partitionId }),
+      });
+      if (res.ok) {
+        toast.success(`${selected.size} items moved`);
+        setBulkEditOpen(false);
+        setSelected(new Set());
+        loadRows(activeSessionId);
+      } else {
+        toast.error("Couldn't move the selected items — try again");
+      }
+    } finally {
+      setBulkApplying(false);
     }
   }
 
@@ -171,98 +341,145 @@ export default function CueSheetPage() {
   }
 
   const sessionOptions = sessions.map((s) => ({ id: s.id, label: `${s.dayLabel} • ${s.sessionLabel}` }));
+  const partitionsBySession = Object.fromEntries(sessions.map((s) => [s.id, s.partitions]));
+  const eventNameBySession = Object.fromEntries(sessions.map((s) => [s.id, s.eventName]));
 
   // No search existed here at all — unlike Broadcast Center, which has
   // one for a much shorter list. At the real cue sheet's actual scale
   // (244 items across 6 sessions, measured directly from the real file),
   // scrolling to find one item by eye stops being reasonable.
-  const filteredRows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q || !rows) return rows;
-    return rows.filter(
-      (r) => r.name.toLowerCase().includes(q) || (r.presenter ?? "").toLowerCase().includes(q)
-    );
-  }, [rows, search]);
+  const searchQuery = search.trim().toLowerCase();
+  const filteredRows = !searchQuery || !rows
+    ? rows
+    : rows.filter(
+        (r) => r.name.toLowerCase().includes(searchQuery) || (r.presenter ?? "").toLowerCase().includes(searchQuery)
+      );
+
+  const activeSession = sessions.find((s) => s.id === activeSessionId);
+  const partitionLabels = new Map((activeSession?.partitions ?? []).map((p) => [p.id, p.label]));
+  // Grouping (and therefore drag-and-drop) only makes sense against the
+  // full, unfiltered order — same reasoning the old arrow-based reorder
+  // already had for hiding its controls while a search is active, since a
+  // filtered view's neighbors aren't real neighbors.
+  const partitionGroups = searchQuery || !filteredRows ? [] : groupByPartition(filteredRows, partitionLabels);
+
+  // Cmd/Ctrl+A selects the visible rows, Escape clears. Both competitors
+  // ship these and the sheet feels markedly slower without them — at 244
+  // items, reaching for a button to select a session's worth of rows is
+  // the difference between a two-second edit and a ten-second one.
+  // Guarded on an editable target so they never steal a real text
+  // selection out of the search box or a form field.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (panel !== "none") return;
+      const el = e.target as HTMLElement | null;
+      const typing =
+        el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el?.isContentEditable;
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a" && !typing) {
+        if (!filteredRows || filteredRows.length === 0) return;
+        e.preventDefault();
+        setSelected(new Set(filteredRows.map((r) => r.id)));
+        return;
+      }
+      if (e.key === "Escape" && !typing) {
+        if (bulkEditOpen) {
+          setBulkEditOpen(false);
+        } else if (selected.size > 0) {
+          setSelected(new Set());
+        }
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [panel, filteredRows, bulkEditOpen, selected.size]);
 
   return (
-    <main className="min-h-screen bg-background">
-      <header className="flex items-center justify-between px-6 py-5 border-b border-white/5">
-        <div className="flex items-center gap-4">
-          <Link href="/operator">
-            <Button variant="ghost" size="sm">
-              <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-              Operator
+    <main className="min-h-screen bg-background pb-28">
+      {/* Two-tier header. Tier one is identity and the two things you do to
+          the sheet as a whole; tier two is navigation — which session am I
+          editing — promoted out of the page body so it stays put while the
+          list scrolls. The session switcher is the most-used control here
+          and used to sit below the fold of a long sheet. */}
+      <header className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-line-soft">
+        <div className="flex items-center justify-between gap-4 px-4 sm:px-6 h-14">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/operator" className="shrink-0">
+              <Button variant="ghost" size="sm">
+                <ChevronLeft className="h-4 w-4" strokeWidth={2} />
+                <span className="hidden sm:inline">Operator</span>
+              </Button>
+            </Link>
+            <span aria-hidden="true" className="h-4 w-px bg-line shrink-0" />
+            <h1 className="text-console-lg text-primary truncate">Cue Sheet</h1>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="secondary" size="sm" onClick={() => setPanel("upload")}>
+              <Upload className="h-4 w-4" strokeWidth={2} />
+              <span className="hidden sm:inline">Import Excel</span>
             </Button>
-          </Link>
-          <h1 className="text-title text-primary">Cue Sheet</h1>
+            <Button variant="primary" size="sm" onClick={() => setPanel("create")} disabled={!activeSessionId}>
+              <Plus className="h-4 w-4" strokeWidth={2} />
+              Add item
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setPanel("upload")}>
-            <Upload className="h-4 w-4" strokeWidth={2} />
-            Import Excel
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => setPanel("create")} disabled={!activeSessionId}>
-            <Plus className="h-4 w-4" strokeWidth={2} />
-            Add item
+
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 h-14 border-t border-line-soft">
+          {sessions.length === 0 ? (
+            <p className="text-console-sm text-muted-2">No sessions yet — add one to start building the cue sheet.</p>
+          ) : (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Select
+                value={activeSessionId}
+                onChange={(id) => {
+                  setSelectedSessionId(id);
+                  setSearch("");
+                  setSelected(new Set());
+                  loadRows(id);
+                }}
+                options={sessions.map((s) => ({
+                  value: s.id,
+                  label: `${s.dayLabel} • ${s.sessionLabel}`,
+                  description: s.eventName,
+                }))}
+                placeholder="Select a session…"
+                aria-label="Session"
+                size="lg"
+                className="flex-1 min-w-0 sm:flex-none sm:w-[19rem]"
+              />
+              {activeSession && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Edit session"
+                    onClick={() => setPanel({ editSession: activeSession })}
+                  >
+                    <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+                    <span className="hidden md:inline">Edit</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Delete session"
+                    onClick={() => deleteSessionConfirm.request(activeSession)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                    <span className="hidden md:inline">Delete</span>
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => setPanel("create-session")} className="shrink-0">
+            <CalendarPlus className="h-4 w-4" strokeWidth={2} />
+            <span className="hidden sm:inline">New session</span>
           </Button>
         </div>
       </header>
 
-      <div className="px-6 py-6 max-w-4xl mx-auto flex flex-col gap-8">
-        <div>
-          <div className="flex items-center justify-between">
-            <SectionLabel>Session</SectionLabel>
-            <Button variant="ghost" size="sm" onClick={() => setPanel("create-session")}>
-              <CalendarPlus className="h-4 w-4" strokeWidth={2} />
-              New session
-            </Button>
-          </div>
-          <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
-            {sessions.length === 0 && (
-              <p className="text-body text-muted py-2">
-                No sessions yet. Add one to start building the cue sheet.
-              </p>
-            )}
-            {sessions.map((s) => (
-              <div
-                key={s.id}
-                className={cn(
-                  "group shrink-0 flex items-center gap-1 rounded-full pl-3 pr-1.5 py-1.5 text-caption font-medium transition-colors",
-                  s.id === activeSessionId ? "bg-card text-primary" : "text-muted-2 hover:text-primary"
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedSessionId(s.id);
-                    setSearch("");
-                    setSelected(new Set());
-                    loadRows(s.id);
-                  }}
-                  className="cursor-pointer"
-                >
-                  {s.dayLabel} • {s.sessionLabel}
-                </button>
-                <button
-                  type="button"
-                  aria-label="Edit session"
-                  onClick={() => setPanel({ editSession: s })}
-                  className="opacity-0 group-hover:opacity-100 hover:text-primary cursor-pointer p-1 shrink-0 transition-opacity"
-                >
-                  <Pencil className="h-3 w-3" strokeWidth={2} />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Delete session"
-                  onClick={() => deleteSessionConfirm.request(s)}
-                  className="opacity-0 group-hover:opacity-100 hover:text-status-red cursor-pointer p-1 shrink-0 transition-opacity"
-                >
-                  <Trash2 className="h-3 w-3" strokeWidth={2} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto flex flex-col gap-6">
 
         {panel === "create-session" && (
           <SessionForm
@@ -299,10 +516,13 @@ export default function CueSheetPage() {
         )}
 
         {panel === "create" && activeSessionId && (
-          <div className="rounded-2xl bg-card p-6">
+          <Panel className="p-5">
             <ProgramForm
               sessionId={activeSessionId}
               sessionOptions={sessionOptions}
+              partitionsBySession={partitionsBySession}
+              eventNameBySession={eventNameBySession}
+              auditoriums={auditoriums}
               onSaved={() => {
                 setPanel("none");
                 toast.success("Item added");
@@ -310,14 +530,17 @@ export default function CueSheetPage() {
               }}
               onCancel={() => setPanel("none")}
             />
-          </div>
+          </Panel>
         )}
 
         {typeof panel === "object" && "edit" in panel && (
-          <div className="rounded-2xl bg-card p-6">
+          <Panel className="p-5">
             <ProgramForm
               sessionId={panel.edit.session_id}
               sessionOptions={sessionOptions}
+              partitionsBySession={partitionsBySession}
+              eventNameBySession={eventNameBySession}
+              auditoriums={auditoriums}
               programId={panel.edit.id}
               initial={rowToInput(panel.edit)}
               version={panel.edit.version}
@@ -328,137 +551,257 @@ export default function CueSheetPage() {
               }}
               onCancel={() => setPanel("none")}
             />
-          </div>
+          </Panel>
         )}
 
         {panel === "none" && (
           <div>
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <SectionLabel>
-                Items{rows && rows.length > 0 ? ` (${filteredRows?.length ?? 0} of ${rows.length})` : ""}
-              </SectionLabel>
-              {rows && rows.length > 0 && (
-                <Input
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setSelected(new Set());
-                  }}
-                  placeholder="Search items or presenters…"
-                  aria-label="Search items"
-                  className="w-full sm:w-64 h-9"
-                />
-              )}
-            </div>
-
-            {selected.size > 0 && (
-              <div className="mt-3 flex items-center justify-between gap-4 rounded-lg bg-card border border-white/10 px-4 py-2.5">
-                <p className="text-caption text-muted">{selected.size} selected</p>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
-                    Clear
-                  </Button>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-baseline gap-2.5 min-w-0">
+                <h2 className="text-console-md text-primary">Items</h2>
+                {rows && rows.length > 0 && (
+                  <span className="tnum text-console-meta text-muted-2">
+                    {filteredRows?.length ?? 0} of {rows.length}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-1 sm:flex-none justify-end">
+                {filteredRows && filteredRows.length > 0 && (
                   <Button
-                    variant="danger"
+                    variant="ghost"
                     size="sm"
+                    className="whitespace-nowrap shrink-0"
                     onClick={() => {
-                      const toDelete = (filteredRows ?? []).filter((r) => selected.has(r.id));
-                      deleteConfirm.request(toDelete);
+                      const allSelected = filteredRows.every((r) => selected.has(r.id));
+                      setSelected(allSelected ? new Set() : new Set(filteredRows.map((r) => r.id)));
                     }}
                   >
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                    Delete {selected.size}
+                    {filteredRows.every((r) => selected.has(r.id)) ? "Deselect all" : "Select all"}
                   </Button>
-                </div>
+                )}
+                {rows && rows.length > 0 && (
+                  <Input
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setSelected(new Set());
+                    }}
+                    placeholder="Search…"
+                    aria-label="Search items or presenters"
+                    className="min-w-0 flex-1 sm:flex-none sm:w-60"
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Column header. The old list had none, so the three right-hand
+                numeric columns were unlabelled and you had to infer which
+                was start and which was duration. */}
+            {filteredRows && filteredRows.length > 0 && (
+              <div className="mt-4 grid grid-cols-[1.25rem_1rem_1fr_4.25rem] sm:grid-cols-[1.25rem_1rem_2rem_1fr_5rem_3.25rem_4.25rem] items-center gap-2 sm:gap-3 px-3 pb-2 border-b border-line">
+                <span />
+                <span />
+                <span className="hidden sm:block text-console-label text-muted-2 text-right">#</span>
+                <span className="text-console-label text-muted-2">Item</span>
+                <span className="hidden sm:block text-console-label text-muted-2 text-right">Start</span>
+                <span className="hidden sm:block text-console-label text-muted-2 text-right">Dur</span>
+                <span />
               </div>
             )}
 
-            <div className="mt-3 flex flex-col">
-              {loadingRows && <p className="text-body text-muted py-4">Loading…</p>}
-              {!loadingRows && rows === null && (
-                <p className="text-body text-muted py-4">Select a session to view its items.</p>
-              )}
-              {!loadingRows && rows?.length === 0 && <p className="text-body text-muted py-4">No items yet.</p>}
-              {!loadingRows && rows && rows.length > 0 && filteredRows?.length === 0 && (
-                <p className="text-body text-muted py-4">No items match &ldquo;{search}&rdquo;.</p>
-              )}
-              {filteredRows?.map((row, i) => (
-                <div
-                  key={row.id}
-                  className="flex items-center gap-3 py-3 px-3 rounded-lg border-b border-white/5 hover:bg-card transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected.has(row.id)}
-                    onChange={(e) => {
-                      setSelected((prev) => {
-                        const next = new Set(prev);
-                        if (e.target.checked) next.add(row.id);
-                        else next.delete(row.id);
-                        return next;
-                      });
-                    }}
-                    aria-label={`Select ${row.name}`}
-                    className="h-4 w-4 rounded border-white/20 bg-background accent-white cursor-pointer shrink-0"
-                  />
-                  <span className="w-8 text-caption text-muted-2 tabular-nums shrink-0">{row.sort_order}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-body text-primary truncate">{row.name}</p>
-                    {row.presenter && <p className="text-caption text-muted-2 truncate">{row.presenter}</p>}
-                  </div>
-                  <span className="hidden sm:inline text-caption text-muted-2 tabular-nums shrink-0 w-16 text-right">
-                    {row.start_time ?? ""}
-                  </span>
-                  <span className="hidden sm:inline text-caption text-muted-2 tabular-nums shrink-0 w-10 text-right">
-                    {row.duration > 0 ? `${row.duration}m` : "—"}
-                  </span>
-                  {row.status !== "confirmed" && (
-                    <span className="text-caption text-muted-2 uppercase tracking-wide shrink-0">{row.status}</span>
-                  )}
-                  {!search.trim() && (
-                    <div className="hidden sm:flex flex-col shrink-0">
-                      <button
-                        type="button"
-                        aria-label="Move up"
-                        disabled={i === 0 || reorderingId !== null}
-                        onClick={() => moveItem(row, -1)}
-                        className="text-muted-2 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer p-0.5"
-                      >
-                        <ChevronUp className="h-3.5 w-3.5" strokeWidth={2} />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="Move down"
-                        disabled={i === (filteredRows?.length ?? 0) - 1 || reorderingId !== null}
-                        onClick={() => moveItem(row, 1)}
-                        className="text-muted-2 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer p-0.5"
-                      >
-                        <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
-                      </button>
+            <div className="flex flex-col">
+              {/* Skeleton rows rather than a spinner — the list's shape is
+                  known before its content is, so reserving it stops the
+                  header and action bar jumping when rows land. */}
+              {loadingRows && (
+                <div className="flex flex-col" aria-busy="true" aria-label="Loading items">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 px-3 min-h-11 border-b border-line-soft">
+                      <span className="h-3 w-3 rounded bg-card-hover motion-safe:animate-pulse" />
+                      <span
+                        className="h-3 rounded bg-card-hover motion-safe:animate-pulse"
+                        style={{ width: `${38 + ((i * 13) % 34)}%` }}
+                      />
                     </div>
-                  )}
-                  <button
-                    type="button"
-                    aria-label="Edit"
-                    onClick={() => setPanel({ edit: row })}
-                    className="text-muted-2 hover:text-primary cursor-pointer p-1.5 shrink-0"
-                  >
-                    <Pencil className="h-4 w-4" strokeWidth={2} />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Delete"
-                    onClick={() => deleteConfirm.request([row])}
-                    className="text-muted-2 hover:text-status-red cursor-pointer p-1.5 shrink-0"
-                  >
-                    <Trash2 className="h-4 w-4" strokeWidth={2} />
-                  </button>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {!loadingRows && rows === null && (
+                // Two different nothings. With zero sessions there is
+                // nothing above to pick, so telling someone to pick one is
+                // a dead end — offer the action that actually unblocks them.
+                sessions.length === 0 ? (
+                  <EmptyState
+                    title="No sessions yet"
+                    body="A session is one block of your event — Friday Evening, Saturday Morning. Create one, or import a rundown and get its sessions for free."
+                    action={
+                      <div className="flex items-center gap-2">
+                        <Button variant="primary" size="sm" onClick={() => setPanel("create-session")}>
+                          <CalendarPlus className="h-4 w-4" strokeWidth={2} />
+                          New session
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={() => setPanel("upload")}>
+                          <Upload className="h-4 w-4" strokeWidth={2} />
+                          Import Excel
+                        </Button>
+                      </div>
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    title="No session selected"
+                    body="Pick a session above to load its cue sheet."
+                  />
+                )
+              )}
+
+              {!loadingRows && rows?.length === 0 && (
+                <EmptyState
+                  title="This session is empty"
+                  body="Add items one at a time, or import an existing rundown from Excel."
+                  action={
+                    <div className="flex items-center gap-2">
+                      <Button variant="primary" size="sm" onClick={() => setPanel("create")}>
+                        <Plus className="h-4 w-4" strokeWidth={2} />
+                        Add item
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => setPanel("upload")}>
+                        <Upload className="h-4 w-4" strokeWidth={2} />
+                        Import Excel
+                      </Button>
+                    </div>
+                  }
+                />
+              )}
+
+              {!loadingRows && rows && rows.length > 0 && filteredRows?.length === 0 && (
+                <EmptyState
+                  title={`Nothing matches “${search}”`}
+                  body="Search covers item names and presenters."
+                  action={
+                    <Button variant="secondary" size="sm" onClick={() => setSearch("")}>
+                      Clear search
+                    </Button>
+                  }
+                />
+              )}
+
+              {/* Searching flattens to a plain list — filtered neighbors
+                  aren't real neighbors, so grouping/dragging is meaningless
+                  here, same reasoning the old arrow-based reorder already
+                  used to hide its controls during a search. */}
+              {search.trim() &&
+                filteredRows?.map((row) => {
+                  const isSelected = selected.has(row.id);
+                  return (
+                    <ProgramRowView
+                      key={row.id}
+                      row={row}
+                      selected={isSelected}
+                      onToggleSelect={(checked, shiftKey) => toggleSelected(row.id, checked, shiftKey)}
+                      onEdit={() => setPanel({ edit: row })}
+                      onDelete={() => deleteConfirm.request([row])}
+                    />
+                  );
+                })}
+
+              {!search.trim() &&
+                partitionGroups.map((group, groupIndex) => (
+                  <div key={group.partitionId ?? `unpartitioned-${groupIndex}`}>
+                    {group.label && (
+                      // Sticky so you always know which section you're
+                      // inside while scrolling a forty-row run — the old
+                      // header scrolled away and partitions became
+                      // indistinguishable from each other mid-list.
+                      <div className="sticky top-28 z-10 flex items-center gap-2.5 bg-background/95 backdrop-blur-sm px-3 py-2 mt-6 first:mt-0 border-b border-line">
+                        <h3 className="text-console-label text-muted truncate">{group.label}</h3>
+                        <span className="tnum text-console-label text-muted-2 shrink-0">
+                          {group.rows.length}
+                        </span>
+                        <span aria-hidden="true" className="flex-1 h-px bg-line-soft" />
+                        {group.partitionId && (
+                          <PartitionStartTimeEditor
+                            partition={activeSession?.partitions.find((p) => p.id === group.partitionId) ?? null}
+                            onSaved={() => activeSessionId && loadRows(activeSessionId)}
+                          />
+                        )}
+                      </div>
+                    )}
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragStart={(e) => setActiveDragId(String(e.active.id))}
+                      onDragEnd={(e) => handleDragEnd(group, groupIndex, partitionGroups, e)}
+                      onDragCancel={() => setActiveDragId(null)}
+                    >
+                      <SortableContext items={group.rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+                        {group.rows.map((row) => {
+                          const isSelected = selected.has(row.id);
+                          return (
+                          <SortableProgramRow
+                            key={row.id}
+                            row={row}
+                            selected={isSelected}
+                            isDragging={activeDragId === row.id}
+                            onToggleSelect={(checked, shiftKey) => toggleSelected(row.id, checked, shiftKey)}
+                            onEdit={() => setPanel({ edit: row })}
+                            onDelete={() => deleteConfirm.request([row])}
+                          />
+                          );
+                        })}
+                      </SortableContext>
+                    </DndContext>
+                  </div>
+                ))}
             </div>
           </div>
         )}
       </div>
+
+      {/* Floating, so ticking a checkbox never shoves 244 rows down the
+          page. Bulk-edit opens as a popover above the bar rather than
+          expanding it in place, for the same reason. */}
+      {panel === "none" && selected.size > 0 && (
+        <ActionBar>
+          {bulkEditOpen && (
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[calc(100vw-2rem)] rounded-panel bg-card border border-line p-3 shadow-[0_12px_32px_rgba(0,0,0,0.5)] motion-safe:animate-rise">
+              <BulkEditPanel
+                partitions={activeSession?.partitions ?? []}
+                applying={bulkApplying}
+                onApplyField={handleBulkFieldEdit}
+                onApplyPartition={handleBulkMoveToPartition}
+                onCancel={() => setBulkEditOpen(false)}
+              />
+            </div>
+          )}
+
+          <ActionBarClear onClick={() => setSelected(new Set())} />
+          <ActionBarCount n={selected.size}>selected</ActionBarCount>
+          {filteredRows && !filteredRows.every((r) => selected.has(r.id)) && (
+            <ActionBarButton
+              tone="accent"
+              onClick={() => setSelected(new Set(filteredRows.map((r) => r.id)))}
+            >
+              Select all {filteredRows.length}
+            </ActionBarButton>
+          )}
+          <ActionBarSeparator />
+          <ActionBarButton onClick={() => setBulkEditOpen((o) => !o)} aria-expanded={bulkEditOpen}>
+            Edit fields
+          </ActionBarButton>
+          <ActionBarSeparator />
+          <ActionBarButton
+            tone="danger"
+            onClick={() => {
+              const toDelete = (filteredRows ?? []).filter((r) => selected.has(r.id));
+              deleteConfirm.request(toDelete);
+            }}
+          >
+            Delete
+          </ActionBarButton>
+        </ActionBar>
+      )}
 
       <ConfirmDialog
         open={deleteConfirm.isOpen}
@@ -484,6 +827,384 @@ export default function CueSheetPage() {
         onCancel={deleteSessionConfirm.cancel}
       />
     </main>
+  );
+}
+
+interface ProgramRowViewProps {
+  row: ProgramRow;
+  selected: boolean;
+  onToggleSelect: (checked: boolean, shiftKey: boolean) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  dragHandle?: React.ReactNode;
+  style?: React.CSSProperties;
+  className?: string;
+  setNodeRef?: (el: HTMLElement | null) => void;
+}
+
+// Shared row content — used directly (no drag handle) for the flattened
+// search-results list, and wrapped by SortableProgramRow below for the
+// normal grouped/draggable view.
+function ProgramRowView({
+  row,
+  selected,
+  onToggleSelect,
+  onEdit,
+  onDelete,
+  dragHandle,
+  style,
+  className,
+  setNodeRef,
+}: ProgramRowViewProps) {
+  const shiftKeyRef = useRef(false);
+  const colorTone = colorTagTone(row.color_tag);
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      data-selected={selected || undefined}
+      className={cn(
+        // 44px min-height meets the touch target exactly and is the
+        // tightest a draggable row may go. Grid rather than flex so the
+        // numeric columns line up with the header above them.
+        //
+        // Two layouts, not one shrunk: at >=640px the index, start and
+        // duration each get their own aligned column; below that they'd
+        // leave ~80px for the title, so they collapse out of the grid
+        // (display:none removes them as grid items, hence the different
+        // column count) and the time reappears on the meta line instead.
+        "group grid min-h-11 items-center gap-2 sm:gap-3 px-3 py-2 border-b border-line-soft",
+        "grid-cols-[1.25rem_1rem_1fr_4.25rem] sm:grid-cols-[1.25rem_1rem_2rem_1fr_5rem_3.25rem_4.25rem]",
+        "transition-colors duration-[140ms] ease-out",
+        // Selection is a full tinted fill, not a coloured left border —
+        // both competitors fill the row, and a 2px accent rail on every
+        // list item is the tell of a design that had no better idea.
+        selected ? "bg-accent/10 hover:bg-accent/15" : "hover:bg-card-hover",
+        className
+      )}
+    >
+      {dragHandle}
+      <input
+        type="checkbox"
+        checked={selected}
+        // Letting the native toggle run and reading it back in onChange
+        // (rather than preventDefault-ing the click and computing the next
+        // state ourselves) avoids a real React quirk: calling
+        // preventDefault() in a checkbox's onClick can leave React's
+        // internal DOM-value tracker believing `checked` was already
+        // applied when the actual DOM node never flipped, so the box
+        // silently stays visually unchecked despite the right state
+        // reaching React. onClick here only captures shiftKey (onChange
+        // events don't carry modifier keys) into a ref for onChange to read.
+        onClick={(e) => {
+          shiftKeyRef.current = e.shiftKey;
+        }}
+        onChange={(e) => {
+          onToggleSelect(e.target.checked, shiftKeyRef.current);
+        }}
+        aria-label={`Select ${row.name}`}
+        className="h-4 w-4 rounded-[3px] border-line bg-background accent-accent cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      />
+
+      <span className="tnum hidden sm:block text-console-meta text-muted-2 text-right">{row.sort_order}</span>
+
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Colour tag as a dot beside the title rather than a chip on its
+              own line — at this density a chip per row doubles the row
+              height for information that only needs to be glanceable. The
+              accessible name carries the word, so it is never colour-only. */}
+          {row.color_tag && (
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full shrink-0",
+                colorTone === "green" && "bg-status-green",
+                colorTone === "blue" && "bg-status-blue",
+                colorTone === "orange" && "bg-status-orange",
+                colorTone === "red" && "bg-status-red",
+                colorTone === "muted" && "bg-muted-2"
+              )}
+              title={colorTagLabel(row.color_tag) ?? undefined}
+            >
+              <span className="sr-only">{colorTagLabel(row.color_tag)}</span>
+            </span>
+          )}
+          <p className="text-console-row text-primary truncate">{row.name}</p>
+          {row.status !== "confirmed" && (
+            <span className="text-console-label text-muted-2 shrink-0 uppercase">{row.status}</span>
+          )}
+        </div>
+        {/* Below 640px the numeric columns are gone, so start and duration
+            ride here instead — a rundown row without its time is useless. */}
+        <p className="text-console-meta text-muted-2 truncate">
+          <span className="tnum sm:hidden">
+            {row.sort_order}
+            {" · "}
+            {row.start_time ?? "—"}
+            {row.duration > 0 ? ` · ${row.duration}m` : ""}
+          </span>
+          {row.presenter && <span className="sm:hidden">{" · "}</span>}
+          {row.presenter}
+        </p>
+      </div>
+
+      <span className="tnum hidden sm:block text-console-meta text-muted text-right">
+        {row.start_time ?? "—"}
+      </span>
+      <span className="tnum hidden sm:block text-console-meta text-muted-2 text-right">
+        {row.duration > 0 ? `${row.duration}m` : "—"}
+      </span>
+
+      {/* Row actions stay dim until the row is hovered or focused within,
+          so 40 rows of icons don't compete with the content. They remain
+          keyboard-reachable at all times. */}
+      <div className="flex items-center justify-end gap-0.5 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-[140ms]">
+        <button
+          type="button"
+          aria-label={`Edit ${row.name}`}
+          onClick={onEdit}
+          className="grid h-8 w-8 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[140ms] hover:bg-raised hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+        </button>
+        <button
+          type="button"
+          aria-label={`Delete ${row.name}`}
+          onClick={onDelete}
+          className="grid h-8 w-8 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[140ms] hover:bg-status-red/12 hover:text-status-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Drag handle is a dedicated grip icon, not the whole row — the row also
+// hosts its own checkbox/edit/delete clicks, and dnd-kit's listeners
+// capture pointerdown for drag initiation, which would fight those clicks
+// if attached to the whole row instead of one small handle.
+function SortableProgramRow({
+  row,
+  selected,
+  isDragging,
+  onToggleSelect,
+  onEdit,
+  onDelete,
+}: {
+  row: ProgramRow;
+  selected: boolean;
+  isDragging: boolean;
+  onToggleSelect: (checked: boolean, shiftKey: boolean) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: row.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    // The row being dragged lifts rather than just fading: raised surface,
+    // a real offset shadow, and it stays above its neighbours. A flat 0.4
+    // opacity read as "disabled", not "in hand".
+    opacity: isDragging ? 0.85 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: isDragging ? "relative" : undefined,
+    boxShadow: isDragging ? "0 8px 24px rgba(0,0,0,0.45)" : undefined,
+  };
+
+  return (
+    <ProgramRowView
+      row={row}
+      selected={selected}
+      onToggleSelect={onToggleSelect}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      setNodeRef={setNodeRef}
+      style={style}
+      className={isDragging ? "bg-raised rounded-control border-b-transparent" : undefined}
+      dragHandle={
+        <button
+          type="button"
+          aria-label={`Drag to reorder ${row.name}`}
+          {...attributes}
+          {...listeners}
+          // Was `hidden sm:flex`, which removed drag-to-reorder entirely on
+          // touch — the one place a grip matters most, since there is no
+          // keyboard alternative on a tablet. Now always present, with a
+          // hit area that spills past the 20px grid column via -mx.
+          className={cn(
+            "flex items-center justify-center -mx-2 px-2 h-11 shrink-0 touch-none",
+            "text-muted-2 cursor-grab active:cursor-grabbing",
+            "transition-colors duration-[140ms] hover:text-primary",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:rounded-control"
+          )}
+        >
+          <GripVertical className="h-4 w-4" strokeWidth={2} />
+        </button>
+      }
+    />
+  );
+}
+
+// Inline editor for a section's start_time — the anchor item 6b's duration
+// cascade walks forward from. Click-to-edit rather than a permanent input
+// since most partition headers never need touching once set; keeping it
+// out of the way matches how the rest of the queue sheet stays read-first.
+function PartitionStartTimeEditor({ partition, onSaved }: { partition: Partition | null; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(partition?.startTime ?? "");
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  if (!partition) return null;
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setValue(partition.startTime ?? "");
+          setEditing(true);
+        }}
+        className="shrink-0 rounded-chip px-1.5 py-0.5 text-console-label text-muted-2 cursor-pointer transition-colors duration-[140ms] hover:bg-raised hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        {partition.startTime ? <span className="tnum">Starts {partition.startTime}</span> : "Set start time"}
+      </button>
+    );
+  }
+
+  async function commit() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/partitions/${partition!.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ start_time: value.trim() || null }),
+      });
+      if (!res.ok) {
+        toast.error("Couldn't update the section's start time");
+        return;
+      }
+      setEditing(false);
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <input
+      autoFocus
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") setEditing(false);
+      }}
+      disabled={saving}
+      placeholder="9:00 AM"
+      aria-label="Section start time"
+      className="tnum h-7 w-24 shrink-0 rounded-control border border-line bg-background px-2 text-console-meta text-primary outline-none transition-[border-color,box-shadow] duration-[140ms] focus:border-accent focus:ring-[3px] focus:ring-accent/15"
+    />
+  );
+}
+
+type BulkEditKind = "color_tag" | "status" | "partition";
+
+// Applies one field/value to every selected item at once (item 5's other
+// half — bulk delete already existed). Color tag uses the same constrained
+// swatch picker as the Add Item form (item 6a) rather than a second,
+// inconsistent free-text input.
+function BulkEditPanel({
+  partitions,
+  applying,
+  onApplyField,
+  onApplyPartition,
+  onCancel,
+}: {
+  partitions: Partition[];
+  applying: boolean;
+  onApplyField: (field: string, value: string | null) => void;
+  onApplyPartition: (partitionId: string | null) => void;
+  onCancel: () => void;
+}) {
+  const [kind, setKind] = useState<BulkEditKind>("color_tag");
+  const [colorValue, setColorValue] = useState<string | null>(null);
+  const [statusValue, setStatusValue] = useState("confirmed");
+  const [partitionValue, setPartitionValue] = useState<string>("");
+
+  return (
+    <div className="flex flex-col gap-3 min-w-[19rem]">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        <span className="text-console-label text-muted-2 shrink-0">Set</span>
+        {/* One dropdown primitive throughout — the native <select> that used
+            to sit here rendered the OS menu, which on this dark ground was
+            a light popup in the middle of a console. */}
+        <Select
+          value={kind}
+          onChange={(v) => setKind(v as BulkEditKind)}
+          options={[
+            { value: "color_tag", label: "Color tag" },
+            { value: "status", label: "Status" },
+            { value: "partition", label: "Section" },
+          ]}
+          searchable={false}
+          aria-label="Field to apply"
+          className="w-full sm:w-40"
+        />
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {kind === "color_tag" && (
+          <ColorTagPicker value={colorValue} onChange={setColorValue} aria-label="Color tag value" />
+        )}
+        {kind === "status" && (
+          <Select
+            value={statusValue}
+            onChange={setStatusValue}
+            options={[
+              { value: "confirmed", label: "Confirmed" },
+              { value: "draft", label: "Draft" },
+              { value: "cut", label: "Cut" },
+              { value: "tbd", label: "TBD" },
+            ]}
+            searchable={false}
+            aria-label="Status value"
+            className="w-full sm:w-56"
+          />
+        )}
+        {kind === "partition" && (
+          <Select
+            value={partitionValue}
+            onChange={setPartitionValue}
+            options={[{ value: "", label: "No section" }, ...partitions.map((p) => ({ value: p.id, label: p.label }))]}
+            placeholder="Choose a section…"
+            aria-label="Section value"
+            className="w-full sm:w-56"
+          />
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 pt-1 border-t border-line-soft">
+        <Button
+          variant="primary"
+          size="sm"
+          loading={applying}
+          className="mt-2"
+          onClick={() => {
+            if (kind === "color_tag") onApplyField("color_tag", colorValue);
+            else if (kind === "status") onApplyField("status", statusValue);
+            else onApplyPartition(partitionValue || null);
+          }}
+        >
+          Apply to selection
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onCancel} disabled={applying} className="mt-2">
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }
 

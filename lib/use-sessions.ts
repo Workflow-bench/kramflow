@@ -43,6 +43,12 @@ function ensureBrowserListeners() {
     .channel("sessions-programs-sync")
     .on("postgres_changes", { event: "*", schema: "public", table: "sessions" }, () => hydrate())
     .on("postgres_changes", { event: "*", schema: "public", table: "programs" }, () => hydrate())
+    // fetchSessions() joins partitions/auditoriums into the same Session[]
+    // shape it returns — without these, a stand-alone edit to either (not
+    // accompanied by a sessions/programs change, e.g. renaming a partition
+    // or an auditorium) wouldn't trigger a refetch at all.
+    .on("postgres_changes", { event: "*", schema: "public", table: "partitions" }, () => hydrate())
+    .on("postgres_changes", { event: "*", schema: "public", table: "auditoriums" }, () => hydrate())
     .subscribe();
 }
 

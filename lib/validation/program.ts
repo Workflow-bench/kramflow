@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { COLOR_TAG_VALUES } from "@/lib/color-tags";
 
 // Single source of truth for the programs table's fixed column list (see
 // supabase/schema.sql and the restructure plan's "Data model" section).
@@ -13,6 +14,7 @@ export const programInputSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
   sessionId: z.string().min(1, "Session is required"),
   sectionLabel: nullableString,
+  partitionId: z.string().uuid().nullable().optional(),
   type: z.enum(["item", "break"]).default("item"),
   name: z.string().trim().min(1, "Name is required"),
   description: nullableString,
@@ -22,6 +24,7 @@ export const programInputSchema = z.object({
   duration: z.number().int().min(0, "Duration can't be negative").default(0),
   startTime: nullableString,
   endTime: nullableString,
+  timeIsComputed: z.boolean().default(false),
   audioMics: z.boolean().default(false),
   audioTrack: z.boolean().default(false),
   videoSidescreen: z.enum(["none", "slides", "live_feed"]).default("none"),
@@ -34,7 +37,8 @@ export const programInputSchema = z.object({
   curtains: z.enum(["open", "closed"]).nullable().optional(),
   remarks: nullableString,
   status: z.enum(["confirmed", "draft", "cut", "tbd"]).default("confirmed"),
-  colorTag: nullableString,
+  colorTag: z.enum(COLOR_TAG_VALUES).nullable().optional(),
+  auditoriumId: z.string().uuid().nullable().optional(),
 });
 
 export type ProgramInput = z.infer<typeof programInputSchema>;
@@ -53,6 +57,7 @@ export function toProgramRow(input: Partial<ProgramInput>) {
   if (input.sortOrder !== undefined) row.sort_order = input.sortOrder;
   if (input.sessionId !== undefined) row.session_id = input.sessionId;
   if (input.sectionLabel !== undefined) row.section_label = input.sectionLabel;
+  if (input.partitionId !== undefined) row.partition_id = input.partitionId;
   if (input.type !== undefined) row.type = input.type;
   if (input.name !== undefined) row.name = input.name;
   if (input.description !== undefined) row.description = input.description;
@@ -62,6 +67,7 @@ export function toProgramRow(input: Partial<ProgramInput>) {
   if (input.duration !== undefined) row.duration = input.duration;
   if (input.startTime !== undefined) row.start_time = input.startTime;
   if (input.endTime !== undefined) row.end_time = input.endTime;
+  if (input.timeIsComputed !== undefined) row.time_is_computed = input.timeIsComputed;
   if (input.audioMics !== undefined) row.audio_mics = input.audioMics;
   if (input.audioTrack !== undefined) row.audio_track = input.audioTrack;
   if (input.videoSidescreen !== undefined) row.video_sidescreen = input.videoSidescreen;
@@ -75,6 +81,7 @@ export function toProgramRow(input: Partial<ProgramInput>) {
   if (input.remarks !== undefined) row.remarks = input.remarks;
   if (input.status !== undefined) row.status = input.status;
   if (input.colorTag !== undefined) row.color_tag = input.colorTag;
+  if (input.auditoriumId !== undefined) row.auditorium_id = input.auditoriumId;
   return row;
 }
 
@@ -87,6 +94,7 @@ export const programRowSchema = z.object({
   sort_order: z.number().int().min(0),
   session_id: z.string().min(1),
   section_label: nullableString,
+  partition_id: z.string().uuid().nullable().optional(),
   type: z.enum(["item", "break"]),
   name: z.string().trim().min(1, "Name is required"),
   description: nullableString,
@@ -108,5 +116,5 @@ export const programRowSchema = z.object({
   curtains: z.enum(["open", "closed"]).nullable().optional(),
   remarks: nullableString,
   status: z.enum(["confirmed", "draft", "cut", "tbd"]),
-  color_tag: nullableString,
+  color_tag: z.enum(COLOR_TAG_VALUES).nullable().optional(),
 });

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/server/require-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { programInputSchema, toProgramRow } from "@/lib/validation/program";
+import { mapProgramRow, mapPartitionRow } from "@/lib/data/sessions";
+import { computeScheduledTimes } from "@/lib/schedule";
 
 export async function GET(request: Request) {
   const sessionId = new URL(request.url).searchParams.get("sessionId");
@@ -10,7 +12,40 @@ export async function GET(request: Request) {
   if (sessionId) query = query.eq("session_id", sessionId);
   const { data, error } = await query;
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, programs: data });
+
+  // Same cascade the read-only display surfaces get via lib/data/sessions.ts's
+  // fetchSessions — applied here too so the cue sheet editor itself (which
+  // reads programs through this route, not fetchSessions) shows live
+  // computed times rather than whatever was last written to the row.
+  let partitionQuery = supabase.from("partitions").select("*");
+  if (sessionId) partitionQuery = partitionQuery.eq("session_id", sessionId);
+  const { data: partitionRows, error: partitionsError } = await partitionQuery;
+  if (partitionsError) return NextResponse.json({ ok: false, error: partitionsError.message }, { status: 500 });
+
+  const rows = data ?? [];
+  const partitions = (partitionRows ?? []).map(mapPartitionRow);
+  const partitionById = new Map(partitions.map((p) => [p.id, p]));
+  const byPartition = new Map<string, ReturnType<typeof mapProgramRow>[]>();
+  for (const row of rows) {
+    if (!row.partition_id) continue;
+    const list = byPartition.get(row.partition_id) ?? [];
+    list.push(mapProgramRow(row));
+    byPartition.set(row.partition_id, list);
+  }
+  const computedTimesById = new Map<string, { start: string | null; end: string | null }>();
+  for (const [partitionId, items] of byPartition) {
+    const partition = partitionById.get(partitionId);
+    if (!partition) continue;
+    for (const item of computeScheduledTimes(partition, items)) {
+      computedTimesById.set(item.id, { start: item.scheduledStart, end: item.scheduledEnd });
+    }
+  }
+  const programs = rows.map((row) => {
+    const computed = computedTimesById.get(row.id);
+    return computed ? { ...row, start_time: computed.start, end_time: computed.end } : row;
+  });
+
+  return NextResponse.json({ ok: true, programs });
 }
 
 export async function POST(request: Request) {
@@ -32,13 +67,18 @@ export async function POST(request: Request) {
   const supabase = supabaseAdmin();
   const row = toProgramRow(parsed.data);
 
-  // Atomic: computing "next sort_order" and inserting used to be two
-  // separate round trips, which could collide when two "Add item" requests
-  // landed close together (see supabase/schema.sql's insert_program_at_end
-  // for the race and the pg_advisory_xact_lock fix).
-  const { data, error } = await supabase.rpc("insert_program_at_end", {
+  // insert_program_into_partition (supabase/schema.sql) replaces
+  // insert_program_at_end — the old RPC always appended to the end of the
+  // whole session regardless of section_label, one of "partition
+  // bleeding"'s two root causes (a new item tagged into an earlier
+  // partition could land physically after a later partition's items). The
+  // new RPC computes the correct position as the end of the target
+  // partition's own contiguous run and atomically shifts everything after
+  // it — safe because programs_session_sort_order_key is now a deferrable
+  // constraint, not a plain index.
+  const { data, error } = await supabase.rpc("insert_program_into_partition", {
     p_session_id: parsed.data.sessionId,
-    p_sort_order: parsed.data.sortOrder ?? null,
+    p_partition_id: row.partition_id ?? null,
     p_section_label: row.section_label ?? null,
     p_type: row.type,
     p_name: row.name,
@@ -62,6 +102,8 @@ export async function POST(request: Request) {
     p_remarks: row.remarks ?? null,
     p_status: row.status,
     p_color_tag: row.color_tag ?? null,
+    p_auditorium_id: row.auditorium_id ?? null,
+    p_time_is_computed: row.time_is_computed ?? false,
   });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, program: Array.isArray(data) ? data[0] : data });

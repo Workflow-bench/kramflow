@@ -4,6 +4,7 @@ import { useEventStore } from "@/lib/store";
 import { effectiveNotes, type Session, type Program } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { colorTagLabel, colorTagTone } from "@/lib/color-tags";
 import { cn } from "@/lib/utils";
 
 type RowStatus = "upcoming" | "live" | "done";
@@ -12,6 +13,16 @@ export function ProgramList({ session }: { session: Session }) {
   const { state, jumpTo } = useEventStore();
   const currentOrder = state.progressBySession[state.activeSessionId]?.currentOrder ?? null;
   const jumpConfirm = useConfirmDialog<Program>();
+
+  // Real identity, not adjacency-plus-string-equality — see
+  // supabase/schema.sql's partitions table comment for the "partition
+  // bleeding" bug this replaces (two runs sharing identical label text
+  // merging with no visible seam; a reorder that broke label-contiguity
+  // spawning a spurious duplicate header). Grouping by partitionId can't
+  // exhibit either failure mode: two partitions never share an id even if
+  // their labels happen to match, and a header only ever appears where a
+  // partition genuinely starts.
+  const partitionsById = new Map(session.partitions.map((p) => [p.id, p]));
 
   return (
     <div className="flex flex-col">
@@ -24,8 +35,9 @@ export function ProgramList({ session }: { session: Session }) {
               : program.order < currentOrder
                 ? "done"
                 : "upcoming";
-        const previousSection = index > 0 ? session.items[index - 1].sectionLabel : null;
-        const showSectionHeader = program.sectionLabel && program.sectionLabel !== previousSection;
+        const previousPartitionId = index > 0 ? session.items[index - 1].partitionId : null;
+        const showSectionHeader = program.partitionId !== null && program.partitionId !== previousPartitionId;
+        const sectionHeaderLabel = program.partitionId ? partitionsById.get(program.partitionId)?.label : null;
         const hasNotes = effectiveNotes(state, program).length > 0;
 
         // Clicking the already-live row would be a no-op jump — skip the
@@ -34,10 +46,14 @@ export function ProgramList({ session }: { session: Session }) {
 
         return (
           <div key={program.id}>
-            {showSectionHeader && (
-              <p className="text-caption uppercase tracking-wide text-muted-2 mt-10 mb-3 px-3 first:mt-0">
-                {program.sectionLabel}
-              </p>
+            {showSectionHeader && sectionHeaderLabel && (
+              // Sticky, so you always know which section is on screen while
+              // scrolling a long session. Matches the cue sheet's treatment
+              // so the two lists read as the same object seen twice.
+              <div className="sticky top-0 z-10 flex items-center gap-2.5 bg-background/95 backdrop-blur-sm px-3 py-2 mt-6 first:mt-0 border-b border-line">
+                <h3 className="text-console-label text-muted truncate">{sectionHeaderLabel}</h3>
+                <span aria-hidden="true" className="flex-1 h-px bg-line-soft" />
+              </div>
             )}
             {program.type === "break" ? (
               <BreakRow program={program} status={status} onClick={onClick} />
@@ -86,14 +102,18 @@ function BreakRow({
       aria-current={status === "live" ? "true" : undefined}
       aria-label={`Jump to ${program.title}${status === "live" ? " (live)" : ""}`}
       className={cn(
-        "w-full flex items-center gap-3 sm:gap-5 py-3 px-3 rounded-lg transition-colors border-b border-white/5 text-left",
-        onClick ? "cursor-pointer hover:bg-card" : "cursor-default",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        status === "live" && "bg-card"
+        "w-full flex items-center gap-3 sm:gap-4 py-2 px-3 min-h-11 text-left border-b border-line-soft",
+        "transition-colors duration-[140ms] ease-out",
+        onClick ? "cursor-pointer hover:bg-card-hover" : "cursor-default",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        status === "live" && "bg-status-green/10",
+        status === "done" && "opacity-55"
       )}
     >
-      <span className="w-6 sm:w-7 text-caption text-muted-2 tabular-nums shrink-0">{program.order}</span>
-      <p className="text-body text-muted-2 italic flex-1 min-w-0 truncate">{program.title}</p>
+      <span className="tnum w-6 text-console-meta text-muted-2 shrink-0 text-right">{program.order}</span>
+      {/* Breaks read as a gap in the run, not an item in it — dimmer and
+          set in italic so the eye skips them when scanning for cues. */}
+      <p className="text-console-meta text-muted-2 italic flex-1 min-w-0 truncate">{program.title}</p>
       <StatusBadge status={status} />
     </button>
   );
@@ -122,43 +142,70 @@ function ItemRow({
       aria-current={status === "live" ? "true" : undefined}
       aria-label={`Jump to ${program.title}${program.presenter ? `, ${program.presenter}` : ""}${status === "live" ? " (live)" : status === "done" ? " (done)" : ""}`}
       className={cn(
-        "w-full flex items-start sm:items-center gap-3 sm:gap-5 py-4 sm:py-5 px-3 rounded-lg transition-colors border-b border-white/5 text-left",
-        onClick ? "cursor-pointer hover:bg-card" : "cursor-default",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        status === "live" && "bg-card"
+        "w-full flex items-start sm:items-center gap-3 sm:gap-4 py-2.5 px-3 min-h-11 text-left border-b border-line-soft",
+        "transition-colors duration-[140ms] ease-out",
+        onClick ? "cursor-pointer hover:bg-card-hover" : "cursor-default",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        // Position axis: the on-air row gets a full tinted fill, so it is
+        // unmissable from across a gallery. Health (on time / wrapping /
+        // over) is carried separately by the duration cell below, because
+        // an item is routinely current *and* running long, and those are
+        // two different facts that must not share one colour channel.
+        status === "live" && "bg-status-green/10",
+        status === "done" && "opacity-55"
       )}
     >
-      <span className="w-6 sm:w-7 text-caption text-muted-2 tabular-nums shrink-0 pt-0.5 sm:pt-0">
+      <span className="tnum w-6 text-console-meta text-muted-2 shrink-0 pt-0.5 sm:pt-0 text-right">
         {program.order}
       </span>
 
       <div className="min-w-0 flex-1">
-        {program.kicker && <p className="text-caption text-muted-2 truncate">{program.kicker}</p>}
+        {program.kicker && <p className="text-console-meta text-muted-2 truncate">{program.kicker}</p>}
         <div className="flex items-center gap-2">
-          <p className="text-body text-primary truncate">{program.title}</p>
-          {hasNotes && (
-            <span className="h-1.5 w-1.5 rounded-full bg-status-orange shrink-0" title="Has stage notes" />
-          )}
           {program.colorTag && (
-            <Badge tone="orange" className="shrink-0 normal-case">
-              {program.colorTag}
-            </Badge>
+            <span
+              aria-hidden="true"
+              className={cn(
+                "h-2 w-2 rounded-full shrink-0",
+                colorTagTone(program.colorTag) === "green" && "bg-status-green",
+                colorTagTone(program.colorTag) === "blue" && "bg-status-blue",
+                colorTagTone(program.colorTag) === "orange" && "bg-status-orange",
+                colorTagTone(program.colorTag) === "red" && "bg-status-red",
+                colorTagTone(program.colorTag) === "muted" && "bg-muted-2"
+              )}
+            />
+          )}
+          <p className={cn("text-console-row truncate", status === "live" ? "text-primary font-semibold" : "text-primary")}>
+            {program.title}
+          </p>
+          {program.colorTag && <span className="sr-only">{colorTagLabel(program.colorTag)}</span>}
+          {hasNotes && (
+            <span
+              className="h-1.5 w-1.5 rounded-full bg-status-orange shrink-0"
+              title="Has stage notes"
+              aria-label="Has stage notes"
+            />
           )}
         </div>
 
         {/* Mobile: presenter/time/duration collapse under the title instead
             of fighting it for space in fixed-width columns. */}
-        {meta && <p className="text-caption text-muted-2 truncate mt-0.5 sm:hidden">{meta}</p>}
+        {meta && <p className="text-console-meta text-muted-2 truncate mt-0.5 sm:hidden">{meta}</p>}
         {program.presenter && (
-          <p className="hidden sm:block text-caption text-muted truncate mt-0.5">{program.presenter}</p>
+          <p className="hidden sm:block text-console-meta text-muted-2 truncate mt-0.5">{program.presenter}</p>
         )}
       </div>
 
-      <span className="hidden sm:inline text-caption text-muted-2 tabular-nums shrink-0 w-16 text-right">
+      <span className="tnum hidden sm:inline text-console-meta text-muted shrink-0 w-16 text-right">
         {program.scheduledStart ?? ""}
       </span>
 
-      <span className="hidden sm:inline text-caption text-muted-2 tabular-nums shrink-0 w-12 text-right">
+      <span
+        className={cn(
+          "tnum hidden sm:inline text-console-meta shrink-0 w-12 text-right",
+          status === "live" ? "text-status-green font-semibold" : "text-muted-2"
+        )}
+      >
         {program.durationMinutes > 0 ? `${program.durationMinutes}m` : "—"}
       </span>
 

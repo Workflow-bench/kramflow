@@ -20,7 +20,7 @@ import { supabaseAdmin } from "../lib/supabase/server";
 async function main() {
   const filePath = path.join(process.cwd(), "data", "cue-sheet.xlsx");
   const buffer = readFileSync(filePath);
-  const { sessions, programs } = parseCueSheet(buffer);
+  const { sessions, partitions, programs } = parseCueSheet(buffer);
 
   const supabase = supabaseAdmin();
 
@@ -35,6 +35,7 @@ async function main() {
   const sessionIds = [...new Set(programs.map((p) => p.session_id))];
   const { error: replaceError } = await supabase.rpc("replace_session_programs", {
     p_session_ids: sessionIds,
+    p_partitions: partitions,
     p_programs: programs,
   });
   if (replaceError) throw replaceError;
