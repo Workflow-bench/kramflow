@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/server/require-auth";
+import { requireEventOwner } from "@/lib/server/require-event-owner";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-// Atomically swaps two programs' sort_order — see
-// supabase/schema.sql's swap_program_order for why this needs to be a
-// single transaction rather than two sequential PATCHes.
+// Atomically swaps two programs' sort_order — see supabase/schema.sql's
+// swap_program_order for why this needs to be a single transaction, and
+// for its own internal check that idA/idB belong to the same event (which
+// says nothing about whether *that* event is the caller's — confirmed
+// here first).
 export async function POST(request: Request) {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
-
   let body: unknown;
   try {
     body = await request.json();
@@ -16,12 +15,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { idA, idB } = (body ?? {}) as Record<string, unknown>;
+  const { eventId, idA, idB } = (body ?? {}) as Record<string, unknown>;
+  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  if (auth instanceof NextResponse) return auth;
+
   if (typeof idA !== "string" || typeof idB !== "string") {
     return NextResponse.json({ ok: false, error: "idA and idB are required" }, { status: 400 });
   }
 
   const supabase = supabaseAdmin();
+  const { data: owned, error: ownedError } = await supabase
+    .from("programs")
+    .select("id")
+    .eq("event_id", auth.eventId)
+    .in("id", [idA, idB]);
+  if (ownedError) return NextResponse.json({ ok: false, error: ownedError.message }, { status: 500 });
+  if (!owned || owned.length !== 2) {
+    return NextResponse.json({ ok: false, error: "One or both items don't belong to this event" }, { status: 403 });
+  }
+
   const { error } = await supabase.rpc("swap_program_order", { p_id_a: idA, p_id_b: idB });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

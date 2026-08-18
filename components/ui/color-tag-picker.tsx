@@ -39,7 +39,7 @@ export function ColorTagPicker({
         onClick={() => onChange(null)}
         className={cn(
           "flex items-center gap-1.5 rounded-chip border px-2.5 py-1.5 text-console-meta cursor-pointer",
-          "transition-[background-color,border-color,color] duration-[140ms] ease-out",
+          "transition-[background-color,border-color,color] duration-[110ms] ease-out",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           value === null
             ? "border-white/25 bg-raised text-primary"
@@ -59,7 +59,7 @@ export function ColorTagPicker({
           onClick={() => onChange(tag.value)}
           className={cn(
             "flex items-center gap-1.5 rounded-chip border px-2.5 py-1.5 text-console-meta cursor-pointer",
-            "transition-[background-color,border-color,color] duration-[140ms] ease-out",
+            "transition-[background-color,border-color,color] duration-[110ms] ease-out",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             value === tag.value
               ? selectedRing[tag.tone]

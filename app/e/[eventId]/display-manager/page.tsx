@@ -5,11 +5,13 @@ import Link from "next/link";
 import { ArrowLeft, Camera, Eye, Maximize, RotateCw, Send, Trash2, Wifi, WifiOff, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/components/auth/auth-context";
+import { useEventId } from "@/lib/event-context";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
 import { getDisplayStatus } from "@/lib/display-engine/use-register-display";
 import type { DisplayInstance, DisplayType } from "@/lib/display-engine/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { SectionLabel } from "@/components/tv/section-label";
 import { ProfileEditor } from "@/components/display-engine/profile-editor";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -26,9 +28,6 @@ const DISPLAY_TYPES: { value: DisplayType; label: string; route: string }[] = [
   { value: "custom", label: "Custom", route: "/presenter" },
 ];
 
-const inputField =
-  "bg-card border border-white/10 rounded-lg px-2.5 py-1.5 text-[14px] text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-
 function routeFor(type: DisplayType): string {
   return DISPLAY_TYPES.find((t) => t.value === type)?.route ?? "/presenter";
 }
@@ -40,6 +39,7 @@ type ConfirmAction =
   | { kind: "remove-all-offline"; ids: string[] };
 
 export default function DisplayManagerPage() {
+  const eventId = useEventId();
   const { lock } = useAuth();
   const { state: engine, renameDisplay, assignDisplay, removeDisplay, sendCommand } = useDisplayEngine();
   const transportStatus = useTransportStatus();
@@ -135,7 +135,7 @@ export default function DisplayManagerPage() {
     <main className="min-h-screen bg-background">
       <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5">
         <div className="flex items-center gap-4 min-w-0">
-          <Link href="/operator">
+          <Link href={`/e/${eventId}/operator`}>
             <Button variant="ghost" size="sm" aria-label="Back to Operator Dashboard">
               <ArrowLeft className="h-4 w-4" strokeWidth={2} />
             </Button>
@@ -226,7 +226,7 @@ export default function DisplayManagerPage() {
             </div>
             <div className="rounded-card overflow-hidden bg-background aspect-video">
               <iframe
-                src={routeFor(previewing.type)}
+                src={`${routeFor(previewing.type)}?eventId=${encodeURIComponent(eventId)}`}
                 title={`${previewing.name} preview`}
                 className="w-full h-full border-0"
               />
@@ -343,13 +343,13 @@ function DisplayRow({
             className={cn("h-2.5 w-2.5 rounded-full shrink-0", status === "online" ? "bg-status-green" : "bg-status-red")}
             title={status}
           />
-          <input
+          <Input
             value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)}
             onBlur={() => {
               if (nameDraft.trim() && nameDraft !== display.name) onRename(nameDraft.trim());
             }}
-            className={cn(inputField, "font-medium min-w-0")}
+            className="font-medium min-w-0 w-auto"
             aria-label="Display name"
           />
         </div>
@@ -360,43 +360,34 @@ function DisplayRow({
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mt-4">
-        <select
+        <Select
           value={display.type}
-          onChange={(e) => onRequestTypeChange(e.target.value as DisplayType)}
-          className={inputField}
+          onChange={(v) => onRequestTypeChange(v as DisplayType)}
+          options={DISPLAY_TYPES}
+          searchable={false}
+          className="w-auto min-w-[9rem]"
           aria-label="Display type"
-        >
-          {DISPLAY_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </select>
+        />
 
-        <input
+        <Input
           value={roomDraft}
           onChange={(e) => setRoomDraft(e.target.value)}
           onBlur={() => {
             if (roomDraft !== (display.room ?? "")) onRoom(roomDraft || null);
           }}
           placeholder="Room (optional)"
-          className={cn(inputField, "w-40")}
+          className="w-40"
           aria-label="Room"
         />
 
-        <select
+        <Select
           value={display.profileId ?? ""}
-          onChange={(e) => onProfile(e.target.value || null)}
-          className={inputField}
+          onChange={(v) => onProfile(v || null)}
+          options={[{ value: "", label: "No profile" }, ...profiles.map((p) => ({ value: p.id, label: p.name }))]}
+          searchable={false}
+          className="w-auto min-w-[9rem]"
           aria-label="Profile"
-        >
-          <option value="">No profile</option>
-          {profiles.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mt-4">

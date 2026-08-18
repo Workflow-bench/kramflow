@@ -6,8 +6,14 @@ import { useDisplayEngine } from "@/lib/display-engine/store";
 import { newId } from "@/lib/display-engine/store";
 import type { DisplayProfile, DisplayWidget } from "@/lib/display-engine/types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { SectionLabel } from "@/components/tv/section-label";
-import { cn } from "@/lib/utils";
+
+const ORIENTATION_OPTIONS = [
+  { value: "landscape", label: "Landscape" },
+  { value: "portrait", label: "Portrait" },
+];
 
 const ALL_WIDGETS: DisplayWidget[] = [
   "timer",
@@ -24,9 +30,6 @@ const ALL_WIDGETS: DisplayWidget[] = [
   "running-order",
   "session-name",
 ];
-
-const inputField =
-  "bg-card border border-white/10 rounded-lg px-2.5 py-1.5 text-[14px] text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function blankProfile(): DisplayProfile {
   return {
@@ -84,22 +87,19 @@ export function ProfileEditor() {
               </div>
               {!profile.builtIn && (
                 <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(profile)}
-                    aria-label="Edit profile"
-                    className="h-7 w-7 rounded-full flex items-center justify-center text-muted hover:text-primary hover:bg-white/5 cursor-pointer"
-                  >
+                  <Button variant="ghost" size="sm" square onClick={() => setEditing(profile)} aria-label="Edit profile">
                     <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    square
                     onClick={() => deleteProfile(profile.id)}
                     aria-label="Delete profile"
-                    className="h-7 w-7 rounded-full flex items-center justify-center text-muted hover:text-status-red hover:bg-white/5 cursor-pointer"
+                    className="hover:text-status-red"
                   >
                     <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -115,17 +115,13 @@ export function ProfileEditor() {
             <div className="mt-6 flex flex-col gap-4">
               <label className="flex flex-col gap-1.5">
                 <span className="text-caption text-muted-2">Name</span>
-                <input
-                  value={editing.name}
-                  onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                  className={inputField}
-                />
+                <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
               </label>
 
               <div className="grid grid-cols-2 gap-4">
                 <label className="flex flex-col gap-1.5">
                   <span className="text-caption text-muted-2">Font Scale</span>
-                  <input
+                  <Input
                     type="number"
                     step={0.1}
                     min={0.5}
@@ -134,24 +130,21 @@ export function ProfileEditor() {
                     onChange={(e) =>
                       setEditing({ ...editing, layout: { ...editing.layout, fontScale: Number(e.target.value) } })
                     }
-                    className={inputField}
                   />
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-caption text-muted-2">Orientation</span>
-                  <select
+                  <Select
                     value={editing.layout.orientation}
-                    onChange={(e) =>
+                    onChange={(v) =>
                       setEditing({
                         ...editing,
-                        layout: { ...editing.layout, orientation: e.target.value as "landscape" | "portrait" },
+                        layout: { ...editing.layout, orientation: v as "landscape" | "portrait" },
                       })
                     }
-                    className={inputField}
-                  >
-                    <option value="landscape">Landscape</option>
-                    <option value="portrait">Portrait</option>
-                  </select>
+                    options={ORIENTATION_OPTIONS}
+                    searchable={false}
+                  />
                 </label>
               </div>
 
@@ -163,7 +156,7 @@ export function ProfileEditor() {
                     onChange={(e) =>
                       setEditing({ ...editing, layout: { ...editing.layout, showProgressRing: e.target.checked } })
                     }
-                    className="h-4 w-4"
+                    className="h-4 w-4 rounded-control border-line bg-background accent-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   />
                   <span className="text-caption text-muted">Show progress ring</span>
                 </label>
@@ -174,7 +167,7 @@ export function ProfileEditor() {
                     onChange={(e) =>
                       setEditing({ ...editing, layout: { ...editing.layout, showClock: e.target.checked } })
                     }
-                    className="h-4 w-4"
+                    className="h-4 w-4 rounded-control border-line bg-background accent-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   />
                   <span className="text-caption text-muted">Show clock</span>
                 </label>
@@ -182,13 +175,12 @@ export function ProfileEditor() {
 
               <label className="flex flex-col gap-1.5">
                 <span className="text-caption text-muted-2">Refresh Interval (ms)</span>
-                <input
+                <Input
                   type="number"
                   min={1000}
                   step={1000}
                   value={editing.refreshMs}
                   onChange={(e) => setEditing({ ...editing, refreshMs: Number(e.target.value) })}
-                  className={inputField}
                 />
               </label>
 
@@ -196,19 +188,16 @@ export function ProfileEditor() {
                 <span className="text-caption text-muted-2">Visible Widgets</span>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {ALL_WIDGETS.map((widget) => (
-                    <button
+                    <Button
                       key={widget}
                       type="button"
+                      variant={editing.visibleWidgets.includes(widget) ? "primary" : "secondary"}
+                      size="sm"
                       onClick={() => toggleWidget(widget)}
-                      className={cn(
-                        "text-caption font-medium px-3 py-1.5 rounded-full cursor-pointer transition-colors",
-                        editing.visibleWidgets.includes(widget)
-                          ? "bg-primary text-background"
-                          : "bg-card text-muted hover:text-primary"
-                      )}
+                      className="rounded-full"
                     >
                       {widget}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>

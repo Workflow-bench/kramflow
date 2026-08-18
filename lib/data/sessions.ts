@@ -119,15 +119,15 @@ function mapSessionRow(row: SessionRow, items: Program[], partitions: Partition[
   };
 }
 
-export async function fetchSessions(client: SupabaseClient): Promise<Session[]> {
+export async function fetchSessions(client: SupabaseClient, eventId: string): Promise<Session[]> {
   const [
     { data: sessionRows, error: sessionsError },
     { data: programRows, error: programsError },
     { data: partitionRows, error: partitionsError },
   ] = await Promise.all([
-    client.from("sessions").select("*").order("sort_order", { ascending: true }),
-    client.from("programs").select("*").order("sort_order", { ascending: true }),
-    client.from("partitions").select("*").order("sort_order", { ascending: true }),
+    client.from("sessions").select("*").eq("event_id", eventId).order("sort_order", { ascending: true }),
+    client.from("programs").select("*").eq("event_id", eventId).order("sort_order", { ascending: true }),
+    client.from("partitions").select("*").eq("event_id", eventId).order("sort_order", { ascending: true }),
   ]);
 
   if (sessionsError) throw sessionsError;

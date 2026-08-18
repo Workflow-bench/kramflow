@@ -3,12 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "./button";
+import { Input } from "./input";
 
 // The one confirmation dialog used everywhere a single click would
-// otherwise mutate shared/live state with no review step. See
-// docs/DESIGN_SYSTEM.md's motion convention (250ms, ease-out) and
-// docs/COMPONENT_GUIDE.md — this is the first components/ui/ addition
-// since that guide was written.
+// otherwise mutate shared/live state with no review step. Guardrail weight
+// is tier-aware (docs/DESIGN.md's guardrail-tier table, Phase 2 §5 of the
+// UX rethink) rather than one fixed style for every destructive action —
+// tier 1 (e.g. single queue-item delete) shouldn't reach this component at
+// all, since an Undo toast is already the correct-weight guardrail there.
+//
+//   tone="default"      — non-destructive confirmation (e.g. "Switch session?")
+//   tone="danger"        — tier 2/3: outlined danger button
+//   tone="danger-solid"  — tier 4: solid danger button, reserved for
+//                          requireTypedConfirmation (event delete only)
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -16,12 +23,16 @@ export interface ConfirmDialogProps {
   description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  tone?: "default" | "danger";
+  tone?: "default" | "danger" | "danger-solid";
   // Optional: callers whose onConfirm does async work can show this instead
   // of leaving the dialog's own confirm button with no in-progress feedback
   // at all (previously true for every caller — Jump, Display Manager,
   // Broadcast Center's emergency/destructive confirms all shared this gap).
   loading?: boolean;
+  // Tier 4 only: the confirm button stays disabled until the operator types
+  // this exact value. Reserved for the single highest-consequence action in
+  // the product (event delete) — nothing else in the app warrants it.
+  requireTypedConfirmation?: { value: string; label: string };
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -34,14 +45,23 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   tone = "default",
   loading = false,
+  requireTypedConfirmation,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const [typedValue, setTypedValue] = useState("");
+  const typedMismatch = requireTypedConfirmation !== undefined && typedValue !== requireTypedConfirmation.value;
 
   useEffect(() => {
     if (!open) return;
-    confirmRef.current?.focus();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting for a fresh open, not deriving from a prop
+    setTypedValue("");
+    if (!requireTypedConfirmation) confirmRef.current?.focus();
+  }, [open, requireTypedConfirmation]);
+
+  useEffect(() => {
+    if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape" && !loading) onCancel();
     }
@@ -81,13 +101,26 @@ export function ConfirmDialog({
                 {description}
               </p>
             )}
+            {requireTypedConfirmation && (
+              <div className="mt-4">
+                <label className="text-console-meta text-muted-2 block mb-1.5">{requireTypedConfirmation.label}</label>
+                <Input
+                  value={typedValue}
+                  onChange={(e) => setTypedValue(e.target.value)}
+                  placeholder={requireTypedConfirmation.value}
+                  autoFocus
+                  aria-label={requireTypedConfirmation.label}
+                />
+              </div>
+            )}
             <div className="flex items-center gap-3 mt-6">
               <Button
                 ref={confirmRef}
-                variant={tone === "danger" ? "danger" : "primary"}
+                variant={tone === "danger-solid" ? "danger-solid" : tone === "danger" ? "danger" : "primary"}
                 size="md"
                 className="flex-1"
                 loading={loading}
+                disabled={typedMismatch}
                 onClick={onConfirm}
               >
                 {confirmLabel}

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/server/require-auth";
+import { requireEventOwner } from "@/lib/server/require-event-owner";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Alert } from "@/lib/types";
 
@@ -41,16 +41,13 @@ function isControllerActive(row: LiveStateRow): boolean {
   return Date.now() - Date.parse(row.controller_claimed_at) < CONTROLLER_STALE_MS;
 }
 
-async function logActivity(action: string, detail: string) {
+async function logActivity(eventId: string, action: string, detail: string) {
   const supabase = supabaseAdmin();
-  const { error } = await supabase.from("activity_log").insert({ action, detail });
+  const { error } = await supabase.from("activity_log").insert({ event_id: eventId, action, detail });
   if (error) console.error("[api/live] activity_log insert failed:", error);
 }
 
 export async function PATCH(request: Request) {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
-
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -63,8 +60,16 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: "Missing action" }, { status: 400 });
   }
 
+  const eventId = body.eventId;
+  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  if (auth instanceof NextResponse) return auth;
+
   const supabase = supabaseAdmin();
-  const { data: row, error: fetchError } = await supabase.from("live_state").select("*").eq("id", 1).single();
+  const { data: row, error: fetchError } = await supabase
+    .from("live_state")
+    .select("*")
+    .eq("event_id", auth.eventId)
+    .single();
   if (fetchError) {
     return NextResponse.json({ ok: false, error: fetchError.message }, { status: 500 });
   }
@@ -260,7 +265,7 @@ export async function PATCH(request: Request) {
   const { data: updated, error: updateError } = await supabase
     .from("live_state")
     .update({ ...patch, version: current.version + 1 })
-    .eq("id", 1)
+    .eq("event_id", auth.eventId)
     .eq("version", current.version)
     .select("version");
   if (updateError) {
@@ -274,6 +279,6 @@ export async function PATCH(request: Request) {
   // a background heartbeat every ~15s while control is held, not a
   // meaningful audit event; logging it would spam the Activity feed
   // operators actually read with noise unrelated to the show itself.
-  if (detail) await logActivity(action, detail);
+  if (detail) await logActivity(auth.eventId, action, detail);
   return NextResponse.json({ ok: true });
 }

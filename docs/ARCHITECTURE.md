@@ -61,8 +61,9 @@ Board that was dropped.
    event: which session is active, each session's current position, hold
    state, the active alert, and any operator note overrides. Kept
    deliberately separate from the larger reference data so every sync
-   write stays small — now the `live_state` singleton row in Supabase
-   rather than a `localStorage` blob.
+   write stays small — one `live_state` row per event in Supabase (keyed
+   by `event_id`, not a global singleton) rather than a `localStorage`
+   blob.
 
 Components never query Supabase directly for reference data — they go
 through `useSessions()` (`lib/use-sessions.ts`) + `getSessionById()`
@@ -100,37 +101,54 @@ The same shift-on-resume computation now lives server-side in
 
 ## Authentication
 
-`/operator` and `/remote` sit behind a 4-digit PIN; `/green-room` and `/av`
-are public. The gate is `app/(operator)/layout.tsx`, wrapping every route
-below it in `AuthProvider` + `PinGate` (`components/auth/`).
+Real per-operator accounts via Supabase Auth, not a shared PIN. Two
+independent gates, matching Next's own guidance (see
+`node_modules/next/dist/docs/01-app/02-guides/authentication.md`) that Proxy
+should do cheap/optimistic checks and the real enforcement should sit at
+the data layer:
 
-- The PIN itself only ever exists server-side, read from `process.env.OPERATOR_PIN`
-  inside `app/api/auth/route.ts` (a Route Handler, confirmed in the build
-  output as a dynamic `ƒ` route — never statically bundled). The client
-  submits a guess, the server responds `{ok: true|false}`; the actual PIN
-  string never appears in any client-shipped JS.
-- On a correct PIN, `app/api/auth/route.ts` also sets a signed, `httpOnly`
-  session cookie (`lib/server/auth-cookie.ts`) — this is the real
-  enforcement layer every mutating API route checks via
-  `lib/server/require-auth.ts`. Locking the UI (`useAuth().lock()`) both
-  clears the client-side `sessionStorage` flag driving the PIN screen and
-  calls `DELETE /api/auth` to revoke the cookie server-side, so locking
-  actually revokes write access rather than just hiding the controls.
-- `AuthProvider` (`components/auth/auth-context.tsx`) tracks unlock state
-  via `useSyncExternalStore` reading `sessionStorage`, using the same
-  hydrate-inside-`subscribe()` pattern as `lib/store.tsx` (see that file's
-  comment for why hydrating inside `getSnapshot()` alone doesn't reliably
-  trigger a re-render).
+- **`proxy.ts`** (project root — Next 16 renamed `middleware.ts` to
+  `proxy.ts`; same runtime, same purpose) runs on every request, refreshes
+  the Supabase session cookie via `@supabase/ssr`'s `createServerClient`,
+  and redirects unauthenticated requests to `/dashboard`, `/operator`,
+  `/remote`, `/broadcast`, `/display-manager`, or the cue sheet editor to
+  `/login`. This is a UX nicety (fast, no round trip to the actual data),
+  not the security boundary.
+- **`lib/server/require-auth.ts`** is the actual boundary: every mutating
+  API route calls it first, and it calls `supabase.auth.getUser()` — a real
+  round trip that re-validates the session against Supabase rather than
+  just trusting whatever's in the cookie — before allowing the write.
+- **The four TV displays** (`/general`, `/av`, `/green-room`, `/presenter`)
+  are public routes gated a different way: `lib/server/verify-display-access.ts`
+  allows a request through if there's either a real operator session *or*
+  a `?token=` that resolves (`lib/server/share-links.ts`) to a non-expired,
+  non-revoked row in `share_links`. Each display's `page.tsx` is a thin
+  Server Component that runs this check and renders a specific "this link
+  is no longer valid" state (`components/auth/link-invalid.tsx`) on
+  failure, wrapping the actual display UI (`*-display-client.tsx`,
+  unchanged from before this existed) only on success.
+- **Share links** (`share_links` table) are the no-login path an operator
+  hands out via QR/URL from `/dashboard`. The token is an opaque, random
+  256-bit value looked up row-by-row — deliberately not a stateless signed
+  URL, so revoking one link (a column flip to `revoked_at`) can't be
+  achieved any other way than actually invalidating that exact link, and
+  can't accidentally invalidate any other link the way rotating a shared
+  signing key would.
 - Reads (public `select` on `sessions`/`programs`/`live_state`) are open to
   anyone via Supabase's Row Level Security policies — the public TV/Display
-  Engine surfaces need this. Writes have no public RLS policy at all; every
-  write goes through an API route using the Supabase `service_role` key
-  (`lib/supabase/server.ts`), which bypasses RLS and is never shipped to
-  the client.
-- This is still a convenience gate for a small trusted crew, not
-  enterprise authentication — see `docs/DEPLOYMENT.md#hardening-authentication`
-  for what a further production-grade replacement would add (per-user
-  credentials, rate limiting, an audit log beyond the activity feed below).
+  Engine surfaces need this regardless of the auth model above; a no-login
+  display was never a data-security boundary, only a routing one. Writes
+  have no public RLS policy at all; every write goes through an API route
+  using the Supabase `service_role` key (`lib/supabase/server.ts`), which
+  bypasses RLS and is never shipped to the client. `share_links` itself
+  follows the same pattern — zero RLS policies, resolved only through
+  `lib/server/share-links.ts` using the service-role client.
+- `AuthProvider` (`components/auth/auth-context.tsx`) tracks session status
+  client-side via Supabase's `onAuthStateChange` listener — this drives the
+  operator UI (the "Lock"/log-out button, command palette gating), not
+  access control; `useAuth().lock()` calls `POST /api/auth/logout` (which
+  calls `supabase.auth.signOut()` server-side, clearing the real session
+  cookie) before redirecting to `/login`.
 
 ## Operator activity log
 

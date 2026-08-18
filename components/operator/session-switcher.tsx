@@ -75,7 +75,7 @@ export function SessionSwitcher() {
               aria-label={`${s.dayLabel} ${s.sessionLabel}${isLive ? " (in progress)" : ""}`}
               className={cn(
                 "shrink-0 rounded-control border px-2.5 py-1.5 text-left cursor-pointer",
-                "transition-[background-color,border-color] duration-[140ms] ease-out",
+                "transition-[background-color,border-color] duration-[110ms] ease-out",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 // The switcher changes what every display in the venue is
                 // showing, so the current session is stated with a border

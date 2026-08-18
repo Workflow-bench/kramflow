@@ -103,7 +103,7 @@ function BreakRow({
       aria-label={`Jump to ${program.title}${status === "live" ? " (live)" : ""}`}
       className={cn(
         "w-full flex items-center gap-3 sm:gap-4 py-2 px-3 min-h-11 text-left border-b border-line-soft",
-        "transition-colors duration-[140ms] ease-out",
+        "transition-colors duration-[110ms] ease-out",
         onClick ? "cursor-pointer hover:bg-card-hover" : "cursor-default",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         status === "live" && "bg-status-green/10",
@@ -143,7 +143,7 @@ function ItemRow({
       aria-label={`Jump to ${program.title}${program.presenter ? `, ${program.presenter}` : ""}${status === "live" ? " (live)" : status === "done" ? " (done)" : ""}`}
       className={cn(
         "w-full flex items-start sm:items-center gap-3 sm:gap-4 py-2.5 px-3 min-h-11 text-left border-b border-line-soft",
-        "transition-colors duration-[140ms] ease-out",
+        "transition-colors duration-[110ms] ease-out",
         onClick ? "cursor-pointer hover:bg-card-hover" : "cursor-default",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         // Position axis: the on-air row gets a full tinted fill, so it is

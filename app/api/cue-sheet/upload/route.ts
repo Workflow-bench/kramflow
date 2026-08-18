@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/server/require-auth";
+import { requireEventOwner } from "@/lib/server/require-event-owner";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { parseCueSheet, type ParsedPartition, type ParsedProgram, type ParsedSession } from "@/lib/parse-cuesheet";
 import { programRowSchema } from "@/lib/validation/program";
@@ -30,19 +30,23 @@ function validateRows(programs: ParsedProgram[]): RowError[] {
 }
 
 export async function POST(request: Request) {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
-
-  const dryRun = new URL(request.url).searchParams.get("dryRun") === "1";
+  const url = new URL(request.url);
+  const dryRun = url.searchParams.get("dryRun") === "1";
 
   let file: File | null = null;
+  let eventId: string | null = null;
   try {
     const formData = await request.formData();
     const entry = formData.get("file");
     if (entry instanceof File) file = entry;
+    const eventIdEntry = formData.get("eventId");
+    if (typeof eventIdEntry === "string") eventId = eventIdEntry;
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid form data" }, { status: 400 });
   }
+
+  const auth = await requireEventOwner(eventId);
+  if (auth instanceof NextResponse) return auth;
 
   if (!file) {
     return NextResponse.json({ ok: false, error: "No file provided" }, { status: 400 });
@@ -74,14 +78,19 @@ export async function POST(request: Request) {
 
   const supabase = supabaseAdmin();
 
-  const { error: sessionsError } = await supabase.from("sessions").upsert(parsed.sessions, { onConflict: "id" });
+  const sessionsWithEvent = parsed.sessions.map((s) => ({ ...s, event_id: auth.eventId }));
+  const { error: sessionsError } = await supabase
+    .from("sessions")
+    .upsert(sessionsWithEvent, { onConflict: "event_id,id" });
   if (sessionsError) return NextResponse.json({ ok: false, error: sessionsError.message }, { status: 500 });
 
   // Atomic: replace_session_programs (supabase/schema.sql) deletes and
   // re-inserts in one transaction, so a failure partway through can't leave
   // a session with zero programs — see the function's own comment.
+  // p_event_id scopes every delete/insert in it to this one event.
   const sessionIds = [...new Set(parsed.programs.map((p) => p.session_id))];
   const { error: replaceError } = await supabase.rpc("replace_session_programs", {
+    p_event_id: auth.eventId,
     p_session_ids: sessionIds,
     p_partitions: parsed.partitions,
     p_programs: parsed.programs,
@@ -89,6 +98,7 @@ export async function POST(request: Request) {
   if (replaceError) return NextResponse.json({ ok: false, error: replaceError.message }, { status: 500 });
 
   await supabase.from("activity_log").insert({
+    event_id: auth.eventId,
     action: "cueSheetUpload",
     detail: `Uploaded ${file.name}: ${parsed.sessions.length} sessions, ${parsed.programs.length} programs`,
   });

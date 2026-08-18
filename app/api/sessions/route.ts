@@ -1,18 +1,23 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/server/require-auth";
+import { requireEventOwner } from "@/lib/server/require-event-owner";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const eventId = new URL(request.url).searchParams.get("eventId");
+  const auth = await requireEventOwner(eventId);
+  if (auth instanceof NextResponse) return auth;
+
   const supabase = supabaseAdmin();
-  const { data, error } = await supabase.from("sessions").select("*").order("sort_order", { ascending: true });
+  const { data, error } = await supabase
+    .from("sessions")
+    .select("*")
+    .eq("event_id", auth.eventId)
+    .order("sort_order", { ascending: true });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, sessions: data });
 }
 
 export async function POST(request: Request) {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
-
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -20,7 +25,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { id, sheet_name, event_name, day_label, session_label, sort_order } = body;
+  const { eventId, id, sheet_name, event_name, day_label, session_label, sort_order } = body;
+  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  if (auth instanceof NextResponse) return auth;
+
   if (typeof id !== "string" || !id || typeof day_label !== "string" || typeof session_label !== "string") {
     return NextResponse.json({ ok: false, error: "id, day_label, and session_label are required" }, { status: 400 });
   }
@@ -28,6 +36,7 @@ export async function POST(request: Request) {
   const supabase = supabaseAdmin();
   const { error } = await supabase.from("sessions").insert({
     id,
+    event_id: auth.eventId,
     sheet_name: typeof sheet_name === "string" ? sheet_name : day_label,
     event_name: typeof event_name === "string" ? event_name : "",
     day_label,

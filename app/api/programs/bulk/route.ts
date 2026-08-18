@@ -1,19 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/server/require-auth";
+import { requireEventOwner } from "@/lib/server/require-event-owner";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 // Item 5's bulk-edit — two shapes depending on what's being changed:
-//   { ids, field, value }        -> bulk_update_programs (color/status/etc.)
-//   { ids, partitionId }         -> bulk_move_programs_to_partition (move
-//                                    the whole selection into a section)
-// Kept as one route/one PATCH verb since both are "apply one bulk-edit
-// operation to a set of ids" — the discriminator is just which fields the
-// body carries, mirroring how app/api/live/route.ts uses one endpoint for
-// several related mutations rather than one route per action.
+//   { eventId, ids, field, value }   -> bulk_update_programs (color/status/etc.)
+//   { eventId, ids, partitionId }    -> bulk_move_programs_to_partition
 export async function PATCH(request: Request) {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
-
   let body: unknown;
   try {
     body = await request.json();
@@ -21,12 +13,30 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { ids, field, value, partitionId } = (body ?? {}) as Record<string, unknown>;
+  const { eventId, ids, field, value, partitionId } = (body ?? {}) as Record<string, unknown>;
+  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  if (auth instanceof NextResponse) return auth;
+
   if (!Array.isArray(ids) || ids.length === 0 || !ids.every((id) => typeof id === "string")) {
     return NextResponse.json({ ok: false, error: "ids must be a non-empty array of strings" }, { status: 400 });
   }
 
   const supabase = supabaseAdmin();
+
+  // bulk_update_programs has no event-scoping of its own (see
+  // supabase/schema.sql) — an id list mixing this event's programs with
+  // another event's would otherwise silently edit both. Verified here,
+  // once, before either RPC runs: every id must resolve to a program that
+  // actually belongs to the authorized event.
+  const { data: owned, error: ownedError } = await supabase
+    .from("programs")
+    .select("id")
+    .eq("event_id", auth.eventId)
+    .in("id", ids);
+  if (ownedError) return NextResponse.json({ ok: false, error: ownedError.message }, { status: 500 });
+  if (!owned || owned.length !== ids.length) {
+    return NextResponse.json({ ok: false, error: "One or more items don't belong to this event" }, { status: 403 });
+  }
 
   if (typeof field === "string") {
     if (value !== null && typeof value !== "string") {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { verifyDisplayAccess } from "@/lib/server/verify-display-access";
 
 interface TimerState {
   mode: string;
@@ -11,11 +12,9 @@ interface TimerState {
   thresholds: { yellowAt: number; orangeAt: number; redAt: number; criticalAfter: number };
 }
 
-// PATCH every timer action (mode/source/start/pause/resume/reset/adjust/
-// thresholds), mirroring app/api/live/route.ts's single-endpoint,
-// action-dispatch shape. No requireAuth() — these are Presenter's own
-// unauthenticated controls today; see the restructure plan's "Auth
-// boundary" note.
+// PATCH every timer action — still no requireAuth() (Presenter's own
+// unauthenticated controls), but event_id-resolved the same way as
+// display-engine/hold/route.ts — see that file's comment.
 export async function PATCH(request: Request) {
   let body: Record<string, unknown>;
   try {
@@ -23,6 +22,12 @@ export async function PATCH(request: Request) {
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
+
+  const access = await verifyDisplayAccess(
+    typeof body.token === "string" ? body.token : undefined,
+    typeof body.eventId === "string" ? body.eventId : undefined
+  );
+  if (!access.ok) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 403 });
 
   const action = body.action;
   if (typeof action !== "string") {
@@ -33,7 +38,7 @@ export async function PATCH(request: Request) {
   const { data: row, error: fetchError } = await supabase
     .from("display_state")
     .select("timer, timer_version")
-    .eq("id", 1)
+    .eq("event_id", access.eventId)
     .single();
   if (fetchError) return NextResponse.json({ ok: false, error: fetchError.message }, { status: 500 });
   const timer = row.timer as TimerState;
@@ -83,13 +88,10 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ ok: false, error: "Unknown action" }, { status: 400 });
   }
 
-  // Same optimistic-concurrency check as app/api/live/route.ts, scoped to
-  // timer_version so a concurrent Hold/Speaker-Ready write (a different
-  // column on the same row) never falsely conflicts with a timer action.
   const { data: updated, error } = await supabase
     .from("display_state")
     .update({ timer: next, timer_version: timerVersion + 1 })
-    .eq("id", 1)
+    .eq("event_id", access.eventId)
     .eq("timer_version", timerVersion)
     .select("timer_version");
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

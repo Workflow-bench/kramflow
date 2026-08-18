@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/server/require-auth";
+import { requireEventOwner } from "@/lib/server/require-event-owner";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
-
   const { id } = await params;
 
   let body: Record<string, unknown>;
@@ -15,7 +12,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { sheet_name, event_name, day_label, session_label, sort_order } = body;
+  const { eventId, sheet_name, event_name, day_label, session_label, sort_order } = body;
+  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  if (auth instanceof NextResponse) return auth;
+
   const patch: Record<string, unknown> = {};
   if (typeof sheet_name === "string") patch.sheet_name = sheet_name;
   if (typeof event_name === "string") patch.event_name = event_name;
@@ -28,47 +28,46 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const supabase = supabaseAdmin();
-  const { error } = await supabase.from("sessions").update(patch).eq("id", id);
+  const { error } = await supabase.from("sessions").update(patch).eq("event_id", auth.eventId).eq("id", id);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
-
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const eventId = new URL(request.url).searchParams.get("eventId");
+  const auth = await requireEventOwner(eventId);
+  if (auth instanceof NextResponse) return auth;
 
   const supabase = supabaseAdmin();
 
-  // live_state.active_session_id references sessions(id) with no ON DELETE
-  // clause (defaults to NO ACTION/RESTRICT) — deleting a session that's
-  // currently the active one violates that FK and fails outright. This
-  // used to run the clear-active-session step *after* the delete attempt,
-  // so it never got a chance to help: whichever session live_state pointed
-  // at (often the last one left, since that's naturally what people delete
-  // last) was permanently stuck, appearing as "can't delete the last
-  // session" even though nothing was actually enforcing a minimum count.
-  // Clearing it first, unconditionally on a match, lets the delete below
-  // always succeed regardless of which session is currently "live."
+  // live_state.active_session_id references sessions(event_id, id) with no
+  // ON DELETE clause (RESTRICT) — deleting a session that's currently the
+  // active one violates that FK and fails outright. Clearing it first,
+  // unconditionally on a match, lets the delete below always succeed
+  // regardless of which session is currently "live." (See the original
+  // single-tenant version of this comment — same bug, same fix, now scoped
+  // per event.)
   const { data: liveState, error: liveStateReadError } = await supabase
     .from("live_state")
     .select("active_session_id")
-    .eq("id", 1)
+    .eq("event_id", auth.eventId)
     .single();
   if (liveStateReadError) {
     return NextResponse.json({ ok: false, error: liveStateReadError.message }, { status: 500 });
   }
   if (liveState?.active_session_id === id) {
-    const { error: clearError } = await supabase.from("live_state").update({ active_session_id: null }).eq("id", 1);
+    const { error: clearError } = await supabase
+      .from("live_state")
+      .update({ active_session_id: null })
+      .eq("event_id", auth.eventId);
     if (clearError) return NextResponse.json({ ok: false, error: clearError.message }, { status: 500 });
   }
 
-  // programs.session_id has ON DELETE CASCADE (see supabase/schema.sql), so
-  // deleting the session also removes every item in it (and, since the
-  // partitions redesign, every partition — partitions.session_id also
-  // cascades).
-  const { error } = await supabase.from("sessions").delete().eq("id", id);
+  // programs.session_id / partitions.session_id both cascade (see
+  // supabase/schema.sql) — deleting the session removes every item and
+  // partition in it too.
+  const { error } = await supabase.from("sessions").delete().eq("event_id", auth.eventId).eq("id", id);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
   return NextResponse.json({ ok: true });

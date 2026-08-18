@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { useEventId } from "@/lib/event-context";
 import { SectionLabel } from "@/components/tv/section-label";
 
 // Short reverse-chronological list of the last ~20 operator actions — not
@@ -23,6 +25,7 @@ function formatTime(iso: string): string {
 }
 
 export function ActivityLog() {
+  const eventId = useEventId();
   const [rows, setRows] = useState<ActivityRow[]>([]);
 
   useEffect(() => {
@@ -32,23 +35,33 @@ export function ActivityLog() {
       const { data } = await client
         .from("activity_log")
         .select("*")
+        .eq("event_id", eventId)
         .order("created_at", { ascending: false })
         .limit(LIMIT);
       if (data) setRows(data as ActivityRow[]);
     }
     load();
 
+    // Scoped to this event both by the filter below and by RLS (an
+    // operator's JWT can only ever see rows for events they own) — the
+    // filter isn't standing in for RLS, it's what keeps this panel showing
+    // only *this* event's activity once an operator has more than one
+    // (see the approved multi-tenant plan's "one operator, many events").
     const channel = client
-      .channel("activity-log-panel")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity_log" }, (payload) => {
-        setRows((prev) => [payload.new as ActivityRow, ...prev].slice(0, LIMIT));
-      })
+      .channel(`activity-log-panel:${eventId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "activity_log", filter: `event_id=eq.${eventId}` },
+        (payload: RealtimePostgresChangesPayload<ActivityRow>) => {
+          setRows((prev) => [payload.new as ActivityRow, ...prev].slice(0, LIMIT));
+        }
+      )
       .subscribe();
 
     return () => {
       client.removeChannel(channel);
     };
-  }, []);
+  }, [eventId]);
 
   if (rows.length === 0) return null;
 

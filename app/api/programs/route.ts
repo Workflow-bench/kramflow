@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/server/require-auth";
+import { requireEventOwner } from "@/lib/server/require-event-owner";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { programInputSchema, toProgramRow } from "@/lib/validation/program";
 import { mapProgramRow, mapPartitionRow } from "@/lib/data/sessions";
 import { computeScheduledTimes } from "@/lib/schedule";
 
 export async function GET(request: Request) {
-  const sessionId = new URL(request.url).searchParams.get("sessionId");
+  const url = new URL(request.url);
+  const eventId = url.searchParams.get("eventId");
+  const sessionId = url.searchParams.get("sessionId");
+  const auth = await requireEventOwner(eventId);
+  if (auth instanceof NextResponse) return auth;
+
   const supabase = supabaseAdmin();
-  let query = supabase.from("programs").select("*").order("sort_order", { ascending: true });
+  let query = supabase.from("programs").select("*").eq("event_id", auth.eventId).order("sort_order", { ascending: true });
   if (sessionId) query = query.eq("session_id", sessionId);
   const { data, error } = await query;
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -17,7 +22,7 @@ export async function GET(request: Request) {
   // fetchSessions — applied here too so the cue sheet editor itself (which
   // reads programs through this route, not fetchSessions) shows live
   // computed times rather than whatever was last written to the row.
-  let partitionQuery = supabase.from("partitions").select("*");
+  let partitionQuery = supabase.from("partitions").select("*").eq("event_id", auth.eventId);
   if (sessionId) partitionQuery = partitionQuery.eq("session_id", sessionId);
   const { data: partitionRows, error: partitionsError } = await partitionQuery;
   if (partitionsError) return NextResponse.json({ ok: false, error: partitionsError.message }, { status: 500 });
@@ -49,15 +54,16 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
-
   let json: unknown;
   try {
     json = await request.json();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
+
+  const eventId = (json as Record<string, unknown> | null)?.eventId;
+  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  if (auth instanceof NextResponse) return auth;
 
   const parsed = programInputSchema.safeParse(json);
   if (!parsed.success) {
@@ -67,16 +73,13 @@ export async function POST(request: Request) {
   const supabase = supabaseAdmin();
   const row = toProgramRow(parsed.data);
 
-  // insert_program_into_partition (supabase/schema.sql) replaces
-  // insert_program_at_end — the old RPC always appended to the end of the
-  // whole session regardless of section_label, one of "partition
-  // bleeding"'s two root causes (a new item tagged into an earlier
-  // partition could land physically after a later partition's items). The
-  // new RPC computes the correct position as the end of the target
-  // partition's own contiguous run and atomically shifts everything after
-  // it — safe because programs_session_sort_order_key is now a deferrable
-  // constraint, not a plain index.
+  // insert_program_into_partition (supabase/schema.sql) computes the
+  // correct position as the end of the target partition's own contiguous
+  // run and atomically shifts everything after it. p_event_id scopes the
+  // whole operation (advisory lock, sort_order arithmetic, the insert
+  // itself) to this one event — see the RPC's own comment.
   const { data, error } = await supabase.rpc("insert_program_into_partition", {
+    p_event_id: auth.eventId,
     p_session_id: parsed.data.sessionId,
     p_partition_id: row.partition_id ?? null,
     p_section_label: row.section_label ?? null,

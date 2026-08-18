@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { SectionLabel } from "@/components/tv/section-label";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { EMERGENCY_PRESETS, type BroadcastType } from "@/lib/display-engine/types";
+import { useEventId } from "@/lib/event-context";
 import { cn } from "@/lib/utils";
 
 const QUICK_TYPES: { value: BroadcastType; label: string; tone: string }[] = [
@@ -28,6 +29,7 @@ const QUICK_TYPES: { value: BroadcastType; label: string; tone: string }[] = [
  * templates, drafts, history, and per-display targeting.
  */
 export function OperatorBroadcastPanel() {
+  const eventId = useEventId();
   const { sendBroadcast } = useDisplayEngine();
   const toast = useToast();
   const [expanded, setExpanded] = useState(false);
@@ -70,7 +72,7 @@ export function OperatorBroadcastPanel() {
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
-        className="flex items-center justify-between w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
+        className="flex items-center justify-between w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
       >
         <SectionLabel>Broadcast</SectionLabel>
         <ChevronDown
@@ -90,7 +92,7 @@ export function OperatorBroadcastPanel() {
                 aria-pressed={type === t.value}
                 className={cn(
                   "rounded-full px-3 py-1.5 text-caption font-semibold uppercase tracking-wide transition-opacity cursor-pointer whitespace-nowrap",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   t.tone,
                   type !== t.value && "opacity-40"
                 )}
@@ -114,7 +116,7 @@ export function OperatorBroadcastPanel() {
           </Button>
 
           <Link
-            href="/broadcast"
+            href={`/e/${eventId}/broadcast`}
             className="text-caption text-muted-2 hover:text-primary text-center underline-offset-2 hover:underline"
           >
             More options — schedule, templates, target one display →
@@ -127,7 +129,7 @@ export function OperatorBroadcastPanel() {
                   key={preset.label}
                   type="button"
                   onClick={() => emergencyConfirm.request(preset)}
-                  className="flex items-center gap-1.5 rounded-full bg-status-red/15 text-status-red px-3 py-1.5 text-caption font-semibold cursor-pointer hover:bg-status-red/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="flex items-center gap-1.5 rounded-full bg-status-red/15 text-status-red px-3 py-1.5 text-caption font-semibold cursor-pointer hover:bg-status-red/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
                   {preset.label}

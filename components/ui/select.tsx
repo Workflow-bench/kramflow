@@ -100,7 +100,7 @@ export function Select({
         aria-label={aria["aria-label"]}
         className={cn(
           "w-full flex items-center justify-between gap-2 rounded-control bg-raised border border-line text-primary cursor-pointer",
-          "transition-[background-color,border-color] duration-[140ms] ease-out",
+          "transition-[background-color,border-color] duration-[110ms] ease-out",
           "hover:bg-card-hover hover:border-white/20",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           open && "border-accent",
@@ -117,7 +117,7 @@ export function Select({
       {open && (
         <div
           role="listbox"
-          className="absolute z-30 mt-1.5 w-full min-w-[15rem] max-h-80 flex flex-col overflow-hidden rounded-panel bg-card border border-line shadow-[0_12px_32px_rgba(0,0,0,0.5)] motion-safe:animate-rise"
+          className="absolute z-30 mt-1.5 w-full min-w-[15rem] max-h-80 flex flex-col overflow-hidden rounded-panel bg-card border border-line shadow-float motion-safe:animate-rise"
         >
           {searchable && (
             <div className="flex items-center gap-2 px-3 py-2 border-b border-line-soft shrink-0">
@@ -161,7 +161,7 @@ export function Select({
                 onMouseEnter={() => setHighlighted(i)}
                 className={cn(
                   "w-full flex items-center justify-between gap-2 px-3 py-2 text-left cursor-pointer",
-                  "transition-colors duration-[140ms] ease-out",
+                  "transition-colors duration-[110ms] ease-out",
                   i === highlighted ? "bg-card-hover" : "hover:bg-card-hover"
                 )}
               >

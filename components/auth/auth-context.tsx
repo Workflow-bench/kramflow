@@ -1,67 +1,68 @@
 "use client";
 
-import { createContext, useContext, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
-const SESSION_KEY = "kramflow.auth";
+// Real per-operator sessions now (Supabase Auth), replacing the shared-PIN
+// + sessionStorage flag this used to be. The public shape — status/lock —
+// is unchanged on purpose: 7 existing consumers (command-palette, the
+// operator/remote/broadcast/display-manager pages) only ever destructure
+// `status` and `lock`, so keeping the contract identical meant none of them
+// needed to change. `unlock` is gone — it was PinGate's alone, and PinGate
+// no longer exists: proxy.ts redirects unauthenticated requests to the real
+// /login page before an operator route ever renders, so there's no more
+// inline "enter PIN to unlock" screen to unlock.
+//
+// "locked" now means "no active Supabase session" rather than "PIN not yet
+// entered this browser session" — in normal operation an operator never
+// actually sees this state, since proxy.ts already turned back anyone
+// without a session. It still matters as a live signal: if a session
+// expires or is revoked while a tab is open, onAuthStateChange flips this
+// to "locked" so components like command-palette (`unlocked = status ===
+// "unlocked"`) react without a full reload.
 
 type Status = "checking" | "locked" | "unlocked";
 
-let cachedStatus: Status = "checking";
-let hydrated = false;
-const listeners = new Set<() => void>();
-
-function notify() {
-  for (const listener of listeners) listener();
-}
-
-// Hydrating inside subscribe() (which React guarantees to call post-commit)
-// rather than getSnapshot() is deliberate — see lib/store.tsx for why the
-// getSnapshot-only approach silently failed to re-render here before.
-function subscribe(callback: () => void): () => void {
-  listeners.add(callback);
-  if (!hydrated) {
-    hydrated = true;
-    const real: Status = window.sessionStorage.getItem(SESSION_KEY) === "1" ? "unlocked" : "locked";
-    cachedStatus = real;
-    callback();
-  }
-  return () => listeners.delete(callback);
-}
-
-function getSnapshot(): Status {
-  return cachedStatus;
-}
-
-function getServerSnapshot(): Status {
-  return "checking";
-}
-
-function unlock() {
-  window.sessionStorage.setItem(SESSION_KEY, "1");
-  cachedStatus = "unlocked";
-  notify();
-}
-
-function lock() {
-  window.sessionStorage.removeItem(SESSION_KEY);
-  cachedStatus = "locked";
-  notify();
-  // Revoke the server-verifiable cookie too (lib/server/require-auth.ts) —
-  // fire-and-forget, the UI has already locked regardless of the result.
-  fetch("/api/auth", { method: "DELETE" }).catch(() => {});
-}
-
 interface AuthContextValue {
   status: Status;
-  unlock: () => void;
   lock: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const status = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  return <AuthContext.Provider value={{ status, unlock, lock }}>{children}</AuthContext.Provider>;
+  const [status, setStatus] = useState<Status>("checking");
+
+  useEffect(() => {
+    const supabase = supabaseBrowser();
+
+    supabase.auth.getSession().then((result: { data: { session: Session | null } }) => {
+      setStatus(result.data.session ? "unlocked" : "locked");
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+      setStatus(session ? "unlocked" : "locked");
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  function lock() {
+    setStatus("locked");
+    // Server-side sign-out (clears the httpOnly session cookie proxy.ts
+    // and every API route's requireAuth() check depend on) plus a hard
+    // navigation to /login — not router.push, so proxy.ts re-evaluates
+    // fresh rather than a client transition racing ahead of the cookie
+    // actually being cleared.
+    fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+      window.location.href = "/login";
+    });
+  }
+
+  return <AuthContext.Provider value={{ status, lock }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
