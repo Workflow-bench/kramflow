@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Clock, Pencil, Plus, Trash2 } from "lucide-react";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { newId } from "@/lib/display-engine/store";
 import type { DisplayProfile, DisplayWidget } from "@/lib/display-engine/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { SectionLabel } from "@/components/tv/section-label";
+import { cn } from "@/lib/utils";
 
 const ORIENTATION_OPTIONS = [
   { value: "landscape", label: "Landscape" },
@@ -30,6 +32,98 @@ const ALL_WIDGETS: DisplayWidget[] = [
   "running-order",
   "session-name",
 ];
+
+function widgetLabel(widget: DisplayWidget): string {
+  return widget.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// A miniature of the real display, not the real thing — the settings here
+// (font scale, orientation, which widgets show) have no live show data to
+// render against at this level, and standing up an iframe of an actual
+// display route just to preview a profile isn't worth the cost that
+// StageTimer's own Output Links preview pays for, where the thing being
+// previewed already has a real target to show. What matters per
+// senior-ux-layout-standards's preview-next-to-controls reasoning is that
+// a toggle here is felt immediately, right next to the control that caused
+// it — not that the mockup is pixel-accurate to the real display.
+function ProfilePreview({ profile }: { profile: DisplayProfile }) {
+  const showTitle = profile.visibleWidgets.includes("program-title");
+  const showSubtitle = profile.visibleWidgets.includes("program-subtitle");
+  const showTimer = profile.visibleWidgets.includes("timer");
+  const otherWidgets = profile.visibleWidgets.filter(
+    (w) => !["program-title", "program-subtitle", "timer"].includes(w)
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <span className="text-caption text-muted-2">Preview</span>
+      <div
+        className={cn(
+          "relative rounded-card bg-background border border-line-soft overflow-hidden flex flex-col items-center justify-center gap-3 p-4",
+          profile.layout.orientation === "landscape" ? "aspect-video" : "aspect-[9/16] mx-auto w-40"
+        )}
+      >
+        {profile.layout.showClock && (
+          <span className="absolute top-2.5 right-3 flex items-center gap-1 text-console-meta text-muted-2">
+            <Clock className="h-3 w-3" strokeWidth={2} />
+            12:34
+          </span>
+        )}
+
+        {profile.layout.showProgressRing && (
+          <svg viewBox="0 0 36 36" className="h-14 w-14 shrink-0" aria-hidden="true">
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--color-line-soft)" strokeWidth="3" />
+            <circle
+              cx="18"
+              cy="18"
+              r="15.5"
+              fill="none"
+              stroke="var(--color-accent)"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeDasharray={`${2 * Math.PI * 15.5 * 0.65} ${2 * Math.PI * 15.5}`}
+              transform="rotate(-90 18 18)"
+            />
+          </svg>
+        )}
+
+        {showTimer && (
+          <p className="tnum text-primary font-semibold" style={{ fontSize: `${1.5 * profile.layout.fontScale}rem` }}>
+            04:12
+          </p>
+        )}
+
+        {showTitle && (
+          <p
+            className="text-primary font-medium text-center leading-tight"
+            style={{ fontSize: `${1 * profile.layout.fontScale}rem` }}
+          >
+            Welcome Speech
+          </p>
+        )}
+        {showSubtitle && (
+          <p className="text-muted-2 text-center" style={{ fontSize: `${0.75 * profile.layout.fontScale}rem` }}>
+            Opening Remarks
+          </p>
+        )}
+
+        {!showTitle && !showTimer && !profile.layout.showProgressRing && (
+          <p className="text-caption text-muted-2">No widgets visible</p>
+        )}
+      </div>
+
+      {otherWidgets.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {otherWidgets.map((w) => (
+            <Badge key={w} tone="muted">
+              {widgetLabel(w)}
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function blankProfile(): DisplayProfile {
   return {
@@ -109,10 +203,18 @@ export function ProfileEditor() {
 
       {editing && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8">
-          <div className="w-full max-w-lg rounded-card bg-background border border-white/10 p-8">
+          <div className="w-full max-w-3xl rounded-card bg-background border border-white/10 p-8 max-h-full overflow-y-auto">
             <p className="text-title text-primary">Edit Profile</p>
 
-            <div className="mt-6 flex flex-col gap-4">
+            {/* Preview sits beside the controls that shape it, the same
+                proximity StageTimer's Output Links panel uses for its own
+                live iframe (senior-ux-layout-standards's
+                preview-next-to-controls reasoning) — every toggle below is
+                felt immediately, in the same glance, instead of requiring a
+                trip to Display Manager's separate Preview button to see
+                what changed. */}
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-8">
+            <div className="flex flex-col gap-4">
               <label className="flex flex-col gap-1.5">
                 <span className="text-caption text-muted-2">Name</span>
                 <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
@@ -201,6 +303,9 @@ export function ProfileEditor() {
                   ))}
                 </div>
               </div>
+            </div>
+
+            <ProfilePreview profile={editing} />
             </div>
 
             <div className="flex items-center gap-2 mt-8">
