@@ -55,8 +55,19 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const auth = await requireEventOwner(eventId);
   if (auth instanceof NextResponse) return auth;
 
+  // Routes through the delete_program RPC rather than a bare `.delete()` —
+  // deleting a program leaves a gap in its session's sort_order that
+  // getNext/getOnDeck's "+1/+2" arithmetic (lib/types.ts) can't see across,
+  // and if the deleted item was the live one, its currentOrder pointer is
+  // left dangling: getLive() then returns null exactly like "not started"
+  // does, while live_state still says the session is in progress, so the
+  // Operator Console and Remote end up asserting two contradictory things
+  // at once. The RPC renumbers the remaining rows and adjusts currentOrder
+  // only when necessary to keep pointing at the same logical item — see
+  // its own definition (migration delete_program_add_event_scoping) for
+  // the full reasoning.
   const supabase = supabaseAdmin();
-  const { error } = await supabase.from("programs").delete().eq("id", id).eq("event_id", auth.eventId);
+  const { error } = await supabase.rpc("delete_program", { p_id: id, p_event_id: auth.eventId });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
