@@ -436,15 +436,29 @@ export default function CueSheetPage() {
             <h1 className="text-console-lg text-primary truncate">Cue Sheet</h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Button variant="ghost" size="sm" aria-label="Event settings" onClick={() => setPanel("event-settings")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Event settings"
+              onClick={() => setPanel(panel === "event-settings" ? "none" : "event-settings")}
+            >
               <Settings className="h-4 w-4" strokeWidth={2} />
               <span className="hidden sm:inline">Settings</span>
             </Button>
-            <Button variant="secondary" size="sm" onClick={() => setPanel("upload")}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setPanel(panel === "upload" ? "none" : "upload")}
+            >
               <Upload className="h-4 w-4" strokeWidth={2} />
               <span className="hidden sm:inline">Import Excel</span>
             </Button>
-            <Button variant="primary" size="sm" onClick={() => setPanel("create")} disabled={!activeSessionId}>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setPanel(panel === "create" ? "none" : "create")}
+              disabled={!activeSessionId}
+            >
               <Plus className="h-4 w-4" strokeWidth={2} />
               Add item
             </Button>
