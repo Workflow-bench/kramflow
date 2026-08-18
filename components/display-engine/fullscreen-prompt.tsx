@@ -40,7 +40,7 @@ export function FullscreenPrompt({
           <button
             type="button"
             onClick={onEnter}
-            className="rounded-full bg-primary text-background px-5 py-2.5 text-body font-semibold cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="rounded-full bg-primary text-background px-5 py-2.5 text-body font-semibold cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             Enter Fullscreen
           </button>
@@ -48,7 +48,7 @@ export function FullscreenPrompt({
             type="button"
             onClick={onDismiss}
             aria-label="Dismiss"
-            className="text-muted-2 hover:text-primary cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded"
+            className="text-muted-2 hover:text-primary cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
           >
             <X className="h-4 w-4" strokeWidth={2} />
           </button>

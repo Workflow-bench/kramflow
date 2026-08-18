@@ -25,7 +25,7 @@ export function ActionBar({
         className={cn(
           "pointer-events-auto flex flex-wrap items-center gap-1 rounded-full",
           "bg-raised border border-line px-1.5 py-1.5",
-          "shadow-[0_8px_28px_rgba(0,0,0,0.45)]",
+          "shadow-float",
           "motion-safe:animate-rise",
           className
         )}
@@ -43,7 +43,7 @@ export function ActionBarClear({ onClick, label = "Clear selection" }: { onClick
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="grid h-7 w-7 place-items-center rounded-full text-muted-2 cursor-pointer transition-colors duration-[140ms] ease-out hover:bg-card-hover hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="grid h-7 w-7 place-items-center rounded-full text-muted-2 cursor-pointer transition-colors duration-[110ms] ease-out hover:bg-card-hover hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <X className="h-3.5 w-3.5" strokeWidth={2} />
     </button>
@@ -75,7 +75,7 @@ export function ActionBarButton({
       type="button"
       className={cn(
         "rounded-full px-2.5 py-1.5 text-console-meta whitespace-nowrap cursor-pointer",
-        "transition-colors duration-[140ms] ease-out",
+        "transition-colors duration-[110ms] ease-out",
         "disabled:opacity-40 disabled:cursor-not-allowed",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
         tone === "default" && "text-muted hover:bg-card-hover hover:text-primary",

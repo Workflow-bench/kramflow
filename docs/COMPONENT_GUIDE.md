@@ -53,8 +53,10 @@ The remote page (`app/(operator)/remote/page.tsx`) also defines a page-local `Qu
 
 | Component | Purpose |
 |---|---|
-| `AuthProvider` / `useAuth()` | `status`: `"checking"` / `"locked"` / `"unlocked"`. Session-only (`sessionStorage`), hydrated via `useSyncExternalStore` — see the comment in `auth-context.tsx` for why the hydration happens inside `subscribe()` rather than `getSnapshot()`. |
-| `PinGate` | Renders the PIN screen when locked, a blank shell while `"checking"` (matches the server render, avoids a flash), or `children` when unlocked. Wraps `app/(operator)/layout.tsx` — don't wrap individual pages with it. |
+| `AuthProvider` / `useAuth()` | `status`: `"checking"` / `"locked"` / `"unlocked"`, backed by a real Supabase Auth session (`supabase.auth.getSession()` + `onAuthStateChange`), not `sessionStorage`. Drives UI only (the "Log Out" button, command-palette gating) — access control itself is `proxy.ts` + `lib/server/require-auth.ts`, not this component. `lock()` calls `POST /api/auth/logout` then redirects to `/login`. |
+| `LinkInvalid` | The four TV displays' and `/screens`'s failure state for an expired/revoked/unrecognized share-link token or a route hit with no session and no token — a specific message per reason, never a blank screen. |
+
+There is no `PinGate` anymore — real auth means an unauthenticated visitor is redirected server-side to a real `/login` page (`proxy.ts`) rather than shown an inline PIN screen inside the layout.
 
 ## Conventions worth keeping
 

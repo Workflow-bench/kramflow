@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ColorTagPicker } from "@/components/ui/color-tag-picker";
 import { Select } from "@/components/ui/select";
@@ -59,9 +61,11 @@ interface ProgramFormProps {
   // own "Session" dropdown changes — a partition belongs to exactly one
   // session, same as items do.
   partitionsBySession: Record<string, Partition[]>;
-  // Keyed by session id too, for the same reason — which event's form
-  // config applies depends on which session is currently selected.
-  eventNameBySession: Record<string, string>;
+  // The cue sheet editor now always operates within exactly one event
+  // (see app/(operator)/e/[eventId]/) — one eventId for the whole form,
+  // not per-session, since every session it can pick from already belongs
+  // to this same event.
+  eventId: string;
   auditoriums: { id: string; name: string }[];
   programId?: string; // present -> edit (PATCH), absent -> create (POST)
   initial?: Partial<ProgramInput>;
@@ -78,15 +82,15 @@ interface ProgramFormProps {
 
 // Item 6d — this form has no hardcoded field list anymore. It renders
 // whatever lib/form-config.ts's DEFAULT_CONFIG (or a per-event override
-// fetched from /api/event-form-configs) says to, in the order and
-// groups the config declares. Item 6c ("production fields depend on
-// auditorium/program type") is just a visibleIf condition on a field —
+// fetched from /api/events/[eventId]'s form_config column) says to, in the
+// order and groups the config declares. Item 6c ("production fields depend
+// on auditorium/program type") is just a visibleIf condition on a field —
 // no separate mechanism.
 export function ProgramForm({
   sessionId,
   sessionOptions,
   partitionsBySession,
-  eventNameBySession,
+  eventId,
   auditoriums,
   programId,
   initial,
@@ -98,22 +102,26 @@ export function ProgramForm({
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
   const [configFields, setConfigFields] = useState<FormFieldConfig[]>(DEFAULT_CONFIG);
-
-  const eventName = eventNameBySession[values.sessionId];
+  // Layer 3 of the Add Item disclosure grammar (docs/DESIGN.md) — collapsed
+  // until Auditorium is set, since almost none of "Production" means
+  // anything without it. Starts open only when editing an item that
+  // already has one (initial?.auditoriumId), never re-forced-closed once a
+  // user has opened it manually — only auditoriumId being empty forces it
+  // closed, never state alone.
+  const [productionOpen, setProductionOpen] = useState(() => Boolean(initial?.auditoriumId));
 
   useEffect(() => {
     // Reset happens via the fetch's own resolution (falling back to
     // DEFAULT_CONFIG on a 404/empty config below), not synchronously here —
     // calling setState directly in an effect body triggers a needless extra
     // render. configFields already starts at DEFAULT_CONFIG, which is the
-    // correct state for the !eventName case too.
-    if (!eventName) return;
+    // correct state for the no-custom-config case too.
     let cancelled = false;
-    fetch(`/api/event-form-configs/${encodeURIComponent(eventName)}`)
+    fetch(`/api/events/${eventId}`)
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return;
-        const fields = data?.config?.fields;
+        const fields = data?.event?.form_config?.fields;
         setConfigFields(Array.isArray(fields) && fields.length > 0 ? fields : DEFAULT_CONFIG);
       })
       .catch(() => {
@@ -122,10 +130,15 @@ export function ProgramForm({
     return () => {
       cancelled = true;
     };
-  }, [eventName]);
+  }, [eventId]);
 
   function set(key: string, value: unknown) {
     setValues((v) => ({ ...v, [key]: value }));
+    // Choosing an Auditorium is what makes Production Requirements
+    // meaningful at all — open the section the moment it gains a value,
+    // rather than making the operator pick Auditorium and then separately
+    // remember to expand a still-collapsed section right below it.
+    if (key === "auditoriumId" && value) setProductionOpen(true);
   }
 
   function optionsFor(field: FormFieldConfig) {
@@ -160,7 +173,7 @@ export function ProgramForm({
       const res = await fetch(programId ? `/api/programs/${programId}` : "/api/programs", {
         method: programId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(programId ? { ...values, version } : values),
+        body: JSON.stringify(programId ? { ...values, eventId, version } : { ...values, eventId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -182,11 +195,87 @@ export function ProgramForm({
   const valuesAsRecord = values as unknown as Values;
   const visibleFields = configFields.filter((f) => resolveVisibility(f, valuesAsRecord));
 
+  const auditoriumSet = Boolean(values.auditoriumId);
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-8">
       {GROUP_ORDER.map((group) => {
         const fields = visibleFields.filter((f) => f.group === group);
         if (fields.length === 0) return null;
+
+        // Layer 3 of the disclosure grammar: "Production" splits into the
+        // one field that gates the rest (Auditorium — always visible,
+        // rendered like any other Layer-2 field) and everything else,
+        // which collapses until Auditorium has a value. Every other group
+        // renders exactly as before — this only changes "Production".
+        if (group === "Production") {
+          const auditoriumField = fields.find((f) => f.key === "auditoriumId");
+          const restFields = fields.filter((f) => f.key !== "auditoriumId");
+          return (
+            <section key={group} className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <h3 className="text-console-label text-muted-2 shrink-0">{group}</h3>
+                <span aria-hidden="true" className="flex-1 h-px bg-line-soft" />
+              </div>
+
+              {auditoriumField && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                  <FieldRenderer
+                    field={auditoriumField}
+                    value={valuesAsRecord[auditoriumField.key]}
+                    options={optionsFor(auditoriumField)}
+                    error={errors[auditoriumField.key]}
+                    onChange={(v) => set(auditoriumField.key, v)}
+                    timeIsComputed={values.timeIsComputed}
+                    onToggleComputed={(v) => set("timeIsComputed", v)}
+                  />
+                </div>
+              )}
+
+              {restFields.length > 0 && (
+                <div className="rounded-panel border border-line-soft overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => auditoriumSet && setProductionOpen((o) => !o)}
+                    disabled={!auditoriumSet}
+                    aria-expanded={auditoriumSet && productionOpen}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-4 py-3 text-left text-console-sm",
+                      auditoriumSet ? "text-muted cursor-pointer hover:text-primary" : "text-muted-2 cursor-not-allowed"
+                    )}
+                  >
+                    <ChevronRight
+                      className={cn(
+                        "h-3.5 w-3.5 shrink-0 transition-transform duration-[180ms]",
+                        auditoriumSet && productionOpen && "rotate-90"
+                      )}
+                      strokeWidth={2}
+                    />
+                    Production Requirements
+                    {!auditoriumSet && <span className="text-console-meta italic">— select an auditorium to configure</span>}
+                  </button>
+                  {auditoriumSet && productionOpen && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 px-4 pb-4 pt-1 border-t border-line-soft">
+                      {restFields.map((field) => (
+                        <FieldRenderer
+                          key={field.key}
+                          field={field}
+                          value={valuesAsRecord[field.key]}
+                          options={optionsFor(field)}
+                          error={errors[field.key]}
+                          onChange={(v) => set(field.key, v)}
+                          timeIsComputed={values.timeIsComputed}
+                          onToggleComputed={(v) => set("timeIsComputed", v)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          );
+        }
+
         return (
           // Each group is a labelled band with a rule, not another card.
           // A config-driven form can produce any number of groups, and
@@ -317,11 +406,11 @@ function FieldRenderer({
   if (field.type === "textarea") {
     return (
       <Field label={field.label} error={error} className="sm:col-span-2">
-        <textarea
+        <Textarea
           value={(value as string | null) ?? ""}
           onChange={(e) => onChange(e.target.value || null)}
           rows={3}
-          className="w-full rounded-control bg-background border border-line px-3 py-2 text-console-sm text-primary placeholder:text-muted-2 outline-none resize-y min-h-[4.5rem] transition-[border-color,box-shadow] duration-[140ms] focus:border-accent focus:ring-[3px] focus:ring-accent/15"
+          className="min-h-[4.5rem]"
         />
       </Field>
     );
@@ -374,7 +463,7 @@ function Checkbox({ label, checked, onChange }: { label: string; checked: boolea
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 shrink-0 rounded-[3px] border-line bg-background accent-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+        className="h-4 w-4 shrink-0 rounded-control border-line bg-background accent-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-card"
       />
       <span className="text-console-meta text-muted">{label}</span>
     </label>

@@ -30,6 +30,9 @@ import { ProgressBar } from "@/components/tv/progress-bar";
 import { HoldBadge } from "@/components/tv/hold-badge";
 import { BigActionButton } from "@/components/remote/big-action-button";
 import { QuickActionButton } from "@/components/remote/quick-action-button";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -139,14 +142,9 @@ export default function RemotePage() {
             <p className="text-caption text-muted-2 tabular-nums">
               {Math.min(currentOrder ?? 0, max)} / {max}
             </p>
-            <button
-              type="button"
-              onClick={lock}
-              aria-label="Lock"
-              className="text-muted-2 hover:text-primary cursor-pointer p-1 -m-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
-            >
+            <Button type="button" variant="ghost" size="sm" square onClick={lock} aria-label="Lock" className="h-6 w-6">
               <Lock className="h-4 w-4" strokeWidth={2} />
-            </button>
+            </Button>
           </div>
         </div>
         <div className="flex gap-1.5 overflow-x-auto mt-3 pb-1 -mx-1 px-1">
@@ -158,8 +156,8 @@ export default function RemotePage() {
               aria-current={s.id === state.activeSessionId ? "true" : undefined}
               aria-label={`${s.dayLabel} ${s.sessionLabel}`}
               className={cn(
-                "shrink-0 rounded-lg px-3 py-1.5 text-left cursor-pointer transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "shrink-0 rounded-panel px-3 py-1.5 text-left cursor-pointer transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 s.id === state.activeSessionId ? "bg-card text-primary" : "text-muted-2"
               )}
             >
@@ -223,7 +221,7 @@ export default function RemotePage() {
                   onClick={() => setSpeakerReady(next_.id, !nextReady)}
                   className={cn(
                     "mt-4 w-full flex items-center justify-center gap-2.5 rounded-full px-5 py-3 text-body font-semibold cursor-pointer transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     nextReady ? "bg-status-green/15 text-status-green" : "bg-white/5 text-muted hover:text-primary"
                   )}
                 >
@@ -469,7 +467,7 @@ function QuickPanel({
   const [broadcastValue, setBroadcastValue] = useState("");
 
   return (
-    <div className="rounded-2xl bg-card p-5 mb-3">
+    <div className="rounded-card bg-card p-5 mb-3">
       <div className="flex items-center justify-between mb-3">
         <p className="text-caption uppercase tracking-wide text-muted-2">
           {panel === "jump"
@@ -480,19 +478,15 @@ function QuickPanel({
                 ? "Stage Notes"
                 : "Broadcast to Displays"}
         </p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-muted-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
-          aria-label="Close"
-        >
+        <Button type="button" variant="ghost" size="sm" square onClick={onClose} aria-label="Close">
           <X className="h-4 w-4" strokeWidth={2} />
-        </button>
+        </Button>
       </div>
 
       {panel === "jump" && (
         <div className="flex gap-2">
-          <input
+          <Input
+            size="lg"
             type="number"
             min={1}
             max={max}
@@ -501,96 +495,108 @@ function QuickPanel({
             value={jumpValue}
             onChange={(e) => setJumpValue(e.target.value)}
             aria-label="Item number"
-            className="flex-1 h-14 rounded-xl bg-background border border-white/10 px-4 text-xl tabular-nums text-primary outline-none focus:border-white/25 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="flex-1 tabular-nums"
           />
-          <button
+          <Button
             type="button"
+            variant="primary"
+            size="lg"
+            square
             aria-label="Jump"
-            className="h-14 w-14 rounded-xl bg-primary text-background flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             disabled={!jumpValue || Number(jumpValue) < 1 || Number(jumpValue) > max}
             onClick={() => onRequestJump(Number(jumpValue))}
           >
             <Send className="h-5 w-5" strokeWidth={2} />
-          </button>
+          </Button>
         </div>
       )}
 
       {panel === "alert" && (
         <div className="flex gap-2">
-          <input
+          <Input
+            size="lg"
             type="text"
             placeholder="Drama Team, report Stage Left"
             value={alertValue}
             onChange={(e) => setAlertValue(e.target.value)}
             aria-label="Alert message"
-            className="flex-1 h-14 rounded-xl bg-background border border-white/10 px-4 text-body text-primary outline-none focus:border-white/25 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="flex-1"
           />
-          <button
+          <Button
             type="button"
+            variant="primary"
+            size="lg"
+            square
             aria-label="Send alert"
-            className="h-14 w-14 rounded-xl bg-primary text-background flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             disabled={!alertValue.trim()}
             onClick={() => onAlert(alertValue.trim(), "warning")}
           >
             <Send className="h-5 w-5" strokeWidth={2} />
-          </button>
+          </Button>
         </div>
       )}
 
       {panel === "notes" && (
         <div className="flex gap-2">
-          <textarea
+          <Textarea
             rows={2}
             placeholder="Cues, mic setup, entrances…"
             value={notesValue}
             onChange={(e) => setNotesValue(e.target.value)}
             aria-label="Stage notes"
-            className="flex-1 rounded-xl bg-background border border-white/10 px-4 py-3 text-body text-primary outline-none focus:border-white/25 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background resize-none"
+            className="flex-1 h-14 rounded-card px-4 py-3 text-body resize-none"
           />
-          <button
+          <Button
             type="button"
+            variant="primary"
+            size="lg"
+            square
             aria-label="Save notes"
-            className="h-14 w-14 rounded-xl bg-primary text-background flex items-center justify-center shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             onClick={() => onSaveNotes(notesValue)}
           >
             <Send className="h-5 w-5" strokeWidth={2} />
-          </button>
+          </Button>
         </div>
       )}
 
       {panel === "broadcast" && (
         <div className="flex flex-col gap-3">
           <div className="flex gap-2">
-            <input
+            <Input
+              size="lg"
               type="text"
               placeholder="Message to every display"
               value={broadcastValue}
               onChange={(e) => setBroadcastValue(e.target.value)}
               aria-label="Broadcast message"
-              className="flex-1 h-14 rounded-xl bg-background border border-white/10 px-4 text-body text-primary outline-none focus:border-white/25 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="flex-1"
             />
-            <button
+            <Button
               type="button"
+              variant="primary"
+              size="lg"
+              square
               aria-label="Send broadcast"
-              className="h-14 w-14 rounded-xl bg-primary text-background flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               disabled={!broadcastValue.trim()}
               onClick={() => onBroadcast(broadcastValue.trim(), "")}
             >
               <Send className="h-5 w-5" strokeWidth={2} />
-            </button>
+            </Button>
           </div>
 
           <div className="flex flex-wrap gap-2">
             {EMERGENCY_PRESETS.map((preset) => (
-              <button
+              <Button
                 key={preset.label}
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => onRequestEmergency(preset)}
-                className="flex items-center gap-1.5 rounded-full bg-status-red/15 text-status-red px-3 py-1.5 text-caption font-semibold cursor-pointer"
+                className="rounded-full bg-status-red/15 text-status-red hover:bg-status-red/25 hover:text-status-red"
               >
                 <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
                 {preset.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

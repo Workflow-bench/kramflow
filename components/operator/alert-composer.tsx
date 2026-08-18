@@ -75,7 +75,7 @@ export function AlertComposer() {
               aria-pressed={severity === s.value}
               className={cn(
                 "rounded-full px-3 py-1.5 text-caption font-semibold uppercase tracking-wide transition-opacity cursor-pointer whitespace-nowrap",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 s.tone,
                 severity !== s.value && "opacity-40"
               )}

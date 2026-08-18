@@ -10,6 +10,7 @@ import { ProgressBar } from "@/components/tv/progress-bar";
 import { HoldBadge } from "@/components/tv/hold-badge";
 import { SectionLabel } from "@/components/tv/section-label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
@@ -112,13 +113,13 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
             </Button>
           )}
         </div>
-        <textarea
+        <Textarea
           key={live.id}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Stage notes — cues, mic setup, entrances…"
           aria-label="Stage notes"
-          className="mt-3 w-full flex-1 min-h-24 rounded-lg bg-card border border-white/10 px-4 py-3 text-body text-primary placeholder:text-muted-2 outline-none focus:border-white/25 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background resize-none"
+          className="mt-3 flex-1 min-h-24 bg-card resize-none"
         />
       </div>
     </div>
@@ -163,8 +164,8 @@ function SessionSummary({ session, state }: { session: Session; state: LiveState
       .select("detail, created_at")
       .order("created_at", { ascending: false })
       .limit(50)
-      .then(({ data }) => {
-        if (!cancelled && data) setRows(data as ActivityRow[]);
+      .then(({ data }: { data: ActivityRow[] | null }) => {
+        if (!cancelled && data) setRows(data);
       });
     return () => {
       cancelled = true;

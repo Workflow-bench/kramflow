@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { Session } from "@/lib/types";
 
 interface SessionFormProps {
+  eventId: string;
   session?: Session; // present -> edit (PATCH), absent -> create (POST)
   nextSortOrder: number;
   onSaved: () => void;
@@ -20,7 +21,7 @@ function slugify(dayLabel: string, sessionLabel: string): string {
   return base || `session-${Date.now()}`;
 }
 
-export function SessionForm({ session, nextSortOrder, onSaved, onCancel }: SessionFormProps) {
+export function SessionForm({ eventId, session, nextSortOrder, onSaved, onCancel }: SessionFormProps) {
   const [dayLabel, setDayLabel] = useState(session?.dayLabel ?? "");
   const [sessionLabel, setSessionLabel] = useState(session?.sessionLabel ?? "");
   const [eventName, setEventName] = useState(session?.eventName ?? "");
@@ -41,8 +42,9 @@ export function SessionForm({ session, nextSortOrder, onSaved, onCancel }: Sessi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           session
-            ? { day_label: dayLabel.trim(), session_label: sessionLabel.trim(), event_name: eventName.trim() }
+            ? { eventId, day_label: dayLabel.trim(), session_label: sessionLabel.trim(), event_name: eventName.trim() }
             : {
+                eventId,
                 id: slugify(dayLabel, sessionLabel),
                 day_label: dayLabel.trim(),
                 session_label: sessionLabel.trim(),
@@ -66,7 +68,7 @@ export function SessionForm({ session, nextSortOrder, onSaved, onCancel }: Sessi
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-2xl bg-card p-6 flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="rounded-card bg-card p-6 flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="text-caption text-muted-2">Day</label>
@@ -101,8 +103,8 @@ export function SessionForm({ session, nextSortOrder, onSaved, onCancel }: Sessi
       {error && <p className="text-caption text-status-red">{error}</p>}
 
       <div className="flex items-center gap-3">
-        <Button type="submit" variant="primary" disabled={saving}>
-          {saving ? "Saving…" : session ? "Save changes" : "Add session"}
+        <Button type="submit" variant="primary" loading={saving}>
+          {session ? "Save changes" : "Add session"}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel} disabled={saving}>
           Cancel

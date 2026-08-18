@@ -28,31 +28,37 @@ Set in the Vercel project's **Settings → Environment Variables** (and locally 
 
 | Variable | Required | Notes |
 |---|---|---|
-| `OPERATOR_PIN` | Recommended | 4-digit PIN gating `/operator` and `/remote`. Falls back to `0065` if unset — fine for a private preview deploy, **not** fine for a production URL anyone could stumble onto. Set a real value for Production and Preview environments. |
-| `NEXT_PUBLIC_SUPABASE_URL` | Required | Supabase project URL. Safe to expose to the client. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Required | Supabase anon public key. Safe to expose — Row Level Security restricts it to read-only on public tables (see `supabase/schema.sql`). |
+| `NEXT_PUBLIC_SUPABASE_URL` | Required | Supabase project URL. Safe to expose to the client — also what the Supabase Auth client talks to. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Required | Supabase anon public key. Safe to expose — Row Level Security restricts it to read-only on public tables (see `supabase/schema.sql`); Auth has its own access controls independent of that. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Required | Server-only. Used by every API route that writes data. Bypasses RLS — never expose to the client, never prefix with `NEXT_PUBLIC_`. |
-| `AUTH_COOKIE_SECRET` | Recommended | Signs the operator session cookie (`app/api/auth/route.ts`). Falls back to a dev-only default if unset — set a real random value for production. |
 
-`@supabase/ssr` and `@supabase/supabase-js` are both in active use now (client + server Supabase clients, `lib/supabase/*`) — no longer "pre-staged but unused."
+No separate auth secret to manage: signup/login/logout, password hashing, and session expiry all run on Supabase Auth. In the Supabase dashboard, enable **Authentication → Providers → Email**, and set **Authentication → Settings → Confirm email** according to whether you want operators to click an email link before their account activates (recommended for a public deploy; optional for a closed crew you're onboarding by hand).
+
+`@supabase/ssr` and `@supabase/supabase-js` are both in active use (client + server Supabase clients, `lib/supabase/*`).
 
 ## What "production-ready" means here — and what it doesn't
 
-The build is clean, routes are correctly split between static (TV/Display Engine displays, the launcher) and dynamic (auth, live-state mutations, the programs/sessions/upload API), and the core flows have been verified via `tsc`/`lint`/`build`. Two things to go in with eyes open about:
+The build is clean, routes are correctly split between static (TV/Display Engine displays, the launcher) and dynamic (auth, live-state mutations, the programs/sessions/upload API), and the core flows — signup, login, session persistence, protected-route redirects, share-link generation/resolution/revocation, and Realtime sync to a no-login display — have been verified end-to-end against a live Supabase project, not just via static analysis. One thing to go in with eyes open about:
 
-1. **Live end-to-end verification against a real Supabase project is still pending** as of this restructure — the code path is exercised by static analysis and a clean build, but hasn't yet been run against actual Supabase credentials (seed → cross-device sync → upload → form CRUD). Do this before a real event: `npm run seed`, then open `/operator` and `/green-room` on two separate devices and confirm a Next/Hold/Alert on one reaches the other within ~1s.
-2. **PIN auth is a convenience gate, not real authentication.** See `docs/DEPLOYMENT.md#hardening-authentication` below. It's stronger than before this restructure (a signed `httpOnly` cookie now gates every write API route server-side, not just a client-readable flag), but still one shared PIN for the whole crew.
+- **Run `npm run seed`** against a fresh project before a real event if `sessions`/`programs` are empty, then open `/operator` and a Share Display Link's `/general` on two separate devices and confirm a Next/Hold/Alert on one reaches the other within ~1s.
 
-## Hardening authentication
+## Authentication model
 
-The PIN check (`app/api/auth/route.ts`) now sets a signed `httpOnly` session cookie (`lib/server/auth-cookie.ts`) that every mutating API route verifies (`lib/server/require-auth.ts`) — a real server-side enforcement point that didn't exist before this restructure. It's still: one shared PIN, no rate limiting, no lockout, no hashing (though the PIN itself never reaches the client bundle, and the cookie is HMAC-signed, not just an opaque flag).
+Real per-operator accounts via Supabase Auth — any operator can sign up and create their own event(s); every event, session, program, share link, and live/display state is scoped to its owning operator, enforced by RLS at the database layer (`supabase/schema.sql`'s "owner select" policies), not just hidden in the UI:
 
-For a deployment where more matters, replace it with:
+- `proxy.ts` (project root) redirects any request under `/dashboard` or `/e/...` (every per-event operator surface — console, cue sheet, remote, broadcast center, display manager) to `/login` unless a valid Supabase session cookie is present.
+- `app/e/[eventId]/layout.tsx` is the real per-event gate: it re-verifies the signed-in user actually owns that `eventId` server-side before rendering anything under it, redirecting to `/dashboard` (not a distinguishable error) otherwise.
+- Every mutating API route calls `lib/server/require-event-owner.ts`, which re-verifies both the session (`getUser()`, not just decoding the cookie) and ownership of the specific `event_id` being acted on — the actual enforcement point, not the redirect. RLS is the backstop underneath it: it holds even if a route handler had a bug.
+- Login attempts are rate-limited per IP (`lib/server/rate-limit.ts`) — 8 failures locks out for 30s, doubling per repeat offense up to 5 minutes.
+- The four TV displays (`/general`, `/av`, `/green-room`, `/presenter`) are gated by `lib/server/verify-display-access.ts`: a real operator session that owns the requested event, or a share-link token that resolves to a non-expired, non-revoked row in `share_links` — which itself resolves to exactly one `event_id`, never a client-supplied one.
+- Share links are owner-scoped too: only the operator who owns a link's event can revoke it (`app/api/share-links/[id]/route.ts`), not any authenticated operator.
 
-- Per-user credentials (even a simple allowlist of names + passwords) instead of one shared PIN
-- Rate limiting / lockout on repeated failed attempts (`app/api/auth/route.ts` is the single choke point to add this)
+For a deployment where more matters, consider adding:
+
 - A durable audit log beyond the operator activity feed (`activity_log`, currently last-20 / not persisted long-term by any retention policy)
-- Consider a proper identity provider (e.g., Supabase Auth, or Auth.js) if the crew list grows past "everyone shares one PIN"
+- Supabase's built-in MFA (TOTP) for operator accounts
+- Rate limiting / abuse prevention on event creation — an authenticated operator can currently create unlimited events via `POST /api/events`
+- Plan/billing limits if this ever moves beyond a free internal tool
 
 ## Rollback
 

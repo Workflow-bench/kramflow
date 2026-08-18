@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, GripVertical, Plus, Upload, Pencil, Trash2, CalendarPlus } from "lucide-react";
+import { ChevronLeft, GripVertical, Plus, Upload, Pencil, Trash2, CalendarPlus, Settings } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -22,6 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useSessions } from "@/lib/use-sessions";
+import { useEventId } from "@/lib/event-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Panel } from "@/components/ui/card";
@@ -38,6 +39,7 @@ import {
 import { SectionLabel } from "@/components/tv/section-label";
 import { ProgramForm } from "@/components/forms/program-form";
 import { SessionForm } from "@/components/forms/session-form";
+import { EventSettingsPanel } from "@/components/forms/event-settings-panel";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import type { ProgramInput } from "@/lib/validation/program";
@@ -45,6 +47,14 @@ import type { ParsedProgram, ParsedSession } from "@/lib/parse-cuesheet";
 import type { Partition, Session } from "@/lib/types";
 import { colorTagLabel, colorTagTone } from "@/lib/color-tags";
 import { cn } from "@/lib/utils";
+
+// Above this count, a bulk delete gets a confirm dialog in addition to the
+// Undo toast every delete already gets — the toast alone is the right-sized
+// guardrail up to a handful of items (matching a single item's own
+// guardrail-free delete), but a genuinely large bulk action is a different
+// psychological event even with Undo available. docs/DESIGN.md's
+// guardrail-tier table.
+const BULK_DELETE_CONFIRM_THRESHOLD = 3;
 
 interface ProgramRow extends ParsedProgram {
   id: string;
@@ -116,6 +126,7 @@ function rowToInput(row: ProgramRow): Partial<ProgramInput> {
 }
 
 export default function CueSheetPage() {
+  const eventId = useEventId();
   const sessions = useSessions();
   const toast = useToast();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -133,8 +144,9 @@ export default function CueSheetPage() {
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkApplying, setBulkApplying] = useState(false);
   const [panel, setPanel] = useState<
-    "none" | "upload" | "create" | "create-session" | { edit: ProgramRow } | { editSession: Session }
+    "none" | "upload" | "create" | "create-session" | "event-settings" | { edit: ProgramRow } | { editSession: Session }
   >("none");
+  const [eventName, setEventName] = useState("");
   const deleteConfirm = useConfirmDialog<ProgramRow[]>();
   const deleteSessionConfirm = useConfirmDialog<Session>();
   // Deletes are delayed, not immediate — the row disappears from view right
@@ -147,7 +159,7 @@ export default function CueSheetPage() {
   async function loadRows(sessionId: string) {
     setLoadingRows(true);
     try {
-      const res = await fetch(`/api/programs?sessionId=${encodeURIComponent(sessionId)}`);
+      const res = await fetch(`/api/programs?eventId=${encodeURIComponent(eventId)}&sessionId=${encodeURIComponent(sessionId)}`);
       const data = await res.json();
       setRows(data.programs ?? []);
     } finally {
@@ -168,12 +180,21 @@ export default function CueSheetPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId]);
 
-  useEffect(() => {
-    fetch("/api/auditoriums")
+  function loadAuditoriums() {
+    fetch(`/api/auditoriums?eventId=${encodeURIComponent(eventId)}`)
       .then((res) => res.json())
       .then((data) => setAuditoriums(data.auditoriums ?? []))
       .catch(() => {});
-  }, []);
+  }
+
+  useEffect(() => {
+    loadAuditoriums();
+    fetch(`/api/events/${eventId}`)
+      .then((res) => res.json())
+      .then((data) => setEventName(data?.event?.name ?? ""))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAuditoriums is stable across the eventId this effect keys on
+  }, [eventId]);
 
   function scheduleDelete(toRemove: ProgramRow[]) {
     const ids = toRemove.map((r) => r.id);
@@ -187,7 +208,9 @@ export default function CueSheetPage() {
 
     const timer = setTimeout(async () => {
       pendingDeleteTimers.current.delete(key);
-      await Promise.all(ids.map((id) => fetch(`/api/programs/${id}`, { method: "DELETE" })));
+      await Promise.all(
+        ids.map((id) => fetch(`/api/programs/${id}?eventId=${encodeURIComponent(eventId)}`, { method: "DELETE" }))
+      );
     }, 5000);
     pendingDeleteTimers.current.set(key, timer);
 
@@ -248,7 +271,7 @@ export default function CueSheetPage() {
     const res = await fetch("/api/programs/move", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: movedId, afterId, partitionId: group.partitionId }),
+      body: JSON.stringify({ eventId, id: movedId, afterId, partitionId: group.partitionId }),
     });
     if (res.ok) {
       loadRows(activeSessionId);
@@ -292,7 +315,7 @@ export default function CueSheetPage() {
       const res = await fetch("/api/programs/bulk", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: Array.from(selected), field, value }),
+        body: JSON.stringify({ eventId, ids: Array.from(selected), field, value }),
       });
       if (res.ok) {
         toast.success(`${selected.size} items updated`);
@@ -313,7 +336,7 @@ export default function CueSheetPage() {
       const res = await fetch("/api/programs/bulk", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: Array.from(selected), partitionId }),
+        body: JSON.stringify({ eventId, ids: Array.from(selected), partitionId }),
       });
       if (res.ok) {
         toast.success(`${selected.size} items moved`);
@@ -331,7 +354,7 @@ export default function CueSheetPage() {
   async function handleDeleteSessionConfirmed() {
     const target = deleteSessionConfirm.pending;
     if (!target) return;
-    await fetch(`/api/sessions/${target.id}`, { method: "DELETE" });
+    await fetch(`/api/sessions/${target.id}?eventId=${encodeURIComponent(eventId)}`, { method: "DELETE" });
     toast.success("Session deleted");
     deleteSessionConfirm.cancel();
     if (activeSessionId === target.id) {
@@ -342,7 +365,6 @@ export default function CueSheetPage() {
 
   const sessionOptions = sessions.map((s) => ({ id: s.id, label: `${s.dayLabel} • ${s.sessionLabel}` }));
   const partitionsBySession = Object.fromEntries(sessions.map((s) => [s.id, s.partitions]));
-  const eventNameBySession = Object.fromEntries(sessions.map((s) => [s.id, s.eventName]));
 
   // No search existed here at all — unlike Broadcast Center, which has
   // one for a much shorter list. At the real cue sheet's actual scale
@@ -404,7 +426,7 @@ export default function CueSheetPage() {
       <header className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-line-soft">
         <div className="flex items-center justify-between gap-4 px-4 sm:px-6 h-14">
           <div className="flex items-center gap-3 min-w-0">
-            <Link href="/operator" className="shrink-0">
+            <Link href={`/e/${eventId}/operator`} className="shrink-0">
               <Button variant="ghost" size="sm">
                 <ChevronLeft className="h-4 w-4" strokeWidth={2} />
                 <span className="hidden sm:inline">Operator</span>
@@ -414,6 +436,10 @@ export default function CueSheetPage() {
             <h1 className="text-console-lg text-primary truncate">Cue Sheet</h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <Button variant="ghost" size="sm" aria-label="Event settings" onClick={() => setPanel("event-settings")}>
+              <Settings className="h-4 w-4" strokeWidth={2} />
+              <span className="hidden sm:inline">Settings</span>
+            </Button>
             <Button variant="secondary" size="sm" onClick={() => setPanel("upload")}>
               <Upload className="h-4 w-4" strokeWidth={2} />
               <span className="hidden sm:inline">Import Excel</span>
@@ -483,6 +509,7 @@ export default function CueSheetPage() {
 
         {panel === "create-session" && (
           <SessionForm
+            eventId={eventId}
             nextSortOrder={sessions.length}
             onSaved={() => {
               setPanel("none");
@@ -494,6 +521,7 @@ export default function CueSheetPage() {
 
         {typeof panel === "object" && "editSession" in panel && (
           <SessionForm
+            eventId={eventId}
             session={panel.editSession}
             nextSortOrder={sessions.length}
             onSaved={() => {
@@ -506,6 +534,7 @@ export default function CueSheetPage() {
 
         {panel === "upload" && (
           <UploadPanel
+            eventId={eventId}
             onDone={() => {
               setPanel("none");
               toast.success("Cue sheet imported");
@@ -515,13 +544,25 @@ export default function CueSheetPage() {
           />
         )}
 
+        {panel === "event-settings" && (
+          <Panel className="p-5">
+            <EventSettingsPanel
+              eventId={eventId}
+              initialName={eventName}
+              auditoriums={auditoriums}
+              onAuditoriumsChanged={loadAuditoriums}
+              onCancel={() => setPanel("none")}
+            />
+          </Panel>
+        )}
+
         {panel === "create" && activeSessionId && (
           <Panel className="p-5">
             <ProgramForm
               sessionId={activeSessionId}
               sessionOptions={sessionOptions}
               partitionsBySession={partitionsBySession}
-              eventNameBySession={eventNameBySession}
+              eventId={eventId}
               auditoriums={auditoriums}
               onSaved={() => {
                 setPanel("none");
@@ -539,7 +580,7 @@ export default function CueSheetPage() {
               sessionId={panel.edit.session_id}
               sessionOptions={sessionOptions}
               partitionsBySession={partitionsBySession}
-              eventNameBySession={eventNameBySession}
+              eventId={eventId}
               auditoriums={auditoriums}
               programId={panel.edit.id}
               initial={rowToInput(panel.edit)}
@@ -701,7 +742,7 @@ export default function CueSheetPage() {
                       selected={isSelected}
                       onToggleSelect={(checked, shiftKey) => toggleSelected(row.id, checked, shiftKey)}
                       onEdit={() => setPanel({ edit: row })}
-                      onDelete={() => deleteConfirm.request([row])}
+                      onDelete={() => scheduleDelete([row])}
                     />
                   );
                 })}
@@ -722,6 +763,7 @@ export default function CueSheetPage() {
                         <span aria-hidden="true" className="flex-1 h-px bg-line-soft" />
                         {group.partitionId && (
                           <PartitionStartTimeEditor
+                            eventId={eventId}
                             partition={activeSession?.partitions.find((p) => p.id === group.partitionId) ?? null}
                             onSaved={() => activeSessionId && loadRows(activeSessionId)}
                           />
@@ -746,7 +788,7 @@ export default function CueSheetPage() {
                             isDragging={activeDragId === row.id}
                             onToggleSelect={(checked, shiftKey) => toggleSelected(row.id, checked, shiftKey)}
                             onEdit={() => setPanel({ edit: row })}
-                            onDelete={() => deleteConfirm.request([row])}
+                            onDelete={() => scheduleDelete([row])}
                           />
                           );
                         })}
@@ -765,7 +807,7 @@ export default function CueSheetPage() {
       {panel === "none" && selected.size > 0 && (
         <ActionBar>
           {bulkEditOpen && (
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[calc(100vw-2rem)] rounded-panel bg-card border border-line p-3 shadow-[0_12px_32px_rgba(0,0,0,0.5)] motion-safe:animate-rise">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[calc(100vw-2rem)] rounded-panel bg-card border border-line p-3 shadow-float motion-safe:animate-rise">
               <BulkEditPanel
                 partitions={activeSession?.partitions ?? []}
                 applying={bulkApplying}
@@ -795,7 +837,15 @@ export default function CueSheetPage() {
             tone="danger"
             onClick={() => {
               const toDelete = (filteredRows ?? []).filter((r) => selected.has(r.id));
-              deleteConfirm.request(toDelete);
+              // Guardrail weight scales with blast radius, not with the verb
+              // (docs/DESIGN.md) — a handful of items still gets the same
+              // Undo-toast-only guardrail a single delete does; only a
+              // genuinely large bulk action earns the extra confirm step.
+              if (toDelete.length > BULK_DELETE_CONFIRM_THRESHOLD) {
+                deleteConfirm.request(toDelete);
+              } else {
+                scheduleDelete(toDelete);
+              }
             }}
           >
             Delete
@@ -805,11 +855,7 @@ export default function CueSheetPage() {
 
       <ConfirmDialog
         open={deleteConfirm.isOpen}
-        title={
-          deleteConfirm.pending?.length === 1
-            ? `Delete "${deleteConfirm.pending[0].name}"?`
-            : `Delete ${deleteConfirm.pending?.length ?? 0} items?`
-        }
+        title={`Delete ${deleteConfirm.pending?.length ?? 0} items?`}
         description="You'll get a few seconds to undo it after."
         confirmLabel="Delete"
         tone="danger"
@@ -875,7 +921,7 @@ function ProgramRowView({
         // column count) and the time reappears on the meta line instead.
         "group grid min-h-11 items-center gap-2 sm:gap-3 px-3 py-2 border-b border-line-soft",
         "grid-cols-[1.25rem_1rem_1fr_4.25rem] sm:grid-cols-[1.25rem_1rem_2rem_1fr_5rem_3.25rem_4.25rem]",
-        "transition-colors duration-[140ms] ease-out",
+        "transition-colors duration-[110ms] ease-out",
         // Selection is a full tinted fill, not a coloured left border —
         // both competitors fill the row, and a 2px accent rail on every
         // list item is the tell of a design that had no better idea.
@@ -903,7 +949,7 @@ function ProgramRowView({
           onToggleSelect(e.target.checked, shiftKeyRef.current);
         }}
         aria-label={`Select ${row.name}`}
-        className="h-4 w-4 rounded-[3px] border-line bg-background accent-accent cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="h-4 w-4 rounded-control border-line bg-background accent-accent cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       />
 
       <span className="tnum hidden sm:block text-console-meta text-muted-2 text-right">{row.sort_order}</span>
@@ -958,12 +1004,12 @@ function ProgramRowView({
       {/* Row actions stay dim until the row is hovered or focused within,
           so 40 rows of icons don't compete with the content. They remain
           keyboard-reachable at all times. */}
-      <div className="flex items-center justify-end gap-0.5 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-[140ms]">
+      <div className="flex items-center justify-end gap-0.5 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-[110ms]">
         <button
           type="button"
           aria-label={`Edit ${row.name}`}
           onClick={onEdit}
-          className="grid h-8 w-8 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[140ms] hover:bg-raised hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="grid h-8 w-8 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-raised hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
@@ -971,7 +1017,7 @@ function ProgramRowView({
           type="button"
           aria-label={`Delete ${row.name}`}
           onClick={onDelete}
-          className="grid h-8 w-8 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[140ms] hover:bg-status-red/12 hover:text-status-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="grid h-8 w-8 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-status-red/12 hover:text-status-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
@@ -1035,7 +1081,7 @@ function SortableProgramRow({
           className={cn(
             "flex items-center justify-center -mx-2 px-2 h-11 shrink-0 touch-none",
             "text-muted-2 cursor-grab active:cursor-grabbing",
-            "transition-colors duration-[140ms] hover:text-primary",
+            "transition-colors duration-[110ms] hover:text-primary",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:rounded-control"
           )}
         >
@@ -1050,7 +1096,15 @@ function SortableProgramRow({
 // cascade walks forward from. Click-to-edit rather than a permanent input
 // since most partition headers never need touching once set; keeping it
 // out of the way matches how the rest of the queue sheet stays read-first.
-function PartitionStartTimeEditor({ partition, onSaved }: { partition: Partition | null; onSaved: () => void }) {
+function PartitionStartTimeEditor({
+  eventId,
+  partition,
+  onSaved,
+}: {
+  eventId: string;
+  partition: Partition | null;
+  onSaved: () => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(partition?.startTime ?? "");
   const [saving, setSaving] = useState(false);
@@ -1066,7 +1120,7 @@ function PartitionStartTimeEditor({ partition, onSaved }: { partition: Partition
           setValue(partition.startTime ?? "");
           setEditing(true);
         }}
-        className="shrink-0 rounded-chip px-1.5 py-0.5 text-console-label text-muted-2 cursor-pointer transition-colors duration-[140ms] hover:bg-raised hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="shrink-0 rounded-chip px-1.5 py-0.5 text-console-label text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-raised hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         {partition.startTime ? <span className="tnum">Starts {partition.startTime}</span> : "Set start time"}
       </button>
@@ -1079,7 +1133,7 @@ function PartitionStartTimeEditor({ partition, onSaved }: { partition: Partition
       const res = await fetch(`/api/partitions/${partition!.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ start_time: value.trim() || null }),
+        body: JSON.stringify({ eventId, start_time: value.trim() || null }),
       });
       if (!res.ok) {
         toast.error("Couldn't update the section's start time");
@@ -1105,7 +1159,7 @@ function PartitionStartTimeEditor({ partition, onSaved }: { partition: Partition
       disabled={saving}
       placeholder="9:00 AM"
       aria-label="Section start time"
-      className="tnum h-7 w-24 shrink-0 rounded-control border border-line bg-background px-2 text-console-meta text-primary outline-none transition-[border-color,box-shadow] duration-[140ms] focus:border-accent focus:ring-[3px] focus:ring-accent/15"
+      className="tnum h-7 w-24 shrink-0 rounded-control border border-line bg-background px-2 text-console-meta text-primary outline-none transition-[border-color,box-shadow] duration-[110ms] focus:border-accent focus:ring-[3px] focus:ring-accent/15"
     />
   );
 }
@@ -1208,7 +1262,7 @@ function BulkEditPanel({
   );
 }
 
-function UploadPanel({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+function UploadPanel({ eventId, onDone, onCancel }: { eventId: string; onDone: () => void; onCancel: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<{ sessions: ParsedSession[]; programs: ParsedProgram[]; errors: { index: number; name: string; errors: string[] }[] } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1221,6 +1275,7 @@ function UploadPanel({ onDone, onCancel }: { onDone: () => void; onCancel: () =>
     try {
       const body = new FormData();
       body.append("file", file);
+      body.append("eventId", eventId);
       const res = await fetch("/api/cue-sheet/upload?dryRun=1", { method: "POST", body });
       const data = await res.json();
       if (!res.ok) {
@@ -1240,6 +1295,7 @@ function UploadPanel({ onDone, onCancel }: { onDone: () => void; onCancel: () =>
     try {
       const body = new FormData();
       body.append("file", file);
+      body.append("eventId", eventId);
       const res = await fetch("/api/cue-sheet/upload", { method: "POST", body });
       const data = await res.json();
       if (!res.ok) {
@@ -1253,7 +1309,7 @@ function UploadPanel({ onDone, onCancel }: { onDone: () => void; onCancel: () =>
   }
 
   return (
-    <div className="rounded-2xl bg-card p-6 flex flex-col gap-4">
+    <div className="rounded-card bg-card p-6 flex flex-col gap-4">
       <SectionLabel>Import Excel</SectionLabel>
       <input
         type="file"
@@ -1262,7 +1318,7 @@ function UploadPanel({ onDone, onCancel }: { onDone: () => void; onCancel: () =>
           setFile(e.target.files?.[0] ?? null);
           setPreview(null);
         }}
-        className="text-body text-muted file:mr-4 file:h-9 file:px-4 file:rounded-lg file:border-0 file:bg-primary file:text-background file:font-medium file:cursor-pointer cursor-pointer"
+        className="text-console-sm text-muted file:mr-4 file:h-9 file:px-4 file:rounded-control file:border-0 file:bg-primary file:text-background file:font-medium file:cursor-pointer cursor-pointer"
       />
 
       {error && <p className="text-caption text-status-red">{error}</p>}

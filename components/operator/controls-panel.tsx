@@ -155,7 +155,7 @@ export function ControlsPanel({
               <button
                 type="button"
                 onClick={() => releaseControl()}
-                className="text-muted-2 hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded"
+                className="text-muted-2 hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
               >
                 Release
               </button>
@@ -169,7 +169,7 @@ export function ControlsPanel({
               <button
                 type="button"
                 onClick={() => setConfirmKind("takeover")}
-                className="text-status-orange hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded"
+                className="text-status-orange hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
               >
                 Take Over
               </button>
@@ -180,7 +180,7 @@ export function ControlsPanel({
               onClick={() => claimControl()}
               className={cn(
                 "flex items-center gap-1.5 text-muted-2 hover:text-primary cursor-pointer",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded"
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
               )}
             >
               <Unlock className="h-3 w-3" strokeWidth={2} />

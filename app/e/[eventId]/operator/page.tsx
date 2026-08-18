@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Lock, Smartphone, Tv, FileSpreadsheet, Presentation, Megaphone, Settings2, Users, WifiOff } from "lucide-react";
 import { useEventStore, useConnectionStatus } from "@/lib/store";
 import { useSessions } from "@/lib/use-sessions";
+import { useEventId } from "@/lib/event-context";
 import { getSessionById } from "@/lib/data/sessions";
 import { useAuth } from "@/components/auth/auth-context";
 import { useOperatorPresence } from "@/lib/use-operator-presence";
@@ -18,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 
 export default function OperatorPage() {
+  const eventId = useEventId();
   const { state } = useEventStore();
   const { status, lock } = useAuth();
   const sessions = useSessions();
@@ -78,49 +80,49 @@ export default function OperatorPage() {
         </div>
 
         <div className="flex items-center flex-wrap gap-2 xl:min-w-0">
-          <Link href="/operator/cue-sheet">
+          <Link href={`/e/${eventId}/operator/cue-sheet`}>
             <Button variant="secondary" size="sm">
               <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />
               Cue Sheet
             </Button>
           </Link>
-          <Link href="/green-room" target="_blank">
+          <Link href={`/green-room?eventId=${eventId}`} target="_blank">
             <Button variant="secondary" size="sm">
               <Tv className="h-4 w-4" strokeWidth={2} />
               Green Room
             </Button>
           </Link>
-          <Link href="/av" target="_blank">
+          <Link href={`/av?eventId=${eventId}`} target="_blank">
             <Button variant="secondary" size="sm">
               <Tv className="h-4 w-4" strokeWidth={2} />
               AV
             </Button>
           </Link>
-          <Link href="/general" target="_blank">
+          <Link href={`/general?eventId=${eventId}`} target="_blank">
             <Button variant="secondary" size="sm">
               <Tv className="h-4 w-4" strokeWidth={2} />
               General
             </Button>
           </Link>
-          <Link href="/presenter" target="_blank">
+          <Link href={`/presenter?eventId=${eventId}`} target="_blank">
             <Button variant="secondary" size="sm">
               <Presentation className="h-4 w-4" strokeWidth={2} />
               Presenter
             </Button>
           </Link>
-          <Link href="/remote" target="_blank">
+          <Link href={`/e/${eventId}/remote`} target="_blank">
             <Button variant="secondary" size="sm">
               <Smartphone className="h-4 w-4" strokeWidth={2} />
               Remote
             </Button>
           </Link>
-          <Link href="/broadcast">
+          <Link href={`/e/${eventId}/broadcast`}>
             <Button variant="secondary" size="sm">
               <Megaphone className="h-4 w-4" strokeWidth={2} />
               Broadcast
             </Button>
           </Link>
-          <Link href="/display-manager">
+          <Link href={`/e/${eventId}/display-manager`}>
             <Button variant="secondary" size="sm">
               <Settings2 className="h-4 w-4" strokeWidth={2} />
               Displays
@@ -179,7 +181,7 @@ export default function OperatorPage() {
             {sessions.length === 0 ? "No sessions yet." : "Select a session to get started."}
           </p>
           {sessions.length === 0 && (
-            <Link href="/operator/cue-sheet">
+            <Link href={`/e/${eventId}/operator/cue-sheet`}>
               <Button variant="primary" size="sm">
                 <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />
                 Go to Cue Sheet

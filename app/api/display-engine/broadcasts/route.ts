@@ -1,22 +1,23 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/server/require-auth";
+import { requireEventOwner } from "@/lib/server/require-event-owner";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-// POST send-now or schedule a broadcast. requireAuth()-gated — only
-// Broadcast Center + Operator's embedded quick-panel create broadcasts
-// (both PIN-gated). Dismiss/acknowledge/promote stay public (see their
-// own route files) since BroadcastOverlay — rendered on every public
-// display — calls dismiss/acknowledge directly.
+// POST send-now or schedule a broadcast. requireEventOwner-gated — only
+// Broadcast Center + Operator's embedded quick-panel (both authenticated,
+// scoped to the operator's own event) create broadcasts. Dismiss/
+// acknowledge/promote stay public (see their own route files) since
+// BroadcastOverlay — rendered on every public display — calls them
+// directly, keyed by the broadcast's own unguessable id, not by event_id.
 export async function POST(request: Request) {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
-
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
+
+  const auth = await requireEventOwner(typeof body.eventId === "string" ? body.eventId : null);
+  if (auth instanceof NextResponse) return auth;
 
   const draft = body.draft as Record<string, unknown> | undefined;
   if (!draft || typeof draft.title !== "string") {
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
   const baseTime = scheduledFor ? Date.parse(scheduledFor) : now.getTime();
 
   const row = {
+    event_id: auth.eventId,
     type: draft.type,
     title: draft.title,
     message: draft.message,

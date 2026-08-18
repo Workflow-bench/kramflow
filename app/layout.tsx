@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, IBM_Plex_Mono } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
 import { MotionPreferences } from "@/components/motion-preferences";
 import "./globals.css";
@@ -11,9 +11,11 @@ const inter = Inter({
 });
 
 // Scoped to measurement — start times, durations, countdowns, sort indices.
-// See the .tnum rule in globals.css for why titles stay on Inter.
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains",
+// See the .tnum rule in globals.css for why titles stay on Inter. IBM Plex
+// Mono over the more common JetBrains Mono — a face with more mechanical,
+// less "developer-tool" character (Phase 3 design system).
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
 });
@@ -33,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} dark h-full antialiased`}>
+    <html lang="en" className={`${inter.variable} ${plexMono.variable} dark h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-background text-primary">
         <MotionPreferences>
           <ToastProvider>{children}</ToastProvider>

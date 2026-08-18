@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, Copy, Send, Star, Trash2, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-context";
+import { useEventId } from "@/lib/event-context";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import {
   EMERGENCY_PRESETS,
@@ -14,6 +15,9 @@ import {
 } from "@/lib/display-engine/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
 import { SectionLabel } from "@/components/tv/section-label";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
@@ -37,8 +41,18 @@ const DISPLAY_TYPES: { value: DisplayType; label: string }[] = [
   { value: "custom", label: "Custom" },
 ];
 
-const inputField =
-  "w-full bg-card border border-white/10 rounded-lg px-3 py-2 text-[15px] text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const PRIORITY_OPTIONS = [
+  { value: "1", label: "Low" },
+  { value: "2", label: "Normal" },
+  { value: "3", label: "High" },
+];
+
+const TARGET_KIND_OPTIONS = [
+  { value: "all", label: "All Displays" },
+  { value: "type", label: "Display Type" },
+  { value: "display", label: "Specific Display" },
+  { value: "group", label: "Group" },
+];
 
 const EMPTY_DRAFT: BroadcastDraft = {
   type: "info",
@@ -62,6 +76,7 @@ type DestructiveAction =
   | { kind: "delete-draft"; index: number; title: string };
 
 export default function BroadcastCenterPage() {
+  const eventId = useEventId();
   const { lock } = useAuth();
   const toast = useToast();
   const {
@@ -203,7 +218,7 @@ export default function BroadcastCenterPage() {
     <main className="min-h-screen bg-background">
       <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5">
         <div className="flex items-center gap-4 min-w-0">
-          <Link href="/operator">
+          <Link href={`/e/${eventId}/operator`}>
             <Button variant="ghost" size="sm" aria-label="Back to Operator Dashboard">
               <ArrowLeft className="h-4 w-4" strokeWidth={2} />
             </Button>
@@ -232,7 +247,7 @@ export default function BroadcastCenterPage() {
               key={preset.label}
               type="button"
               onClick={() => emergencyConfirm.request(preset)}
-              className="flex items-center gap-2 rounded-full bg-status-red/15 text-status-red px-4 py-2 text-body font-semibold cursor-pointer hover:bg-status-red/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="flex items-center gap-2 rounded-full bg-status-red/15 text-status-red px-4 py-2 text-body font-semibold cursor-pointer hover:bg-status-red/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <AlertTriangle className="h-4 w-4" strokeWidth={2} />
               {preset.label}
@@ -260,149 +275,112 @@ export default function BroadcastCenterPage() {
           <SectionLabel>Compose</SectionLabel>
           <div className="mt-4 flex flex-col gap-4">
             <Field label="Type">
-              <select
+              <Select
                 value={draft.type}
-                onChange={(e) => patchDraft({ type: e.target.value as BroadcastType })}
-                className={inputField}
-              >
-                {BROADCAST_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => patchDraft({ type: v as BroadcastType })}
+                options={BROADCAST_TYPES}
+                searchable={false}
+              />
             </Field>
 
             <Field label="Title">
-              <input
+              <Input
                 value={draft.title}
                 onChange={(e) => patchDraft({ title: e.target.value })}
                 placeholder="Broadcast title"
-                className={inputField}
               />
             </Field>
 
             <Field label="Message">
-              <textarea
+              <Textarea
                 value={draft.message}
                 onChange={(e) => patchDraft({ message: e.target.value })}
                 placeholder="Message body"
                 rows={3}
-                className={cn(inputField, "resize-none")}
+                className="resize-none"
               />
             </Field>
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="Priority">
-                <select
-                  value={draft.priority}
-                  onChange={(e) => patchDraft({ priority: Number(e.target.value) as 1 | 2 | 3 })}
-                  className={inputField}
-                >
-                  <option value={1}>Low</option>
-                  <option value={2}>Normal</option>
-                  <option value={3}>High</option>
-                </select>
+                <Select
+                  value={String(draft.priority)}
+                  onChange={(v) => patchDraft({ priority: Number(v) as 1 | 2 | 3 })}
+                  options={PRIORITY_OPTIONS}
+                  searchable={false}
+                />
               </Field>
               <Field label="Icon (optional)">
-                <input
+                <Input
                   value={draft.icon ?? ""}
                   onChange={(e) => patchDraft({ icon: e.target.value || null })}
                   placeholder="e.g. 📢"
-                  className={inputField}
                 />
               </Field>
             </div>
 
             <Field label="Target">
-              <select
+              <Select
                 value={draft.target.kind}
-                onChange={(e) => patchTarget(e.target.value as BroadcastTargetKind, undefined)}
-                className={inputField}
-              >
-                <option value="all">All Displays</option>
-                <option value="type">Display Type</option>
-                <option value="display">Specific Display</option>
-                <option value="group">Group</option>
-              </select>
+                onChange={(v) => patchTarget(v as BroadcastTargetKind, undefined)}
+                options={TARGET_KIND_OPTIONS}
+                searchable={false}
+              />
             </Field>
 
             {draft.target.kind === "type" && (
               <Field label="Display Type">
-                <select
+                <Select
                   value={draft.target.value ?? ""}
-                  onChange={(e) => patchTarget("type", e.target.value)}
-                  className={inputField}
-                >
-                  <option value="" disabled>
-                    Select a type
-                  </option>
-                  {DISPLAY_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => patchTarget("type", v)}
+                  options={DISPLAY_TYPES}
+                  placeholder="Select a type"
+                  searchable={false}
+                />
               </Field>
             )}
 
             {draft.target.kind === "display" && (
               <Field label="Display">
-                <select
+                <Select
                   value={draft.target.value ?? ""}
-                  onChange={(e) => patchTarget("display", e.target.value)}
-                  className={inputField}
-                >
-                  <option value="" disabled>
-                    Select a display
-                  </option>
-                  {Object.values(engine.registry).map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => patchTarget("display", v)}
+                  options={Object.values(engine.registry).map((d) => ({ value: d.id, label: d.name }))}
+                  placeholder="Select a display"
+                  searchable={false}
+                />
               </Field>
             )}
 
             {draft.target.kind === "group" && (
               <Field label="Group">
-                <select
+                <Select
                   value={draft.target.value ?? ""}
-                  onChange={(e) => patchTarget("group", e.target.value)}
-                  className={inputField}
-                >
-                  <option value="" disabled>
-                    Select a group
-                  </option>
-                  {Object.values(engine.groups).map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => patchTarget("group", v)}
+                  options={Object.values(engine.groups).map((g) => ({ value: g.id, label: g.name }))}
+                  placeholder="Select a group"
+                  searchable={false}
+                />
               </Field>
             )}
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="Expires in (min)">
-                <input
+                <Input
                   type="number"
                   min={0}
                   value={draft.expiresInMinutes ?? ""}
                   onChange={(e) => patchDraft({ expiresInMinutes: e.target.value ? Number(e.target.value) : null })}
                   placeholder="No expiry"
-                  className={inputField}
                 />
               </Field>
               <Field label="Duration (sec)">
-                <input
+                <Input
                   type="number"
                   min={0}
                   value={draft.durationSeconds ?? ""}
                   onChange={(e) => patchDraft({ durationSeconds: e.target.value ? Number(e.target.value) : null })}
                   placeholder="Until dismissed"
-                  className={inputField}
                 />
               </Field>
             </div>
@@ -430,12 +408,12 @@ export default function BroadcastCenterPage() {
                 label="Schedule for later"
               />
               {scheduleEnabled && (
-                <input
+                <Input
                   type="datetime-local"
                   onChange={(e) =>
                     patchDraft({ scheduledFor: e.target.value ? new Date(e.target.value).toISOString() : null })
                   }
-                  className={cn(inputField, "mt-3")}
+                  className="mt-3"
                 />
               )}
             </div>
@@ -487,11 +465,11 @@ export default function BroadcastCenterPage() {
               </TabButton>
             </div>
             {(tab === "history" || tab === "templates") && (
-              <input
+              <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search…"
-                className={cn(inputField, "w-full sm:w-56")}
+                className="w-full sm:w-56"
               />
             )}
           </div>
@@ -708,7 +686,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4" />
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 rounded-control border-line bg-background accent-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      />
       <span className="text-caption text-muted">{label}</span>
     </label>
   );
@@ -716,30 +699,17 @@ function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "text-caption font-medium px-4 py-2 rounded-full cursor-pointer transition-colors",
-        active ? "bg-primary text-background" : "text-muted hover:text-primary"
-      )}
-    >
+    <Button type="button" variant={active ? "primary" : "ghost"} size="sm" onClick={onClick} className="rounded-full">
       {children}
-    </button>
+    </Button>
   );
 }
 
 function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="h-8 w-8 rounded-full flex items-center justify-center text-muted hover:text-primary hover:bg-white/5 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-    >
+    <Button type="button" variant="ghost" size="sm" square onClick={onClick} aria-label={label} title={label}>
       {children}
-    </button>
+    </Button>
   );
 }
 

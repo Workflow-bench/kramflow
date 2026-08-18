@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, XCircle, Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type ToastTone = "success" | "error" | "info";
@@ -70,7 +71,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               exit={{ opacity: 0, y: 12, scale: 0.96 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
               className={cn(
-                "pointer-events-auto flex items-center gap-2.5 rounded-lg bg-card px-4 py-3 text-body shadow-lg border",
+                "pointer-events-auto flex items-center gap-2.5 rounded-panel bg-card px-4 py-3 text-console-sm shadow-lg border",
                 item.tone === "success" && "border-status-green/20",
                 item.tone === "error" && "border-status-red/20",
                 item.tone === "info" && "border-status-blue/20"
@@ -81,16 +82,24 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               {item.tone === "info" && <Info className="h-4 w-4 text-status-blue shrink-0" strokeWidth={2} />}
               <span className="text-primary">{item.message}</span>
               {item.action && (
-                <button
+                // Button-weight, not a text link — this is the deliberate
+                // choice for single-item delete's Undo (docs/DESIGN.md's
+                // guardrail-tier table): a confirm dialog no longer
+                // precedes that action, so this toast's action is the
+                // *entire* guardrail and has to read as one, not as
+                // incidental toast chrome.
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => {
                     item.action?.onClick();
                     dismiss(item.id);
                   }}
-                  className="text-caption font-semibold uppercase tracking-wide text-status-blue hover:text-primary cursor-pointer ml-1 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded"
+                  className="ml-1 shrink-0 focus-visible:ring-offset-card"
                 >
                   {item.action.label}
-                </button>
+                </Button>
               )}
             </motion.div>
           ))}

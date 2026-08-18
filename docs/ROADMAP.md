@@ -7,7 +7,7 @@ Supabase Realtime (replace localStorage/BroadcastChannel sync)      ✅ done
   ↓
 Generic cue sheet import (any file, not just this one)              ✅ done
   ↓
-Multiple Events
+Real auth + multiple events (any operator, their own event(s))      ✅ done
   ↓
 Phone Companion
   ↓
