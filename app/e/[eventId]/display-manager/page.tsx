@@ -390,8 +390,18 @@ function DisplayRow({
         />
       </div>
 
+      {/* Preview is the one action an operator reaches for constantly while
+          checking a show is on track — it gets the primary weight (Fitts's
+          Law, Apple HIG's "one primary action per view"). The four
+          maintenance actions are equally infrequent — none deserves more
+          weight than the others, so they stay one flat secondary tier
+          (Gestalt Similarity: same weight signals "peers," not a ranking).
+          Remove is pulled to the far side with its own gap instead of
+          sitting shoulder-to-shoulder with routine actions — the guardrail
+          system's danger tier (docs/DESIGN.md) plus spatial separation
+          (Von Restorff) so a misclick reaching for Reload can't land on it. */}
       <div className="flex flex-wrap items-center gap-2 mt-4">
-        <Button variant="secondary" size="sm" onClick={onPreview}>
+        <Button variant="primary" size="sm" onClick={onPreview}>
           <Eye className="h-3.5 w-3.5" strokeWidth={2} />
           Preview
         </Button>
@@ -411,7 +421,7 @@ function DisplayRow({
           <RotateCw className="h-3.5 w-3.5" strokeWidth={2} />
           Reload / Reconnect
         </Button>
-        <Button variant="danger" size="sm" onClick={onRequestRemove}>
+        <Button variant="danger" size="sm" onClick={onRequestRemove} className="ml-auto">
           <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
           Remove
         </Button>
