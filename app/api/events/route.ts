@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/server/require-auth";
+import { eventLimitForTier } from "@/lib/server/plan-limits";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
 
 // GET — list *my* events only. Relies on "owner select" RLS as the real
@@ -47,6 +48,32 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   const admin = supabaseAdmin();
+
+  // Enforced here, not in the UI — this route (via the service-role
+  // client) is the only path that can insert into events at all, so this
+  // check can't be routed around by hitting the API directly instead of
+  // clicking the "Create Event" button. The tier read and the count are
+  // both fresh per request (no caching) since this only runs on the
+  // low-frequency create path, not a hot loop.
+  const { data: profile } = await admin.from("profiles").select("tier").eq("id", user!.id).single();
+  const limit = eventLimitForTier(profile?.tier);
+  const { count, error: countError } = await admin
+    .from("events")
+    .select("*", { count: "exact", head: true })
+    .eq("owner_id", user!.id);
+  if (countError) {
+    return NextResponse.json({ ok: false, error: countError.message }, { status: 500 });
+  }
+  if ((count ?? 0) >= limit) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `You've reached the limit of ${limit} events for your plan. Delete an existing event to create a new one.`,
+      },
+      { status: 403 }
+    );
+  }
+
   const { data: event, error } = await admin.from("events").insert({ owner_id: user!.id, name }).select("*").single();
   if (error || !event) {
     return NextResponse.json({ ok: false, error: error?.message ?? "Failed to create event" }, { status: 500 });
