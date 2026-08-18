@@ -60,6 +60,12 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
   const live = session ? getLive(session, appState) : null;
   const next = session ? getNext(session, appState) : null;
   const onDeck = session ? getOnDeck(session, appState) : null;
+  // session.eventName is the operator-set "Event name (optional)" field
+  // (SessionForm) — was hardcoded to a leftover real event's name here
+  // ("Satsang Shibir 2026"), so every operator's General display showed
+  // the same fixed title regardless of what event it actually belonged
+  // to. Optional, so it's fine to omit rather than show a blank line.
+  const eventName = session?.eventName?.trim() || null;
 
   const { testMessage, showTestMessage } = useTestMessage();
   const [fullscreenPrompt, setFullscreenPrompt] = useState(false);
@@ -101,7 +107,7 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
               <p className="text-caption uppercase tracking-wide text-muted-2">
                 {session ? `${session.dayLabel} • ${session.sessionLabel}` : "KramFlow"}
               </p>
-              <p className="text-title text-primary mt-1">Satsang Shibir 2026</p>
+              {eventName && <p className="text-title text-primary mt-1">{eventName}</p>}
             </div>
             <span className="text-hero tabular-nums text-muted" style={{ fontSize: "clamp(2rem, 3vw, 3rem)" }}>
               {clockLabel}
@@ -125,7 +131,7 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
                   <p className="text-hero text-primary" style={{ fontSize: "clamp(3.5rem, 6vw, 6rem)" }}>
                     Welcome
                   </p>
-                  <p className="text-title text-muted mt-4">Satsang Shibir 2026</p>
+                  {eventName && <p className="text-title text-muted mt-4">{eventName}</p>}
                 </>
               )}
 
