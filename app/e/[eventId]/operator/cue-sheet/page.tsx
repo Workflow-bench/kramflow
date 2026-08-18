@@ -25,7 +25,7 @@ import { useSessions } from "@/lib/use-sessions";
 import { useEventId } from "@/lib/event-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Panel } from "@/components/ui/card";
+import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { ColorTagPicker } from "@/components/ui/color-tag-picker";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -544,20 +544,25 @@ export default function CueSheetPage() {
           />
         )}
 
-        {panel === "event-settings" && (
-          <Panel className="p-5">
-            <EventSettingsPanel
-              eventId={eventId}
-              initialName={eventName}
-              auditoriums={auditoriums}
-              onAuditoriumsChanged={loadAuditoriums}
-              onCancel={() => setPanel("none")}
-            />
-          </Panel>
-        )}
+        {/* Event Settings and Add/Edit Item are genuinely multi-step
+            configuration tasks the operator steps out of the queue view to
+            do — not a quick, single-field, in-context tweak (that's what
+            inline expansion is reserved for: session settings, bulk-edit).
+            Real modals here match how StageTimer treats its own equivalent
+            (Output Links) — see senior-ux-layout-standards's inline-vs-modal
+            reasoning. */}
+        <Modal open={panel === "event-settings"} onClose={() => setPanel("none")} title="Event Settings" size="md">
+          <EventSettingsPanel
+            eventId={eventId}
+            initialName={eventName}
+            auditoriums={auditoriums}
+            onAuditoriumsChanged={loadAuditoriums}
+            onCancel={() => setPanel("none")}
+          />
+        </Modal>
 
-        {panel === "create" && activeSessionId && (
-          <Panel className="p-5">
+        <Modal open={panel === "create" && !!activeSessionId} onClose={() => setPanel("none")} title="Add Item" size="lg">
+          {activeSessionId && (
             <ProgramForm
               sessionId={activeSessionId}
               sessionOptions={sessionOptions}
@@ -571,11 +576,16 @@ export default function CueSheetPage() {
               }}
               onCancel={() => setPanel("none")}
             />
-          </Panel>
-        )}
+          )}
+        </Modal>
 
-        {typeof panel === "object" && "edit" in panel && (
-          <Panel className="p-5">
+        <Modal
+          open={typeof panel === "object" && "edit" in panel}
+          onClose={() => setPanel("none")}
+          title="Edit Item"
+          size="lg"
+        >
+          {typeof panel === "object" && "edit" in panel && (
             <ProgramForm
               sessionId={panel.edit.session_id}
               sessionOptions={sessionOptions}
@@ -592,8 +602,8 @@ export default function CueSheetPage() {
               }}
               onCancel={() => setPanel("none")}
             />
-          </Panel>
-        )}
+          )}
+        </Modal>
 
         {panel === "none" && (
           <div>

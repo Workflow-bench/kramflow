@@ -141,7 +141,7 @@ export function EventSettingsPanel({
         </form>
       </section>
 
-      <div className="sticky bottom-0 -mx-5 -mb-5 mt-1 flex items-center gap-2 border-t border-line-soft bg-card/95 backdrop-blur-sm px-5 py-3">
+      <div className="sticky bottom-0 -mx-6 -mb-6 mt-1 flex items-center gap-2 border-t border-line-soft bg-card/95 backdrop-blur-sm px-6 py-3">
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Close
         </Button>

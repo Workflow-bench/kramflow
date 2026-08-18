@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { QrCode } from "./qr-code";
 
@@ -48,6 +49,7 @@ function formatDate(iso: string): string {
 
 export function ShareLinkPanel({ eventId }: { eventId: string }) {
   const toast = useToast();
+  const [open, setOpen] = useState(false);
   const [links, setLinks] = useState<ShareLink[] | null>(null);
   // Captured once per data load (mount + after create/revoke), not read
   // live during render — see linkStatus()'s comment on why Date.now()
@@ -129,15 +131,33 @@ export function ShareLinkPanel({ eventId }: { eventId: string }) {
   const inactiveLinks = links?.filter((l) => l.revoked_at || new Date(l.expires_at).getTime() <= now) ?? [];
 
   return (
-    <Panel className="p-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+    <>
+      {/* A trigger, not the panel itself — generating/managing links is a
+          multi-step task (pick an expiry, generate, then copy/QR/revoke)
+          that produces a real artifact, the same shape as StageTimer's own
+          Output Links, which is a modal rather than living permanently
+          inline on the room's main view. See
+          senior-ux-layout-standards's inline-vs-modal reasoning. */}
+      <Panel className="p-5 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-console-md text-primary">Share Display Link</h2>
           <p className="text-console-meta text-muted-2 mt-1">
-            Generate a no-login link + QR code for a TV or tablet. Anyone who opens it picks a screen (General, AV,
-            Green Room, Presenter) and sees a live, read-only view — no account needed.
+            Generate a no-login link + QR code for a TV or tablet — picks a screen (General, AV, Green Room,
+            Presenter) and shows a live, read-only view.
           </p>
         </div>
+        <Button variant="secondary" onClick={() => setOpen(true)} className="shrink-0">
+          <Link2 className="h-4 w-4" strokeWidth={2} />
+          Manage Links{links && links.length > 0 ? ` (${links.length})` : ""}
+        </Button>
+      </Panel>
+
+      <Modal open={open} onClose={() => setOpen(false)} title="Share Display Link" size="lg">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <p className="text-console-meta text-muted-2 flex-1 min-w-[16rem]">
+          Anyone who opens the link picks a screen (General, AV, Green Room, Presenter) and sees a live, read-only
+          view — no account needed.
+        </p>
         <div className="flex items-center gap-2 shrink-0">
           <Select value={expiryDays} onChange={setExpiryDays} options={EXPIRY_OPTIONS} className="w-28" aria-label="Link expiry" />
           <Button variant="primary" onClick={handleCreate} loading={creating}>
@@ -224,7 +244,14 @@ export function ShareLinkPanel({ eventId }: { eventId: string }) {
           );
         })}
       </div>
+      </Modal>
 
+      {/* A sibling of Modal, not nested inside it — Modal's motion.div
+          animates `transform`, which creates a new containing block for
+          `position: fixed` descendants, so a ConfirmDialog nested inside
+          it would be constrained to the Modal's box instead of the real
+          viewport. Rendering it here keeps its own fixed inset-0 correct
+          regardless of whether the Share Link modal is open. */}
       {/* Lower guardrail weight than session/event delete on purpose
           (docs/DESIGN.md's guardrail-tier table) — this revokes one link,
           not any data. A screen currently open on it loses access, but a
@@ -241,6 +268,6 @@ export function ShareLinkPanel({ eventId }: { eventId: string }) {
         onConfirm={handleRevoke}
         onCancel={() => setRevokeTarget(null)}
       />
-    </Panel>
+    </>
   );
 }
