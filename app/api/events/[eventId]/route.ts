@@ -17,7 +17,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ev
   const auth = await requireEventOwner(eventId);
   if (auth instanceof NextResponse) return auth;
 
-  let body: { name?: unknown; form_config?: unknown } = {};
+  let body: { name?: unknown; form_config?: unknown; event_date?: unknown; venue?: unknown; timezone?: unknown } = {};
   try {
     body = await request.json();
   } catch {
@@ -27,6 +27,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ev
   const patch: Record<string, unknown> = {};
   if (typeof body.name === "string" && body.name.trim()) patch.name = body.name.trim().slice(0, 120);
   if (body.form_config !== undefined) patch.form_config = body.form_config;
+  // All optional event-detail fields — null explicitly clears them, undefined
+  // (the key omitted entirely) leaves them untouched.
+  if (body.event_date !== undefined) patch.event_date = typeof body.event_date === "string" ? body.event_date : null;
+  if (body.venue !== undefined) patch.venue = typeof body.venue === "string" ? body.venue.trim().slice(0, 200) : null;
+  if (body.timezone !== undefined) patch.timezone = typeof body.timezone === "string" ? body.timezone : null;
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: false, error: "Nothing to update." }, { status: 400 });
   }
