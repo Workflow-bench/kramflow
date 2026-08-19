@@ -27,3 +27,23 @@ export function useEventId(): string {
   }
   return eventId;
 }
+
+// Report finding #26 — the signed-in user's role on *this* event, resolved
+// once server-side in the layout (same request that already checks they
+// have any access at all) and handed down for UI adaptation: hiding
+// controls a viewer/editor can't use is a courtesy so they don't have to
+// click-and-fail to discover that, not the actual security boundary — the
+// real enforcement is server-side, in every API route's
+// requireEventAccess() call. A separate context from EventContext rather
+// than widening its shape, so every existing useEventId() call site (there
+// are many) is unaffected.
+export type EventRole = "viewer" | "editor" | "owner";
+const EventRoleContext = createContext<EventRole>("owner");
+
+export function EventRoleProvider({ role, children }: { role: EventRole; children: React.ReactNode }) {
+  return <EventRoleContext.Provider value={role}>{children}</EventRoleContext.Provider>;
+}
+
+export function useEventRole(): EventRole {
+  return useContext(EventRoleContext);
+}

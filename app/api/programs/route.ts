@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { programInputSchema, toProgramRow } from "@/lib/validation/program";
 import { mapProgramRow, mapPartitionRow } from "@/lib/data/sessions";
@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const eventId = url.searchParams.get("eventId");
   const sessionId = url.searchParams.get("sessionId");
-  const auth = await requireEventOwner(eventId);
+  const auth = await requireEventAccess(eventId, "viewer");
   if (auth instanceof NextResponse) return auth;
 
   const supabase = supabaseAdmin();
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
   }
 
   const eventId = (json as Record<string, unknown> | null)?.eventId;
-  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  const auth = await requireEventAccess(typeof eventId === "string" ? eventId : null, "editor");
   if (auth instanceof NextResponse) return auth;
 
   const parsed = programInputSchema.safeParse(json);

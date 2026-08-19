@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { generateShareToken } from "@/lib/server/share-links";
 
@@ -12,7 +12,7 @@ const DEFAULT_EXPIRY_DAYS = 7;
 // operators' events are isolated from each other.
 export async function GET(request: Request) {
   const eventId = new URL(request.url).searchParams.get("eventId");
-  const auth = await requireEventOwner(eventId);
+  const auth = await requireEventAccess(eventId, "owner");
   if (auth instanceof NextResponse) return auth;
 
   const supabase = supabaseAdmin();
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
   }
 
-  const auth = await requireEventOwner(typeof body.eventId === "string" ? body.eventId : null);
+  const auth = await requireEventAccess(typeof body.eventId === "string" ? body.eventId : null, "owner");
   if (auth instanceof NextResponse) return auth;
 
   const expiresInDays = ALLOWED_EXPIRY_DAYS.includes(body.expiresInDays as (typeof ALLOWED_EXPIRY_DAYS)[number])

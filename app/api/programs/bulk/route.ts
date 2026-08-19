@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 // Item 5's bulk-edit — two shapes depending on what's being changed:
@@ -14,7 +14,7 @@ export async function PATCH(request: Request) {
   }
 
   const { eventId, ids, field, value, partitionId } = (body ?? {}) as Record<string, unknown>;
-  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  const auth = await requireEventAccess(typeof eventId === "string" ? eventId : null, "editor");
   if (auth instanceof NextResponse) return auth;
 
   if (!Array.isArray(ids) || ids.length === 0 || !ids.every((id) => typeof id === "string")) {

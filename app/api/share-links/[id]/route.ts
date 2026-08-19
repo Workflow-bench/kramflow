@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 // DELETE — revoke a share link. Authorization is "do you own the event
@@ -27,7 +27,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   // this operator's — an id-guessing attempt learns nothing either way.
   if (!link) return NextResponse.json({ ok: false, error: "Link not found" }, { status: 404 });
 
-  const auth = await requireEventOwner(link.event_id);
+  const auth = await requireEventAccess(link.event_id, "owner");
   if (auth instanceof NextResponse) return auth;
 
   const { data, error } = await admin

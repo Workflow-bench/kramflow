@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { parseCueSheet, type ParsedPartition, type ParsedProgram, type ParsedSession } from "@/lib/parse-cuesheet";
 import { programRowSchema } from "@/lib/validation/program";
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid form data" }, { status: 400 });
   }
 
-  const auth = await requireEventOwner(eventId);
+  const auth = await requireEventAccess(eventId, "editor");
   if (auth instanceof NextResponse) return auth;
 
   if (!file) {

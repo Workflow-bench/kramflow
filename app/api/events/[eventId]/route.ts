@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
-  const auth = await requireEventOwner(eventId);
+  const auth = await requireEventAccess(eventId, "viewer");
   if (auth instanceof NextResponse) return auth;
 
   const { data, error } = await supabaseAdmin().from("events").select("*").eq("id", eventId).single();
@@ -12,9 +12,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ eve
   return NextResponse.json({ ok: true, event: data });
 }
 
+// Event settings (name/date/venue/timezone/form_config) and delete both
+// stay owner-only — a step above "editor," which grants cue-sheet content
+// access but not event-level configuration or destructive control.
 export async function PATCH(request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
-  const auth = await requireEventOwner(eventId);
+  const auth = await requireEventAccess(eventId, "owner");
   if (auth instanceof NextResponse) return auth;
 
   let body: { name?: unknown; form_config?: unknown; event_date?: unknown; venue?: unknown; timezone?: unknown } = {};
@@ -46,7 +49,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ev
 // `references events(id) on delete cascade` — one delete, no orphaned rows.
 export async function DELETE(_request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
-  const auth = await requireEventOwner(eventId);
+  const auth = await requireEventAccess(eventId, "owner");
   if (auth instanceof NextResponse) return auth;
 
   const { error } = await supabaseAdmin().from("events").delete().eq("id", eventId);

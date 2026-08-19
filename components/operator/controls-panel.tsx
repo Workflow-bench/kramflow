@@ -5,6 +5,7 @@ import { ChevronLeft, Pause, Play, Square, ChevronRight, Lock, Unlock } from "lu
 import { useEventStore } from "@/lib/store";
 import { useKeyboardShortcuts } from "@/lib/display-engine/use-keyboard-shortcuts";
 import { useControlLock } from "@/lib/use-control-lock";
+import { useEventRole } from "@/lib/event-context";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SectionLabel } from "@/components/tv/section-label";
@@ -38,6 +39,14 @@ export function ControlsPanel({
 }) {
   const { state, start, next, previous, finish, togglePause, claimControl, releaseControl, renewControl } =
     useEventStore();
+  // Report finding #26 — "can-edit vs. can-go-live": an editor/viewer
+  // collaborator can see this screen but every one of these actions 403s
+  // server-side (app/api/live/route.ts's requireEventAccess(..., "owner")),
+  // since running the live show is owner-only. Disabling here is the
+  // courtesy layer so that shows up as a clear, upfront "you can't do this"
+  // instead of a click-and-fail loop.
+  const role = useEventRole();
+  const readOnly = role !== "owner";
   const progress = state.progressBySession[state.activeSessionId];
   const currentOrder = progress?.currentOrder ?? null;
   const min = 1;
@@ -126,7 +135,7 @@ export function ControlsPanel({
         if (pending === null) run("hold", togglePause, state.pausedAt ? "resumed the show" : "put the show on Hold");
       },
     },
-    confirmKind === null && currentOrder !== null && !isFinished
+    confirmKind === null && currentOrder !== null && !isFinished && !readOnly
   );
 
   return (
@@ -146,7 +155,12 @@ export function ControlsPanel({
             two /operator tabs could otherwise drive the same show with a
             plain Next silently clearing another tab's just-set Hold. */}
         <div className="mt-2 flex items-center gap-2 text-caption">
-          {iHaveControl ? (
+          {readOnly ? (
+            <span className="flex items-center gap-1.5 text-muted-2">
+              <Lock className="h-3 w-3" strokeWidth={2} />
+              You have {role} access — only the event owner can run the live show
+            </span>
+          ) : iHaveControl ? (
             <>
               <span className="flex items-center gap-1.5 text-status-green">
                 <Lock className="h-3 w-3" strokeWidth={2} />
@@ -194,7 +208,7 @@ export function ControlsPanel({
               variant="primary"
               size="lg"
               className="w-full"
-              disabled={pending !== null}
+              disabled={pending !== null || readOnly}
               onClick={() => setConfirmKind("start")}
             >
               <Play className="h-5 w-5" strokeWidth={2} />
@@ -210,7 +224,7 @@ export function ControlsPanel({
                     variant="primary"
                     size="lg"
                     className="w-full"
-                    disabled={isLastItem || pending !== null}
+                    disabled={isLastItem || pending !== null || readOnly}
                     onClick={() => run("next", () => next(max))}
                   >
                     Next
@@ -221,7 +235,7 @@ export function ControlsPanel({
                       variant="danger"
                       size="lg"
                       className="w-full"
-                      disabled={pending !== null}
+                      disabled={pending !== null || readOnly}
                       onClick={() => setConfirmKind("finish")}
                     >
                       <Square className="h-5 w-5" strokeWidth={2} />
@@ -236,7 +250,7 @@ export function ControlsPanel({
                   size="md"
                   className="flex-1"
                   onClick={() => run("previous", () => previous(min))}
-                  disabled={currentOrder === min || pending !== null}
+                  disabled={currentOrder === min || pending !== null || readOnly}
                 >
                   <ChevronLeft className="h-4 w-4" strokeWidth={2} />
                   Previous
@@ -246,7 +260,7 @@ export function ControlsPanel({
                   size="md"
                   className="flex-1"
                   onClick={() => run("hold", togglePause, state.pausedAt ? "resumed the show" : "put the show on Hold")}
-                  disabled={pending !== null}
+                  disabled={pending !== null || readOnly}
                   aria-label={state.pausedAt ? "Resume" : "Hold"}
                 >
                   {state.pausedAt ? (

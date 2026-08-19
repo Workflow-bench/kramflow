@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-// requireEventOwner-gated — only Display Manager (an authenticated
+// requireEventAccess(owner)-gated — only Display Manager (an authenticated
 // operator managing their own event) renames/reassigns/commands/removes a
 // display. Registering and heartbeating (POST ../route.ts) stay public
 // since public display pages do that themselves.
@@ -15,7 +15,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const auth = await requireEventOwner(typeof body.eventId === "string" ? body.eventId : null);
+  const auth = await requireEventAccess(typeof body.eventId === "string" ? body.eventId : null, "owner");
   if (auth instanceof NextResponse) return auth;
 
   const patch: Record<string, unknown> = {};
@@ -34,7 +34,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const eventId = new URL(request.url).searchParams.get("eventId");
-  const auth = await requireEventOwner(eventId);
+  const auth = await requireEventAccess(eventId, "owner");
   if (auth instanceof NextResponse) return auth;
 
   const supabase = supabaseAdmin();
