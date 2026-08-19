@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import type { ProgramInput } from "@/lib/validation/program";
 import type { Partition } from "@/lib/types";
 import { DEFAULT_CONFIG, ALWAYS_REQUIRED_KEYS, resolveVisibility, type FormFieldConfig } from "@/lib/form-config";
+import { useItemEditingPresence } from "@/lib/use-item-editing-presence";
 import { cn } from "@/lib/utils";
 
 const EMPTY: ProgramInput = {
@@ -109,6 +110,11 @@ export function ProgramForm({
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  // Report finding #36 — proactive half of the concurrent-editing warning;
+  // the reactive half (a 409 on Save if someone else's edit already landed)
+  // already existed below. null for a brand-new item (programId undefined)
+  // since two people can't collide creating the same not-yet-existing row.
+  const othersEditing = useItemEditingPresence(eventId, programId ?? null);
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -217,6 +223,16 @@ export function ProgramForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+      {othersEditing && (
+        <div
+          role="status"
+          className="flex items-center gap-2.5 rounded-panel border border-status-orange/30 bg-status-orange/10 px-4 py-3 text-console-sm text-status-orange"
+        >
+          <Users className="h-4 w-4 shrink-0" strokeWidth={2} />
+          Another operator has this item open right now. If you both save, whoever saves second will be asked to
+          reload and redo their changes.
+        </div>
+      )}
       {GROUP_ORDER.map((group) => {
         const fields = visibleFields.filter((f) => f.group === group);
         if (fields.length === 0) return null;
