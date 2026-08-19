@@ -31,13 +31,19 @@ export function OverflowMenu({ items, label = "More" }: { items: OverflowMenuIte
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     }
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      // Scoped + stopped here for the same reason as components/ui/select.tsx
+      // — a window-level Escape listener would also close any ancestor
+      // Modal on the same keypress.
+      e.stopPropagation();
+      setOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
-    window.addEventListener("keydown", onKeyDown);
+    const root = rootRef.current;
+    root?.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("mousedown", onClickOutside);
-      window.removeEventListener("keydown", onKeyDown);
+      root?.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
 

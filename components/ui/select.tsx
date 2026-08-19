@@ -65,13 +65,21 @@ export function Select({
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     }
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      // Scoped to this dropdown's own DOM subtree (not window) and stops
+      // the keypress from bubbling further — otherwise a parent Modal's own
+      // window-level Escape listener (see components/ui/modal.tsx) fires on
+      // the same keypress and closes the whole form behind this dropdown,
+      // discarding whatever the operator had typed.
+      e.stopPropagation();
+      setOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
-    window.addEventListener("keydown", onKeyDown);
+    const root = rootRef.current;
+    root?.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("mousedown", onClickOutside);
-      window.removeEventListener("keydown", onKeyDown);
+      root?.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
 
