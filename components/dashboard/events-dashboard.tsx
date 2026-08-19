@@ -17,6 +17,9 @@ export interface EventSummary {
   id: string;
   name: string;
   created_at: string;
+  event_date?: string | null;
+  venue?: string | null;
+  timezone?: string | null;
 }
 
 // The operator's own event list — each operator can create and manage
@@ -132,8 +135,18 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
             >
               <div className="min-w-0">
                 <h2 className="text-console-lg text-primary truncate">{event.name}</h2>
-                <p className="text-console-sm text-muted mt-1">
-                  Created {new Date(event.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                <p className="text-console-sm text-muted mt-1 truncate">
+                  {event.event_date
+                    ? // Parsed as a plain calendar date (not a UTC instant) so
+                      // the displayed date can't shift a day depending on the
+                      // viewer's own timezone offset from midnight UTC.
+                      new Date(`${event.event_date}T00:00:00`).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : `Created ${new Date(event.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`}
+                  {event.venue ? ` · ${event.venue}` : ""}
                 </p>
               </div>
               {expanded ? <ChevronUp className="h-5 w-5 text-muted-2 shrink-0" /> : <ChevronDown className="h-5 w-5 text-muted-2 shrink-0" />}

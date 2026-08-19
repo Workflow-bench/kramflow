@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   const admin = supabaseAdmin();
   const { data: events } = await admin
     .from("events")
-    .select("id, name, created_at")
+    .select("id, name, created_at, event_date, venue, timezone")
     .eq("owner_id", user!.id)
     .order("created_at", { ascending: false });
 
