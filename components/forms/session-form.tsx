@@ -91,13 +91,17 @@ export function SessionForm({ eventId, session, nextSortOrder, onSaved, onCancel
         </div>
       </div>
       <div>
-        <label className="text-caption text-muted-2">Event name (optional)</label>
+        <label className="text-caption text-muted-2">Display title (optional)</label>
         <Input
           className="mt-1.5"
           value={eventName}
           onChange={(e) => setEventName(e.target.value)}
-          placeholder="e.g. Satsang Shibir 2026"
+          placeholder="e.g. Evening Gala"
         />
+        <p className="text-caption text-muted-2 mt-1">
+          Shown as the headline on the General audience display while this session is live. Leave blank to show
+          nothing.
+        </p>
       </div>
 
       {error && <p className="text-caption text-status-red">{error}</p>}

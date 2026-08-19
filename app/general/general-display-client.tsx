@@ -60,11 +60,10 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
   const live = session ? getLive(session, appState) : null;
   const next = session ? getNext(session, appState) : null;
   const onDeck = session ? getOnDeck(session, appState) : null;
-  // session.eventName is the operator-set "Event name (optional)" field
-  // (SessionForm) — was hardcoded to a leftover real event's name here
-  // ("Satsang Shibir 2026"), so every operator's General display showed
-  // the same fixed title regardless of what event it actually belonged
-  // to. Optional, so it's fine to omit rather than show a blank line.
+  // session.eventName is the operator-set "Display title (optional)" field
+  // (SessionForm) — a per-session headline for this specific display, not
+  // the account-level event name. Optional, so it's fine to omit rather
+  // than show a blank line.
   const eventName = session?.eventName?.trim() || null;
 
   const { testMessage, showTestMessage } = useTestMessage();
