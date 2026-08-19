@@ -107,6 +107,16 @@ export default function BroadcastCenterPage() {
   const [search, setSearch] = useState("");
   const emergencyConfirm = useConfirmDialog<(typeof EMERGENCY_PRESETS)[number]>();
   const destructiveConfirm = useConfirmDialog<DestructiveAction>();
+  // Report finding #38 — the composer's own Send/Schedule button had zero
+  // confirmation regardless of what was about to happen, including for a
+  // manually-composed emergency-type message (only the pre-built
+  // EMERGENCY_PRESETS quick buttons below went through emergencyConfirm)
+  // and including scheduling, where a wrong date/time would otherwise fire
+  // unattended with nothing having asked "are you sure" first. Routine,
+  // immediate, non-emergency sends stay exactly as fast as before — this
+  // only adds a checkpoint where the consequence is either delayed
+  // (scheduled) or elevated (emergency).
+  const [confirmSendOpen, setConfirmSendOpen] = useState(false);
   const [emergencySending, setEmergencySending] = useState(false);
   const [destructiveLoading, setDestructiveLoading] = useState(false);
   // Same rapid-multi-click gap as sendingRef above, just not yet closed on
@@ -128,18 +138,27 @@ export default function BroadcastCenterPage() {
     setScheduleEnabled(false);
   }
 
+  const isScheduling = scheduleEnabled && Boolean(draft.scheduledFor);
+  const needsSendConfirm = isScheduling || draft.type === "emergency";
+
+  function requestSend() {
+    if (!draft.title.trim() || sendingRef.current) return;
+    if (needsSendConfirm) {
+      setConfirmSendOpen(true);
+      return;
+    }
+    void handleSend();
+  }
+
   async function handleSend() {
     if (!draft.title.trim() || sendingRef.current) return;
     sendingRef.current = true;
     setSending(true);
-    const res =
-      scheduleEnabled && draft.scheduledFor
-        ? await scheduleBroadcast(draft, draft.scheduledFor)
-        : await sendBroadcast(draft);
+    const res = isScheduling ? await scheduleBroadcast(draft, draft.scheduledFor!) : await sendBroadcast(draft);
     sendingRef.current = false;
     setSending(false);
     if (res && res.ok) {
-      toast.success(scheduleEnabled && draft.scheduledFor ? "Broadcast scheduled" : "Broadcast sent");
+      toast.success(isScheduling ? "Broadcast scheduled" : "Broadcast sent");
       resetCompose();
     } else {
       toast.error("Couldn't send the broadcast — try again");
@@ -419,9 +438,9 @@ export default function BroadcastCenterPage() {
             </div>
 
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <Button variant="primary" onClick={handleSend} disabled={!draft.title.trim()} loading={sending}>
+              <Button variant="primary" onClick={requestSend} disabled={!draft.title.trim()} loading={sending}>
                 <Send className="h-4 w-4" strokeWidth={2} />
-                {scheduleEnabled && draft.scheduledFor ? "Schedule" : "Send Now"}
+                {isScheduling ? "Schedule" : "Send Now"}
               </Button>
               <Button
                 variant="secondary"
@@ -628,6 +647,30 @@ export default function BroadcastCenterPage() {
           else toast.error("Couldn't send the emergency broadcast — try again immediately");
         }}
         onCancel={emergencyConfirm.cancel}
+      />
+
+      <ConfirmDialog
+        open={confirmSendOpen}
+        title={
+          isScheduling && draft.type === "emergency"
+            ? "Schedule this emergency broadcast?"
+            : isScheduling
+              ? "Schedule this broadcast?"
+              : "Send this emergency broadcast now?"
+        }
+        description={
+          isScheduling
+            ? `This fires automatically at ${draft.scheduledFor ? new Date(draft.scheduledFor).toLocaleString() : "the selected time"} with no further confirmation — double check the date and time. You can cancel it from the Scheduled tab any time before then.${draft.type === "emergency" ? " As an emergency broadcast, it will take over every connected screen the moment it fires." : ""}`
+            : "This takes over every connected screen immediately."
+        }
+        confirmLabel={isScheduling ? "Schedule" : "Send Emergency"}
+        tone={draft.type === "emergency" ? "danger" : "default"}
+        loading={sending}
+        onConfirm={async () => {
+          await handleSend();
+          setConfirmSendOpen(false);
+        }}
+        onCancel={() => setConfirmSendOpen(false)}
       />
 
       <ConfirmDialog
