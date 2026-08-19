@@ -35,7 +35,7 @@ export default function AvDisplayClient({ token, eventId }: { token?: string; ev
 }
 
 function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus } = useDisplayView({ token, eventId });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine } = useDisplayEngine();
 
@@ -70,7 +70,7 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
   const stageStatus = appState.pausedAt ? "PAUSED" : live ? "LIVE" : "STANDBY";
 
   return (
-    <DisplayShell>
+    <DisplayShell connectionStatus={connectionStatus}>
       <HoldScreen hold={engine.hold} />
       {display && <BroadcastOverlay displayId={display.id} displayType="av" />}
       <TestMessageOverlay message={testMessage} />

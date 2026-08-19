@@ -1,6 +1,7 @@
 "use client";
 
 import { useWakeLock } from "@/lib/display-engine/use-fullscreen";
+import { ConnectionBadge, type ConnectionBadgeStatus } from "@/components/ui/connection-badge";
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,15 +12,23 @@ export function DisplayShell({
   children,
   className,
   wakeLockEnabled = true,
+  connectionStatus,
 }: {
   children: React.ReactNode;
   className?: string;
   wakeLockEnabled?: boolean;
+  // Report finding #34 — rendered once here so all four display routes
+  // (General/AV/Green Room/Presenter) get the same corner indicator
+  // instead of each reimplementing it. Optional only so a caller that
+  // genuinely has no connection concept (there are none today) isn't
+  // forced to pass one; every real display route does.
+  connectionStatus?: ConnectionBadgeStatus;
 }) {
   useWakeLock(wakeLockEnabled);
 
   return (
     <main className={cn("h-screen w-screen overflow-x-hidden overflow-y-auto bg-background flex flex-col", className)}>
+      {connectionStatus && <ConnectionBadge status={connectionStatus} variant="stage" />}
       {/* min-h-0 is required here, not decorative: without it this flex
           item's default min-height:auto refuses to shrink below its
           content's natural height, so any unconstrained-length child
