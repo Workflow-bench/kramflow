@@ -1370,6 +1370,19 @@ function UploadPanel({ eventId, onDone, onCancel }: { eventId: string; onDone: (
   return (
     <div className="rounded-card bg-card p-6 flex flex-col gap-4">
       <SectionLabel>Import Excel</SectionLabel>
+      {/* Report finding #8 — no downloadable template or example existed
+          anywhere, so a first-time import meant guessing the expected
+          format. This is the exact file lib/parse-cuesheet.ts's
+          resolveColumns() expects (verified by round-tripping it through
+          the real parser, not just eyeballed), with one filled example
+          row showing a real item and a break. */}
+      <a
+        href="/templates/kramflow-cue-sheet-template.xlsx"
+        download
+        className="self-start text-console-sm text-accent hover:underline underline-offset-2"
+      >
+        Download the import template (.xlsx)
+      </a>
       <input
         type="file"
         accept=".xlsx"
@@ -1410,6 +1423,47 @@ function UploadPanel({ eventId, onDone, onCancel }: { eventId: string; onDone: (
               ))}
             </ul>
           )}
+
+          {/* Report finding #9 — Preview previously showed only aggregate
+              counts, so committing an import was still a leap of faith
+              about what would actually land in the cue sheet. Now shows
+              the real mapped rows — exactly what Confirm Import will
+              create — grouped by the session they'll land in. */}
+          <div className="max-h-80 overflow-y-auto rounded-panel border border-line-soft">
+            {preview.sessions.map((session) => (
+              <div key={session.id}>
+                <div className="sticky top-0 bg-raised px-3 py-1.5 text-console-meta text-muted-2 uppercase tracking-wide border-b border-line-soft">
+                  {session.day_label} • {session.session_label}
+                </div>
+                <table className="w-full text-console-sm">
+                  <thead>
+                    <tr className="text-console-meta text-muted-2 text-left">
+                      <th className="px-3 py-1.5 font-normal">#</th>
+                      <th className="px-3 py-1.5 font-normal">Item</th>
+                      <th className="px-3 py-1.5 font-normal">Presenter</th>
+                      <th className="px-3 py-1.5 font-normal">Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.programs
+                      .filter((p) => p.session_id === session.id)
+                      .map((p, i) => (
+                        <tr key={i} className="border-t border-line-soft">
+                          <td className="px-3 py-1.5 text-muted-2">{p.sort_order}</td>
+                          <td className="px-3 py-1.5 text-primary">
+                            {p.name}
+                            {p.type === "break" && <span className="text-muted-2"> (break)</span>}
+                          </td>
+                          <td className="px-3 py-1.5 text-muted">{p.presenter ?? "—"}</td>
+                          <td className="px-3 py-1.5 text-muted tabular-nums">{p.duration ? `${p.duration}m` : "—"}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+
           <div className="flex items-center gap-3">
             <Button variant="primary" onClick={handleConfirm} disabled={preview.errors.length > 0} loading={busy}>
               Confirm import
