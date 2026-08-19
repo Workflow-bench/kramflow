@@ -10,6 +10,28 @@ import { checkRateLimit, getClientIp, recordFailure, recordSuccess } from "@/lib
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
+// Supabase/GoTrue's own error messages are written for logs, not for an
+// end user mid-signup — e.g. a raw "email rate limit exceeded" string was
+// previously passed straight through to the UI. Anything recognized maps to
+// real product copy; anything unrecognized falls back to a generic message
+// rather than ever surfacing GoTrue's internal wording verbatim.
+function friendlySignupError(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("already registered") || lower.includes("already exists")) {
+    return "An account with that email already exists — try logging in instead.";
+  }
+  if (lower.includes("rate limit")) {
+    return "Too many signup attempts right now — please wait a few minutes and try again.";
+  }
+  if (lower.includes("password")) {
+    return "That password doesn't meet the requirements — use at least 8 characters.";
+  }
+  if (lower.includes("email")) {
+    return "That email address couldn't be used — check it and try again.";
+  }
+  return "Something went wrong creating your account. Please try again.";
+}
+
 export async function POST(request: Request) {
   const ip = getClientIp(request);
   const limit = checkRateLimit("signup", ip);
@@ -50,10 +72,7 @@ export async function POST(request: Request) {
 
   if (error) {
     recordFailure("signup", ip);
-    // Supabase returns a generic "User already registered" message for
-    // duplicate emails — surfaced as-is since it's already user-facing and
-    // not an internal error detail.
-    return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: false, error: friendlySignupError(error.message) }, { status: 400 });
   }
 
   recordSuccess("signup", ip);
