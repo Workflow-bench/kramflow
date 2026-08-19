@@ -78,6 +78,12 @@ interface ProgramFormProps {
   version?: number;
   onSaved: () => void;
   onCancel: () => void;
+  // Fired whenever the form gains or loses unsaved changes, so the parent
+  // (which owns the Modal wrapping this form) can gate its own close
+  // affordances — backdrop click, the X button, Escape — behind a confirm
+  // step instead of discarding silently. See app/e/[eventId]/operator/
+  // cue-sheet/page.tsx's requestClosePanel.
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 // Item 6d — this form has no hardcoded field list anymore. It renders
@@ -97,10 +103,20 @@ export function ProgramForm({
   version,
   onSaved,
   onCancel,
+  onDirtyChange,
 }: ProgramFormProps) {
   const [values, setValues] = useState<ProgramInput>({ ...EMPTY, ...initial, sessionId });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    // Runs once more on unmount so a closed form never leaves the parent
+    // thinking it's still dirty.
+    return () => onDirtyChange?.(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onDirtyChange is a setState setter from the parent, stable across renders
+  }, [dirty]);
   const [configFields, setConfigFields] = useState<FormFieldConfig[]>(DEFAULT_CONFIG);
   // Layer 3 of the Add Item disclosure grammar (docs/DESIGN.md) — collapsed
   // until Auditorium is set, since almost none of "Production" means
@@ -134,6 +150,7 @@ export function ProgramForm({
 
   function set(key: string, value: unknown) {
     setValues((v) => ({ ...v, [key]: value }));
+    setDirty(true);
     // Choosing an Auditorium is what makes Production Requirements
     // meaningful at all — open the section the moment it gains a value,
     // rather than making the operator pick Auditorium and then separately
@@ -184,6 +201,7 @@ export function ProgramForm({
         }
         return;
       }
+      setDirty(false);
       onSaved();
     } catch {
       setErrors({ form: ["Something went wrong. Try again."] });

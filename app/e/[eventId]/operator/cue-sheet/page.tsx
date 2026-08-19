@@ -149,6 +149,27 @@ export default function CueSheetPage() {
   const [eventName, setEventName] = useState("");
   const deleteConfirm = useConfirmDialog<ProgramRow[]>();
   const deleteSessionConfirm = useConfirmDialog<Session>();
+  // Whether the currently-open Add/Edit Item form has unsaved changes —
+  // gates the Add/Edit Item Modal's close affordances (backdrop click, the
+  // X button, Escape) behind a confirm step instead of discarding silently.
+  // See program-form.tsx's onDirtyChange and the confirmDiscardOpen dialog
+  // below.
+  const [itemFormDirty, setItemFormDirty] = useState(false);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+
+  function requestClosePanel() {
+    if (itemFormDirty) {
+      setConfirmDiscardOpen(true);
+      return;
+    }
+    setPanel("none");
+  }
+
+  function confirmDiscardAndClose() {
+    setConfirmDiscardOpen(false);
+    setItemFormDirty(false);
+    setPanel("none");
+  }
   // Deletes are delayed, not immediate — the row disappears from view right
   // away, but the actual DELETE only fires after this window, so "Undo" in
   // the toast can cancel it outright instead of needing to reconstruct a
@@ -575,7 +596,7 @@ export default function CueSheetPage() {
           />
         </Modal>
 
-        <Modal open={panel === "create" && !!activeSessionId} onClose={() => setPanel("none")} title="Add Item" size="lg">
+        <Modal open={panel === "create" && !!activeSessionId} onClose={requestClosePanel} title="Add Item" size="lg">
           {activeSessionId && (
             <ProgramForm
               sessionId={activeSessionId}
@@ -584,18 +605,20 @@ export default function CueSheetPage() {
               eventId={eventId}
               auditoriums={auditoriums}
               onSaved={() => {
+                setItemFormDirty(false);
                 setPanel("none");
                 toast.success("Item added");
                 loadRows(activeSessionId);
               }}
-              onCancel={() => setPanel("none")}
+              onCancel={requestClosePanel}
+              onDirtyChange={setItemFormDirty}
             />
           )}
         </Modal>
 
         <Modal
           open={typeof panel === "object" && "edit" in panel}
-          onClose={() => setPanel("none")}
+          onClose={requestClosePanel}
           title="Edit Item"
           size="lg"
         >
@@ -610,11 +633,13 @@ export default function CueSheetPage() {
               initial={rowToInput(panel.edit)}
               version={panel.edit.version}
               onSaved={() => {
+                setItemFormDirty(false);
                 setPanel("none");
                 toast.success("Item updated");
                 loadRows(activeSessionId);
               }}
-              onCancel={() => setPanel("none")}
+              onCancel={requestClosePanel}
+              onDirtyChange={setItemFormDirty}
             />
           )}
         </Modal>
@@ -895,6 +920,16 @@ export default function CueSheetPage() {
         tone="danger"
         onConfirm={handleDeleteSessionConfirmed}
         onCancel={deleteSessionConfirm.cancel}
+      />
+
+      <ConfirmDialog
+        open={confirmDiscardOpen}
+        title="Discard unsaved changes?"
+        description="You've entered details on this item that haven't been saved yet. Closing now will discard them."
+        confirmLabel="Discard"
+        tone="danger"
+        onConfirm={confirmDiscardAndClose}
+        onCancel={() => setConfirmDiscardOpen(false)}
       />
     </main>
   );
