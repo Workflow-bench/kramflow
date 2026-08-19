@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, GripVertical, Plus, Upload, Pencil, Trash2, CalendarPlus, Settings } from "lucide-react";
+import { ChevronLeft, GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus, Settings } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -22,7 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useSessions } from "@/lib/use-sessions";
-import { useEventId } from "@/lib/event-context";
+import { useEventId, useEventRole } from "@/lib/event-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -127,6 +127,13 @@ function rowToInput(row: ProgramRow): Partial<ProgramInput> {
 
 export default function CueSheetPage() {
   const eventId = useEventId();
+  // Report finding #26 — a viewer can see the cue sheet but not touch it;
+  // hiding the write affordances is a courtesy (the actual boundary is
+  // server-side, in every mutating route's requireEventAccess(..., "editor")
+  // check) so a viewer isn't clicking around discovering what's blocked one
+  // failed request at a time.
+  const role = useEventRole();
+  const canEdit = role !== "viewer";
   const sessions = useSessions();
   const toast = useToast();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -457,6 +464,24 @@ export default function CueSheetPage() {
             <h1 className="text-console-lg text-primary truncate">Cue Sheet</h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {/* Report finding #28 — no export path existed. Excel downloads
+                directly (same column layout the importer expects, so it can
+                be re-imported elsewhere); PDF opens a print-optimized page
+                and hands off to the browser's own Save-as-PDF rather than a
+                bundled PDF-generation dependency. Viewer-accessible — export
+                is a read, not a write. */}
+            <a href={`/api/cue-sheet/export?eventId=${encodeURIComponent(eventId)}`} download>
+              <Button variant="ghost" size="sm" aria-label="Export to Excel">
+                <Download className="h-4 w-4" strokeWidth={2} />
+                <span className="hidden md:inline">Export Excel</span>
+              </Button>
+            </a>
+            <Link href={`/e/${eventId}/operator/cue-sheet/print`} target="_blank" rel="noopener noreferrer">
+              <Button variant="ghost" size="sm" aria-label="Export to PDF">
+                <Printer className="h-4 w-4" strokeWidth={2} />
+                <span className="hidden md:inline">Export PDF</span>
+              </Button>
+            </Link>
             <Button
               variant="ghost"
               size="sm"
@@ -466,23 +491,27 @@ export default function CueSheetPage() {
               <Settings className="h-4 w-4" strokeWidth={2} />
               <span className="hidden sm:inline">Settings</span>
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setPanel(panel === "upload" ? "none" : "upload")}
-            >
-              <Upload className="h-4 w-4" strokeWidth={2} />
-              <span className="hidden sm:inline">Import Excel</span>
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setPanel(panel === "create" ? "none" : "create")}
-              disabled={!activeSessionId}
-            >
-              <Plus className="h-4 w-4" strokeWidth={2} />
-              Add item
-            </Button>
+            {canEdit && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setPanel(panel === "upload" ? "none" : "upload")}
+              >
+                <Upload className="h-4 w-4" strokeWidth={2} />
+                <span className="hidden sm:inline">Import Excel</span>
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setPanel(panel === "create" ? "none" : "create")}
+                disabled={!activeSessionId}
+              >
+                <Plus className="h-4 w-4" strokeWidth={2} />
+                Add item
+              </Button>
+            )}
           </div>
         </div>
 
@@ -533,10 +562,12 @@ export default function CueSheetPage() {
               )}
             </div>
           )}
-          <Button variant="ghost" size="sm" onClick={() => setPanel("create-session")} className="shrink-0">
-            <CalendarPlus className="h-4 w-4" strokeWidth={2} />
-            <span className="hidden sm:inline">New session</span>
-          </Button>
+          {canEdit && (
+            <Button variant="ghost" size="sm" onClick={() => setPanel("create-session")} className="shrink-0">
+              <CalendarPlus className="h-4 w-4" strokeWidth={2} />
+              <span className="hidden sm:inline">New session</span>
+            </Button>
+          )}
         </div>
       </header>
 

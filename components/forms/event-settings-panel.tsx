@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { useEventRole } from "@/lib/event-context";
 import { useToast } from "@/components/ui/toast";
+
+interface Collaborator {
+  user_id: string;
+  role: "editor" | "viewer";
+  invited_email: string;
+}
 
 // Real IANA identifiers, generated at runtime rather than hand-maintained —
 // Intl.supportedValuesOf is supported everywhere this app already targets
@@ -66,6 +73,66 @@ export function EventSettingsPanel({
   const [newAuditorium, setNewAuditorium] = useState("");
   const [addingAuditorium, setAddingAuditorium] = useState(false);
   const tzOptions = useMemo(() => timezoneOptions(), []);
+  const role = useEventRole();
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
+  const [inviting, setInviting] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/events/${eventId}/collaborators`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data?.ok) setCollaborators(data.collaborators ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId]);
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setInviting(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/collaborators`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Couldn't add collaborator");
+        return;
+      }
+      setInviteEmail("");
+      toast.success(`Added as ${inviteRole}`);
+      const list = await fetch(`/api/events/${eventId}/collaborators`).then((r) => r.json());
+      if (list?.ok) setCollaborators(list.collaborators ?? []);
+    } finally {
+      setInviting(false);
+    }
+  }
+
+  async function handleRemoveCollaborator(userId: string) {
+    setRemovingId(userId);
+    try {
+      const res = await fetch(`/api/events/${eventId}/collaborators?userId=${encodeURIComponent(userId)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        toast.error("Couldn't remove collaborator");
+        return;
+      }
+      setCollaborators((prev) => prev.filter((c) => c.user_id !== userId));
+      toast.success("Removed");
+    } finally {
+      setRemovingId(null);
+    }
+  }
 
   // React's documented "adjusting state when a prop changes" pattern
   // (matches components/operator/command-palette.tsx's trackedOpen) rather
@@ -233,6 +300,86 @@ export function EventSettingsPanel({
             Add
           </Button>
         </form>
+      </section>
+
+      {/* Report finding #26 — minimum-viable role-based permissions.
+          "editor" can edit the cue sheet but not run the live show or touch
+          this panel's own settings; "viewer" is read-only. Only the owner
+          manages the roster (server-enforced — see /api/events/[eventId]/
+          collaborators/route.ts's requireEventAccess(..., "owner")), so a
+          collaborator sees the list but not the invite form or remove
+          buttons. */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <h3 className="text-console-label text-muted-2 shrink-0">Collaborators</h3>
+          <span aria-hidden="true" className="flex-1 h-px bg-line-soft" />
+        </div>
+        <p className="text-console-meta text-muted-2">
+          Editors can edit the cue sheet but can&rsquo;t run the live show. Viewers can only look.
+        </p>
+
+        {collaborators.length > 0 ? (
+          <ul className="flex flex-col gap-1.5">
+            {collaborators.map((c) => (
+              <li
+                key={c.user_id}
+                className="flex items-center justify-between gap-2 rounded-control bg-raised border border-line px-3 py-2 text-console-sm text-primary"
+              >
+                <span className="truncate">{c.invited_email}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-console-meta text-muted-2 uppercase tracking-wide">{c.role}</span>
+                  {role === "owner" && (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${c.invited_email}`}
+                      onClick={() => handleRemoveCollaborator(c.user_id)}
+                      disabled={removingId === c.user_id}
+                      className="text-muted-2 hover:text-status-red cursor-pointer disabled:opacity-40"
+                    >
+                      <X className="h-3.5 w-3.5" strokeWidth={2} />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-console-sm text-muted-2">No collaborators yet.</p>
+        )}
+
+        {role === "owner" && (
+          <form onSubmit={handleInvite} className="flex items-end gap-2 flex-wrap">
+            <label className="flex-1 min-w-[10rem] flex flex-col gap-1.5">
+              <span className="text-console-meta text-muted-2">Add by email</span>
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="name@example.com"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 w-32">
+              <span className="text-console-meta text-muted-2">Role</span>
+              <Select
+                value={inviteRole}
+                onChange={(v) => setInviteRole(v as "editor" | "viewer")}
+                options={[
+                  { value: "editor", label: "Editor" },
+                  { value: "viewer", label: "Viewer" },
+                ]}
+              />
+            </label>
+            <Button type="submit" variant="secondary" size="sm" loading={inviting} disabled={!inviteEmail.trim()}>
+              <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+              Add
+            </Button>
+          </form>
+        )}
+        {role === "owner" && (
+          <p className="text-console-meta text-muted-2">
+            They need an existing Kramflow account with this exact email — this doesn&rsquo;t send an invitation yet.
+          </p>
+        )}
       </section>
 
       <div className="sticky bottom-0 -mx-6 -mb-6 mt-1 flex items-center gap-2 border-t border-line-soft bg-card/95 backdrop-blur-sm px-6 py-3">

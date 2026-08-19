@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-// DELETE cancels a not-yet-sent scheduled broadcast. requireEventOwner-gated.
+// DELETE cancels a not-yet-sent scheduled broadcast. requireEventAccess(owner)-gated.
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const eventId = new URL(request.url).searchParams.get("eventId");
-  const auth = await requireEventOwner(eventId);
+  const auth = await requireEventAccess(eventId, "owner");
   if (auth instanceof NextResponse) return auth;
 
   const supabase = supabaseAdmin();

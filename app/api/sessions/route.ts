@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   const eventId = new URL(request.url).searchParams.get("eventId");
-  const auth = await requireEventOwner(eventId);
+  const auth = await requireEventAccess(eventId, "viewer");
   if (auth instanceof NextResponse) return auth;
 
   const supabase = supabaseAdmin();
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
 
   const { eventId, id, sheet_name, event_name, day_label, session_label, sort_order } = body;
-  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  const auth = await requireEventAccess(typeof eventId === "string" ? eventId : null, "editor");
   if (auth instanceof NextResponse) return auth;
 
   if (typeof id !== "string" || !id || typeof day_label !== "string" || typeof session_label !== "string") {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 // Sets a section's start_time — the anchor item 6b's duration cascade
@@ -16,7 +16,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { eventId, start_time } = body;
-  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  const auth = await requireEventAccess(typeof eventId === "string" ? eventId : null, "editor");
   if (auth instanceof NextResponse) return auth;
 
   if (start_time !== null && typeof start_time !== "string") {

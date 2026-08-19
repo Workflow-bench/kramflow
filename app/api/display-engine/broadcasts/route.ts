@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-// POST send-now or schedule a broadcast. requireEventOwner-gated — only
+// POST send-now or schedule a broadcast. requireEventAccess(owner)-gated — only
 // Broadcast Center + Operator's embedded quick-panel (both authenticated,
 // scoped to the operator's own event) create broadcasts. Dismiss/
 // acknowledge/promote stay public (see their own route files) since
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const auth = await requireEventOwner(typeof body.eventId === "string" ? body.eventId : null);
+  const auth = await requireEventAccess(typeof body.eventId === "string" ? body.eventId : null, "owner");
   if (auth instanceof NextResponse) return auth;
 
   const draft = body.draft as Record<string, unknown> | undefined;

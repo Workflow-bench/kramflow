@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 // Arbitrary-position reorder for the Cue Sheet editor's drag-and-drop — see
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   }
 
   const { eventId, id, afterId, partitionId } = (body ?? {}) as Record<string, unknown>;
-  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  const auth = await requireEventAccess(typeof eventId === "string" ? eventId : null, "editor");
   if (auth instanceof NextResponse) return auth;
 
   if (typeof id !== "string") {

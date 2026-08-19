@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { programUpdateSchema, toProgramRow } from "@/lib/validation/program";
 
@@ -13,7 +13,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const eventId = (json as Record<string, unknown> | null)?.eventId;
-  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  const auth = await requireEventAccess(typeof eventId === "string" ? eventId : null, "editor");
   if (auth instanceof NextResponse) return auth;
 
   const parsed = programUpdateSchema.safeParse(json);
@@ -52,7 +52,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const eventId = new URL(request.url).searchParams.get("eventId");
-  const auth = await requireEventOwner(eventId);
+  const auth = await requireEventAccess(eventId, "editor");
   if (auth instanceof NextResponse) return auth;
 
   // Routes through the delete_program RPC rather than a bare `.delete()` —

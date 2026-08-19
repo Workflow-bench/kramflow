@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireEventOwner } from "@/lib/server/require-event-owner";
+import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Alert } from "@/lib/types";
 
@@ -61,7 +61,7 @@ export async function PATCH(request: Request) {
   }
 
   const eventId = body.eventId;
-  const auth = await requireEventOwner(typeof eventId === "string" ? eventId : null);
+  const auth = await requireEventAccess(typeof eventId === "string" ? eventId : null, "owner");
   if (auth instanceof NextResponse) return auth;
 
   const supabase = supabaseAdmin();
