@@ -50,7 +50,7 @@ export default function GeneralDisplayClient({ token, eventId }: { token?: strin
 }
 
 function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus } = useDisplayView({ token, eventId });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine } = useDisplayEngine();
 
@@ -86,7 +86,7 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
     nextTargetMs !== null ? Math.max(0, Math.round((nextTargetMs - syncedNow(offsetMs)) / 1000)) : null;
 
   return (
-    <DisplayShell wakeLockEnabled>
+    <DisplayShell wakeLockEnabled connectionStatus={connectionStatus}>
       <HoldScreen hold={engine.hold} />
       {display && <BroadcastOverlay displayId={display.id} displayType="general" />}
       <TestMessageOverlay message={testMessage} />

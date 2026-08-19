@@ -2,8 +2,9 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { Lock, Smartphone, Tv, FileSpreadsheet, Presentation, Megaphone, Settings2, Users, WifiOff } from "lucide-react";
+import { Lock, Smartphone, Tv, FileSpreadsheet, Presentation, Megaphone, Settings2, Users } from "lucide-react";
 import { useEventStore, useConnectionStatus } from "@/lib/store";
+import { ConnectionBadge } from "@/components/ui/connection-badge";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventId } from "@/lib/event-context";
 import { getSessionById } from "@/lib/data/sessions";
@@ -59,15 +60,7 @@ export default function OperatorPage() {
                   {operatorCount} operators
                 </span>
               )}
-              {connectionStatus !== "connected" && (
-                <span
-                  className="flex items-center gap-1.5 text-caption font-semibold uppercase tracking-wide text-status-red bg-status-red/15 px-2.5 py-1 rounded-full"
-                  title="Lost the live connection to the backend — actions may not be reaching the server, and this screen may be showing stale data"
-                >
-                  <WifiOff className="h-3.5 w-3.5" strokeWidth={2} />
-                  {connectionStatus === "reconnecting" ? "Reconnecting…" : "Disconnected"}
-                </span>
-              )}
+              <ConnectionBadge status={connectionStatus} variant="console" />
             </div>
           </div>
 

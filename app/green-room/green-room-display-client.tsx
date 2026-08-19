@@ -39,7 +39,7 @@ export default function GreenRoomDisplayClient({ token, eventId }: { token?: str
 }
 
 function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus } = useDisplayView({ token, eventId });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine } = useDisplayEngine();
 
@@ -74,7 +74,7 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
   const nextReady = next ? Boolean(engine.speakerReady[next.id]) : false;
 
   return (
-    <DisplayShell>
+    <DisplayShell connectionStatus={connectionStatus}>
       <HoldScreen hold={engine.hold} />
       {display && <BroadcastOverlay displayId={display.id} displayType="green-room" />}
       <TestMessageOverlay message={testMessage} />

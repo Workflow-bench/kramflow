@@ -61,7 +61,7 @@ export default function PresenterDisplayClient({ token, eventId }: { token?: str
 }
 
 function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus } = useDisplayView({ token, eventId });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine, setTimerMode, setTimerSource, pauseTimer, resumeTimer, resetTimer, adjustTimer, activateHold, deactivateHold } =
     useDisplayEngine();
@@ -129,7 +129,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
   const stageStatus = engine.hold.active ? "ON HOLD" : appState.pausedAt ? "PAUSED" : live ? "LIVE" : "STANDBY";
 
   return (
-    <DisplayShell>
+    <DisplayShell connectionStatus={connectionStatus}>
       <HoldScreen hold={engine.hold} />
       {display && <BroadcastOverlay displayId={display.id} displayType="presenter" size="large" />}
       <TestMessageOverlay message={testMessage} />
