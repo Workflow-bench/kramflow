@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { Lock, Smartphone, Tv, FileSpreadsheet, Presentation, Megaphone, Settings2, Users } from "lucide-react";
+import { Lock, Smartphone, Tv, FileSpreadsheet, Presentation, Megaphone, Settings2, Users, FlaskConical } from "lucide-react";
 import { useEventStore, useConnectionStatus } from "@/lib/store";
 import { ConnectionBadge } from "@/components/ui/connection-badge";
 import { useSessions } from "@/lib/use-sessions";
@@ -130,6 +130,7 @@ export default function OperatorPage() {
               { label: "Remote", href: `/e/${eventId}/remote`, icon: Smartphone, target: "_blank" },
               { label: "Broadcast", href: `/e/${eventId}/broadcast`, icon: Megaphone },
               { label: "Displays", href: `/e/${eventId}/display-manager`, icon: Settings2 },
+              { label: "Rehearsal Mode", href: `/e/${eventId}/rehearsal`, icon: FlaskConical },
             ]}
           />
 
