@@ -45,7 +45,7 @@ function LoginForm() {
     <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
       <div className="flex flex-col items-center w-full max-w-sm">
         <h1 className="text-title text-primary">KramFlow</h1>
-        <p className="text-body text-muted mt-2">Log in to the operator console</p>
+        <p className="text-body text-muted mt-2">Log in to your account</p>
 
         <form onSubmit={handleSubmit} className="w-full mt-10 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
