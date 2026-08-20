@@ -2,21 +2,34 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Camera, Eye, Maximize, RotateCw, Send, Trash2, Wifi, WifiOff, X } from "lucide-react";
+import { Camera, Eye, Maximize, Megaphone, Presentation, RotateCw, Send, Trash2, Tv, Wifi, WifiOff, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/components/auth/auth-context";
 import { useEventId } from "@/lib/event-context";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
 import { getDisplayStatus } from "@/lib/display-engine/use-register-display";
 import type { DisplayInstance, DisplayType } from "@/lib/display-engine/types";
+import { EventNav } from "@/components/operator/event-nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Panel } from "@/components/ui/card";
 import { SectionLabel } from "@/components/tv/section-label";
 import { ProfileEditor } from "@/components/display-engine/profile-editor";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+
+// Everything about outputs in one place — previews, the connected-display
+// registry, and Broadcast Center — rather than previews sitting as flat
+// top-level tabs while the registry and broadcast lived one click further
+// away in an overflow menu. See kramflow_nav_layout_ground_up.md.
+const PREVIEW_LINKS: { path: string; label: string; icon: typeof Tv }[] = [
+  { path: "/general", label: "General", icon: Tv },
+  { path: "/av", label: "AV", icon: Tv },
+  { path: "/green-room", label: "Green Room", icon: Tv },
+  { path: "/presenter", label: "Presenter", icon: Presentation },
+];
 
 // The 4 canonical display types (Operator/Remote aren't Display Engine
 // surfaces, so they're not here).
@@ -133,20 +146,14 @@ export default function DisplayManagerPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5">
-        <div className="flex items-center gap-4 min-w-0">
-          <Link href={`/e/${eventId}/operator`}>
-            <Button variant="ghost" size="sm" aria-label="Back to Operator Dashboard">
-              <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-            </Button>
-          </Link>
-          <div className="min-w-0">
-            <p className="text-caption uppercase tracking-wide text-muted-2">KramFlow</p>
-            <h1 className="text-title text-primary mt-1">Display Manager</h1>
-          </div>
+      <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5 flex-wrap">
+        <div className="min-w-0">
+          <p className="text-caption uppercase tracking-wide text-muted-2">KramFlow</p>
+          <h1 className="text-title text-primary mt-1">Displays</h1>
         </div>
         <div className="flex items-center gap-4">
-          <span className="flex items-center gap-2 text-caption text-muted-2">
+          <EventNav />
+          <span className="hidden lg:flex items-center gap-2 text-caption text-muted-2">
             {transportStatus === "open" ? (
               <Wifi className="h-4 w-4 text-status-green" strokeWidth={2} />
             ) : (
@@ -161,7 +168,34 @@ export default function DisplayManagerPage() {
       </header>
 
       <div className="px-4 sm:px-6 xl:px-12 py-8">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+        <SectionLabel>Preview a display</SectionLabel>
+        <div className="flex flex-wrap gap-2 mt-3">
+          {PREVIEW_LINKS.map(({ path, label, icon: Icon }) => (
+            <Link key={path} href={`${path}?eventId=${encodeURIComponent(eventId)}`} target="_blank" rel="noopener noreferrer">
+              <Button variant="secondary" size="sm">
+                <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                {label}
+              </Button>
+            </Link>
+          ))}
+        </div>
+
+        <Panel className="flex items-center justify-between gap-4 flex-wrap p-5 mt-6">
+          <div className="flex items-center gap-3 min-w-0">
+            <Megaphone className="h-5 w-5 text-muted-2 shrink-0" strokeWidth={2} />
+            <div className="min-w-0">
+              <p className="text-console-sm text-primary font-medium">Broadcast Center</p>
+              <p className="text-console-meta text-muted-2">Push alerts, reminders, and emergency overrides to every display.</p>
+            </div>
+          </div>
+          <Link href={`/e/${eventId}/broadcast`} className="shrink-0">
+            <Button variant="secondary" size="sm">
+              Open Broadcast Center
+            </Button>
+          </Link>
+        </Panel>
+
+        <div className="flex items-center justify-between gap-4 flex-wrap mt-8">
           <SectionLabel>Connected Displays ({displays.length})</SectionLabel>
           {offlineDisplays.length > 0 && (
             <Button

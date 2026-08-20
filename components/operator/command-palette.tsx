@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   FileSpreadsheet,
+  FlaskConical,
+  LayoutDashboard,
   Tv,
   Presentation,
   Smartphone,
   Megaphone,
-  Settings2,
+  MonitorPlay,
+  Settings as SettingsIcon,
   Lock,
   Calendar,
   Search,
@@ -96,15 +99,17 @@ export function CommandPalette() {
       setOpen(false);
     };
     const routes: Command[] = [
-      { id: "operator", label: "Operator Dashboard", icon: <Settings2 className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/operator`) },
+      { id: "console", label: "Console", icon: <LayoutDashboard className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/operator`) },
       { id: "cue-sheet", label: "Cue Sheet", icon: <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/operator/cue-sheet`) },
+      { id: "displays", label: "Displays", icon: <MonitorPlay className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/displays`) },
+      { id: "settings", label: "Settings", icon: <SettingsIcon className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/settings`) },
       { id: "green-room", label: "Green Room display", icon: <Tv className="h-4 w-4" strokeWidth={2} />, run: nav(`/green-room?eventId=${eventId}`) },
       { id: "av", label: "AV display", icon: <Tv className="h-4 w-4" strokeWidth={2} />, run: nav(`/av?eventId=${eventId}`) },
       { id: "general", label: "General display", icon: <Tv className="h-4 w-4" strokeWidth={2} />, run: nav(`/general?eventId=${eventId}`) },
       { id: "presenter", label: "Presenter display", icon: <Presentation className="h-4 w-4" strokeWidth={2} />, run: nav(`/presenter?eventId=${eventId}`) },
       { id: "remote", label: "Remote", icon: <Smartphone className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/remote`) },
       { id: "broadcast", label: "Broadcast Center", icon: <Megaphone className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/broadcast`) },
-      { id: "display-manager", label: "Display Manager", icon: <Settings2 className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/display-manager`) },
+      { id: "rehearsal", label: "Rehearsal Mode", icon: <FlaskConical className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/rehearsal`) },
     ];
     const sessionCommands: Command[] = sessions.map((s) => ({
       id: `session-${s.id}`,
