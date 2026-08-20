@@ -13,6 +13,7 @@ import { useOperatorPresence } from "@/lib/use-operator-presence";
 import { ProgramList } from "@/components/operator/program-list";
 import { SessionSwitcher } from "@/components/operator/session-switcher";
 import { EventNav } from "@/components/operator/event-nav";
+import { EventIdentity } from "@/components/operator/event-identity";
 import { LiveDetailsPanel } from "@/components/operator/live-details-panel";
 import { ControlsPanel } from "@/components/operator/controls-panel";
 import { ProgressFooter } from "@/components/tv/progress-footer";
@@ -45,12 +46,13 @@ export default function OperatorPage() {
     <main className="min-h-screen xl:h-screen xl:overflow-hidden bg-background flex flex-col">
       <header className="flex flex-col xl:flex-row xl:items-center gap-4 xl:gap-8 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5 shrink-0">
         <div className="flex items-center justify-between xl:contents">
-          <div className="min-w-0 shrink-0">
-            <p className="text-caption uppercase tracking-wide text-muted-2">
-              {session ? `${session.dayLabel} • ${session.sessionLabel}` : "KramFlow"}
-            </p>
-            <div className="flex items-center gap-2.5 mt-1">
-              <h1 className="text-title text-primary">KramFlow</h1>
+          <div className="min-w-0 flex-1 xl:shrink-0">
+            <EventIdentity />
+            <div className="flex items-center gap-2.5 mt-1.5 min-w-0">
+              <h1 className="text-title text-primary truncate">
+                <span className="sm:hidden">Console</span>
+                <span className="hidden sm:inline">Operator Console</span>
+              </h1>
               {operatorCount > 1 && (
                 <span
                   className="flex items-center gap-1.5 text-caption font-semibold uppercase tracking-wide text-status-orange bg-status-orange/15 px-2.5 py-1 rounded-full"
