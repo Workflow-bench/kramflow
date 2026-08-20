@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { Lock, Smartphone, Tv, FileSpreadsheet, Presentation, Megaphone, Settings2, Users, FlaskConical } from "lucide-react";
+import { FileSpreadsheet, FlaskConical, Lock, Users } from "lucide-react";
 import { useEventStore, useConnectionStatus } from "@/lib/store";
 import { ConnectionBadge } from "@/components/ui/connection-badge";
 import { useSessions } from "@/lib/use-sessions";
@@ -12,12 +12,12 @@ import { useAuth } from "@/components/auth/auth-context";
 import { useOperatorPresence } from "@/lib/use-operator-presence";
 import { ProgramList } from "@/components/operator/program-list";
 import { SessionSwitcher } from "@/components/operator/session-switcher";
+import { EventNav } from "@/components/operator/event-nav";
 import { LiveDetailsPanel } from "@/components/operator/live-details-panel";
 import { ControlsPanel } from "@/components/operator/controls-panel";
 import { ProgressFooter } from "@/components/tv/progress-footer";
 import { SectionLabel } from "@/components/tv/section-label";
 import { Button } from "@/components/ui/button";
-import { OverflowMenu } from "@/components/ui/overflow-menu";
 import { useToast } from "@/components/ui/toast";
 
 export default function OperatorPage() {
@@ -73,66 +73,22 @@ export default function OperatorPage() {
           <SessionSwitcher />
         </div>
 
-        {/* Three tiers, not eight equal choices (Hick's Law: decision time
-            rises with the number and complexity of available options).
-            Cue Sheet is the only one of these actually used constantly
-            while building/adjusting a show, so it's the one dedicated,
-            full-weight button. The four display types are functionally
-            identical to each other (Gestalt Similarity) — a shared
-            container chunks them into one perceptual group instead of four
-            separate decisions (Miller's Law). Remote/Broadcast/Displays
-            are each used at most a handful of times per show, not per-cue,
-            so they're demoted into a menu rather than taxing this row's
-            weight on every glance. See senior-ux-layout-standards's
-            navigation-hierarchy reasoning for the full breakdown. */}
         <div className="flex items-center flex-wrap gap-2 xl:min-w-0">
-          <Link href={`/e/${eventId}/operator/cue-sheet`}>
-            <Button variant="secondary" size="sm">
-              <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />
-              Cue Sheet
+          <EventNav />
+
+          {/* Rehearsal Mode deliberately lives here, next to Lock, rather
+              than as a nav destination — it's an operating mode for the
+              live console, not a content screen (see
+              kramflow_nav_layout_ground_up.md). Still its own route under
+              the hood (rehearsal state must never touch the real live_state
+              row — see app/e/[eventId]/rehearsal/page.tsx), just entered
+              from a mode-toggle-styled affordance instead of a menu item. */}
+          <Link href={`/e/${eventId}/rehearsal`}>
+            <Button variant="warning" size="sm" className="rounded-full">
+              <FlaskConical className="h-3.5 w-3.5" strokeWidth={2} />
+              <span className="hidden md:inline">Rehearsal Mode</span>
             </Button>
           </Link>
-
-          <div
-            className="flex items-center flex-wrap gap-1 rounded-full border border-line-soft bg-card/50 p-1 whitespace-nowrap"
-            role="group"
-            aria-label="Preview a display"
-          >
-            <Link href={`/general?eventId=${eventId}`} target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="sm" className="rounded-full">
-                <Tv className="h-3.5 w-3.5" strokeWidth={2} />
-                General
-              </Button>
-            </Link>
-            <Link href={`/av?eventId=${eventId}`} target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="sm" className="rounded-full">
-                <Tv className="h-3.5 w-3.5" strokeWidth={2} />
-                AV
-              </Button>
-            </Link>
-            <Link href={`/green-room?eventId=${eventId}`} target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="sm" className="rounded-full">
-                <Tv className="h-3.5 w-3.5" strokeWidth={2} />
-                Green Room
-              </Button>
-            </Link>
-            <Link href={`/presenter?eventId=${eventId}`} target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="sm" className="rounded-full">
-                <Presentation className="h-3.5 w-3.5" strokeWidth={2} />
-                Presenter
-              </Button>
-            </Link>
-          </div>
-
-          <OverflowMenu
-            label="More"
-            items={[
-              { label: "Remote", href: `/e/${eventId}/remote`, icon: Smartphone, target: "_blank" },
-              { label: "Broadcast", href: `/e/${eventId}/broadcast`, icon: Megaphone },
-              { label: "Displays", href: `/e/${eventId}/display-manager`, icon: Settings2 },
-              { label: "Rehearsal Mode", href: `/e/${eventId}/rehearsal`, icon: FlaskConical },
-            ]}
-          />
 
           <span
             className="hidden xl:flex items-center gap-1.5 text-caption text-muted-2 pl-1"
