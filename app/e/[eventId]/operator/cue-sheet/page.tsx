@@ -40,6 +40,7 @@ import { SectionLabel } from "@/components/tv/section-label";
 import { ProgramForm } from "@/components/forms/program-form";
 import { SessionForm } from "@/components/forms/session-form";
 import { EventNav } from "@/components/operator/event-nav";
+import { EventIdentity } from "@/components/operator/event-identity";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import type { ProgramInput } from "@/lib/validation/program";
@@ -447,11 +448,13 @@ export default function CueSheetPage() {
           list scrolls. The session switcher is the most-used control here
           and used to sit below the fold of a long sheet. */}
       <header className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-line-soft">
-        <div className="flex items-center justify-between gap-4 px-4 sm:px-6 h-14">
-          <div className="min-w-0 shrink-0">
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-2 sm:h-14 flex-wrap">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 min-w-0">
+            <EventIdentity />
+            <span aria-hidden="true" className="hidden sm:block h-5 w-px bg-line shrink-0" />
             <EventNav />
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
             {/* Report finding #28 — no export path existed. Excel downloads
                 directly (same column layout the importer expects, so it can
                 be re-imported elsewhere); PDF opens a print-optimized page

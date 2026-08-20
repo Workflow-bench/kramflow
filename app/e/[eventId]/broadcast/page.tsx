@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { AlertTriangle, Copy, Send, Star, Trash2, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-context";
 import { EventNav } from "@/components/operator/event-nav";
+import { EventIdentity } from "@/components/operator/event-identity";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import {
   EMERGENCY_PRESETS,
@@ -235,8 +236,8 @@ export default function BroadcastCenterPage() {
     <main className="min-h-screen bg-background">
       <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5 flex-wrap">
         <div className="min-w-0">
-          <p className="text-caption uppercase tracking-wide text-muted-2">Displays</p>
-          <h1 className="text-title text-primary mt-1">Broadcast Center</h1>
+          <EventIdentity />
+          <h1 className="text-title text-primary mt-1.5">Broadcast Center</h1>
         </div>
         <div className="flex items-center gap-3">
           <EventNav />
