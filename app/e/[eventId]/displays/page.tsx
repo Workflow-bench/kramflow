@@ -10,6 +10,7 @@ import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store
 import { getDisplayStatus } from "@/lib/display-engine/use-register-display";
 import type { DisplayInstance, DisplayType } from "@/lib/display-engine/types";
 import { EventNav } from "@/components/operator/event-nav";
+import { EventIdentity } from "@/components/operator/event-identity";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -148,8 +149,8 @@ export default function DisplayManagerPage() {
     <main className="min-h-screen bg-background">
       <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5 flex-wrap">
         <div className="min-w-0">
-          <p className="text-caption uppercase tracking-wide text-muted-2">KramFlow</p>
-          <h1 className="text-title text-primary mt-1">Displays</h1>
+          <EventIdentity />
+          <h1 className="text-title text-primary mt-1.5">Displays</h1>
         </div>
         <div className="flex items-center gap-4">
           <EventNav />
