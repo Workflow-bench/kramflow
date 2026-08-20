@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { AlertTriangle, ArrowLeft, Copy, Send, Star, Trash2, X } from "lucide-react";
+import { AlertTriangle, Copy, Send, Star, Trash2, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-context";
-import { useEventId } from "@/lib/event-context";
+import { EventNav } from "@/components/operator/event-nav";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import {
   EMERGENCY_PRESETS,
@@ -76,7 +75,6 @@ type DestructiveAction =
   | { kind: "delete-draft"; index: number; title: string };
 
 export default function BroadcastCenterPage() {
-  const eventId = useEventId();
   const { lock } = useAuth();
   const toast = useToast();
   const {
@@ -235,21 +233,17 @@ export default function BroadcastCenterPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5">
-        <div className="flex items-center gap-4 min-w-0">
-          <Link href={`/e/${eventId}/operator`}>
-            <Button variant="ghost" size="sm" aria-label="Back to Operator Dashboard">
-              <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-            </Button>
-          </Link>
-          <div className="min-w-0">
-            <p className="text-caption uppercase tracking-wide text-muted-2">KramFlow</p>
-            <h1 className="text-title text-primary mt-1">Broadcast Center</h1>
-          </div>
+      <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5 flex-wrap">
+        <div className="min-w-0">
+          <p className="text-caption uppercase tracking-wide text-muted-2">Displays</p>
+          <h1 className="text-title text-primary mt-1">Broadcast Center</h1>
         </div>
-        <Button variant="ghost" size="sm" onClick={lock}>
-          Lock
-        </Button>
+        <div className="flex items-center gap-3">
+          <EventNav />
+          <Button variant="ghost" size="sm" onClick={lock}>
+            Lock
+          </Button>
+        </div>
       </header>
 
       {/* Emergency quick-send — a bordered zone, not just red buttons, so it
