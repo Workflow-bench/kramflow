@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus, Settings } from "lucide-react";
+import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -39,7 +39,7 @@ import {
 import { SectionLabel } from "@/components/tv/section-label";
 import { ProgramForm } from "@/components/forms/program-form";
 import { SessionForm } from "@/components/forms/session-form";
-import { EventSettingsPanel } from "@/components/forms/event-settings-panel";
+import { EventNav } from "@/components/operator/event-nav";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import type { ProgramInput } from "@/lib/validation/program";
@@ -151,9 +151,8 @@ export default function CueSheetPage() {
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkApplying, setBulkApplying] = useState(false);
   const [panel, setPanel] = useState<
-    "none" | "upload" | "create" | "create-session" | "event-settings" | { edit: ProgramRow } | { editSession: Session }
+    "none" | "upload" | "create" | "create-session" | { edit: ProgramRow } | { editSession: Session }
   >("none");
-  const [eventName, setEventName] = useState("");
   const deleteConfirm = useConfirmDialog<ProgramRow[]>();
   const deleteSessionConfirm = useConfirmDialog<Session>();
   // Whether the currently-open Add/Edit Item form has unsaved changes —
@@ -217,10 +216,6 @@ export default function CueSheetPage() {
 
   useEffect(() => {
     loadAuditoriums();
-    fetch(`/api/events/${eventId}`)
-      .then((res) => res.json())
-      .then((data) => setEventName(data?.event?.name ?? ""))
-      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAuditoriums is stable across the eventId this effect keys on
   }, [eventId]);
 
@@ -453,15 +448,8 @@ export default function CueSheetPage() {
           and used to sit below the fold of a long sheet. */}
       <header className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-line-soft">
         <div className="flex items-center justify-between gap-4 px-4 sm:px-6 h-14">
-          <div className="flex items-center gap-3 min-w-0">
-            <Link href={`/e/${eventId}/operator`} className="shrink-0">
-              <Button variant="ghost" size="sm">
-                <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-                <span className="hidden sm:inline">Operator</span>
-              </Button>
-            </Link>
-            <span aria-hidden="true" className="h-4 w-px bg-line shrink-0" />
-            <h1 className="text-console-lg text-primary truncate">Cue Sheet</h1>
+          <div className="min-w-0 shrink-0">
+            <EventNav />
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {/* Report finding #28 — no export path existed. Excel downloads
@@ -482,15 +470,6 @@ export default function CueSheetPage() {
                 <span className="hidden md:inline">Export PDF</span>
               </Button>
             </Link>
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label="Event settings"
-              onClick={() => setPanel(panel === "event-settings" ? "none" : "event-settings")}
-            >
-              <Settings className="h-4 w-4" strokeWidth={2} />
-              <span className="hidden sm:inline">Settings</span>
-            </Button>
             {canEdit && (
               <Button
                 variant="secondary"
@@ -610,23 +589,14 @@ export default function CueSheetPage() {
           />
         )}
 
-        {/* Event Settings and Add/Edit Item are genuinely multi-step
-            configuration tasks the operator steps out of the queue view to
-            do — not a quick, single-field, in-context tweak (that's what
-            inline expansion is reserved for: session settings, bulk-edit).
-            Real modals here match how StageTimer treats its own equivalent
-            (Output Links) — see senior-ux-layout-standards's inline-vs-modal
-            reasoning. */}
-        <Modal open={panel === "event-settings"} onClose={() => setPanel("none")} title="Event Settings" size="md">
-          <EventSettingsPanel
-            eventId={eventId}
-            initialName={eventName}
-            auditoriums={auditoriums}
-            onAuditoriumsChanged={loadAuditoriums}
-            onCancel={() => setPanel("none")}
-          />
-        </Modal>
-
+        {/* Add/Edit Item is a genuinely multi-step configuration task the
+            operator steps out of the queue view to do — not a quick,
+            single-field, in-context tweak (that's what inline expansion is
+            reserved for: session settings, bulk-edit). A real modal here
+            matches how StageTimer treats its own equivalent (Output Links)
+            — see senior-ux-layout-standards's inline-vs-modal reasoning.
+            Event Settings itself moved to its own top-level page — see
+            app/e/[eventId]/settings/page.tsx. */}
         <Modal open={panel === "create" && !!activeSessionId} onClose={requestClosePanel} title="Add Item" size="lg">
           {activeSessionId && (
             <ProgramForm
