@@ -35,10 +35,6 @@ export interface EventFormConfig {
 // form config says.
 export const ALWAYS_REQUIRED_KEYS = new Set(["name", "type", "sessionId"]);
 
-export function normalizeFieldConfig(field: FormFieldConfig): FormFieldConfig {
-  return ALWAYS_REQUIRED_KEYS.has(field.key) ? { ...field, required: true } : field;
-}
-
 // Reproduces today's exact fixed field set/requiredness — used whenever no
 // event has a saved config, so this redesign stays fully backward
 // compatible with every event that never opts into a custom one.

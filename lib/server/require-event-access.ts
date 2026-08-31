@@ -2,9 +2,10 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 
-// Report finding #26 — minimum-viable role-based permissions, sitting
-// alongside (not replacing) require-event-owner.ts. Three tiers, ordered
-// low to high: "viewer" (read-only), "editor" (can also edit cue-sheet
+// Minimum-viable role-based permissions — the sole authorization check
+// for every event-scoped route (an earlier, owner-only require-event-
+// owner.ts was superseded by this and removed as dead code). Three tiers,
+// ordered low to high: "viewer" (read-only), "editor" (can also edit cue-sheet
 // content), "owner" (can also control the live show, manage event
 // settings, and manage the collaborator roster itself). The owner is
 // events.owner_id and is never a row in event_collaborators — a
