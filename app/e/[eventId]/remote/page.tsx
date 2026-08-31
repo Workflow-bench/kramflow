@@ -52,6 +52,8 @@ export default function RemotePage() {
   const [pending, setPending] = useState<"next" | "previous" | "hold" | "start" | "finish" | null>(null);
   const runningRef = useRef(false);
   const emergencyConfirm = useConfirmDialog<(typeof EMERGENCY_PRESETS)[number]>();
+  const emergencySendingRef = useRef(false);
+  const [emergencySending, setEmergencySending] = useState(false);
   const toast = useToast();
   const { lockedByOther } = useControlLock(state);
 
@@ -415,10 +417,14 @@ export default function RemotePage() {
         description="This takes over every connected screen immediately."
         confirmLabel="Send Emergency"
         tone="danger"
-        onConfirm={() => {
+        loading={emergencySending}
+        onConfirm={async () => {
           const preset = emergencyConfirm.pending;
-          if (preset) {
-            sendBroadcast({
+          if (!preset || emergencySendingRef.current) return;
+          emergencySendingRef.current = true;
+          setEmergencySending(true);
+          try {
+            const res = await sendBroadcast({
               type: "emergency",
               title: preset.title,
               message: preset.message,
@@ -431,8 +437,12 @@ export default function RemotePage() {
               persistent: true,
               scheduledFor: null,
             });
+            emergencyConfirm.cancel();
+            if (!res || !res.ok) toast.error("Couldn't send the emergency broadcast — try again immediately");
+          } finally {
+            emergencySendingRef.current = false;
+            setEmergencySending(false);
           }
-          emergencyConfirm.cancel();
         }}
         onCancel={emergencyConfirm.cancel}
       />
@@ -465,6 +475,21 @@ function QuickPanel({
   const [alertValue, setAlertValue] = useState("");
   const [notesValue, setNotesValue] = useState(currentNotes);
   const [broadcastValue, setBroadcastValue] = useState("");
+
+  // QuickPanel stays mounted across sub-panel switches (only which section
+  // renders changes) — useState(currentNotes) above only captures the
+  // value from the first mount, so switching to the jump/alert/broadcast
+  // panel and back to notes without unmounting showed stale notes if the
+  // live item changed in between. Adjusted during render (same pattern as
+  // components/forms/event-settings-panel.tsx's trackedInitialName) rather
+  // than an effect, and only on the rising edge into "notes" — not on
+  // every currentNotes change while already viewing it, so a Realtime
+  // update elsewhere doesn't clobber an in-progress edit.
+  const [trackedPanel, setTrackedPanel] = useState(panel);
+  if (panel !== trackedPanel) {
+    setTrackedPanel(panel);
+    if (panel === "notes") setNotesValue(currentNotes);
+  }
 
   return (
     <div className="rounded-card bg-card p-5 mb-3">

@@ -184,14 +184,23 @@ export default function CueSheetPage() {
   // several rows as one undoable action, not one timer per row.
   const pendingDeleteTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
+  // Tracks which session's fetch is the most recently requested — if the
+  // operator switches sessions again before an in-flight fetch resolves,
+  // a slower/earlier response landing after a newer one must not overwrite
+  // rows with the wrong session's items (real network jitter can reorder
+  // responses relative to request order).
+  const latestRequestedSessionId = useRef<string | null>(null);
+
   async function loadRows(sessionId: string) {
+    latestRequestedSessionId.current = sessionId;
     setLoadingRows(true);
     try {
       const res = await fetch(`/api/programs?eventId=${encodeURIComponent(eventId)}&sessionId=${encodeURIComponent(sessionId)}`);
       const data = await res.json();
+      if (latestRequestedSessionId.current !== sessionId) return;
       setRows(data.programs ?? []);
     } finally {
-      setLoadingRows(false);
+      if (latestRequestedSessionId.current === sessionId) setLoadingRows(false);
     }
   }
 

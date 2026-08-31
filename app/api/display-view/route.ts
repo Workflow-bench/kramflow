@@ -39,8 +39,13 @@ export async function GET(request: Request) {
     admin.from("display_broadcasts").select("*").eq("event_id", access.eventId).order("created_at", { ascending: false }),
   ]);
 
-  if (liveStateResult.error) {
-    return NextResponse.json({ ok: false, error: liveStateResult.error.message }, { status: 500 });
+  // Every one of these is checked, not just liveState — a real DB error on
+  // any of them (RLS misconfig, transient outage) must not look like "no
+  // displays registered" or "no broadcasts sent" to a public TV display
+  // that has no other way to surface a backend problem.
+  const failed = [liveStateResult, displayStateResult, registryResult, broadcastsResult].find((r) => r.error);
+  if (failed) {
+    return NextResponse.json({ ok: false, error: failed.error!.message }, { status: 500 });
   }
 
   return NextResponse.json({
