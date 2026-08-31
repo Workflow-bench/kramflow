@@ -37,7 +37,14 @@ export default async function EventLayout({
   if (!user) redirect("/login");
 
   const admin = supabaseAdmin();
-  const { data: event } = await admin.from("events").select("id, owner_id").eq("id", eventId).maybeSingle();
+  const { data: event, error: eventError } = await admin.from("events").select("id, owner_id").eq("id", eventId).maybeSingle();
+  // Still redirects to the same place either way — this layout has no
+  // distinct error page to render, and the redirect itself must not leak
+  // whether an id is real (see this file's own "not yours" reasoning
+  // above) — but a genuine query failure (RLS misconfig, transient
+  // outage) is now at least visible in server logs instead of looking
+  // identical to a bad link with zero trace of what happened.
+  if (eventError) console.error("[event layout] events lookup failed:", eventError.message);
   if (!event) redirect("/dashboard");
 
   let role: EventRole;

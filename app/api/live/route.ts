@@ -175,7 +175,18 @@ export async function PATCH(request: Request) {
     }
     case "jumpTo": {
       const order = body.order;
-      if (typeof order !== "number") return NextResponse.json({ ok: false }, { status: 400 });
+      const maxOrder = body.maxOrder;
+      if (typeof order !== "number" || typeof maxOrder !== "number") {
+        return NextResponse.json({ ok: false }, { status: 400 });
+      }
+      // Unlike next/previous (which no-op past a boundary a rapid double
+      // click can legitimately reach), an out-of-range jump target is
+      // invalid input, not a race — reject it outright rather than
+      // clamping, matching what the Jump dialog's own client-side input
+      // already restricts to (1..max).
+      if (order < 1 || order > maxOrder) {
+        return NextResponse.json({ ok: false, error: "order is out of range" }, { status: 400 });
+      }
       patch = {
         progress_by_session: {
           ...current.progress_by_session,

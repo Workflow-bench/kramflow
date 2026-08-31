@@ -209,7 +209,8 @@ export function useEventStore() {
     start: () => sendAction(eventId, { action: "start", clientId: getClientId() }),
     next: (maxOrder: number) => sendAction(eventId, { action: "next", maxOrder, clientId: getClientId() }),
     previous: (minOrder: number) => sendAction(eventId, { action: "previous", minOrder, clientId: getClientId() }),
-    jumpTo: (order: number) => sendAction(eventId, { action: "jumpTo", order, clientId: getClientId() }),
+    jumpTo: (order: number, maxOrder: number) =>
+      sendAction(eventId, { action: "jumpTo", order, maxOrder, clientId: getClientId() }),
     finish: (maxOrder: number) => sendAction(eventId, { action: "finish", maxOrder, clientId: getClientId() }),
     togglePause: () => sendAction(eventId, { action: "togglePause", clientId: getClientId() }),
     setAlert: (alert: Alert) => sendAction(eventId, { action: "setAlert", alert }),

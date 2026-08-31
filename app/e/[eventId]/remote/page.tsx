@@ -404,7 +404,7 @@ export default function RemotePage() {
         confirmLabel="Jump Here"
         onConfirm={() => {
           if (typeof confirmKind === "object" && confirmKind && "jump" in confirmKind) {
-            jumpTo(confirmKind.jump);
+            jumpTo(confirmKind.jump, max);
           }
           setConfirmKind(null);
         }}
