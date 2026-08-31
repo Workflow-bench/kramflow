@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { MoreHorizontal } from "lucide-react";
 import { Button } from "./button";
 import { cn } from "@/lib/utils";
+import { useDismissOnOutsideOrEscape } from "@/lib/use-dismiss-on-outside-or-escape";
 
 export interface OverflowMenuItem {
   label: string;
@@ -25,27 +26,7 @@ export function OverflowMenu({ items, label = "More" }: { items: OverflowMenuIte
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    function onClickOutside(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
-      // Scoped + stopped here for the same reason as components/ui/select.tsx
-      // — a window-level Escape listener would also close any ancestor
-      // Modal on the same keypress.
-      e.stopPropagation();
-      setOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    const root = rootRef.current;
-    root?.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onClickOutside);
-      root?.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  useDismissOnOutsideOrEscape(rootRef, open, () => setOpen(false));
 
   return (
     <div ref={rootRef} className="relative">

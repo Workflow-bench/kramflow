@@ -8,10 +8,10 @@ import { EventIdentity } from "@/components/operator/event-identity";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import {
   EMERGENCY_PRESETS,
+  DISPLAY_TYPES,
   type BroadcastDraft,
   type BroadcastTargetKind,
   type BroadcastType,
-  type DisplayType,
 } from "@/lib/display-engine/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,15 +30,6 @@ const BROADCAST_TYPES: { value: BroadcastType; label: string }[] = [
   { value: "success", label: "Success" },
   { value: "custom", label: "Custom" },
   { value: "emergency", label: "Emergency" },
-];
-
-// The 4 canonical display types — see app/page.tsx.
-const DISPLAY_TYPES: { value: DisplayType; label: string }[] = [
-  { value: "presenter", label: "Presenter" },
-  { value: "green-room", label: "Green Room" },
-  { value: "av", label: "AV" },
-  { value: "general", label: "General" },
-  { value: "custom", label: "Custom" },
 ];
 
 const PRIORITY_OPTIONS = [

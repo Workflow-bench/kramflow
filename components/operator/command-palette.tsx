@@ -21,7 +21,16 @@ import { useAuth } from "@/components/auth/auth-context";
 import { useEventStore } from "@/lib/store";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventId } from "@/lib/event-context";
+import { DISPLAY_TYPES, type DisplayType } from "@/lib/display-engine/types";
 import { cn } from "@/lib/utils";
+
+const DISPLAY_COMMAND_ICON: Record<DisplayType, typeof Tv> = {
+  "green-room": Tv,
+  av: Tv,
+  general: Tv,
+  presenter: Presentation,
+  custom: Tv,
+};
 
 interface Command {
   id: string;
@@ -103,10 +112,15 @@ export function CommandPalette() {
       { id: "cue-sheet", label: "Cue Sheet", icon: <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/operator/cue-sheet`) },
       { id: "displays", label: "Displays", icon: <MonitorPlay className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/displays`) },
       { id: "settings", label: "Settings", icon: <SettingsIcon className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/settings`) },
-      { id: "green-room", label: "Green Room display", icon: <Tv className="h-4 w-4" strokeWidth={2} />, run: nav(`/green-room?eventId=${eventId}`) },
-      { id: "av", label: "AV display", icon: <Tv className="h-4 w-4" strokeWidth={2} />, run: nav(`/av?eventId=${eventId}`) },
-      { id: "general", label: "General display", icon: <Tv className="h-4 w-4" strokeWidth={2} />, run: nav(`/general?eventId=${eventId}`) },
-      { id: "presenter", label: "Presenter display", icon: <Presentation className="h-4 w-4" strokeWidth={2} />, run: nav(`/presenter?eventId=${eventId}`) },
+      ...DISPLAY_TYPES.filter((d) => d.value !== "custom").map((d) => {
+        const Icon = DISPLAY_COMMAND_ICON[d.value];
+        return {
+          id: d.value,
+          label: `${d.label} display`,
+          icon: <Icon className="h-4 w-4" strokeWidth={2} />,
+          run: nav(`${d.route}?eventId=${eventId}`),
+        };
+      }),
       { id: "remote", label: "Remote", icon: <Smartphone className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/remote`) },
       { id: "broadcast", label: "Broadcast Center", icon: <Megaphone className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/broadcast`) },
       { id: "rehearsal", label: "Rehearsal Mode", icon: <FlaskConical className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/rehearsal`) },
