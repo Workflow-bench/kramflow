@@ -26,12 +26,45 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ ok: false, error: "Missing version" }, { status: 400 });
   }
 
-  // event_id is included in the match, not just id — id alone is a
+  const supabase = supabaseAdmin();
+
+  // Reassigning a program to a different session/partition is a real edit
+  // path (drag it into a new section via the form, not just move_program's
+  // drag-and-drop) — but the row-scoping .eq("event_id", auth.eventId)
+  // below only controls *which row* can be updated, not what values get
+  // written into it. Without this check, an editor could point their own
+  // event's program at another event's session/partition id, producing a
+  // row whose event_id and session_id/partition_id disagree and silently
+  // polluting that other event's session-scoped queries. Same check
+  // programs/move/route.ts already does before calling move_program.
+  if (parsed.data.sessionId !== undefined) {
+    const { data: ownedSession } = await supabase
+      .from("sessions")
+      .select("id")
+      .eq("id", parsed.data.sessionId)
+      .eq("event_id", auth.eventId)
+      .maybeSingle();
+    if (!ownedSession) {
+      return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
+    }
+  }
+  if (parsed.data.partitionId) {
+    const { data: ownedPartition } = await supabase
+      .from("partitions")
+      .select("id")
+      .eq("id", parsed.data.partitionId)
+      .eq("event_id", auth.eventId)
+      .maybeSingle();
+    if (!ownedPartition) {
+      return NextResponse.json({ ok: false, error: "Partition not found" }, { status: 404 });
+    }
+  }
+
+  // event_id is included in the match too, not just id — id alone is a
   // sufficiently random uuid that guessing one is impractical, but this is
   // the difference between "impractical" and "impossible": without it, a
   // known/leaked program id from a *different* event would still update
   // here as long as the version happened to match.
-  const supabase = supabaseAdmin();
   const { data, error } = await supabase
     .from("programs")
     .update({ ...toProgramRow(parsed.data), updated_at: new Date().toISOString(), version: clientVersion + 1 })
