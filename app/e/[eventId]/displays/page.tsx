@@ -114,35 +114,39 @@ export default function DisplayManagerPage() {
     if (!action || confirmingRef.current === action) return;
     confirmingRef.current = action;
     setConfirming(true);
-    switch (action.kind) {
-      case "reassign-type": {
-        const res = await assignDisplay(action.id, { type: action.type });
-        if (!res || !res.ok) toast.error(`Couldn't change ${action.name}'s type — try again`);
-        break;
+    try {
+      switch (action.kind) {
+        case "reassign-type": {
+          const res = await assignDisplay(action.id, { type: action.type });
+          if (!res || !res.ok) toast.error(`Couldn't change ${action.name}'s type — try again`);
+          break;
+        }
+        case "reload": {
+          const res = await sendCommand(action.id, { type: "reload", issuedAt: new Date().toISOString() });
+          if (res && res.ok) toast.success(`Reload sent to ${action.name}`);
+          else toast.error(`Couldn't reload ${action.name} — try again`);
+          break;
+        }
+        case "remove": {
+          const res = await removeDisplay(action.id);
+          if (res && res.ok) toast.success(`${action.name} removed`);
+          else toast.error(`Couldn't remove ${action.name} — try again`);
+          break;
+        }
+        case "remove-all-offline": {
+          const results = await Promise.all(action.ids.map((id) => removeDisplay(id)));
+          const failed = results.filter((res) => !res || !res.ok).length;
+          const removed = action.ids.length - failed;
+          if (removed > 0) toast.success(`Removed ${removed} offline display${removed === 1 ? "" : "s"}`);
+          if (failed > 0) toast.error(`Couldn't remove ${failed} of them — try again`);
+          break;
+        }
       }
-      case "reload": {
-        const res = await sendCommand(action.id, { type: "reload", issuedAt: new Date().toISOString() });
-        if (res && res.ok) toast.success(`Reload sent to ${action.name}`);
-        else toast.error(`Couldn't reload ${action.name} — try again`);
-        break;
-      }
-      case "remove": {
-        const res = await removeDisplay(action.id);
-        if (res && res.ok) toast.success(`${action.name} removed`);
-        else toast.error(`Couldn't remove ${action.name} — try again`);
-        break;
-      }
-      case "remove-all-offline": {
-        const results = await Promise.all(action.ids.map((id) => removeDisplay(id)));
-        const failed = results.filter((res) => !res || !res.ok).length;
-        const removed = action.ids.length - failed;
-        if (removed > 0) toast.success(`Removed ${removed} offline display${removed === 1 ? "" : "s"}`);
-        if (failed > 0) toast.error(`Couldn't remove ${failed} of them — try again`);
-        break;
-      }
+    } finally {
+      confirmingRef.current = null;
+      setConfirming(false);
+      confirmAction.cancel();
     }
-    setConfirming(false);
-    confirmAction.cancel();
   }
 
   return (

@@ -303,8 +303,13 @@ async function fetchRemoteSliceViaSupabase(inst: EngineInstance, eventId: string
       .order("created_at", { ascending: false }),
   ]);
 
-  if (stateRes.error) {
-    console.error("[display-engine] fetch display_state failed:", stateRes.error);
+  // All three are checked, not just display_state — an error on the
+  // registry or broadcasts query looks identical to "nothing registered"/
+  // "nothing sent" once discarded via `?? []`, silently telling an
+  // operator every display is offline when it's actually a query failure.
+  const failed = [stateRes, registryRes, broadcastsRes].find((r) => r.error);
+  if (failed) {
+    console.error("[display-engine] fetch display-engine slice failed:", failed.error);
     return;
   }
   applyRemoteRows(inst, stateRes.data as DisplayStateRow, (registryRes.data ?? []) as RegistryRow[], (broadcastsRes.data ?? []) as BroadcastRow[]);

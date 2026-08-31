@@ -153,14 +153,17 @@ export default function BroadcastCenterPage() {
     if (!draft.title.trim() || sendingRef.current) return;
     sendingRef.current = true;
     setSending(true);
-    const res = isScheduling ? await scheduleBroadcast(draft, draft.scheduledFor!) : await sendBroadcast(draft);
-    sendingRef.current = false;
-    setSending(false);
-    if (res && res.ok) {
-      toast.success(isScheduling ? "Broadcast scheduled" : "Broadcast sent");
-      resetCompose();
-    } else {
-      toast.error("Couldn't send the broadcast — try again");
+    try {
+      const res = isScheduling ? await scheduleBroadcast(draft, draft.scheduledFor!) : await sendBroadcast(draft);
+      if (res && res.ok) {
+        toast.success(isScheduling ? "Broadcast scheduled" : "Broadcast sent");
+        resetCompose();
+      } else {
+        toast.error("Couldn't send the broadcast — try again");
+      }
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
     }
   }
 
@@ -625,21 +628,24 @@ export default function BroadcastCenterPage() {
           if (!preset || emergencySendingRef.current) return;
           emergencySendingRef.current = true;
           setEmergencySending(true);
-          const res = await sendBroadcast({
-            ...EMPTY_DRAFT,
-            type: "emergency",
-            title: preset.title,
-            message: preset.message,
-            priority: 3,
-            target: { kind: "all" },
-            acknowledgementRequired: true,
-            persistent: true,
-          });
-          emergencySendingRef.current = false;
-          setEmergencySending(false);
-          emergencyConfirm.cancel();
-          if (res && res.ok) toast.success("Emergency broadcast sent");
-          else toast.error("Couldn't send the emergency broadcast — try again immediately");
+          try {
+            const res = await sendBroadcast({
+              ...EMPTY_DRAFT,
+              type: "emergency",
+              title: preset.title,
+              message: preset.message,
+              priority: 3,
+              target: { kind: "all" },
+              acknowledgementRequired: true,
+              persistent: true,
+            });
+            emergencyConfirm.cancel();
+            if (res && res.ok) toast.success("Emergency broadcast sent");
+            else toast.error("Couldn't send the emergency broadcast — try again immediately");
+          } finally {
+            emergencySendingRef.current = false;
+            setEmergencySending(false);
+          }
         }}
         onCancel={emergencyConfirm.cancel}
       />
