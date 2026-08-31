@@ -51,3 +51,6 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /blob-report/
+
+# graphify - local codebase-analysis artifact, not app code
+/graphify-out/
