@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Alert, LiveState, Session } from "./types";
+import { fetchDisplayViewPolled } from "./shared-display-view-poll";
 
 // The read path for the four public TV displays — polls
 // app/api/display-view/route.ts every ~2.5s instead of subscribing to
@@ -95,8 +96,14 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
     async function poll() {
       try {
         const qs = token ? `token=${encodeURIComponent(token)}` : `eventId=${encodeURIComponent(requestedEventId!)}`;
-        const res = await fetch(`/api/display-view?${qs}`);
-        const data = await res.json();
+        const data = (await fetchDisplayViewPolled(qs)) as {
+          ok: boolean;
+          reason?: string;
+          error?: string;
+          sessions?: Session[];
+          liveState: LiveStateRow;
+          eventId: string;
+        };
         if (cancelled) return;
         if (!data.ok) {
           setError(data.reason ?? data.error ?? "Failed to load");
