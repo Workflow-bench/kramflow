@@ -1,5 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import type { User } from "@supabase/supabase-js";
 import { supabaseServer } from "@/lib/supabase/server";
 
 // Every mutating API route (live-state actions, programs/sessions CRUD,
@@ -17,6 +18,15 @@ import { supabaseServer } from "@/lib/supabase/server";
 // gate, not a hot path read, so that extra round trip is the right
 // trade-off here.
 export async function requireAuth(): Promise<NextResponse | null> {
+  const result = await requireAuthUser();
+  return result instanceof NextResponse ? result : null;
+}
+
+// Same check as requireAuth(), but hands back the user it already fetched
+// — for the handful of routes (currently just app/api/events/route.ts)
+// that need the caller's id afterward and would otherwise make a second
+// getUser() round trip to Supabase Auth for the exact same session.
+export async function requireAuthUser(): Promise<NextResponse | { user: User }> {
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -24,5 +34,5 @@ export async function requireAuth(): Promise<NextResponse | null> {
   if (!user) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-  return null;
+  return { user };
 }

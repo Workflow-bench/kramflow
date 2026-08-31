@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus } from "lucide-react";
 import {
@@ -255,7 +255,7 @@ export default function CueSheetPage() {
           clearTimeout(pending);
           pendingDeleteTimers.current.delete(key);
         }
-        setRows((prev) => (prev ? [...prev, ...toRemove].sort((a, b) => a.sort_order - b.sort_order) : prev));
+        setRows((prev) => (prev ? [...prev, ...toRemove].toSorted((a, b) => a.sort_order - b.sort_order) : prev));
       },
     });
   }
@@ -404,19 +404,42 @@ export default function CueSheetPage() {
   // (244 items across 6 sessions, measured directly from the real file),
   // scrolling to find one item by eye stops being reasonable.
   const searchQuery = search.trim().toLowerCase();
-  const filteredRows = !searchQuery || !rows
-    ? rows
-    : rows.filter(
-        (r) => r.name.toLowerCase().includes(searchQuery) || (r.presenter ?? "").toLowerCase().includes(searchQuery)
-      );
+  // Memoized — this component has many independent pieces of state
+  // (selection, drag, panel toggles) that trigger re-renders without
+  // rows/searchQuery changing; without this, every one of those re-runs
+  // a filter + partition-group pass over up to 244 real items.
+  //
+  // react-hooks/preserve-manual-memoization (a React Compiler-readiness
+  // lint rule — the compiler itself isn't enabled in next.config.ts, so
+  // this is advisory only) can't see into groupByPartition (this file,
+  // above) to verify it doesn't mutate the rows array passed into it —
+  // it only ever pushes into an array it creates itself (`rows: [row]`).
+  // Manually verified safe; disabled for this block rather than restructured.
+  /* eslint-disable react-hooks/preserve-manual-memoization */
+  const filteredRows = useMemo(
+    () =>
+      !searchQuery || !rows
+        ? rows
+        : rows.filter(
+            (r) => r.name.toLowerCase().includes(searchQuery) || (r.presenter ?? "").toLowerCase().includes(searchQuery)
+          ),
+    [rows, searchQuery]
+  );
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
-  const partitionLabels = new Map((activeSession?.partitions ?? []).map((p) => [p.id, p.label]));
+  const partitionLabels = useMemo(
+    () => new Map((activeSession?.partitions ?? []).map((p) => [p.id, p.label])),
+    [activeSession]
+  );
   // Grouping (and therefore drag-and-drop) only makes sense against the
   // full, unfiltered order — same reasoning the old arrow-based reorder
   // already had for hiding its controls while a search is active, since a
   // filtered view's neighbors aren't real neighbors.
-  const partitionGroups = searchQuery || !filteredRows ? [] : groupByPartition(filteredRows, partitionLabels);
+  const partitionGroups = useMemo(
+    () => (searchQuery || !filteredRows ? [] : groupByPartition(filteredRows, partitionLabels)),
+    [searchQuery, filteredRows, partitionLabels]
+  );
+  /* eslint-enable react-hooks/preserve-manual-memoization */
 
   // Cmd/Ctrl+A selects the visible rows, Escape clears. Both competitors
   // ship these and the sheet feels markedly slower without them — at 244

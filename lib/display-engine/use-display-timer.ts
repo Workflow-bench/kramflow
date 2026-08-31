@@ -1,8 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { useDisplayEngine } from "./store";
 import type { TimerColorState, TimerThresholds } from "./types";
+
+// Shared tick source for useDisplayTimer and useDisplayClock, which used
+// to each run their own independent 1s setInterval — always-on display
+// pages call both in the same component (e.g. app/av/av-display-client.tsx),
+// so that was two uncoordinated timers (and two state updates/re-renders
+// per second) where one suffices. Same useSyncExternalStore singleton
+// pattern already used by lib/store.tsx and lib/display-engine/store.tsx —
+// one interval shared across however many components are currently
+// subscribed, torn down when the last one unmounts.
+let tickNow: number | null = null;
+let tickInterval: ReturnType<typeof setInterval> | null = null;
+const tickListeners = new Set<() => void>();
+
+function subscribeTick(callback: () => void) {
+  if (tickInterval === null) {
+    tickNow = Date.now();
+    tickInterval = setInterval(() => {
+      tickNow = Date.now();
+      for (const l of tickListeners) l();
+    }, 1000);
+  }
+  tickListeners.add(callback);
+  return () => {
+    tickListeners.delete(callback);
+    if (tickListeners.size === 0 && tickInterval !== null) {
+      clearInterval(tickInterval);
+      tickInterval = null;
+      tickNow = null;
+    }
+  };
+}
+
+function getTickSnapshot() {
+  return tickNow;
+}
+
+function getTickServerSnapshot() {
+  return null;
+}
+
+function useClockTick(): number | null {
+  return useSyncExternalStore(subscribeTick, getTickSnapshot, getTickServerSnapshot);
+}
 
 export interface AutoProgramInput {
   durationMinutes: number;
@@ -51,12 +94,7 @@ function colorFor(remainingSeconds: number, thresholds: TimerThresholds): TimerC
 export function useDisplayTimer(autoProgram: AutoProgramInput | null): DisplayTimerResult {
   const { state } = useDisplayEngine();
   const { timer } = state;
-  const [now, setNow] = useState<number | null>(null);
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  const now = useClockTick();
 
   const useAuto = timer.source === "auto" && autoProgram !== null;
   const totalSeconds = useAuto
@@ -98,11 +136,7 @@ export function useDisplayTimer(autoProgram: AutoProgramInput | null): DisplayTi
 
 /** For Count-up and Session Timer modes, which read elapsed time as the headline number instead of remaining. */
 export function useDisplayClock(offsetMs: number): string {
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  const now = useClockTick();
   if (now === null) return "--:--:--";
   const d = new Date(now + offsetMs);
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });

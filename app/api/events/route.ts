@@ -1,25 +1,21 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/server/require-auth";
+import { requireAuthUser } from "@/lib/server/require-auth";
 import { eventLimitForTier } from "@/lib/server/plan-limits";
-import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 // GET — list *my* events only. Relies on "owner select" RLS as the real
 // boundary (supabase/schema.sql) — filtering by owner_id here too is
 // belt-and-suspenders, not the only thing standing between operators.
 export async function GET() {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
-
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const auth = await requireAuthUser();
+  if (auth instanceof NextResponse) return auth;
+  const { user } = auth;
 
   const admin = supabaseAdmin();
   const { data, error } = await admin
     .from("events")
     .select("*")
-    .eq("owner_id", user!.id)
+    .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -31,8 +27,9 @@ export async function GET() {
 // on both tables has a DB default — see the migration — so this is a
 // bare insert of just event_id).
 export async function POST(request: Request) {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
+  const auth = await requireAuthUser();
+  if (auth instanceof NextResponse) return auth;
+  const { user } = auth;
 
   let body: { name?: unknown } = {};
   try {
@@ -42,11 +39,6 @@ export async function POST(request: Request) {
   }
   const name = typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 120) : "Untitled Event";
 
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const admin = supabaseAdmin();
 
   // Enforced here, not in the UI — this route (via the service-role
@@ -55,12 +47,12 @@ export async function POST(request: Request) {
   // clicking the "Create Event" button. The tier read and the count are
   // both fresh per request (no caching) since this only runs on the
   // low-frequency create path, not a hot loop.
-  const { data: profile } = await admin.from("profiles").select("tier").eq("id", user!.id).single();
+  const { data: profile } = await admin.from("profiles").select("tier").eq("id", user.id).single();
   const limit = eventLimitForTier(profile?.tier);
   const { count, error: countError } = await admin
     .from("events")
     .select("*", { count: "exact", head: true })
-    .eq("owner_id", user!.id);
+    .eq("owner_id", user.id);
   if (countError) {
     return NextResponse.json({ ok: false, error: countError.message }, { status: 500 });
   }
@@ -74,7 +66,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: event, error } = await admin.from("events").insert({ owner_id: user!.id, name }).select("*").single();
+  const { data: event, error } = await admin.from("events").insert({ owner_id: user.id, name }).select("*").single();
   if (error || !event) {
     return NextResponse.json({ ok: false, error: error?.message ?? "Failed to create event" }, { status: 500 });
   }
