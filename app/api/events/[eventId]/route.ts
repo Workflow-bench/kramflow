@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { eventFormConfigSchema } from "@/lib/validation/form-config";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -29,7 +30,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ev
 
   const patch: Record<string, unknown> = {};
   if (typeof body.name === "string" && body.name.trim()) patch.name = body.name.trim().slice(0, 120);
-  if (body.form_config !== undefined) patch.form_config = body.form_config;
+  // lib/validation/form-config.ts exists specifically to validate this
+  // shape but was never actually wired up — a malformed field (bad
+  // group/type enum) previously saved unchecked and only broke silently
+  // on read, when components/forms/program-form.tsx's shallow
+  // Array.isArray check let it through but the field itself failed to
+  // render for every collaborator on the event.
+  if (body.form_config !== undefined) {
+    if (body.form_config !== null) {
+      const parsed = eventFormConfigSchema.safeParse(body.form_config);
+      if (!parsed.success) {
+        return NextResponse.json({ ok: false, error: "Invalid form_config", errors: parsed.error.flatten() }, { status: 400 });
+      }
+      patch.form_config = parsed.data;
+    } else {
+      patch.form_config = null;
+    }
+  }
   // All optional event-detail fields — null explicitly clears them, undefined
   // (the key omitted entirely) leaves them untouched.
   if (body.event_date !== undefined) patch.event_date = typeof body.event_date === "string" ? body.event_date : null;
