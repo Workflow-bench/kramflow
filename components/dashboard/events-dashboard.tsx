@@ -12,6 +12,12 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ShareLinkPanel } from "./share-link-panel";
 import { GettingStartedChecklist } from "./getting-started-checklist";
+import { DISPLAY_TYPES } from "@/lib/display-engine/types";
+
+// The dashboard's preview links skip "custom" — it has no dedicated route
+// of its own (falls back to /presenter), so it'd just duplicate the
+// Presenter link here.
+const PREVIEW_DISPLAY_TYPES = DISPLAY_TYPES.filter((t) => t.value !== "custom");
 
 export interface EventSummary {
   id: string;
@@ -183,15 +189,10 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
                     You&apos;re logged in, so these open directly — no link or QR code needed.
                   </p>
                   <div className="flex flex-wrap gap-2 mt-4">
-                    {[
-                      { path: "general", label: "General" },
-                      { path: "av", label: "AV" },
-                      { path: "green-room", label: "Green Room" },
-                      { path: "presenter", label: "Presenter" },
-                    ].map((d) => (
+                    {PREVIEW_DISPLAY_TYPES.map((d) => (
                       <Link
-                        key={d.path}
-                        href={`/${d.path}?eventId=${event.id}`}
+                        key={d.value}
+                        href={`${d.route}?eventId=${event.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="rounded-control bg-raised border border-line px-3.5 py-2 text-console-sm text-primary hover:bg-card-hover hover:border-white/20 transition-colors"

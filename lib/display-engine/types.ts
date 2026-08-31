@@ -21,6 +21,21 @@ export type DisplayType =
   | "general"
   | "custom";
 
+// The single source of truth for the 4 real display types + "custom" —
+// was hand-duplicated in app/e/[eventId]/displays/page.tsx,
+// app/e/[eventId]/broadcast/page.tsx (whose comment pointed at a
+// nonexistent list in app/page.tsx — already-drifted evidence),
+// components/dashboard/events-dashboard.tsx, and
+// components/operator/command-palette.tsx, none of which composed from
+// this DisplayType union or from each other.
+export const DISPLAY_TYPES: { value: DisplayType; label: string; route: string }[] = [
+  { value: "presenter", label: "Presenter", route: "/presenter" },
+  { value: "green-room", label: "Green Room", route: "/green-room" },
+  { value: "av", label: "AV", route: "/av" },
+  { value: "general", label: "General", route: "/general" },
+  { value: "custom", label: "Custom", route: "/presenter" },
+];
+
 export type DisplayStatus = "online" | "offline";
 
 export interface DisplayInstance {

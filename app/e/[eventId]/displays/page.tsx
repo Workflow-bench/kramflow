@@ -8,7 +8,7 @@ import { useAuth } from "@/components/auth/auth-context";
 import { useEventId } from "@/lib/event-context";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
 import { getDisplayStatus } from "@/lib/display-engine/use-register-display";
-import type { DisplayInstance, DisplayType } from "@/lib/display-engine/types";
+import { DISPLAY_TYPES, type DisplayInstance, type DisplayType } from "@/lib/display-engine/types";
 import { EventNav } from "@/components/operator/event-nav";
 import { EventIdentity } from "@/components/operator/event-identity";
 import { Button } from "@/components/ui/button";
@@ -34,14 +34,6 @@ const PREVIEW_LINKS: { path: string; label: string; icon: typeof Tv }[] = [
 
 // The 4 canonical display types (Operator/Remote aren't Display Engine
 // surfaces, so they're not here).
-const DISPLAY_TYPES: { value: DisplayType; label: string; route: string }[] = [
-  { value: "presenter", label: "Presenter", route: "/presenter" },
-  { value: "green-room", label: "Green Room", route: "/green-room" },
-  { value: "av", label: "AV", route: "/av" },
-  { value: "general", label: "General", route: "/general" },
-  { value: "custom", label: "Custom", route: "/presenter" },
-];
-
 function routeFor(type: DisplayType): string {
   return DISPLAY_TYPES.find((t) => t.value === type)?.route ?? "/presenter";
 }
