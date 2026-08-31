@@ -19,8 +19,9 @@ Reference data (`sessions`/`programs`) is no longer a build artifact — it live
 ## Supabase setup (required)
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. Run `supabase/schema.sql` once in the project's SQL Editor — creates `sessions`, `programs`, `live_state`, `activity_log`, their RLS policies, and adds them to the Realtime publication.
-3. Run `npm run seed` locally (with the env vars below set in `.env.local`) to load the bundled `data/cue-sheet.xlsx` — or skip this and upload a cue sheet from `/operator/cue-sheet` after first deploy.
+2. Run `supabase/schema.sql` once in the project's SQL Editor — creates the base tables (`sessions`, `programs`, `live_state`, `activity_log`, etc.) and adds them to the Realtime publication.
+3. Run every file in `supabase/migrations/`, in filename order, in the same SQL Editor — `0001_multitenant.sql` brings the schema up to what the app code actually expects: `events`/`event_collaborators`, event-scoped RLS on every table, and the `p_event_id`-aware RPCs (`delete_program`, `insert_program_into_partition`). `0002_fix_missing_rpcs.sql` fills a gap `0001` missed: `replace_session_programs`, `move_program`, `bulk_move_programs_to_partition`, `bulk_update_programs`, and `swap_program_order` didn't actually exist in the database at all until this file, and the cue-sheet upload route's session upsert needs a `UNIQUE (event_id, id)` constraint this file also adds. **Both migration steps are required** — the app does not work against `schema.sql` alone, and cue-sheet upload / reorder / bulk-edit don't work without `0002` even after `0001`.
+4. Run `npm run seed` locally (with the env vars below set in `.env.local`) to load the bundled `data/cue-sheet.xlsx`, or `node --env-file=.env.local scripts/seed-mock.mjs` for a fuller multi-event/multi-role QA dataset — or skip both and upload a cue sheet from the app after first deploy.
 
 ## Environment variables
 
