@@ -1,6 +1,13 @@
 -- KramFlow schema — run once in the Supabase SQL editor on a fresh project.
 -- See docs/ARCHITECTURE.md and the restructure plan for the reasoning behind
 -- each table. Idempotent: safe to re-run (uses IF NOT EXISTS / CREATE OR REPLACE).
+--
+-- This is the base schema only. Every table/RLS/RPC change since has landed
+-- as a numbered file in supabase/migrations/ — run this file first, then
+-- everything in supabase/migrations/ in order. The app code's current RPC
+-- signatures (e.g. replace_session_programs's p_event_id param) only exist
+-- after supabase/migrations/0001_multitenant.sql — this file alone won't
+-- produce a working app. See docs/DEPLOYMENT.md for the full setup order.
 
 -- ---------------------------------------------------------------------------
 -- sessions
