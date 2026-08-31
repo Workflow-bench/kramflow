@@ -3,7 +3,7 @@
 import { MotionConfig } from "framer-motion";
 
 /**
- * QA_REPORT_ROUND2.md: no `prefers-reduced-motion` handling anywhere in the
+ * No `prefers-reduced-motion` handling anywhere in the
  * app — every Framer Motion transition (dialog fade/scale, alert opacity,
  * Hold takeover) played regardless of the OS setting. `reducedMotion="user"`
  * makes every `motion.*` component in the tree respect that preference

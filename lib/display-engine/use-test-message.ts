@@ -2,8 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 
-// QA_REPORT.md BUG-4 / QA_REPORT_ROUND3.md (confirmed 4/4, not 3/4): Display
-// Manager's "Test Message" command was delivered and cleared correctly on
+// Display Manager's "Test Message" command was delivered and cleared correctly on
 // every display, but no display page had a case for it — the operator got a
 // false "message sent" toast for a command that rendered nothing anywhere,
 // removing the one built-in way to confirm a screen is actually receiving

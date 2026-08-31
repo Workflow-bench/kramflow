@@ -171,7 +171,7 @@ export default function RemotePage() {
       </div>
 
       {/* Main focus — current + next, huge countdown */}
-      {/* QA_REPORT.md BUG-7: plain `justify-center` on a scrollable overflow
+      {/* Plain `justify-center` on a scrollable overflow
           container centers the overflow itself, so at scroll position 0 the
           browser shows the *middle* of a wrapped 3-line title, not the top —
           the top line was scrolled off above the visible viewport by

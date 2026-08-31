@@ -83,8 +83,8 @@ export function ControlsPanel({
   // callers "can show an error instead of a false 'it worked'" — this
   // wrapper used to await the action and discard that result, so Next/
   // Previous/Hold (the three highest-frequency buttons in the app) failed
-  // completely silently during a backend outage (QA_REPORT_ROUND2.md
-  // R2-BUG-2). Every action here returns that same boolean now.
+  // completely silently during a backend outage. Every action here
+  // returns that same boolean now.
   async function run(kind: NonNullable<typeof pending>, action: () => Promise<boolean>, successMessage?: string) {
     // Client-side check purely for a faster, more specific message than
     // "that didn't work" — app/api/live/route.ts enforces the real lock
@@ -151,7 +151,7 @@ export function ControlsPanel({
         {/* Opt-in sequencing lock (see lib/types.ts's LiveState.controllerId
             doc comment) — unclaimed shows only a quiet "Take Control" link
             so a single operator's screen looks exactly like it did before
-            this existed. QA_REPORT_ROUND2.md R2-BUG-1: this exists because
+            this existed. This exists because
             two /operator tabs could otherwise drive the same show with a
             plain Next silently clearing another tab's just-set Hold. */}
         <div className="mt-2 flex items-center gap-2 text-caption">

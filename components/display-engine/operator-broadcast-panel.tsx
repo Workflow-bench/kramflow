@@ -41,7 +41,7 @@ export function OperatorBroadcastPanel() {
   // Ref, not just `emergencySending` — ConfirmDialog's confirm button has no
   // disabled-while-submitting state of its own, so a rapid multi-click
   // burst fires onConfirm several times before React commits the `loading`
-  // prop's disabled attribute. QA_REPORT.md BUG-3: reproduced live here (3
+  // prop's disabled attribute. Reproduced live here (3
   // clicks -> 3 duplicate live emergency broadcasts) before this guard
   // existed; see the identical pattern in components/operator/jump-control.tsx.
   const emergencySendingRef = useRef(false);
