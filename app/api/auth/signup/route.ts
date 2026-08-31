@@ -34,7 +34,7 @@ function friendlySignupError(message: string): string {
 
 export async function POST(request: Request) {
   const ip = getClientIp(request);
-  const limit = checkRateLimit("signup", ip);
+  const limit = await checkRateLimit("signup", ip);
   if (!limit.allowed) {
     return NextResponse.json(
       { ok: false, error: "Too many attempts. Please wait and try again.", retryAfterSeconds: limit.retryAfterSeconds },
@@ -71,11 +71,11 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    recordFailure("signup", ip);
+    await recordFailure("signup", ip);
     return NextResponse.json({ ok: false, error: friendlySignupError(error.message) }, { status: 400 });
   }
 
-  recordSuccess("signup", ip);
+  await recordSuccess("signup", ip);
 
   // Two real outcomes depending on the Supabase project's Auth settings
   // (dashboard-configured, not something this app controls): if "Confirm
