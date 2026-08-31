@@ -328,8 +328,31 @@ function parseSheet(sheetName: string, sheet: XLSX.WorkSheet, sessionSortOrder: 
   return { session, partitions, programs };
 }
 
+// Sanity ceilings independent of the upload route's byte-size cap — xlsx
+// (SheetJS) has open, unfixed prototype-pollution/ReDoS advisories
+// (GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9), and a small file can still
+// declare a large in-memory sheet (a real 244-item, multi-day cue sheet is
+// nowhere close to either limit). Rejecting oversized input here, before
+// row-by-row parsing runs, keeps a crafted small file from doing
+// disproportionate work.
+const MAX_SHEETS = 50;
+const MAX_ROWS_PER_SHEET = 5000;
+
 export function parseCueSheet(buffer: Buffer | ArrayBuffer): ParsedCueSheet {
   const wb = XLSX.read(buffer, { type: "buffer" });
+
+  if (wb.SheetNames.length > MAX_SHEETS) {
+    throw new Error(`Too many sheets (${wb.SheetNames.length}) — the limit is ${MAX_SHEETS}.`);
+  }
+  wb.SheetNames.forEach((name) => {
+    const ref = wb.Sheets[name]["!ref"];
+    const range = ref ? XLSX.utils.decode_range(ref) : null;
+    const rowCount = range ? range.e.r - range.s.r + 1 : 0;
+    if (rowCount > MAX_ROWS_PER_SHEET) {
+      throw new Error(`Sheet "${name}" has too many rows (${rowCount}) — the limit is ${MAX_ROWS_PER_SHEET}.`);
+    }
+  });
+
   const sessions: ParsedSession[] = [];
   const partitions: ParsedPartition[] = [];
   const programs: ParsedProgram[] = [];
