@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Maximize, X } from "lucide-react";
 
 /**
- * QA_REPORT_ROUND3.md: "Force Fullscreen" as a remote command can never
+ * "Force Fullscreen" as a remote command can never
  * actually work — requestFullscreen() requires a genuine user gesture on
  * the device itself, which a Realtime-delivered command can never provide
  * (see use-fullscreen.ts). Rather than removing the feature, the remote

@@ -119,9 +119,9 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
             {/* justify-start, not -center: centering doesn't clip — content
                 taller than this cell bled equally up *and down* past it,
                 which is what actually caused the "Queue Position" row below
-                to visually overlap the countdown at a short viewport
-                (QA_REPORT_ROUND2.md R2-BUG-4), not the outer shell's own
-                justify-between (already fixed separately). Top-aligning
+                to visually overlap the countdown at a short viewport,
+                not the outer shell's own justify-between (already fixed
+                separately). Top-aligning
                 this cell means it can only overflow downward, where the
                 page already scrolls, instead of in both directions. */}
             <div className="min-h-0 flex flex-col justify-start">
@@ -132,7 +132,7 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
               {live?.presenter && <p className="text-title text-muted mt-3">{live.presenter}</p>}
               {!isFinished && (
                 <>
-                  {/* QA_REPORT_ROUND2.md R2-BUG-6: this used to render
+                  {/* This used to render
                       unconditionally, so once a session finished (live ===
                       null, autoInput === null) it fell back to the Display
                       Engine's own separate manual-timer state — an unrelated

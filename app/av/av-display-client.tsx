@@ -119,8 +119,7 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
               </p>
               {!isFinished && (
                 <>
-                  {/* QA_REPORT_ROUND2.md R2-BUG-6, same pattern as Green
-                      Room: once finished, autoInput is null and this would
+                  {/* Same pattern as Green Room: once finished, autoInput is null and this would
                       otherwise fall back to the Display Engine's unrelated
                       manual-timer state instead of blanking. */}
                   <p
