@@ -40,7 +40,18 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # GitHub withholds repo secrets from pull_request runs authored by
+      # Dependabot, so these steps would just fail on every dependency-bump
+      # PR. Rather than switch to pull_request_target for secrets (that runs
+      # the bumped dependency's own install/build scripts with full secrets
+      # in scope on a checkout of the PR's exact — dependency-controlled —
+      # code, i.e. a "pwn request": CodeQL flags this as
+      # actions/untrusted-checkout/critical), skip the secret-requiring
+      # steps for Dependabot and rely on typecheck/lint/unit-test above for
+      # its PRs. Build and E2E still run in full for every human-authored
+      # PR and every push to a branch.
       - name: Build
+        if: github.actor != 'dependabot[bot]'
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -50,6 +61,7 @@ jobs:
         run: npm test
 
       - name: Install Playwright browsers
+        if: github.actor != 'dependabot[bot]'
         run: npx playwright install --with-deps chromium
 
       # e2e/auth-golden-path.spec.ts skips itself with a clear message if
@@ -59,6 +71,7 @@ jobs:
       # webServer boots a real dev server that performs real writes
       # (event creation) during the test.
       - name: E2E tests
+        if: github.actor != 'dependabot[bot]'
         run: npm run test:e2e
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -68,7 +81,7 @@ jobs:
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 
       - name: Upload Playwright report on failure
-        if: failure()
+        if: failure() && github.actor != 'dependabot[bot]'
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
