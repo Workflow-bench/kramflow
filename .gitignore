@@ -41,11 +41,16 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# generated from data/cue-sheet.xlsx by scripts/build-cuesheet.mjs
+# legacy build-time cue-sheet codegen output (no longer generated —
+# data/cue-sheet.xlsx is loaded via npm run seed or runtime upload now —
+# kept ignored in case any local checkout still has stale output on disk)
 /lib/generated/
 
 # local pre-migration DB backups (may contain real event data)
 /.backups/
+
+# local reference only, never commit (demo account passwords)
+/DEMO_CREDENTIALS.md
 
 # playwright
 /test-results/
