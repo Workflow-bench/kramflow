@@ -6,6 +6,17 @@ on:
   pull_request:
     branches: ["**"]
 
+# The E2E job (auth-golden-path.spec.ts) logs into one shared Supabase test
+# account and mutates its events, so two runs executing at once race each
+# other (concurrent logins, one run's beforeEach cleanup deleting events
+# out from under another run's assertions, the account tripping the 3-event
+# free-tier cap). Scoping the group to just the workflow name (no ref/branch
+# in the key) queues every run repo-wide behind whichever is already in
+# flight instead of letting them stomp on the shared account in parallel.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   ci:
     runs-on: ubuntu-latest
