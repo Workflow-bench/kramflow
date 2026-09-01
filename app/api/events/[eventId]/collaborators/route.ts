@@ -64,7 +64,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
 
   const { error: insertError } = await admin
     .from("event_collaborators")
-    .upsert({ event_id: eventId, user_id: match.id, role, invited_email: email }, { onConflict: "event_id,user_id" });
+    .upsert(
+      { event_id: eventId, user_id: match.id, role, invited_email: email, status: "accepted" },
+      { onConflict: "event_id,user_id" }
+    );
   if (insertError) return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
