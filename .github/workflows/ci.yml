@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: ["**"]
 
+permissions:
+  contents: read
+
 # The E2E job (auth-golden-path.spec.ts) logs into one shared Supabase test
 # account and mutates its events, so two runs executing at once race each
 # other (concurrent logins, one run's beforeEach cleanup deleting events
