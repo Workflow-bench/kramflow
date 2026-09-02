@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
   Pause,
@@ -69,6 +69,17 @@ export default function RemotePage() {
   const eventId = useEventId();
   const controllerName = useControllerName(eventId, lockedByOther ? state.controllerId : null);
   const lockedMessage = controllerName ? `Locked by ${controllerName}` : "Locked by the operator dashboard";
+  // run() is async and needs the *current* lock state when a request comes
+  // back, not the value closed over when it fired — see the identical fix
+  // in components/operator/controls-panel.tsx for why (confirmed live
+  // during the multi-operator stress test: a stale pre-check read is a
+  // real, reachable race, not just theoretical).
+  const lockedByOtherRef = useRef(lockedByOther);
+  const lockedMessageRef = useRef(lockedMessage);
+  useEffect(() => {
+    lockedByOtherRef.current = lockedByOther;
+    lockedMessageRef.current = lockedMessage;
+  }, [lockedByOther, lockedMessage]);
 
   const progress = session ? state.progressBySession[state.activeSessionId] : undefined;
   const currentOrder = progress?.currentOrder ?? null;
@@ -104,7 +115,11 @@ export default function RemotePage() {
     try {
       const result = await action();
       if (result === false) {
-        toast.error("That didn't work — try again");
+        if (SEQUENCING_KINDS.has(kind) && lockedByOtherRef.current) {
+          toast.error(lockedMessageRef.current, { label: "Take Over", onClick: () => claimControl(true) });
+        } else {
+          toast.error("That didn't work — try again");
+        }
       }
     } finally {
       runningRef.current = false;

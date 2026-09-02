@@ -76,6 +76,16 @@ export function ControlsPanel({
   const { iHaveControl, lockedByOther } = useControlLock(state);
   const eventId = useEventId();
   const controllerName = useControllerName(eventId, lockedByOther ? state.controllerId : null);
+  // run() below is async and needs the *current* lockedByOther at the
+  // moment a request comes back, not the value closed over when the click
+  // fired — an in-flight request outlives the render it started in, and a
+  // Realtime push telling this tab someone else now holds the lock can
+  // land during that request. A plain ref read (not the destructured
+  // value above) is what makes that live.
+  const lockedByOtherRef = useRef(lockedByOther);
+  useEffect(() => {
+    lockedByOtherRef.current = lockedByOther;
+  }, [lockedByOther]);
 
   // Renew the claim every 15s while held — comfortably inside the server's
   // 45s staleness window — so it survives as long as this tab is actually
@@ -99,11 +109,11 @@ export function ControlsPanel({
   async function run(kind: NonNullable<typeof pending>, action: () => Promise<boolean>, successMessage?: string) {
     // Client-side check purely for a faster, more specific message than
     // "that didn't work" — app/api/live/route.ts enforces the real lock
-    // server-side regardless, so a stale read here (e.g. this tab hasn't
-    // gotten the latest Realtime update yet) just means the server's own
-    // 423 falls through to the generic failure toast below instead of this
-    // one. Either way the action never actually runs against a lock someone
-    // else holds.
+    // server-side regardless, so a stale read here (this tab hasn't gotten
+    // the latest Realtime update yet — a real, reachable race, not just
+    // theoretical: confirmed live during the multi-operator stress test,
+    // clicking within ~1s of another tab's claim) falls through to the
+    // action attempt below instead of stopping here.
     if (lockedByOther && SEQUENCING_KINDS.has(kind)) {
       toast.error("Locked by another operator", { label: "Take Over", onClick: () => setConfirmKind("takeover") });
       return;
@@ -114,7 +124,17 @@ export function ControlsPanel({
     try {
       const ok = await action();
       if (!ok) {
-        toast.error(FAILURE_MESSAGE[kind] ?? "That didn't work — try again");
+        // By the time the server's 423 comes back, the Realtime push for
+        // whoever holds the lock has often *also* landed — re-check rather
+        // than always falling back to a generic "try again" that actively
+        // misleads (retrying changes nothing while someone else holds the
+        // lock). Confirmed live: the stale-read window above is real often
+        // enough that this path fires, not just a defensive fallback.
+        if (SEQUENCING_KINDS.has(kind) && lockedByOtherRef.current) {
+          toast.error("Locked by another operator", { label: "Take Over", onClick: () => setConfirmKind("takeover") });
+        } else {
+          toast.error(FAILURE_MESSAGE[kind] ?? "That didn't work — try again");
+        }
       } else if (successMessage) {
         broadcastAction(successMessage);
       }
