@@ -18,6 +18,7 @@ import { SectionLabel } from "@/components/ui/section-label";
 import { Card, Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tooltip } from "@/components/ui/tooltip";
+import { PageHeader } from "@/components/ui/page-header";
 import { RunPosition } from "@/components/operator/run-position";
 import type { Program } from "@/lib/types";
 import { Trash2 } from "lucide-react";
@@ -213,6 +214,25 @@ export default function ComponentCatalogPage() {
           <p className="text-caption text-muted-2 uppercase tracking-wide">Stage card</p>
           <p className="text-body text-primary mt-2">Soft radius, no border, read from 5-15ft.</p>
         </Card>
+      </Row>
+
+      <Row
+        title="Page header"
+        description="Eyebrow + title + meta + actions for document-shaped, non-Console authenticated surfaces (Dashboard/Event Home first). The Operator Console keeps its own header — EventIdentity + session strip + nav are a workspace toolbar, not a document header — so this stays scoped rather than becoming a universal AppHeader."
+      >
+        <div className="w-full border border-line-soft rounded-panel p-5 bg-background">
+          <PageHeader
+            eyebrow="Operator Dashboard"
+            title="Your Events"
+            meta="Signed in as demo@kramflow.test · 2 events"
+            actions={
+              <>
+                <Button variant="secondary" size="sm">Help</Button>
+                <Button variant="secondary" size="sm">Log Out</Button>
+              </>
+            }
+          />
+        </div>
       </Row>
 
       <Row title="Form field" description="Console-scale input, with focus/error states.">

@@ -7,11 +7,15 @@ import { LayoutDashboard, Smartphone, ListChecks, MonitorPlay, Plus, Trash2, Che
 import { Panel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { OperationalStatus } from "@/components/ui/operational-status";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ShareLinkPanel } from "./share-link-panel";
 import { GettingStartedChecklist } from "./getting-started-checklist";
+
+export type EventRole = "owner" | "editor" | "viewer";
 
 export interface EventSummary {
   id: string;
@@ -20,14 +24,27 @@ export interface EventSummary {
   event_date?: string | null;
   venue?: string | null;
   timezone?: string | null;
+  /** Which relationship this operator has to the event — owned, or an
+   *  accepted collaboration. Gates owner-only actions (Delete, Share
+   *  Links) client-side as a courtesy; every one of those routes already
+   *  enforces the same boundary server-side regardless (requireEventAccess
+   *  in each API route). */
+  role?: EventRole;
+  /** Readiness, not analytics — real counts of what already exists, no
+   *  invented metrics. Undefined (not 0) when the caller didn't compute
+   *  them, so a freshly-created event in local state doesn't briefly
+   *  render "0 sessions" before it's ever been fetched with real data. */
+  sessionCount?: number;
+  itemCount?: number;
+  isLive?: boolean;
 }
 
-// The operator's own event list — each operator can create and manage
-// multiple events (see the approved multi-tenant plan's "one operator,
-// many events"), and every event here is already scoped to the signed-in
-// user by the GET /api/events route's owner_id filter plus RLS underneath
-// it. Nothing here needs its own ownership check — an operator simply
-// never receives another operator's event in this list to begin with.
+// Every event this operator can actually open — owned, plus accepted
+// collaborations (GET /api/events, and this page's own server component,
+// both merge the two). role on each row is what the client uses to decide
+// which actions to offer; RLS and every mutating route's own
+// requireEventAccess() call are the real boundary regardless of what this
+// list shows.
 export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary[] }) {
   const toast = useToast();
   const router = useRouter();
@@ -72,7 +89,7 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
         router.push(`/e/${data.event.id}/operator/cue-sheet`);
         return;
       }
-      setEvents((prev) => [data.event!, ...prev]);
+      setEvents((prev) => [{ ...data.event!, role: "owner", sessionCount: 0, itemCount: 0, isLive: false }, ...prev]);
       setExpandedId(data.event.id);
     } catch {
       toast.error("Couldn't reach the server.");
@@ -133,6 +150,7 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
 
       {events.map((event) => {
         const expanded = expandedId === event.id;
+        const isOwner = (event.role ?? "owner") === "owner";
         return (
           <Panel key={event.id} className="p-0 overflow-hidden">
             <button
@@ -141,8 +159,16 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
               className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left cursor-pointer"
             >
               <div className="min-w-0">
-                <h2 className="text-console-lg text-primary truncate">{event.name}</h2>
-                <p className="text-console-sm text-muted mt-1 truncate">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h2 className="text-console-lg text-primary">{event.name}</h2>
+                  {event.isLive && <OperationalStatus kind="live" />}
+                  {!isOwner && (
+                    <Badge tone="muted" className="capitalize">
+                      {event.role}
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-console-sm text-muted mt-1">
                   {event.event_date
                     ? // Parsed as a plain calendar date (not a UTC instant) so
                       // the displayed date can't shift a day depending on the
@@ -154,6 +180,8 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
                       })
                     : `Created ${new Date(event.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`}
                   {event.venue ? ` · ${event.venue}` : ""}
+                  {event.sessionCount !== undefined &&
+                    ` · ${event.sessionCount} session${event.sessionCount === 1 ? "" : "s"} · ${event.itemCount ?? 0} item${event.itemCount === 1 ? "" : "s"}`}
                 </p>
               </div>
               {expanded ? <ChevronUp className="h-5 w-5 text-muted-2 shrink-0" /> : <ChevronDown className="h-5 w-5 text-muted-2 shrink-0" />}
@@ -179,7 +207,12 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
                   </section>
                 </div>
 
-                <ShareLinkPanel eventId={event.id} />
+                {/* Share links and Delete are owner-only server-side
+                    (requireEventAccess(eventId, "owner") in both routes) —
+                    hidden here too so a collaborator never sees an action
+                    that would just 403, not because the client is what's
+                    actually stopping them. */}
+                {isOwner && <ShareLinkPanel eventId={event.id} />}
 
                 <Panel className="p-5">
                   <div className="flex items-center gap-2">
@@ -209,12 +242,14 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
                   </div>
                 </Panel>
 
-                <div>
-                  <Button variant="danger" size="sm" onClick={() => setDeleteTarget(event)}>
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                    Delete Event
-                  </Button>
-                </div>
+                {isOwner && (
+                  <div>
+                    <Button variant="danger" size="sm" onClick={() => setDeleteTarget(event)}>
+                      <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                      Delete Event
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </Panel>

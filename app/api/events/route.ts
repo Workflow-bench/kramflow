@@ -3,9 +3,17 @@ import { requireAuth } from "@/lib/server/require-auth";
 import { eventLimitForTier } from "@/lib/server/plan-limits";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
 
-// GET — list *my* events only. Relies on "owner select" RLS as the real
-// boundary (supabase/schema.sql) — filtering by owner_id here too is
-// belt-and-suspenders, not the only thing standing between operators.
+// GET — every event this operator can actually open: owned, plus accepted
+// collaborations. Previously owner-only ("fixing collaborator visibility
+// is a data-layer change, not a nav one" — components/operator/
+// event-identity.tsx's own prior comment on this exact gap) — a
+// collaborator had real, working access to an event (requireEventAccess
+// grants it, RLS grants it) but no way to ever find it from their own
+// Dashboard or event switcher without being handed the direct URL.
+// `role` on each returned event tells the client which actions are
+// theirs — owner-only affordances (delete, settings) stay gated on it
+// client-side, on top of the server already enforcing it on every
+// mutating route regardless of what this list shows.
 export async function GET() {
   const unauthorized = await requireAuth();
   if (unauthorized) return unauthorized;
@@ -16,14 +24,26 @@ export async function GET() {
   } = await supabase.auth.getUser();
 
   const admin = supabaseAdmin();
-  const { data, error } = await admin
-    .from("events")
-    .select("*")
-    .eq("owner_id", user!.id)
-    .order("created_at", { ascending: false });
+  const [ownedResult, collabResult] = await Promise.all([
+    admin.from("events").select("*").eq("owner_id", user!.id).order("created_at", { ascending: false }),
+    admin
+      .from("event_collaborators")
+      .select("role, event:events(*)")
+      .eq("user_id", user!.id)
+      .eq("status", "accepted"),
+  ]);
+  if (ownedResult.error) return NextResponse.json({ ok: false, error: ownedResult.error.message }, { status: 500 });
+  if (collabResult.error) return NextResponse.json({ ok: false, error: collabResult.error.message }, { status: 500 });
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, events: data });
+  const owned = (ownedResult.data ?? []).map((e) => ({ ...e, role: "owner" as const }));
+  const collaborating = (collabResult.data ?? [])
+    .filter((c) => c.event)
+    .map((c) => ({ ...(c.event as object), role: c.role as "editor" | "viewer" }));
+  const events = [...owned, ...collaborating].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  return NextResponse.json({ ok: true, events });
 }
 
 // POST — create a new event, owned by the caller. Provisions its
