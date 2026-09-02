@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "./button";
 import { Input } from "./input";
+import { isTopmostOverlay, popOverlay, pushOverlay } from "./overlay-stack";
+import { useDialogFocus } from "./use-dialog-focus";
 
 // The one confirmation dialog used everywhere a single click would
 // otherwise mutate shared/live state with no review step. Guardrail weight
@@ -49,7 +51,9 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  const confirmRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
   const [typedValue, setTypedValue] = useState("");
   const typedMismatch = requireTypedConfirmation !== undefined && typedValue !== requireTypedConfirmation.value;
 
@@ -57,17 +61,30 @@ export function ConfirmDialog({
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting for a fresh open, not deriving from a prop
     setTypedValue("");
-    if (!requireTypedConfirmation) confirmRef.current?.focus();
-  }, [open, requireTypedConfirmation]);
+  }, [open]);
+
+  // Initial focus, Tab trap, and focus restoration all come from here now
+  // (see its own comment) — it lands on Confirm when there's no typed-
+  // confirmation field, and on the Input when there is, matching what this
+  // component used to do by hand for the Confirm-button case only.
+  useDialogFocus(open, dialogRef);
+
+  const [overlayId] = useState(() => Symbol("confirm-dialog"));
+
+  useEffect(() => {
+    if (!open) return;
+    pushOverlay(overlayId);
+    return () => popOverlay(overlayId);
+  }, [open, overlayId]);
 
   useEffect(() => {
     if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && !loading) onCancel();
+      if (e.key === "Escape" && !loading && isTopmostOverlay(overlayId)) onCancel();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, loading, onCancel]);
+  }, [open, loading, onCancel, overlayId]);
 
   return (
     <AnimatePresence>
@@ -82,22 +99,24 @@ export function ConfirmDialog({
           onClick={loading ? undefined : onCancel}
         >
           <motion.div
+            ref={dialogRef}
             role="alertdialog"
             aria-modal="true"
-            aria-labelledby="confirm-dialog-title"
-            aria-describedby={description ? "confirm-dialog-description" : undefined}
+            aria-labelledby={titleId}
+            aria-describedby={description ? descriptionId : undefined}
+            tabIndex={-1}
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.25, ease: "easeOut" }}
-            className="w-full max-w-sm rounded-card bg-card p-6"
+            className="w-full max-w-sm rounded-card bg-card p-6 focus:outline-none"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="confirm-dialog-title" className="text-subtitle text-primary">
+            <h2 id={titleId} className="text-subtitle text-primary">
               {title}
             </h2>
             {description && (
-              <p id="confirm-dialog-description" className="text-body text-muted mt-2">
+              <p id={descriptionId} className="text-body text-muted mt-2">
                 {description}
               </p>
             )}
@@ -108,14 +127,12 @@ export function ConfirmDialog({
                   value={typedValue}
                   onChange={(e) => setTypedValue(e.target.value)}
                   placeholder={requireTypedConfirmation.value}
-                  autoFocus
                   aria-label={requireTypedConfirmation.label}
                 />
               </div>
             )}
             <div className="flex items-center gap-3 mt-6">
               <Button
-                ref={confirmRef}
                 variant={tone === "danger-solid" ? "danger-solid" : tone === "danger" ? "danger" : "primary"}
                 size="md"
                 className="flex-1"

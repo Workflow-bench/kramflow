@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { effectiveNotes, getLive, type LiveState, type Session } from "@/lib/types";
 import { useEventStore } from "@/lib/store";
+import { useEventId } from "@/lib/event-context";
 import { useCountdown } from "@/lib/use-countdown";
 import { formatClock } from "@/lib/display-engine/use-display-timer";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -155,6 +156,7 @@ function formatClockTime(iso: string): string {
 // attempted across a session switch, where it'd shown nothing rather than
 // something misleading.
 function SessionSummary({ session, state }: { session: Session; state: LiveState }) {
+  const eventId = useEventId();
   const [rows, setRows] = useState<ActivityRow[] | null>(null);
 
   useEffect(() => {
@@ -162,6 +164,7 @@ function SessionSummary({ session, state }: { session: Session; state: LiveState
     supabaseBrowser()
       .from("activity_log")
       .select("detail, created_at")
+      .eq("event_id", eventId)
       .order("created_at", { ascending: false })
       .limit(50)
       .then(({ data }: { data: ActivityRow[] | null }) => {
@@ -170,7 +173,7 @@ function SessionSummary({ session, state }: { session: Session; state: LiveState
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [eventId]);
 
   const items = session.items.filter((i) => i.type === "item");
   const breaks = session.items.filter((i) => i.type === "break");

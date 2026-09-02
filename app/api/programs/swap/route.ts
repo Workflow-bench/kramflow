@@ -23,14 +23,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "idA and idB are required" }, { status: 400 });
   }
 
+  const uniqueIds = [...new Set([idA, idB])];
   const supabase = supabaseAdmin();
   const { data: owned, error: ownedError } = await supabase
     .from("programs")
     .select("id")
     .eq("event_id", auth.eventId)
-    .in("id", [idA, idB]);
+    .in("id", uniqueIds);
   if (ownedError) return NextResponse.json({ ok: false, error: ownedError.message }, { status: 500 });
-  if (!owned || owned.length !== 2) {
+  if (!owned || owned.length !== uniqueIds.length) {
     return NextResponse.json({ ok: false, error: "One or both items don't belong to this event" }, { status: 403 });
   }
 

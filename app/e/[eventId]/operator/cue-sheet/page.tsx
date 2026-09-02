@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus } from "lucide-react";
 import {
   DndContext,
@@ -23,7 +22,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventId, useEventRole } from "@/lib/event-context";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
@@ -92,6 +91,35 @@ function groupByPartition(rows: ProgramRow[], partitionLabels: Map<string, strin
     }
   }
   return groups;
+}
+
+// dnd-kit's default screen-reader announcements read the raw sortable IDs
+// verbatim — "Draggable item 988d6de9-350f-4f74-a086-e9714be15f93 was
+// dropped over droppable area a192d118-...", confirmed live. The keyboard
+// reorder mechanism itself already works (Tab to the handle, Space to pick
+// up, arrows to move, Space to drop — dnd-kit's KeyboardSensor, wired up
+// since before this pass), so the 2026-09-01 audit's "no keyboard
+// equivalent" was inaccurate; what was actually missing is announcements a
+// screen-reader user could use, which is what this replaces the UUIDs with.
+function dndAnnouncements(rows: ProgramRow[]) {
+  const nameOf = (id: string | number) => rows.find((r) => r.id === id)?.name ?? "item";
+  const positionOf = (id: string | number) => rows.findIndex((r) => r.id === id) + 1;
+  return {
+    onDragStart({ active }: { active: { id: string | number } }) {
+      return `Picked up ${nameOf(active.id)}, position ${positionOf(active.id)} of ${rows.length}.`;
+    },
+    onDragOver({ active, over }: { active: { id: string | number }; over: { id: string | number } | null }) {
+      if (!over || over.id === active.id) return `${nameOf(active.id)} is back at its original position.`;
+      return `${nameOf(active.id)} is over position ${positionOf(over.id)} of ${rows.length}.`;
+    },
+    onDragEnd({ active, over }: { active: { id: string | number }; over: { id: string | number } | null }) {
+      if (!over || over.id === active.id) return `${nameOf(active.id)} was not moved.`;
+      return `${nameOf(active.id)} was moved to position ${positionOf(over.id)} of ${rows.length}.`;
+    },
+    onDragCancel({ active }: { active: { id: string | number } }) {
+      return `Reordering ${nameOf(active.id)} was cancelled.`;
+    },
+  };
 }
 
 function rowToInput(row: ProgramRow): Partial<ProgramInput> {
@@ -461,18 +489,27 @@ export default function CueSheetPage() {
                 and hands off to the browser's own Save-as-PDF rather than a
                 bundled PDF-generation dependency. Viewer-accessible — export
                 is a read, not a write. */}
-            <a href={`/api/cue-sheet/export?eventId=${encodeURIComponent(eventId)}`} download>
-              <Button variant="ghost" size="sm" aria-label="Export to Excel">
-                <Download className="h-4 w-4" strokeWidth={2} />
-                <span className="hidden md:inline">Export Excel</span>
-              </Button>
-            </a>
-            <Link href={`/e/${eventId}/operator/cue-sheet/print`} target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="sm" aria-label="Export to PDF">
-                <Printer className="h-4 w-4" strokeWidth={2} />
-                <span className="hidden md:inline">Export PDF</span>
-              </Button>
-            </Link>
+            <LinkButton
+              href={`/api/cue-sheet/export?eventId=${encodeURIComponent(eventId)}`}
+              download
+              variant="ghost"
+              size="sm"
+              aria-label="Export to Excel"
+            >
+              <Download className="h-4 w-4" strokeWidth={2} />
+              <span className="hidden md:inline">Export Excel</span>
+            </LinkButton>
+            <LinkButton
+              href={`/e/${eventId}/operator/cue-sheet/print`}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="ghost"
+              size="sm"
+              aria-label="Export to PDF"
+            >
+              <Printer className="h-4 w-4" strokeWidth={2} />
+              <span className="hidden md:inline">Export PDF</span>
+            </LinkButton>
             {canEdit && (
               <Button
                 variant="secondary"
@@ -690,18 +727,35 @@ export default function CueSheetPage() {
 
             {/* Column header. The old list had none, so the three right-hand
                 numeric columns were unlabelled and you had to infer which
-                was start and which was duration. */}
-            {filteredRows && filteredRows.length > 0 && (
-              <div className="mt-4 grid grid-cols-[1.25rem_1rem_1fr_4.25rem] sm:grid-cols-[1.25rem_1rem_2rem_1fr_5rem_3.25rem_4.25rem] items-center gap-2 sm:gap-3 px-3 pb-2 border-b border-line">
-                <span />
-                <span />
-                <span className="hidden sm:block text-console-label text-muted-2 text-right">#</span>
-                <span className="text-console-label text-muted-2">Item</span>
-                <span className="hidden sm:block text-console-label text-muted-2 text-right">Start</span>
-                <span className="hidden sm:block text-console-label text-muted-2 text-right">Dur</span>
-                <span />
-              </div>
-            )}
+                was start and which was duration.
+
+                role="table"/"row"/"columnheader"/"cell" layered onto this
+                existing CSS-grid structure (not a rebuild into real <table>
+                markup, which would mean rebuilding drag-and-drop against a
+                <tr>-based DOM) — a screen reader could not previously
+                relate "#"/Item/Start/Dur to any row's values at all
+                (2026-09-01 UI/UX audit, P1 finding #10). "table", not
+                "grid": this doesn't implement roving-tabindex/arrow-key
+                cell navigation, so claiming "grid" semantics would promise
+                a keyboard model that isn't actually there. */}
+            <div
+              role="table"
+              aria-label={`${activeSession?.dayLabel ?? ""} ${activeSession?.sessionLabel ?? ""} cue sheet`.trim()}
+            >
+              {filteredRows && filteredRows.length > 0 && (
+                <div
+                  role="row"
+                  className="mt-4 grid grid-cols-[1.25rem_1rem_1fr_6rem] sm:grid-cols-[1.25rem_1rem_2rem_1fr_5rem_3.25rem_6rem] items-center gap-2 sm:gap-3 px-3 pb-2 border-b border-line"
+                >
+                  <span role="columnheader" aria-label="Reorder" />
+                  <span role="columnheader" aria-label="Select" />
+                  <span role="columnheader" className="hidden sm:block text-console-label text-muted-2 text-right">#</span>
+                  <span role="columnheader" className="text-console-label text-muted-2">Item</span>
+                  <span role="columnheader" className="hidden sm:block text-console-label text-muted-2 text-right">Start</span>
+                  <span role="columnheader" className="hidden sm:block text-console-label text-muted-2 text-right">Dur</span>
+                  <span role="columnheader" aria-label="Actions" />
+                </div>
+              )}
 
             <div className="flex flex-col">
               {/* Skeleton rows rather than a spinner — the list's shape is
@@ -802,7 +856,7 @@ export default function CueSheetPage() {
 
               {!search.trim() &&
                 partitionGroups.map((group, groupIndex) => (
-                  <div key={group.partitionId ?? `unpartitioned-${groupIndex}`}>
+                  <div key={group.partitionId ?? `unpartitioned-${groupIndex}`} role="rowgroup">
                     {group.label && (
                       // Sticky so you always know which section you're
                       // inside while scrolling a forty-row run — the old
@@ -826,6 +880,7 @@ export default function CueSheetPage() {
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
+                      accessibility={{ announcements: dndAnnouncements(group.rows) }}
                       onDragStart={(e) => setActiveDragId(String(e.active.id))}
                       onDragEnd={(e) => handleDragEnd(group, groupIndex, partitionGroups, e)}
                       onDragCancel={() => setActiveDragId(null)}
@@ -849,6 +904,7 @@ export default function CueSheetPage() {
                     </DndContext>
                   </div>
                 ))}
+            </div>
             </div>
           </div>
         )}
@@ -970,6 +1026,8 @@ function ProgramRowView({
   return (
     <div
       ref={setNodeRef}
+      role="row"
+      aria-label={row.name}
       style={style}
       data-selected={selected || undefined}
       className={cn(
@@ -983,7 +1041,7 @@ function ProgramRowView({
         // (display:none removes them as grid items, hence the different
         // column count) and the time reappears on the meta line instead.
         "group grid min-h-11 items-center gap-2 sm:gap-3 px-3 py-2 border-b border-line-soft",
-        "grid-cols-[1.25rem_1rem_1fr_4.25rem] sm:grid-cols-[1.25rem_1rem_2rem_1fr_5rem_3.25rem_4.25rem]",
+        "grid-cols-[1.25rem_1rem_1fr_6rem] sm:grid-cols-[1.25rem_1rem_2rem_1fr_5rem_3.25rem_6rem]",
         "transition-colors duration-[110ms] ease-out",
         // Selection is a full tinted fill, not a coloured left border —
         // both competitors fill the row, and a 2px accent rail on every
@@ -1015,9 +1073,9 @@ function ProgramRowView({
         className="h-4 w-4 rounded-control border-line bg-background accent-accent cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       />
 
-      <span className="tnum hidden sm:block text-console-meta text-muted-2 text-right">{row.sort_order}</span>
+      <span role="cell" className="tnum hidden sm:block text-console-meta text-muted-2 text-right">{row.sort_order}</span>
 
-      <div className="min-w-0">
+      <div role="cell" aria-label="Item" className="min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           {/* Colour tag as a dot beside the title rather than a chip on its
               own line — at this density a chip per row doubles the row
@@ -1057,22 +1115,27 @@ function ProgramRowView({
         </p>
       </div>
 
-      <span className="tnum hidden sm:block text-console-meta text-muted text-right">
+      <span role="cell" aria-label="Start" className="tnum hidden sm:block text-console-meta text-muted text-right">
         {row.start_time ?? "—"}
       </span>
-      <span className="tnum hidden sm:block text-console-meta text-muted-2 text-right">
+      <span role="cell" aria-label="Duration" className="tnum hidden sm:block text-console-meta text-muted-2 text-right">
         {row.duration > 0 ? `${row.duration}m` : "—"}
       </span>
 
       {/* Row actions stay dim until the row is hovered or focused within,
           so 40 rows of icons don't compete with the content. They remain
-          keyboard-reachable at all times. */}
-      <div className="flex items-center justify-end gap-0.5 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-[110ms]">
+          keyboard-reachable at all times. 44×44 hit areas (up from 32×32)
+          and a wider gap between them, not just a size bump — Edit and
+          Delete sitting nearly flush at 2px apart was its own slip risk on
+          a live rundown (2026-09-01 UI/UX audit finding #11). Rows are
+          already taller than 44px here (name + presenter subline), so this
+          costs no extra row height. */}
+      <div role="cell" aria-label="Actions" className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-[110ms]">
         <button
           type="button"
           aria-label={`Edit ${row.name}`}
           onClick={onEdit}
-          className="grid h-8 w-8 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-raised hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="grid h-11 w-11 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-raised hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
@@ -1080,7 +1143,7 @@ function ProgramRowView({
           type="button"
           aria-label={`Delete ${row.name}`}
           onClick={onDelete}
-          className="grid h-8 w-8 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-status-red/12 hover:text-status-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="grid h-11 w-11 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-status-red/12 hover:text-status-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
         </button>

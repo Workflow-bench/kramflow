@@ -97,19 +97,27 @@
   --text-console-md--letter-spacing: -0.005em;
   --text-console-md--font-weight: 600;
 
-  --text-console-sm: 0.8125rem; /* 13px — body, form fields */
+  /* 13px → 14px, 11px → 12px, 10px → 11px (label only) — the 2026-09-01
+     UI/UX audit's finding #25 measured exactly these three tokens ("Cue
+     Sheet metadata/section headers... 10-11px; editable fields commonly
+     13px") as under a legible floor for a screen meant to be scanned fast
+     under pressure, not read at leisure. Density is preserved through
+     spacing, not through type this small — same principle
+     docs/DESIGN_SYSTEM.md already states for the TV scale, extended here
+     to the Console scale it was never applied to. */
+  --text-console-sm: 0.875rem; /* 14px — body, form fields */
   --text-console-sm--line-height: 1.5;
 
   --text-console-row: 0.9375rem; /* 15px — queue row title */
   --text-console-row--line-height: 1.35;
   --text-console-row--font-weight: 500;
 
-  --text-console-meta: 0.6875rem; /* 11px — presenter, times, secondary */
+  --text-console-meta: 0.75rem; /* 12px — presenter, times, secondary */
   --text-console-meta--line-height: 1.4;
 
-  --text-console-label: 0.625rem; /* 10px — uppercase mono labels */
+  --text-console-label: 0.6875rem; /* 11px — uppercase mono labels */
   --text-console-label--line-height: 1.3;
-  --text-console-label--letter-spacing: 0.08em;
+  --text-console-label--letter-spacing: 0.07em;
   --text-console-label--font-weight: 600;
 
   /* ── Stage scale — TV surfaces, 5-15ft. ─────────────────────────────── */

@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FileSpreadsheet, LayoutDashboard, MonitorPlay, Settings as SettingsIcon, Smartphone } from "lucide-react";
 import { useEventId } from "@/lib/event-context";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 
 type Destination = "console" | "cue-sheet" | "displays" | "settings";
 
@@ -48,20 +47,31 @@ export function EventNav() {
         aria-label="Navigate"
       >
         {TABS.map((tab) => (
-          <Link key={tab.id} href={`/e/${eventId}${tab.path}`}>
-            <Button variant={active === tab.id ? "primary" : "ghost"} size="sm" className="rounded-full">
-              <tab.icon className="h-3.5 w-3.5" strokeWidth={2} />
-              <span className="hidden sm:inline">{tab.label}</span>
-            </Button>
-          </Link>
+          <LinkButton
+            key={tab.id}
+            href={`/e/${eventId}${tab.path}`}
+            variant={active === tab.id ? "primary" : "ghost"}
+            size="sm"
+            className="rounded-full"
+            aria-current={active === tab.id ? "page" : undefined}
+          >
+            <tab.icon className="h-3.5 w-3.5" strokeWidth={2} />
+            <span className="hidden sm:inline">{tab.label}</span>
+          </LinkButton>
         ))}
       </div>
-      <Link href={`/e/${eventId}/remote`} target="_blank" rel="noopener noreferrer">
-        <Button variant="ghost" size="sm" aria-label="Remote" title="Remote — one-handed mobile control">
-          <Smartphone className="h-3.5 w-3.5" strokeWidth={2} />
-          <span className="hidden lg:inline">Remote</span>
-        </Button>
-      </Link>
+      <LinkButton
+        href={`/e/${eventId}/remote`}
+        target="_blank"
+        rel="noopener noreferrer"
+        variant="ghost"
+        size="sm"
+        aria-label="Remote"
+        title="Remote — one-handed mobile control"
+      >
+        <Smartphone className="h-3.5 w-3.5" strokeWidth={2} />
+        <span className="hidden lg:inline">Remote</span>
+      </LinkButton>
     </div>
   );
 }

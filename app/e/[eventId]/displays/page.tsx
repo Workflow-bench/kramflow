@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Camera, Eye, Maximize, Megaphone, Presentation, RotateCw, Send, Trash2, Tv, Wifi, WifiOff, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/components/auth/auth-context";
@@ -11,7 +10,7 @@ import { getDisplayStatus } from "@/lib/display-engine/use-register-display";
 import type { DisplayInstance, DisplayType } from "@/lib/display-engine/types";
 import { EventNav } from "@/components/operator/event-nav";
 import { EventIdentity } from "@/components/operator/event-identity";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Panel } from "@/components/ui/card";
@@ -19,7 +18,7 @@ import { SectionLabel } from "@/components/tv/section-label";
 import { ProfileEditor } from "@/components/display-engine/profile-editor";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeAge } from "@/lib/utils";
 
 // Everything about outputs in one place — previews, the connected-display
 // registry, and Broadcast Center — rather than previews sitting as flat
@@ -172,12 +171,17 @@ export default function DisplayManagerPage() {
         <SectionLabel>Preview a display</SectionLabel>
         <div className="flex flex-wrap gap-2 mt-3">
           {PREVIEW_LINKS.map(({ path, label, icon: Icon }) => (
-            <Link key={path} href={`${path}?eventId=${encodeURIComponent(eventId)}`} target="_blank" rel="noopener noreferrer">
-              <Button variant="secondary" size="sm">
-                <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-                {label}
-              </Button>
-            </Link>
+            <LinkButton
+              key={path}
+              href={`${path}?eventId=${encodeURIComponent(eventId)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="secondary"
+              size="sm"
+            >
+              <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+              {label}
+            </LinkButton>
           ))}
         </div>
 
@@ -189,11 +193,9 @@ export default function DisplayManagerPage() {
               <p className="text-console-meta text-muted-2">Push alerts, reminders, and emergency overrides to every display.</p>
             </div>
           </div>
-          <Link href={`/e/${eventId}/broadcast`} className="shrink-0">
-            <Button variant="secondary" size="sm">
-              Open Broadcast Center
-            </Button>
-          </Link>
+          <LinkButton href={`/e/${eventId}/broadcast`} className="shrink-0" variant="secondary" size="sm">
+            Open Broadcast Center
+          </LinkButton>
         </Panel>
 
         <div className="flex items-center justify-between gap-4 flex-wrap mt-8">
@@ -225,6 +227,7 @@ export default function DisplayManagerPage() {
                   key={display.id}
                   display={display}
                   status={status}
+                  now={now}
                   profiles={Object.values(engine.profiles)}
                   onRename={(name) => renameDisplay(display.id, name)}
                   onRoom={(room) => assignDisplay(display.id, { room })}
@@ -324,6 +327,7 @@ export default function DisplayManagerPage() {
 function DisplayRow({
   display,
   status,
+  now,
   profiles,
   onRename,
   onRoom,
@@ -338,6 +342,7 @@ function DisplayRow({
 }: {
   display: DisplayInstance;
   status: "online" | "offline";
+  now: number;
   profiles: { id: string; name: string }[];
   onRename: (name: string) => void;
   onRoom: (room: string | null) => void;
@@ -371,7 +376,12 @@ function DisplayRow({
   }
 
   return (
-    <div className="rounded-card bg-card px-6 py-5">
+    // Named region, not just a visual card — every action button inside
+    // still carries its own device-specific aria-label too (below), but a
+    // screen-reader user landing on this group via rotor/landmark
+    // navigation gets "AV Waiting Room" immediately rather than needing to
+    // read every button label first to figure out which display they're in.
+    <div className="rounded-card bg-card px-6 py-5" role="group" aria-label={display.name}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <span
@@ -389,8 +399,19 @@ function DisplayRow({
           />
         </div>
         <div className="flex items-center gap-4 text-caption text-muted-2 shrink-0">
-          <span className="uppercase tracking-wide">{status}</span>
-          <span className="tabular-nums">{display.latencyMs !== null ? `${Math.round(display.latencyMs)}ms` : "—"}</span>
+          <span className={cn("uppercase tracking-wide", status === "offline" && "text-status-red")}>{status}</span>
+          {/* A live-looking ms figure on a card already marked OFFLINE was
+              its own false-confidence bug (2026-09-01 UI/UX audit finding
+              #12) — that number is whatever the last successful ping
+              measured, not a current reading, so it gets replaced with the
+              thing that's actually still true: how long ago that was. */}
+          <span className="tabular-nums" title={new Date(display.lastSeenAt).toLocaleString()}>
+            {status === "online"
+              ? display.latencyMs !== null
+                ? `${Math.round(display.latencyMs)}ms`
+                : "—"
+              : `Last seen ${formatRelativeAge(now - Date.parse(display.lastSeenAt))}`}
+          </span>
         </div>
       </div>
 
@@ -401,7 +422,7 @@ function DisplayRow({
           options={DISPLAY_TYPES}
           searchable={false}
           className="w-auto min-w-[9rem]"
-          aria-label="Display type"
+          aria-label={`Display type for ${display.name}`}
         />
 
         <Input
@@ -412,7 +433,7 @@ function DisplayRow({
           }}
           placeholder="Room (optional)"
           className="w-40"
-          aria-label="Room"
+          aria-label={`Room for ${display.name}`}
         />
 
         <Select
@@ -421,7 +442,7 @@ function DisplayRow({
           options={[{ value: "", label: "No profile" }, ...profiles.map((p) => ({ value: p.id, label: p.name }))]}
           searchable={false}
           className="w-auto min-w-[9rem]"
-          aria-label="Profile"
+          aria-label={`Profile for ${display.name}`}
         />
       </div>
 
@@ -436,27 +457,62 @@ function DisplayRow({
           system's danger tier (docs/DESIGN.md) plus spatial separation
           (Von Restorff) so a misclick reaching for Reload can't land on it. */}
       <div className="flex flex-wrap items-center gap-2 mt-4">
-        <Button variant="primary" size="sm" onClick={onPreview}>
+        {/* Preview opens the route in the operator's own browser — that
+            works with no living connection to this device at all, so it
+            stays enabled offline (and is genuinely useful there: it's how
+            you check what the display *would* show once it reconnects). */}
+        <Button variant="primary" size="sm" onClick={onPreview} aria-label={`Preview ${display.name}`}>
           <Eye className="h-3.5 w-3.5" strokeWidth={2} />
           Preview
         </Button>
-        <Button variant="secondary" size="sm" onClick={onScreenshot}>
+        {/* Screenshot/Force Fullscreen/Test Message all send a command to
+            *this specific* connected client — with none listening, they
+            previously looked identical to a working command, just one that
+            silently did nothing (2026-09-01 UI/UX audit finding #12: "false
+            confidence from no-op commands"). Disabled with a reason instead
+            of quietly eating the click. */}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onScreenshot}
+          disabled={status === "offline"}
+          title={status === "offline" ? "This display is offline — nothing is listening to respond." : undefined}
+          aria-label={`Screenshot ${display.name}`}
+        >
           <Camera className="h-3.5 w-3.5" strokeWidth={2} />
           Screenshot
         </Button>
-        <Button variant="secondary" size="sm" onClick={onForceFullscreen}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onForceFullscreen}
+          disabled={status === "offline"}
+          title={status === "offline" ? "This display is offline — nothing is listening to respond." : undefined}
+          aria-label={`Force fullscreen on ${display.name}`}
+        >
           <Maximize className="h-3.5 w-3.5" strokeWidth={2} />
           Force Fullscreen
         </Button>
-        <Button variant="secondary" size="sm" onClick={onOpenMessage}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onOpenMessage}
+          disabled={status === "offline"}
+          title={status === "offline" ? "This display is offline — nothing is listening to respond." : undefined}
+          aria-label={`Send test message to ${display.name}`}
+        >
           <Send className="h-3.5 w-3.5" strokeWidth={2} />
           Test Message
         </Button>
-        <Button variant="secondary" size="sm" onClick={onRequestReload}>
+        {/* Reload/Reconnect stays enabled offline on purpose — it's the one
+            action that's actually *for* an unresponsive display (queues a
+            reload for whenever it comes back / prompts a manual refresh),
+            not a command that needs a live listener to mean anything. */}
+        <Button variant="secondary" size="sm" onClick={onRequestReload} aria-label={`Reload or reconnect ${display.name}`}>
           <RotateCw className="h-3.5 w-3.5" strokeWidth={2} />
           Reload / Reconnect
         </Button>
-        <Button variant="danger" size="sm" onClick={onRequestRemove} className="ml-auto">
+        <Button variant="danger" size="sm" onClick={onRequestRemove} className="ml-auto" aria-label={`Remove ${display.name}`}>
           <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
           Remove
         </Button>

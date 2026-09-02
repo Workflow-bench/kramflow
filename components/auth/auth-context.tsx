@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { supabaseBrowser, refreshRealtimeAuth } from "@/lib/supabase/client";
 
 // Real per-operator sessions now (Supabase Auth), replacing the shared-PIN
 // + sessionStorage flag this used to be. The public shape — status/lock —
@@ -45,6 +45,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setStatus(session ? "unlocked" : "locked");
+      // A session that changes *after* a channel already joined (sign-in
+      // on this tab with no reload, a token refresh, sign-out) needs its
+      // own explicit push — see lib/supabase/client.ts's realtimeReady()
+      // doc comment for why joining channels can't just rely on this
+      // firing eventually.
+      refreshRealtimeAuth(session?.access_token ?? null);
     });
 
     return () => subscription.unsubscribe();

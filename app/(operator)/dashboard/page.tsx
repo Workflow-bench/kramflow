@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
 import { LockButton } from "@/components/dashboard/lock-button";
 import { HelpMenu } from "@/components/dashboard/help-menu";
@@ -16,11 +17,18 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // proxy.ts already redirects signed-out requests to /login, but that
+  // check and this one aren't atomic — a session revoked in the narrow
+  // window between them would otherwise hit the non-null assertion below
+  // and 500 instead of bouncing to /login like every other unauthenticated
+  // request in the app.
+  if (!user) redirect("/login");
+
   const admin = supabaseAdmin();
   const { data: events } = await admin
     .from("events")
     .select("id, name, created_at, event_date, venue, timezone")
-    .eq("owner_id", user!.id)
+    .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
   return (

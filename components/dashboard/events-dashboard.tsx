@@ -39,6 +39,13 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
   const [deleting, setDeleting] = useState(false);
 
   async function handleCreate() {
+    // Re-entrancy guard: the Input's onKeyDown below calls this directly
+    // (not gated by `creating` the way the Button's `disabled` prop is), so
+    // a fast double Enter — or Enter immediately followed by a click before
+    // React re-renders the disabled button — could otherwise fire two
+    // concurrent creates from one submission.
+    if (creating) return;
+
     // Captured before the request, not after — by the time the response
     // comes back, `events` already has the new row appended, so checking
     // post-create would never see "this was the first one."

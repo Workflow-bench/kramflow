@@ -67,6 +67,13 @@ export interface DisplayViewResult {
   loading: boolean;
   error: string | null;
   connectionStatus: DisplayConnectionStatus;
+  // When the last successful poll landed — connectionStatus alone only ever
+  // says "the last poll succeeded or didn't," not "how old is what's on
+  // screen right now." "Live and synced" claimed the latter while only
+  // knowing the former (2026-09-01 audit, KF-001) — this is what lets
+  // ConnectionBadge's stage variant show a real, quantified age instead of
+  // an unconditional claim.
+  lastUpdatedAt: number | null;
 }
 
 export function useDisplayView(params: { token?: string; eventId?: string }): DisplayViewResult {
@@ -77,6 +84,7 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<DisplayConnectionStatus>("connected");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const consecutiveFailures = useRef(0);
 
   useEffect(() => {
@@ -114,6 +122,7 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
         setResolvedEventId(data.eventId);
         setError(null);
         setLoading(false);
+        setLastUpdatedAt(Date.now());
         recordSuccess();
       } catch {
         if (!cancelled) {
@@ -131,5 +140,5 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
     };
   }, [token, requestedEventId]);
 
-  return { sessions, liveState, eventId: resolvedEventId, loading, error, connectionStatus };
+  return { sessions, liveState, eventId: resolvedEventId, loading, error, connectionStatus, lastUpdatedAt };
 }

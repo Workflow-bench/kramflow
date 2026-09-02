@@ -13,6 +13,7 @@ export function DisplayShell({
   className,
   wakeLockEnabled = true,
   connectionStatus,
+  lastUpdatedAt,
 }: {
   children: React.ReactNode;
   className?: string;
@@ -23,12 +24,16 @@ export function DisplayShell({
   // genuinely has no connection concept (there are none today) isn't
   // forced to pass one; every real display route does.
   connectionStatus?: ConnectionBadgeStatus;
+  /** Passed straight through to ConnectionBadge — see its own doc comment. */
+  lastUpdatedAt?: number | null;
 }) {
   useWakeLock(wakeLockEnabled);
 
   return (
     <main className={cn("h-screen w-screen overflow-x-hidden overflow-y-auto bg-background flex flex-col", className)}>
-      {connectionStatus && <ConnectionBadge status={connectionStatus} variant="stage" />}
+      {connectionStatus && (
+        <ConnectionBadge status={connectionStatus} variant="stage" lastUpdatedAt={lastUpdatedAt} />
+      )}
       {/* min-h-0 is required here, not decorative: without it this flex
           item's default min-height:auto refuses to shrink below its
           content's natural height, so any unconstrained-length child

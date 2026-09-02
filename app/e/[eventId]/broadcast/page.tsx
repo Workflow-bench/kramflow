@@ -68,6 +68,15 @@ const EMPTY_DRAFT: BroadcastDraft = {
   scheduledFor: null,
 };
 
+// `<input type="datetime-local">`'s `min` wants local time with no
+// timezone suffix — a plain `toISOString()` would be UTC and silently let
+// operators in timezones behind UTC pick a slot that's already past.
+function minScheduleValue(): string {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
 type Tab = "history" | "scheduled" | "templates" | "drafts";
 type DestructiveAction =
   | { kind: "clear-emergencies" }
@@ -91,6 +100,8 @@ export default function BroadcastCenterPage() {
     saveDraft,
     deleteDraft,
   } = useDisplayEngine();
+
+  const registeredCount = Object.keys(engine.registry).length;
 
   const [draft, setDraft] = useState<BroadcastDraft>(EMPTY_DRAFT);
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
@@ -140,8 +151,31 @@ export default function BroadcastCenterPage() {
   const isScheduling = scheduleEnabled && Boolean(draft.scheduledFor);
   const needsSendConfirm = isScheduling || draft.type === "emergency";
 
+  // "Schedule for later" checked but no date/time picked yet still has
+  // isScheduling === false, which previously fell through to sending
+  // immediately on click — contradicting the still-checked checkbox with no
+  // error at all. Same check catches a scheduled time that's already in the
+  // past (the datetime-local input's `min` stops most of these, but not a
+  // stale value left over from before the clock ticked past it, or manual
+  // entry bypassing the picker).
+  function scheduleValidationError(): string | null {
+    if (!scheduleEnabled) return null;
+    if (!draft.scheduledFor) {
+      return 'Pick a date and time to schedule this broadcast, or turn off "Schedule for later" to send now.';
+    }
+    if (new Date(draft.scheduledFor).getTime() <= Date.now()) {
+      return "That date and time has already passed — pick one in the future.";
+    }
+    return null;
+  }
+
   function requestSend() {
     if (!draft.title.trim() || sendingRef.current) return;
+    const scheduleError = scheduleValidationError();
+    if (scheduleError) {
+      toast.error(scheduleError);
+      return;
+    }
     if (needsSendConfirm) {
       setConfirmSendOpen(true);
       return;
@@ -151,6 +185,11 @@ export default function BroadcastCenterPage() {
 
   async function handleSend() {
     if (!draft.title.trim() || sendingRef.current) return;
+    const scheduleError = scheduleValidationError();
+    if (scheduleError) {
+      toast.error(scheduleError);
+      return;
+    }
     sendingRef.current = true;
     setSending(true);
     const res = isScheduling ? await scheduleBroadcast(draft, draft.scheduledFor!) : await sendBroadcast(draft);
@@ -424,6 +463,7 @@ export default function BroadcastCenterPage() {
               {scheduleEnabled && (
                 <Input
                   type="datetime-local"
+                  min={minScheduleValue()}
                   onChange={(e) =>
                     patchDraft({ scheduledFor: e.target.value ? new Date(e.target.value).toISOString() : null })
                   }
@@ -613,10 +653,17 @@ export default function BroadcastCenterPage() {
         </div>
       </div>
 
+      {/* Shows the exact broadcast body and a real target count, not just
+          the preset name and a generic "every display" claim — the
+          2026-09-01 audit's KF-031 specifically wanted "exact target/
+          affected-display summary" before a venue-wide emergency override
+          arms. Registered-display count, not an online-filtered one: for a
+          decision this consequential, undercounting (a display that just
+          reconnected) is the more dangerous direction to round toward. */}
       <ConfirmDialog
         open={emergencyConfirm.isOpen}
         title={`Send "${emergencyConfirm.pending?.title}" to every display?`}
-        description="This takes over every connected screen immediately."
+        description={`"${emergencyConfirm.pending?.message}" — takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately. Send an update or Clear afterward if needed.`}
         confirmLabel="Send Emergency"
         tone="danger"
         loading={emergencySending}

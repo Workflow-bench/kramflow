@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, LayoutGrid } from "lucide-react";
 import { useEventId } from "@/lib/event-context";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface EventSummary {
@@ -93,11 +93,9 @@ export function EventIdentity() {
 
   return (
     <div className="flex items-center gap-1 min-w-0" ref={rootRef}>
-      <Link href="/dashboard" aria-label="All events" title="All events">
-        <Button variant="ghost" size="sm" square>
-          <LayoutGrid className="h-4 w-4" strokeWidth={2} />
-        </Button>
-      </Link>
+      <LinkButton href="/dashboard" aria-label="All events" title="All events" variant="ghost" size="sm" square>
+        <LayoutGrid className="h-4 w-4" strokeWidth={2} />
+      </LinkButton>
 
       <div className="relative min-w-0">
         <Button

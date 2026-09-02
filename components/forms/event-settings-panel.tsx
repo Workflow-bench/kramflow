@@ -1,17 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Copy, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useEventRole } from "@/lib/event-context";
 import { useToast } from "@/components/ui/toast";
 
 interface Collaborator {
-  user_id: string;
+  id: string;
+  user_id: string | null;
   role: "editor" | "viewer";
   invited_email: string;
+  status: "pending" | "accepted";
+  invite_token: string | null;
 }
 
 // Real IANA identifiers, generated at runtime rather than hand-maintained —
@@ -93,42 +97,67 @@ export function EventSettingsPanel({
     };
   }, [eventId]);
 
+  async function sendInvite(email: string, role: "editor" | "viewer") {
+    const res = await fetch(`/api/events/${eventId}/collaborators`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, role }),
+    });
+    const data: { ok: boolean; error?: string; status?: "accepted" | "pending"; emailSent?: boolean } =
+      await res.json();
+    if (!res.ok || !data.ok) {
+      toast.error(data.error ?? "Couldn't add collaborator");
+      return false;
+    }
+    if (data.status === "accepted") {
+      toast.success(`Added as ${role}`);
+    } else if (data.emailSent) {
+      toast.success(`Invite emailed to ${email}`);
+    } else {
+      toast.success(`Invite created for ${email} — copy the link below to send it manually.`);
+    }
+    const list = await fetch(`/api/events/${eventId}/collaborators`).then((r) => r.json());
+    if (list?.ok) setCollaborators(list.collaborators ?? []);
+    return true;
+  }
+
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     if (!inviteEmail.trim()) return;
     setInviting(true);
     try {
-      const res = await fetch(`/api/events/${eventId}/collaborators`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error ?? "Couldn't add collaborator");
-        return;
-      }
-      setInviteEmail("");
-      toast.success(`Added as ${inviteRole}`);
-      const list = await fetch(`/api/events/${eventId}/collaborators`).then((r) => r.json());
-      if (list?.ok) setCollaborators(list.collaborators ?? []);
+      if (await sendInvite(inviteEmail.trim(), inviteRole)) setInviteEmail("");
     } finally {
       setInviting(false);
     }
   }
 
-  async function handleRemoveCollaborator(userId: string) {
-    setRemovingId(userId);
+  async function handleResendInvite(c: Collaborator) {
+    setRemovingId(c.id);
     try {
-      const res = await fetch(`/api/events/${eventId}/collaborators?userId=${encodeURIComponent(userId)}`, {
-        method: "DELETE",
-      });
+      await sendInvite(c.invited_email, c.role);
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  function handleCopyInviteLink(token: string) {
+    const url = `${window.location.origin}/invite/${token}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Invite link copied.");
+  }
+
+  async function handleRemoveCollaborator(c: Collaborator) {
+    setRemovingId(c.id);
+    try {
+      const query = c.status === "pending" ? `inviteId=${encodeURIComponent(c.id)}` : `userId=${encodeURIComponent(c.user_id!)}`;
+      const res = await fetch(`/api/events/${eventId}/collaborators?${query}`, { method: "DELETE" });
       if (!res.ok) {
-        toast.error("Couldn't remove collaborator");
+        toast.error(c.status === "pending" ? "Couldn't revoke invite" : "Couldn't remove collaborator");
         return;
       }
-      setCollaborators((prev) => prev.filter((c) => c.user_id !== userId));
-      toast.success("Removed");
+      setCollaborators((prev) => prev.filter((x) => x.id !== c.id));
+      toast.success(c.status === "pending" ? "Invite revoked" : "Removed");
     } finally {
       setRemovingId(null);
     }
@@ -322,24 +351,52 @@ export function EventSettingsPanel({
           <ul className="flex flex-col gap-1.5">
             {collaborators.map((c) => (
               <li
-                key={c.user_id}
-                className="flex items-center justify-between gap-2 rounded-control bg-raised border border-line px-3 py-2 text-console-sm text-primary"
+                key={c.id}
+                className="flex flex-col gap-1.5 rounded-control bg-raised border border-line px-3 py-2 text-console-sm text-primary"
               >
-                <span className="truncate">{c.invited_email}</span>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-console-meta text-muted-2 uppercase tracking-wide">{c.role}</span>
-                  {role === "owner" && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate">{c.invited_email}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {c.status === "pending" && (
+                      <Badge tone="orange" dot>
+                        Pending
+                      </Badge>
+                    )}
+                    <span className="text-console-meta text-muted-2 uppercase tracking-wide">{c.role}</span>
+                    {role === "owner" && (
+                      <button
+                        type="button"
+                        aria-label={c.status === "pending" ? `Revoke invite to ${c.invited_email}` : `Remove ${c.invited_email}`}
+                        onClick={() => handleRemoveCollaborator(c)}
+                        disabled={removingId === c.id}
+                        className="text-muted-2 hover:text-status-red cursor-pointer disabled:opacity-40"
+                      >
+                        <X className="h-3.5 w-3.5" strokeWidth={2} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {c.status === "pending" && role === "owner" && c.invite_token && (
+                  <div className="flex items-center gap-3 pt-0.5">
                     <button
                       type="button"
-                      aria-label={`Remove ${c.invited_email}`}
-                      onClick={() => handleRemoveCollaborator(c.user_id)}
-                      disabled={removingId === c.user_id}
-                      className="text-muted-2 hover:text-status-red cursor-pointer disabled:opacity-40"
+                      onClick={() => handleCopyInviteLink(c.invite_token!)}
+                      className="inline-flex items-center gap-1 text-console-meta text-muted-2 hover:text-primary cursor-pointer"
                     >
-                      <X className="h-3.5 w-3.5" strokeWidth={2} />
+                      <Copy className="h-3 w-3" strokeWidth={2} />
+                      Copy invite link
                     </button>
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => handleResendInvite(c)}
+                      disabled={removingId === c.id}
+                      className="inline-flex items-center gap-1 text-console-meta text-muted-2 hover:text-primary cursor-pointer disabled:opacity-40"
+                    >
+                      <RefreshCw className="h-3 w-3" strokeWidth={2} />
+                      Resend
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -377,7 +434,8 @@ export function EventSettingsPanel({
         )}
         {role === "owner" && (
           <p className="text-console-meta text-muted-2">
-            They need an existing Kramflow account with this exact email — this doesn&rsquo;t send an invitation yet.
+            If they don&rsquo;t have a Kramflow account yet, we&rsquo;ll email them an invite to create one and join
+            this event.
           </p>
         )}
       </section>

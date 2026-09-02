@@ -31,13 +31,22 @@ export async function POST(request: Request) {
 
   if (error) {
     recordFailure("login", ip);
-    // Deliberately the same message whether the email doesn't exist or the
-    // password is wrong — distinguishing them would let an attacker
-    // enumerate valid operator emails.
+    // Older GoTrue versions returned a distinct "Email not confirmed" for
+    // an unconfirmed account, which this used to special-case into its own
+    // message. Verified directly against this project's Auth API (bypassing
+    // this route entirely) that it no longer does — a wrong password, an
+    // unconfirmed account, and an email that was never registered all now
+    // return the identical generic error, deliberately, as anti-enumeration
+    // hardening. The "Email not confirmed" branch is kept in case an older
+    // GoTrue version ever returns it, but the generic message below can no
+    // longer claim the password itself is what's wrong — the login page's
+    // "resend confirmation email" link (app/login/page.tsx) is what
+    // actually recovers an operator from the unconfirmed case now, since
+    // this response alone can't tell them apart.
     const message =
       error.message === "Email not confirmed"
         ? "Please confirm your email before logging in — check your inbox for the confirmation link."
-        : "Incorrect email or password.";
+        : "Incorrect email or password, or your account hasn't been confirmed yet.";
     return NextResponse.json({ ok: false, error: message }, { status: 401 });
   }
 

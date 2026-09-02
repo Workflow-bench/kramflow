@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getUserDisplayName } from "@/lib/server/user-display-name";
 import type { Alert } from "@/lib/types";
 
 // Single PATCH endpoint for every live-state mutation (start/next/previous/
@@ -11,12 +12,18 @@ import type { Alert } from "@/lib/types";
 // side of this, which subscribes to Realtime rather than reading this
 // route's response body directly.
 
+interface ItemActual {
+  actualStart: string | null;
+  actualEnd: string | null;
+}
+
 interface LiveStateRow {
   active_session_id: string | null;
   paused_at: string | null;
   alert: Alert | null;
   progress_by_session: Record<string, { currentOrder: number | null; startedAt: string | null }>;
   notes_overrides: Record<string, string>;
+  item_actuals: Record<string, ItemActual>;
   version: number;
   controller_id: string | null;
   controller_claimed_at: string | null;
@@ -28,7 +35,16 @@ interface LiveStateRow {
 // don't have the same "someone else's in-progress action gets erased"
 // failure mode, and gating them too would make ordinary multi-operator use
 // needlessly more locked-down than the bug this exists to fix.
-const LOCKED_ACTIONS = new Set(["start", "next", "previous", "jumpTo", "finish", "togglePause", "selectSession"]);
+const LOCKED_ACTIONS = new Set([
+  "start",
+  "next",
+  "previous",
+  "jumpTo",
+  "finish",
+  "togglePause",
+  "selectSession",
+  "reset",
+]);
 
 // A claim older than this is treated as abandoned — the controlling tab
 // crashed, lost network, or was just closed without releasing — so it
@@ -41,10 +57,64 @@ function isControllerActive(row: LiveStateRow): boolean {
   return Date.now() - Date.parse(row.controller_claimed_at) < CONTROLLER_STALE_MS;
 }
 
-async function logActivity(eventId: string, action: string, detail: string) {
+async function logActivity(
+  eventId: string,
+  action: string,
+  detail: string,
+  actor: { userId: string; name: string }
+) {
   const supabase = supabaseAdmin();
-  const { error } = await supabase.from("activity_log").insert({ event_id: eventId, action, detail });
+  const { error } = await supabase
+    .from("activity_log")
+    .insert({ event_id: eventId, action, detail, actor_user_id: actor.userId, actor_name: actor.name });
   if (error) console.error("[api/live] activity_log insert failed:", error);
+}
+
+// item_actuals is keyed by programs.id (stable across reorders), but every
+// action here only ever knows a *position* (currentOrder, the caller's
+// max/min/order args) — resolved here, against programs.sort_order, rather
+// than threading program ids through every client call site (several of
+// them, e.g. components/operator/jump-control.tsx, only ever have a
+// hand-typed order number, never the Program row it resolves to).
+async function programIdAtOrder(
+  supabase: ReturnType<typeof supabaseAdmin>,
+  sessionId: string | null,
+  order: number | null
+): Promise<string | null> {
+  if (!sessionId || order === null) return null;
+  const { data } = await supabase
+    .from("programs")
+    .select("id")
+    .eq("session_id", sessionId)
+    .eq("sort_order", order)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+// An item "becomes current" — overwrite actualStart, and clear any
+// actualEnd left over from an earlier pass through the same item (it hasn't
+// ended *this* pass yet). See live_state.item_actuals's column comment
+// (migration-pilot-readiness-v2.sql) for the full semantics.
+function withArrival(
+  itemActuals: Record<string, ItemActual>,
+  programId: string | null,
+  now: string
+): Record<string, ItemActual> {
+  if (!programId) return itemActuals;
+  return { ...itemActuals, [programId]: { actualStart: now, actualEnd: null } };
+}
+
+// Forward progress *away* from an item — stamp actualEnd, keep whatever
+// actualStart this pass already recorded. Never called for previous/a
+// backward jump.
+function withDeparture(
+  itemActuals: Record<string, ItemActual>,
+  programId: string | null,
+  now: string
+): Record<string, ItemActual> {
+  if (!programId) return itemActuals;
+  const existing = itemActuals[programId];
+  return { ...itemActuals, [programId]: { actualStart: existing?.actualStart ?? now, actualEnd: now } };
 }
 
 export async function PATCH(request: Request) {
@@ -129,12 +199,15 @@ export async function PATCH(request: Request) {
       break;
     }
     case "start": {
+      const now = new Date().toISOString();
+      const landingId = await programIdAtOrder(supabase, current.active_session_id, 1);
       patch = {
         progress_by_session: {
           ...current.progress_by_session,
-          [current.active_session_id ?? ""]: { currentOrder: 1, startedAt: new Date().toISOString() },
+          [current.active_session_id ?? ""]: { currentOrder: 1, startedAt: now },
         },
         paused_at: null,
+        item_actuals: withArrival(current.item_actuals, landingId, now),
       };
       detail = "Started";
       break;
@@ -146,12 +219,18 @@ export async function PATCH(request: Request) {
       if (currentOrder === null || currentOrder >= maxOrder) {
         return NextResponse.json({ ok: true, noop: true });
       }
+      const now = new Date().toISOString();
+      const [departureId, landingId] = await Promise.all([
+        programIdAtOrder(supabase, current.active_session_id, currentOrder),
+        programIdAtOrder(supabase, current.active_session_id, currentOrder + 1),
+      ]);
       patch = {
         progress_by_session: {
           ...current.progress_by_session,
-          [current.active_session_id ?? ""]: { currentOrder: currentOrder + 1, startedAt: new Date().toISOString() },
+          [current.active_session_id ?? ""]: { currentOrder: currentOrder + 1, startedAt: now },
         },
         paused_at: null,
+        item_actuals: withArrival(withDeparture(current.item_actuals, departureId, now), landingId, now),
       };
       detail = `Advanced to item ${currentOrder + 1}`;
       break;
@@ -163,25 +242,43 @@ export async function PATCH(request: Request) {
       if (currentOrder === null || currentOrder <= minOrder) {
         return NextResponse.json({ ok: true, noop: true });
       }
+      const now = new Date().toISOString();
+      const landingId = await programIdAtOrder(supabase, current.active_session_id, currentOrder - 1);
       patch = {
         progress_by_session: {
           ...current.progress_by_session,
-          [current.active_session_id ?? ""]: { currentOrder: currentOrder - 1, startedAt: new Date().toISOString() },
+          [current.active_session_id ?? ""]: { currentOrder: currentOrder - 1, startedAt: now },
         },
         paused_at: null,
+        // No departure write here — a rewind never stamps actualEnd on the
+        // item being left. See withDeparture's doc comment.
+        item_actuals: withArrival(current.item_actuals, landingId, now),
       };
       detail = `Went back to item ${currentOrder - 1}`;
       break;
     }
     case "jumpTo": {
       const order = body.order;
-      if (typeof order !== "number") return NextResponse.json({ ok: false }, { status: 400 });
+      if (typeof order !== "number" || !Number.isFinite(order)) {
+        return NextResponse.json({ ok: false }, { status: 400 });
+      }
+      const { currentOrder } = activeProgress();
+      const now = new Date().toISOString();
+      const isForward = currentOrder !== null && order > currentOrder;
+      const [departureId, landingId] = await Promise.all([
+        isForward ? programIdAtOrder(supabase, current.active_session_id, currentOrder) : Promise.resolve(null),
+        programIdAtOrder(supabase, current.active_session_id, order),
+      ]);
+      let itemActuals = current.item_actuals;
+      if (isForward) itemActuals = withDeparture(itemActuals, departureId, now);
+      itemActuals = withArrival(itemActuals, landingId, now);
       patch = {
         progress_by_session: {
           ...current.progress_by_session,
-          [current.active_session_id ?? ""]: { currentOrder: order, startedAt: new Date().toISOString() },
+          [current.active_session_id ?? ""]: { currentOrder: order, startedAt: now },
         },
         paused_at: null,
+        item_actuals: itemActuals,
       };
       detail = `Jumped to item ${order}`;
       break;
@@ -189,12 +286,16 @@ export async function PATCH(request: Request) {
     case "finish": {
       const maxOrder = body.maxOrder;
       if (typeof maxOrder !== "number") return NextResponse.json({ ok: false }, { status: 400 });
+      const now = new Date().toISOString();
+      const { currentOrder } = activeProgress();
+      const departureId = await programIdAtOrder(supabase, current.active_session_id, currentOrder);
       patch = {
         progress_by_session: {
           ...current.progress_by_session,
           [current.active_session_id ?? ""]: { currentOrder: maxOrder + 1, startedAt: null },
         },
         paused_at: null,
+        item_actuals: withDeparture(current.item_actuals, departureId, now),
       };
       detail = "Finished session";
       break;
@@ -279,6 +380,9 @@ export async function PATCH(request: Request) {
   // a background heartbeat every ~15s while control is held, not a
   // meaningful audit event; logging it would spam the Activity feed
   // operators actually read with noise unrelated to the show itself.
-  if (detail) await logActivity(auth.eventId, action, detail);
+  if (detail) {
+    const actorName = await getUserDisplayName(supabase, auth.userId);
+    await logActivity(auth.eventId, action, detail, { userId: auth.userId, name: actorName });
+  }
   return NextResponse.json({ ok: true });
 }

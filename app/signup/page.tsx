@@ -1,13 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 
-export default function SignupPage() {
+function SignupForm() {
+  const searchParams = useSearchParams();
+  // Present when this signup was reached from an invite link
+  // (/invite/[token] redirects here for an email with no existing
+  // account) — carried through so the freshly-created account lands back
+  // on that invite page and AutoAccept can claim it, instead of the
+  // generic dashboard.
+  const inviteToken = searchParams.get("invite");
+  const next = inviteToken ? `/invite/${inviteToken}` : "/dashboard";
+  const prefillEmail = searchParams.get("email") ?? "";
+
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(prefillEmail);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +55,7 @@ export default function SignupPage() {
       // Account created and already signed in (email confirmation is off
       // for this project) — hard navigation so proxy.ts sees the fresh
       // session cookie on the next request.
-      window.location.href = "/dashboard";
+      window.location.href = next;
     } catch {
       setError("Couldn't reach the server. Check your connection and try again.");
       setSubmitting(false);
@@ -60,11 +71,9 @@ export default function SignupPage() {
             We sent a confirmation link to <span className="text-primary">{email}</span>. Click it to activate your
             account, then come back and log in.
           </p>
-          <Link href="/login" className="mt-8">
-            <Button variant="secondary" size="lg">
-              Back to Log In
-            </Button>
-          </Link>
+          <LinkButton href={`/login?next=${encodeURIComponent(next)}`} className="mt-8" variant="secondary" size="lg">
+            Back to Log In
+          </LinkButton>
         </div>
       </div>
     );
@@ -73,7 +82,9 @@ export default function SignupPage() {
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
       <div className="flex flex-col items-center w-full max-w-sm">
-        <h1 className="text-title text-primary">KramFlow</h1>
+        <Link href="/" className="text-title text-primary hover:opacity-80 transition-opacity">
+          KramFlow
+        </Link>
         <p className="text-body text-muted mt-2">Create your operator account</p>
 
         <form onSubmit={handleSubmit} className="w-full mt-10 flex flex-col gap-4">
@@ -152,11 +163,21 @@ export default function SignupPage() {
 
         <p className="text-console-meta text-muted-2 mt-6">
           Already have an account?{" "}
-          <Link href="/login" className="text-primary hover:underline">
+          <Link href={`/login?next=${encodeURIComponent(next)}`} className="text-primary hover:underline">
             Log in
           </Link>
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    // useSearchParams requires a Suspense boundary during static
+    // generation — matches app/login/page.tsx's own wrapper exactly.
+    <Suspense fallback={<div className="h-screen w-screen bg-background" />}>
+      <SignupForm />
+    </Suspense>
   );
 }

@@ -344,6 +344,18 @@ export function ProgramForm({
         </p>
       )}
 
+      {/* Reserves clearance for the sticky footer below — without it, the
+          footer's own translucent background (bg-card/95, deliberately
+          see-through so it never looks like a hard-opaque bar) let the last
+          field's content show through behind the buttons once scrolled
+          near the bottom, on any event with enough dynamic Production
+          fields to make the form taller than the viewport (2026-09-01
+          UI/UX audit, P1 finding #9 — reproduced on mobile at 390×844).
+          `sticky` only ever "sticks" relative to *its own* container's
+          scroll range; nothing about it reserves the space a fixed footer
+          would, so the space has to be added explicitly. */}
+      <div aria-hidden="true" className="h-16 -mb-8" />
+
       {/* Sticky footer — a config-driven form can run long enough that the
           save control scrolls out of reach, and this one is reached from a
           list you were mid-task in. */}

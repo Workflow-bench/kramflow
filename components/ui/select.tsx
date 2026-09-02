@@ -24,6 +24,11 @@ interface SelectProps {
   size?: "md" | "lg";
   className?: string;
   "aria-label"?: string;
+  /** Pass -1 to pull the trigger out of Tab order — e.g. a control bar
+   *  that's faded to opacity-0 but stays pointer-reachable (see
+   *  app/presenter/presenter-display-client.tsx) still shouldn't be
+   *  keyboard-focusable while invisible. */
+  tabIndex?: number;
 }
 
 // A single accessible combobox — no Select/Combobox primitive existed in
@@ -37,6 +42,7 @@ export function Select({
   searchable = true,
   size = "md",
   className,
+  tabIndex,
   ...aria
 }: SelectProps) {
   const [open, setOpen] = useState(false);
@@ -103,6 +109,7 @@ export function Select({
       <button
         type="button"
         onClick={handleToggle}
+        tabIndex={tabIndex}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={aria["aria-label"]}
@@ -151,7 +158,10 @@ export function Select({
                 }}
                 placeholder="Search…"
                 aria-label="Filter options"
-                className="w-full bg-transparent text-console-sm text-primary placeholder:text-muted-2 outline-none"
+                // text-base below sm: — same iOS zoom-on-focus fix as
+                // Input; this is the one real text field inside Select
+                // (the trigger itself is a button, which doesn't zoom).
+                className="w-full bg-transparent text-base sm:text-console-sm text-primary placeholder:text-muted-2 outline-none"
               />
             </div>
           )}

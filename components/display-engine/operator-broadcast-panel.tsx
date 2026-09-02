@@ -30,7 +30,8 @@ const QUICK_TYPES: { value: BroadcastType; label: string; tone: string }[] = [
  */
 export function OperatorBroadcastPanel() {
   const eventId = useEventId();
-  const { sendBroadcast } = useDisplayEngine();
+  const { sendBroadcast, state: engine } = useDisplayEngine();
+  const registeredCount = Object.keys(engine.registry).length;
   const toast = useToast();
   const [expanded, setExpanded] = useState(false);
   const [type, setType] = useState<BroadcastType>("info");
@@ -46,9 +47,12 @@ export function OperatorBroadcastPanel() {
   // existed; see the identical pattern in components/operator/jump-control.tsx.
   const emergencySendingRef = useRef(false);
 
-  function send() {
-    if (!title.trim()) return;
-    sendBroadcast({
+  const [sending, setSending] = useState(false);
+
+  async function send() {
+    if (!title.trim() || sending) return;
+    setSending(true);
+    const res = await sendBroadcast({
       type,
       title: title.trim(),
       message: message.trim(),
@@ -61,9 +65,14 @@ export function OperatorBroadcastPanel() {
       persistent: false,
       scheduledFor: null,
     });
-    setTitle("");
-    setMessage("");
-    toast.success("Broadcast sent");
+    setSending(false);
+    if (res && res.ok) {
+      setTitle("");
+      setMessage("");
+      toast.success("Broadcast sent");
+    } else {
+      toast.error("Couldn't send the broadcast — try again");
+    }
   }
 
   return (
@@ -110,7 +119,14 @@ export function OperatorBroadcastPanel() {
             aria-label="Broadcast message"
           />
 
-          <Button variant="primary" size="sm" className="w-full" disabled={!title.trim()} onClick={send}>
+          <Button
+            variant="primary"
+            size="sm"
+            className="w-full"
+            disabled={!title.trim() || sending}
+            loading={sending}
+            onClick={send}
+          >
             <Send className="h-4 w-4" strokeWidth={2} />
             Send to All Displays
           </Button>
@@ -140,10 +156,12 @@ export function OperatorBroadcastPanel() {
         </div>
       )}
 
+      {/* Exact broadcast body + a real target count — see broadcast/page.tsx's
+          identical fix for why (KF-031). */}
       <ConfirmDialog
         open={emergencyConfirm.isOpen}
         title={`Send "${emergencyConfirm.pending?.title}" to every display?`}
-        description="This takes over every connected screen immediately."
+        description={`"${emergencyConfirm.pending?.message}" — takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately. Send an update or Clear afterward if needed.`}
         confirmLabel="Send Emergency"
         tone="danger"
         loading={emergencySending}

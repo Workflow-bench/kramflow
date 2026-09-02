@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Clock, Pencil, Plus, Trash2 } from "lucide-react";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { newId } from "@/lib/display-engine/store";
@@ -150,6 +150,19 @@ export function ProfileEditor() {
 
   const profiles = Object.values(engine.profiles).sort((a, b) => Number(a.builtIn) - Number(b.builtIn));
 
+  // Unlike Modal/ConfirmDialog (components/ui), this is a hand-rolled
+  // overlay, so it needs its own Escape handling — every other modal-style
+  // surface in the app closes on Escape, and an operator has no reason to
+  // expect this one not to.
+  useEffect(() => {
+    if (!editing) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setEditing(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editing]);
+
   function toggleWidget(widget: DisplayWidget) {
     if (!editing) return;
     const has = editing.visibleWidgets.includes(widget);
@@ -202,8 +215,14 @@ export function ProfileEditor() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8">
-          <div className="w-full max-w-3xl rounded-card bg-background border border-white/10 p-8 max-h-full overflow-y-auto">
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8"
+          onClick={() => setEditing(null)}
+        >
+          <div
+            className="w-full max-w-3xl rounded-card bg-background border border-white/10 p-8 max-h-full overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <p className="text-title text-primary">Edit Profile</p>
 
             {/* Preview sits beside the controls that shape it, the same
@@ -312,7 +331,17 @@ export function ProfileEditor() {
               <Button
                 variant="primary"
                 onClick={() => {
-                  saveProfile(editing);
+                  // The Font Scale/Refresh Interval inputs' min/max are
+                  // cosmetic-only (a bare `type="number"` input never
+                  // enforces them, and typing e.g. "0" or clearing the
+                  // field passes it straight through) — clamped here so a
+                  // real display assigned this profile can't end up with
+                  // fontScale: 0 (invisible text) or refreshMs below 1000.
+                  const fontScale = Number.isFinite(editing.layout.fontScale)
+                    ? Math.min(3, Math.max(0.5, editing.layout.fontScale))
+                    : 1;
+                  const refreshMs = Number.isFinite(editing.refreshMs) ? Math.max(1000, editing.refreshMs) : 15000;
+                  saveProfile({ ...editing, layout: { ...editing.layout, fontScale }, refreshMs });
                   setEditing(null);
                 }}
               >

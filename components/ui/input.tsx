@@ -19,7 +19,13 @@ export function Input({
         // field would read as "this item is next".
         "focus:border-accent focus:ring-[3px] focus:ring-accent/15",
         "disabled:opacity-40 disabled:cursor-not-allowed",
-        size === "md" && "h-9 px-3 text-console-sm",
+        // text-base (16px) below sm:, not text-console-sm (14px) — under
+        // 16px, iOS Safari zooms the whole viewport on focus, which on a
+        // form this dense (Add/Edit Item alone has a dozen fields) meant
+        // re-zooming out after every single field tap. Desktop keeps the
+        // denser Console size; this is a mobile-only floor, not a general
+        // size bump (2026-09-01 UI/UX audit finding #25's mobile half).
+        size === "md" && "h-9 px-3 text-base sm:text-console-sm",
         size === "lg" && "h-14 px-4 text-lg rounded-card",
         className
       )}

@@ -5,7 +5,8 @@ import { ChevronLeft, Pause, Play, Square, ChevronRight, Lock, Unlock } from "lu
 import { useEventStore } from "@/lib/store";
 import { useKeyboardShortcuts } from "@/lib/display-engine/use-keyboard-shortcuts";
 import { useControlLock } from "@/lib/use-control-lock";
-import { useEventRole } from "@/lib/event-context";
+import { useControllerName } from "@/lib/use-controller-name";
+import { useEventRole, useEventId } from "@/lib/event-context";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SectionLabel } from "@/components/tv/section-label";
@@ -62,9 +63,19 @@ export function ControlsPanel({
   // disabled prop from setPending.
   const [pending, setPending] = useState<"next" | "previous" | "hold" | "start" | "finish" | null>(null);
   const [takingOver, setTakingOver] = useState(false);
+  // Plain (uncontested) claim/release — distinct from `takingOver` because
+  // that one's paired with a ConfirmDialog's own `loading` prop, while
+  // these two are a bare inline button each. Added alongside the identical
+  // gap in "Take Over" above: the 2026-09-01 audit's KF-004 found this
+  // exact button (unlike Next/Previous/Hold, already fixed for R2-BUG-2)
+  // still fire-and-forget — a failed claim looked exactly like a successful
+  // one, with nothing on screen to tell the two apart.
+  const [claimingOrReleasing, setClaimingOrReleasing] = useState(false);
   const runningRef = useRef(false);
   const toast = useToast();
   const { iHaveControl, lockedByOther } = useControlLock(state);
+  const eventId = useEventId();
+  const controllerName = useControllerName(eventId, lockedByOther ? state.controllerId : null);
 
   // Renew the claim every 15s while held — comfortably inside the server's
   // 45s staleness window — so it survives as long as this tab is actually
@@ -168,17 +179,23 @@ export function ControlsPanel({
               </span>
               <button
                 type="button"
-                onClick={() => releaseControl()}
-                className="text-muted-2 hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                disabled={claimingOrReleasing}
+                onClick={async () => {
+                  setClaimingOrReleasing(true);
+                  const ok = await releaseControl();
+                  setClaimingOrReleasing(false);
+                  if (!ok) toast.error("Couldn't release control — try again");
+                }}
+                className="text-muted-2 hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Release
+                {claimingOrReleasing ? "Releasing…" : "Release"}
               </button>
             </>
           ) : lockedByOther ? (
             <>
               <span className="flex items-center gap-1.5 text-status-orange">
                 <Lock className="h-3 w-3" strokeWidth={2} />
-                Locked by another operator
+                {controllerName ? `${controllerName} has control` : "Locked by another operator"}
               </span>
               <button
                 type="button"
@@ -191,14 +208,22 @@ export function ControlsPanel({
           ) : (
             <button
               type="button"
-              onClick={() => claimControl()}
+              disabled={claimingOrReleasing}
+              onClick={async () => {
+                setClaimingOrReleasing(true);
+                const ok = await claimControl();
+                setClaimingOrReleasing(false);
+                if (ok) broadcastAction("took control");
+                else toast.error("Couldn't take control — try again");
+              }}
               className={cn(
                 "flex items-center gap-1.5 text-muted-2 hover:text-primary cursor-pointer",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
               )}
             >
               <Unlock className="h-3 w-3" strokeWidth={2} />
-              Take Control
+              {claimingOrReleasing ? "Taking control…" : "Take Control"}
             </button>
           )}
         </div>
@@ -260,7 +285,7 @@ export function ControlsPanel({
                   size="md"
                   className="flex-1"
                   onClick={() => run("hold", togglePause, state.pausedAt ? "resumed the show" : "put the show on Hold")}
-                  disabled={pending !== null || readOnly}
+                  disabled={isFinished || pending !== null || readOnly}
                   aria-label={state.pausedAt ? "Resume" : "Hold"}
                 >
                   {state.pausedAt ? (
@@ -320,7 +345,7 @@ export function ControlsPanel({
       <ConfirmDialog
         open={confirmKind === "takeover"}
         title="Take over control?"
-        description="Another operator is currently driving the show. Taking over lets you use Next/Previous/Hold/Jump/Start/Finish here — they won't be able to until they take control back."
+        description={`${controllerName ?? "Another operator"} is currently driving the show. Taking over lets you use Next/Previous/Hold/Jump/Start/Finish here — they won't be able to until they take control back.`}
         confirmLabel="Take Over"
         loading={takingOver}
         tone="danger"

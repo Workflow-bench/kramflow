@@ -3,7 +3,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 import type { RealtimePostgresChangesPayload, REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import type { Alert, LiveState } from "./types";
-import { supabaseBrowser } from "./supabase/client";
+import { supabaseBrowser, realtimeReady } from "./supabase/client";
 import { getClientId } from "./client-id";
 import { useEventId } from "./event-context";
 
@@ -115,7 +115,13 @@ async function hydrate(inst: EventStoreInstance) {
   }
 }
 
-function openLiveStateChannel(inst: EventStoreInstance) {
+async function openLiveStateChannel(inst: EventStoreInstance) {
+  // Must resolve before the first .subscribe() — a channel's initial join
+  // fires immediately and does not wait for the realtime accessToken
+  // callback, so subscribing before the signed-in session is attached
+  // joins (silently) as anon and never self-corrects. See
+  // lib/supabase/client.ts's realtimeReady() doc comment.
+  await realtimeReady();
   let wasEverConnected = false;
   supabaseBrowser()
     .channel(`live-state-sync:${inst.eventId}`)

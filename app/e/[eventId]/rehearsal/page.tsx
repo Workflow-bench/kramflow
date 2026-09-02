@@ -1,12 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { FlaskConical, ArrowLeft, Play, Pause, ChevronLeft, ChevronRight, Square } from "lucide-react";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventId } from "@/lib/event-context";
 import { getLive, getNext, getOnDeck, type LiveState, type Alert as AlertType, type AlertSeverity } from "@/lib/types";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { cn } from "@/lib/utils";
@@ -123,12 +122,10 @@ export default function RehearsalPage() {
             Nothing here reaches a real display, share link, or the real Operator Console.
           </span>
         </div>
-        <Link href={`/e/${eventId}/operator`}>
-          <Button variant="secondary" size="sm">
-            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-            Exit Rehearsal
-          </Button>
-        </Link>
+        <LinkButton href={`/e/${eventId}/operator`} variant="secondary" size="sm">
+          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+          Exit Rehearsal
+        </LinkButton>
       </div>
 
       <div className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-8">

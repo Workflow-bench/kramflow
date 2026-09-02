@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { COLOR_TAG_VALUES } from "@/lib/color-tags";
+
+// Mirrors the enum columns bulk_update_programs' p_field allow-list
+// (supabase/schema.sql) can target — everything else in that allow-list
+// (presenter, hall_lights, etc.) is free text, so isn't listed here. Without
+// this, an arbitrary string passed through `value` would be written
+// straight into the column, bypassing the same enum the single-item PATCH
+// (app/api/programs/[id]/route.ts, via lib/validation/program.ts) enforces.
+const BULK_FIELD_ENUMS: Record<string, readonly string[]> = {
+  status: ["confirmed", "draft", "cut", "tbd"],
+  color_tag: COLOR_TAG_VALUES,
+  video_sidescreen: ["none", "slides", "live_feed"],
+  curtains: ["open", "closed"],
+};
 
 // Item 5's bulk-edit — two shapes depending on what's being changed:
 //   { eventId, ids, field, value }   -> bulk_update_programs (color/status/etc.)
@@ -20,6 +34,7 @@ export async function PATCH(request: Request) {
   if (!Array.isArray(ids) || ids.length === 0 || !ids.every((id) => typeof id === "string")) {
     return NextResponse.json({ ok: false, error: "ids must be a non-empty array of strings" }, { status: 400 });
   }
+  const uniqueIds = [...new Set(ids)];
 
   const supabase = supabaseAdmin();
 
@@ -32,9 +47,9 @@ export async function PATCH(request: Request) {
     .from("programs")
     .select("id")
     .eq("event_id", auth.eventId)
-    .in("id", ids);
+    .in("id", uniqueIds);
   if (ownedError) return NextResponse.json({ ok: false, error: ownedError.message }, { status: 500 });
-  if (!owned || owned.length !== ids.length) {
+  if (!owned || owned.length !== uniqueIds.length) {
     return NextResponse.json({ ok: false, error: "One or more items don't belong to this event" }, { status: 403 });
   }
 
@@ -42,7 +57,14 @@ export async function PATCH(request: Request) {
     if (value !== null && typeof value !== "string") {
       return NextResponse.json({ ok: false, error: "value must be a string or null" }, { status: 400 });
     }
-    const { data, error } = await supabase.rpc("bulk_update_programs", { p_ids: ids, p_field: field, p_value: value });
+    const allowedValues = BULK_FIELD_ENUMS[field];
+    if (allowedValues && value !== null && !allowedValues.includes(value)) {
+      return NextResponse.json(
+        { ok: false, error: `value must be one of: ${allowedValues.join(", ")}` },
+        { status: 400 }
+      );
+    }
+    const { data, error } = await supabase.rpc("bulk_update_programs", { p_ids: uniqueIds, p_field: field, p_value: value });
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, programs: data });
   }
@@ -51,7 +73,7 @@ export async function PATCH(request: Request) {
     if (partitionId !== null && typeof partitionId !== "string") {
       return NextResponse.json({ ok: false, error: "partitionId must be a string or null" }, { status: 400 });
     }
-    const { error } = await supabase.rpc("bulk_move_programs_to_partition", { p_ids: ids, p_partition_id: partitionId });
+    const { error } = await supabase.rpc("bulk_move_programs_to_partition", { p_ids: uniqueIds, p_partition_id: partitionId });
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   }

@@ -19,6 +19,15 @@ interface SessionsInstance {
   cachedSessions: Session[];
   initialized: boolean;
   hydrating: boolean;
+  // Distinct from `hydrating`: that flips true/false on every realtime-
+  // triggered refetch too, which would flicker a loading skeleton back in
+  // on every background update. This instead answers "has the *first* fetch
+  // for this event ever completed" — the thing operator/page.tsx and any
+  // other consumer actually needs to tell "still loading" apart from
+  // "loaded, and there really are zero sessions" (previously indistinguishable
+  // — see the 2026-09-01 UI/UX audit's P1 finding #2, "false 'No sessions
+  // yet' state while loading").
+  hasLoadedOnce: boolean;
   listeners: Set<() => void>;
 }
 
@@ -28,7 +37,14 @@ const EMPTY_SESSIONS: Session[] = [];
 function getInstance(eventId: string): SessionsInstance {
   let inst = instances.get(eventId);
   if (!inst) {
-    inst = { eventId, cachedSessions: EMPTY_SESSIONS, initialized: false, hydrating: false, listeners: new Set() };
+    inst = {
+      eventId,
+      cachedSessions: EMPTY_SESSIONS,
+      initialized: false,
+      hydrating: false,
+      hasLoadedOnce: false,
+      listeners: new Set(),
+    };
     instances.set(eventId, inst);
   }
   return inst;
@@ -43,11 +59,12 @@ async function hydrate(inst: SessionsInstance) {
   inst.hydrating = true;
   try {
     inst.cachedSessions = await fetchSessions(supabaseBrowser(), inst.eventId);
-    notify(inst);
   } catch (err) {
     console.error("[use-sessions] fetch failed:", err);
   } finally {
     inst.hydrating = false;
+    inst.hasLoadedOnce = true;
+    notify(inst);
   }
 }
 
@@ -90,4 +107,25 @@ export function useSessions(): Session[] {
     getSnapshotFn,
     () => EMPTY_SESSIONS
   );
+}
+
+// Sibling hook rather than a `{ sessions, loading }` return shape on
+// useSessions() itself — every existing call site destructures it as a bare
+// array, and changing that shape would be a much larger, riskier edit than
+// the one bug this hook exists to fix. Subscribes to the same instance, so
+// it shares one Realtime channel/fetch with useSessions() rather than
+// duplicating either.
+export function useSessionsLoading(): boolean {
+  const eventId = useEventId();
+  const inst = getInstance(eventId);
+  const subscribeFn = useMemo(
+    () => (callback: () => void) => {
+      ensureBrowserListeners(inst);
+      inst.listeners.add(callback);
+      return () => inst.listeners.delete(callback);
+    },
+    [inst]
+  );
+  const getSnapshotFn = useMemo(() => () => !inst.hasLoadedOnce, [inst]);
+  return useSyncExternalStore(subscribeFn, getSnapshotFn, () => true);
 }

@@ -26,6 +26,8 @@ import { useAuth } from "@/components/auth/auth-context";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { EMERGENCY_PRESETS } from "@/lib/display-engine/types";
 import { useControlLock } from "@/lib/use-control-lock";
+import { useControllerName } from "@/lib/use-controller-name";
+import { useEventId } from "@/lib/event-context";
 import { ProgressBar } from "@/components/tv/progress-bar";
 import { HoldBadge } from "@/components/tv/hold-badge";
 import { BigActionButton } from "@/components/remote/big-action-button";
@@ -45,6 +47,7 @@ export default function RemotePage() {
     useEventStore();
   const { lock } = useAuth();
   const { sendBroadcast, state: engineState, setSpeakerReady } = useDisplayEngine();
+  const registeredCount = Object.keys(engineState.registry).length;
   const sessions = useSessions();
   const session = getSessionById(sessions, state.activeSessionId);
   const [panel, setPanel] = useState<Panel>("none");
@@ -52,8 +55,20 @@ export default function RemotePage() {
   const [pending, setPending] = useState<"next" | "previous" | "hold" | "start" | "finish" | null>(null);
   const runningRef = useRef(false);
   const emergencyConfirm = useConfirmDialog<(typeof EMERGENCY_PRESETS)[number]>();
+  const [emergencySending, setEmergencySending] = useState(false);
+  // Ref, not just `emergencySending` — ConfirmDialog's confirm button has no
+  // disabled-while-submitting state unless `loading` is passed to it, and a
+  // rapid multi-click burst (easy to do on the touch-oriented Remote quick
+  // panel) can fire onConfirm several times before React commits state.
+  // Same guard as the Broadcast Center's identical emergency-send handler
+  // (app/e/[eventId]/broadcast/page.tsx), added there after a confirmed
+  // live 5-clicks-to-5-duplicate-broadcasts repro.
+  const emergencySendingRef = useRef(false);
   const toast = useToast();
   const { lockedByOther } = useControlLock(state);
+  const eventId = useEventId();
+  const controllerName = useControllerName(eventId, lockedByOther ? state.controllerId : null);
+  const lockedMessage = controllerName ? `Locked by ${controllerName}` : "Locked by the operator dashboard";
 
   const progress = session ? state.progressBySession[state.activeSessionId] : undefined;
   const currentOrder = progress?.currentOrder ?? null;
@@ -77,7 +92,7 @@ export default function RemotePage() {
     // controller, so it gets a toast with the same "Take Over" escape
     // hatch rather than its own persistent lock-status affordance.
     if (lockedByOther && SEQUENCING_KINDS.has(kind)) {
-      toast.error("Locked by the operator dashboard", {
+      toast.error(lockedMessage, {
         label: "Take Over",
         onClick: () => claimControl(true),
       });
@@ -105,7 +120,7 @@ export default function RemotePage() {
   // branching before the actual call.
   function trySelectSession(sessionId: string) {
     if (lockedByOther) {
-      toast.error("Locked by the operator dashboard", { label: "Take Over", onClick: () => claimControl(true) });
+      toast.error(lockedMessage, { label: "Take Over", onClick: () => claimControl(true) });
       return;
     }
     selectSession(sessionId);
@@ -142,7 +157,15 @@ export default function RemotePage() {
             <p className="text-caption text-muted-2 tabular-nums">
               {Math.min(currentOrder ?? 0, max)} / {max}
             </p>
-            <Button type="button" variant="ghost" size="sm" square onClick={lock} aria-label="Lock" className="h-6 w-6">
+            {/* 44×44 minimum touch target, not the 24×24 this used to be
+                shrunk to for the compact header row — Remote is the app's
+                one designated one-handed/thumb surface (see docs/DESIGN_
+                SYSTEM.md), so an undersized target here specifically
+                contradicts the surface's own reason to exist (2026-09-01
+                UI/UX audit finding #15). Negative margin keeps the visual
+                footprint from widening the header row now that the hit
+                area is bigger than the icon it wraps. */}
+            <Button type="button" variant="ghost" size="sm" square onClick={lock} aria-label="Lock" className="h-11 w-11 -mr-1.5 -my-1.5">
               <Lock className="h-4 w-4" strokeWidth={2} />
             </Button>
           </div>
@@ -412,27 +435,33 @@ export default function RemotePage() {
       <ConfirmDialog
         open={emergencyConfirm.isOpen}
         title={`Send "${emergencyConfirm.pending?.title}" to every display?`}
-        description="This takes over every connected screen immediately."
+        description={`"${emergencyConfirm.pending?.message}" — takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately. Send an update or Clear afterward if needed.`}
         confirmLabel="Send Emergency"
         tone="danger"
-        onConfirm={() => {
+        loading={emergencySending}
+        onConfirm={async () => {
           const preset = emergencyConfirm.pending;
-          if (preset) {
-            sendBroadcast({
-              type: "emergency",
-              title: preset.title,
-              message: preset.message,
-              icon: null,
-              priority: 3,
-              target: { kind: "all" },
-              expiresInMinutes: null,
-              durationSeconds: null,
-              acknowledgementRequired: true,
-              persistent: true,
-              scheduledFor: null,
-            });
-          }
+          if (!preset || emergencySendingRef.current) return;
+          emergencySendingRef.current = true;
+          setEmergencySending(true);
+          const res = await sendBroadcast({
+            type: "emergency",
+            title: preset.title,
+            message: preset.message,
+            icon: null,
+            priority: 3,
+            target: { kind: "all" },
+            expiresInMinutes: null,
+            durationSeconds: null,
+            acknowledgementRequired: true,
+            persistent: true,
+            scheduledFor: null,
+          });
+          emergencySendingRef.current = false;
+          setEmergencySending(false);
           emergencyConfirm.cancel();
+          if (res && res.ok) toast.success("Emergency broadcast sent");
+          else toast.error("Couldn't send the emergency broadcast — try again immediately");
         }}
         onCancel={emergencyConfirm.cancel}
       />

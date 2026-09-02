@@ -65,7 +65,14 @@ export function SessionSwitcher() {
         {sessions.map((s) => {
           const active = s.id === state.activeSessionId;
           const progress = state.progressBySession[s.id];
-          const isLive = progress && progress.currentOrder !== null && progress.currentOrder <= s.items.length;
+          // `active` is required, not just recorded progress — without it,
+          // *every* session ever started stayed marked "(in progress)"
+          // forever, including ones the operator moved on from hours ago.
+          // Confirmed live: Friday Evening and Saturday Morning both read
+          // "(in progress)" simultaneously despite only one being the
+          // session actually live on every display (2026-09-01 UI/UX audit
+          // finding #14 — reproduced exactly, not overstated).
+          const isLive = active && progress && progress.currentOrder !== null && progress.currentOrder <= s.items.length;
           return (
             <button
               key={s.id}

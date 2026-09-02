@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ListChecks, Radio, MonitorPlay, PauseCircle, QrCode, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { colorTagTone } from "@/lib/color-tags";
 import { cn } from "@/lib/utils";
@@ -46,16 +46,12 @@ function Nav() {
       <div className="max-w-6xl mx-auto px-6 sm:px-10 h-16 flex items-center justify-between">
         <span className="text-console-md text-primary font-semibold tracking-tight">KramFlow</span>
         <nav className="flex items-center gap-2">
-          <Link href="/login">
-            <Button variant="ghost" size="md">
-              Log In
-            </Button>
-          </Link>
-          <Link href="/signup">
-            <Button variant="primary" size="md">
-              Sign Up
-            </Button>
-          </Link>
+          <LinkButton href="/login" variant="ghost" size="md">
+            Log In
+          </LinkButton>
+          <LinkButton href="/signup" variant="primary" size="md">
+            Sign Up
+          </LinkButton>
         </nav>
       </div>
     </header>
@@ -74,11 +70,9 @@ function Hero() {
       </p>
 
       <div className="mt-8 flex flex-col items-center gap-3">
-        <Link href="/signup">
-          <Button variant="primary" size="xl">
-            Sign up free
-          </Button>
-        </Link>
+        <LinkButton href="/signup" variant="primary" size="xl">
+          Sign up free
+        </LinkButton>
         <p className="text-console-sm text-muted-2">No credit card required — set up your first event in minutes.</p>
       </div>
 
@@ -249,11 +243,9 @@ function GetStarted() {
         ))}
       </div>
       <div className="mt-14 flex justify-center">
-        <Link href="/signup">
-          <Button variant="primary" size="lg">
-            Sign up free
-          </Button>
-        </Link>
+        <LinkButton href="/signup" variant="primary" size="lg">
+          Sign up free
+        </LinkButton>
       </div>
     </section>
   );
@@ -304,11 +296,9 @@ function FinalCta() {
         <p className="text-body text-muted max-w-md">
           Set up your event, share a link to your displays, and you&rsquo;re already running the show that same session.
         </p>
-        <Link href="/signup">
-          <Button variant="primary" size="xl">
-            Sign up free
-          </Button>
-        </Link>
+        <LinkButton href="/signup" variant="primary" size="xl">
+          Sign up free
+        </LinkButton>
         <p className="text-console-sm text-muted-2">Free to start — no credit card required.</p>
       </div>
     </section>

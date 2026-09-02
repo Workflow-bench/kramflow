@@ -35,7 +35,7 @@ export default function AvDisplayClient({ token, eventId }: { token?: string; ev
 }
 
 function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt } = useDisplayView({ token, eventId });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine } = useDisplayEngine();
 
@@ -62,7 +62,7 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
     live && live.type === "item"
       ? { durationMinutes: live.durationMinutes, startedAt: progress?.startedAt ?? null, pausedAt: appState.pausedAt }
       : null;
-  const timer = useDisplayTimer(autoInput);
+  const timer = useDisplayTimer(autoInput, offsetMs);
   const clockLabel = useDisplayClock(offsetMs);
   const color = TIMER_COLORS[timer.colorState];
 
@@ -70,7 +70,7 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
   const stageStatus = appState.pausedAt ? "PAUSED" : live ? "LIVE" : "STANDBY";
 
   return (
-    <DisplayShell connectionStatus={connectionStatus}>
+    <DisplayShell connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>
       <HoldScreen hold={engine.hold} />
       {display && <BroadcastOverlay displayId={display.id} displayType="av" />}
       <TestMessageOverlay message={testMessage} />

@@ -61,7 +61,7 @@ export default function PresenterDisplayClient({ token, eventId }: { token?: str
 }
 
 function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt } = useDisplayView({ token, eventId });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine, setTimerMode, setTimerSource, pauseTimer, resumeTimer, resetTimer, adjustTimer, activateHold, deactivateHold } =
     useDisplayEngine();
@@ -105,7 +105,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
       ? { durationMinutes: live.durationMinutes, startedAt: progress?.startedAt ?? null, pausedAt: appState.pausedAt }
       : null;
 
-  const timer = useDisplayTimer(engine.timer.source === "auto" ? autoInput : null);
+  const timer = useDisplayTimer(engine.timer.source === "auto" ? autoInput : null, offsetMs);
   const clockLabel = useDisplayClock(offsetMs);
 
   useKeyboardShortcuts({
@@ -117,8 +117,8 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
     R: () => setConfirmReset(true),
     f: () => fullscreen.toggle(),
     F: () => fullscreen.toggle(),
-    h: () => (engine.hold.active ? deactivateHold() : activateHold(holdPayload(HOLD_PRESETS[0]))),
-    H: () => (engine.hold.active ? deactivateHold() : activateHold(holdPayload(HOLD_PRESETS[0]))),
+    h: () => (engine.hold.active ? deactivateHold() : activateHold(holdPayload(HOLD_PRESETS[holdPresetIndex]))),
+    H: () => (engine.hold.active ? deactivateHold() : activateHold(holdPayload(HOLD_PRESETS[holdPresetIndex]))),
     Escape: () => {
       if (fullscreen.isFullscreen) void fullscreen.exit();
     },
@@ -129,7 +129,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
   const stageStatus = engine.hold.active ? "ON HOLD" : appState.pausedAt ? "PAUSED" : live ? "LIVE" : "STANDBY";
 
   return (
-    <DisplayShell connectionStatus={connectionStatus}>
+    <DisplayShell connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>
       <HoldScreen hold={engine.hold} />
       {display && <BroadcastOverlay displayId={display.id} displayType="presenter" size="large" />}
       <TestMessageOverlay message={testMessage} />
@@ -286,23 +286,37 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
           controlsVisible ? "opacity-100" : "opacity-0"
         )}
       >
+        {/* Every control below gets tabIndex={-1} while faded, on top of
+            the existing opacity fade — pointer/touch reachability while
+            fading is deliberately unchanged (see the comment above this
+            block), but a keyboard user tabbing through the page has no way
+            to see *where* focus is once these are invisible, and could
+            trigger a live Hold/timer mutation blind (2026-09-01 audit,
+            KF-003 / P0 finding #3). tabIndex alone doesn't affect pointer
+            events, so the "still tappable mid-fade" behavior survives
+            untouched — only Tab-reachability changes. */}
         <div className="flex items-center gap-2 rounded-full bg-card/95 backdrop-blur px-4 py-3 shadow-lg">
-          <ControlButton onClick={() => adjustTimer(-60)} label="-1:00">
+          <ControlButton onClick={() => adjustTimer(-60)} label="-1:00" tabIndex={controlsVisible ? undefined : -1}>
             <Minus className="h-4 w-4" strokeWidth={2} />
           </ControlButton>
-          <ControlButton onClick={() => adjustTimer(-30)} label="-0:30">
+          <ControlButton onClick={() => adjustTimer(-30)} label="-0:30" tabIndex={controlsVisible ? undefined : -1}>
             <Minus className="h-3.5 w-3.5" strokeWidth={2} />
           </ControlButton>
-          <ControlButton onClick={() => (timer.isPaused ? resumeTimer() : pauseTimer())} label={timer.isPaused ? "Resume" : "Pause"} primary>
+          <ControlButton
+            onClick={() => (timer.isPaused ? resumeTimer() : pauseTimer())}
+            label={timer.isPaused ? "Resume" : "Pause"}
+            primary
+            tabIndex={controlsVisible ? undefined : -1}
+          >
             {timer.isPaused ? <Play className="h-5 w-5" strokeWidth={2} /> : <Pause className="h-5 w-5" strokeWidth={2} />}
           </ControlButton>
-          <ControlButton onClick={() => adjustTimer(30)} label="+0:30">
+          <ControlButton onClick={() => adjustTimer(30)} label="+0:30" tabIndex={controlsVisible ? undefined : -1}>
             <Plus className="h-3.5 w-3.5" strokeWidth={2} />
           </ControlButton>
-          <ControlButton onClick={() => adjustTimer(60)} label="+1:00">
+          <ControlButton onClick={() => adjustTimer(60)} label="+1:00" tabIndex={controlsVisible ? undefined : -1}>
             <Plus className="h-4 w-4" strokeWidth={2} />
           </ControlButton>
-          <ControlButton onClick={() => setConfirmReset(true)} label="Reset">
+          <ControlButton onClick={() => setConfirmReset(true)} label="Reset" tabIndex={controlsVisible ? undefined : -1}>
             <RotateCcw className="h-4 w-4" strokeWidth={2} />
           </ControlButton>
 
@@ -314,6 +328,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
             size="sm"
             onClick={() => setTimerSource(engine.timer.source === "auto" ? "manual" : "auto")}
             className="rounded-full bg-white/5 hover:bg-white/10"
+            tabIndex={controlsVisible ? undefined : -1}
           >
             {engine.timer.source === "auto" ? "Auto-follow" : "Manual"}
           </Button>
@@ -325,6 +340,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
             searchable={false}
             aria-label="Display mode"
             className="w-auto min-w-[7rem]"
+            tabIndex={controlsVisible ? undefined : -1}
           />
 
           <span className="w-px h-6 bg-white/10 mx-1" />
@@ -337,6 +353,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
             }
             label="Hold"
             active={engine.hold.active}
+            tabIndex={controlsVisible ? undefined : -1}
           >
             <Radio className="h-4 w-4" strokeWidth={2} />
           </ControlButton>
@@ -347,9 +364,14 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
             searchable={false}
             aria-label="Hold message preset"
             className="w-auto min-w-[9rem]"
+            tabIndex={controlsVisible ? undefined : -1}
           />
 
-          <ControlButton onClick={fullscreen.toggle} label={fullscreen.isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+          <ControlButton
+            onClick={fullscreen.toggle}
+            label={fullscreen.isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            tabIndex={controlsVisible ? undefined : -1}
+          >
             {fullscreen.isFullscreen ? <Minimize className="h-4 w-4" strokeWidth={2} /> : <Maximize className="h-4 w-4" strokeWidth={2} />}
           </ControlButton>
 
@@ -383,17 +405,20 @@ function ControlButton({
   label,
   primary,
   active,
+  tabIndex,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   label: string;
   primary?: boolean;
   active?: boolean;
+  tabIndex?: number;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      tabIndex={tabIndex}
       aria-label={label}
       title={label}
       className={cn(
