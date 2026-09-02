@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Panel } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
 const ORIENTATION_OPTIONS = [
@@ -157,6 +158,7 @@ function blankProfile(): DisplayProfile {
 export function ProfileEditor() {
   const { state: engine, saveProfile, deleteProfile } = useDisplayEngine();
   const [editing, setEditing] = useState<DisplayProfile | null>(null);
+  const deleteConfirm = useConfirmDialog<DisplayProfile>();
 
   const profiles = Object.values(engine.profiles).sort((a, b) => Number(a.builtIn) - Number(b.builtIn));
 
@@ -198,7 +200,7 @@ export function ProfileEditor() {
                     variant="ghost"
                     size="sm"
                     square
-                    onClick={() => deleteProfile(profile.id)}
+                    onClick={() => deleteConfirm.request(profile)}
                     aria-label="Delete profile"
                     className="hover:text-status-red"
                   >
@@ -338,6 +340,26 @@ export function ProfileEditor() {
           </>
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={deleteConfirm.isOpen}
+        title={`Delete "${deleteConfirm.pending?.name}"?`}
+        description={(() => {
+          const inUse = deleteConfirm.pending
+            ? Object.values(engine.registry).filter((d) => d.profileId === deleteConfirm.pending!.id).length
+            : 0;
+          return inUse > 0
+            ? `${inUse} display${inUse === 1 ? " is" : "s are"} currently assigned this profile. This can't be undone.`
+            : "This can't be undone.";
+        })()}
+        confirmLabel="Delete Profile"
+        tone="danger"
+        onConfirm={() => {
+          if (deleteConfirm.pending) deleteProfile(deleteConfirm.pending.id);
+          deleteConfirm.cancel();
+        }}
+        onCancel={deleteConfirm.cancel}
+      />
     </div>
   );
 }

@@ -12,7 +12,7 @@ import { FormField } from "@/components/ui/form-field";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useEventRole } from "@/lib/event-context";
 import { useToast } from "@/components/ui/toast";
 
@@ -117,6 +117,7 @@ export function EventSettingsPanel({
   const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
   const [inviting, setInviting] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const removeConfirm = useConfirmDialog<Collaborator>();
   const [deleteEventOpen, setDeleteEventOpen] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(false);
   const router = useRouter();
@@ -192,7 +193,9 @@ export function EventSettingsPanel({
     toast.success("Invite link copied.");
   }
 
-  async function handleRemoveCollaborator(c: Collaborator) {
+  async function handleRemoveCollaborator() {
+    const c = removeConfirm.pending;
+    if (!c) return;
     setRemovingId(c.id);
     try {
       const query = c.status === "pending" ? `inviteId=${encodeURIComponent(c.id)}` : `userId=${encodeURIComponent(c.user_id!)}`;
@@ -203,6 +206,7 @@ export function EventSettingsPanel({
       }
       setCollaborators((prev) => prev.filter((x) => x.id !== c.id));
       toast.success(c.status === "pending" ? "Invite revoked" : "Removed");
+      removeConfirm.cancel();
     } finally {
       setRemovingId(null);
     }
@@ -449,7 +453,7 @@ export function EventSettingsPanel({
                           size="sm"
                           square
                           aria-label={c.status === "pending" ? `Revoke invite to ${c.invited_email}` : `Remove ${c.invited_email}`}
-                          onClick={() => handleRemoveCollaborator(c)}
+                          onClick={() => removeConfirm.request(c)}
                           disabled={removingId === c.id}
                         >
                           <X className="h-3.5 w-3.5" strokeWidth={2} />
@@ -557,6 +561,25 @@ export function EventSettingsPanel({
         requireTypedConfirmation={{ value: initialDetails.name || name, label: `Type "${initialDetails.name || name}" to confirm` }}
         onConfirm={handleDeleteEvent}
         onCancel={() => setDeleteEventOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={removeConfirm.isOpen}
+        title={
+          removeConfirm.pending?.status === "pending"
+            ? `Revoke invite to ${removeConfirm.pending.invited_email}?`
+            : `Remove ${removeConfirm.pending?.invited_email}?`
+        }
+        description={
+          removeConfirm.pending?.status === "pending"
+            ? "Their invite link stops working immediately. You can re-invite them at any time."
+            : "They lose access to this event immediately. You can re-invite them at any time."
+        }
+        confirmLabel={removeConfirm.pending?.status === "pending" ? "Revoke Invite" : "Remove"}
+        tone="danger"
+        loading={removingId === removeConfirm.pending?.id}
+        onConfirm={handleRemoveCollaborator}
+        onCancel={removeConfirm.cancel}
       />
     </div>
   );
