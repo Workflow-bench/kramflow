@@ -31,6 +31,7 @@ const initialState: LiveState = {
   notesOverrides: {},
   controllerId: null,
   controllerClaimedAt: null,
+  itemActuals: {},
 };
 
 export type ConnectionStatus = "connected" | "reconnecting" | "disconnected";
@@ -43,6 +44,7 @@ interface LiveStateRow {
   notes_overrides: LiveState["notesOverrides"];
   controller_id: string | null;
   controller_claimed_at: string | null;
+  item_actuals: LiveState["itemActuals"];
 }
 
 function mapRow(row: LiveStateRow): LiveState {
@@ -54,6 +56,7 @@ function mapRow(row: LiveStateRow): LiveState {
     notesOverrides: row.notes_overrides ?? {},
     controllerId: row.controller_id ?? null,
     controllerClaimedAt: row.controller_claimed_at ?? null,
+    itemActuals: row.item_actuals ?? {},
   };
 }
 

@@ -18,6 +18,7 @@ const REHEARSAL_INITIAL: LiveState = {
   notesOverrides: {},
   controllerId: null,
   controllerClaimedAt: null,
+  itemActuals: {},
 };
 
 // Report finding #14 — a mode to run Start/Next/Hold/Alert without any

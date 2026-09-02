@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { effectiveNotes, getLive, type LiveState, type Session } from "@/lib/types";
+import { effectiveNotes, getLive, driftMinutes, type LiveState, type Program, type Session } from "@/lib/types";
 import { useEventStore } from "@/lib/store";
 import { useEventId } from "@/lib/event-context";
 import { useCountdown } from "@/lib/use-countdown";
@@ -81,6 +81,7 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
       {live.kicker && <p className="text-caption text-muted-2 mt-3">{live.kicker}</p>}
       <p className="text-subtitle text-primary mt-1">{live.title}</p>
       {live.presenter && <p className="text-body text-muted mt-2">{live.presenter}</p>}
+      <DriftLine program={live} state={state} />
 
       {live.type === "item" && live.durationMinutes > 0 && (
         <div className="mt-8">
@@ -124,6 +125,28 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
         />
       </div>
     </div>
+  );
+}
+
+// "Are we ahead or behind" for the item that's actually live right now —
+// the one glance-able timing question an operator under pressure needs an
+// answer to. Silent (renders nothing) whenever the comparison isn't
+// meaningful: no scheduled time on this item, or it hasn't really gone
+// live yet (item_actuals only gets written by the real /api/live path —
+// Rehearsal never touches it, so this never shows a rehearsal run as
+// "12m behind" against the real schedule).
+function DriftLine({ program, state }: { program: Program; state: LiveState }) {
+  const drift = driftMinutes(program, state);
+  if (drift === null) return null;
+
+  if (Math.abs(drift) < 1) {
+    return <p className="text-caption text-muted-2 mt-2">On schedule</p>;
+  }
+  const behind = drift > 0;
+  return (
+    <p className={cn("text-caption mt-2 tabular-nums", behind ? "text-status-orange" : "text-status-blue")}>
+      {Math.abs(drift)}m {behind ? "behind schedule" : "ahead of schedule"}
+    </p>
   );
 }
 
