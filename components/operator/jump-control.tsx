@@ -6,7 +6,7 @@ import { useEventStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { SectionLabel } from "@/components/tv/section-label";
+import { SectionLabel } from "@/components/ui/section-label";
 import { useToast } from "@/components/ui/toast";
 
 export function JumpControl({ max }: { max: number }) {

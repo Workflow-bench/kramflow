@@ -8,8 +8,8 @@ import { useCountdown } from "@/lib/use-countdown";
 import { formatClock } from "@/lib/display-engine/use-display-timer";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { ProgressBar } from "@/components/tv/progress-bar";
-import { HoldBadge } from "@/components/tv/hold-badge";
-import { SectionLabel } from "@/components/tv/section-label";
+import { OperationalStatus } from "@/components/ui/operational-status";
+import { SectionLabel } from "@/components/ui/section-label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
@@ -75,7 +75,7 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2">
         <SectionLabel>Live Now</SectionLabel>
-        {state.pausedAt && <HoldBadge />}
+        {state.pausedAt && <OperationalStatus kind="hold" />}
       </div>
 
       {live.kicker && <p className="text-caption text-muted-2 mt-3">{live.kicker}</p>}

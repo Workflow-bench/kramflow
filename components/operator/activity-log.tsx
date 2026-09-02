@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { supabaseBrowser, realtimeReady } from "@/lib/supabase/client";
 import { useEventId } from "@/lib/event-context";
-import { SectionLabel } from "@/components/tv/section-label";
+import { SectionLabel } from "@/components/ui/section-label";
 
 // Short reverse-chronological list of the last ~20 operator actions — not
 // analytics, just enough that a mid-show stage-manager handoff doesn't lose

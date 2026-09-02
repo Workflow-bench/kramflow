@@ -99,6 +99,35 @@ Font: Inter for language, JetBrains Mono (`--font-mono`, via the `.tnum` utility
 
 `--animate-fade-in` (250ms) and `--animate-rise` (180ms, cubic-bezier(0.2,0,0,1), enters-from-below-already-visible) are the two authored keyframes — used for toasts, popovers, the bulk-edit action bar. Nothing ambient, nothing decorative; an operator watching this screen during a live show must never be drawn to motion that doesn't mean something. `prefers-reduced-motion: reduce` is honored globally (`app/globals.css`).
 
+## Operational vocabulary
+
+A 2026-09-01 three-lens audit (`KRAMFLOW_UI_UX_DESIGN_SYSTEM_AUDIT.md`) found the token layer solid but the *concepts* an operator needs to track — live position, timing, authority, presence, connectivity, staleness, display health, readiness, alert severity — each rendered as an independently-invented badge/dot/pill with no shared grammar. This section is the fix: one vocabulary, implemented once, used everywhere it applies.
+
+**Two families, never conflated:**
+
+- **Show state** (`status-green`/`orange`/`red`/`blue`) — describes the *event*: what's live, what's next, what's overrunning, what's on hold. An audience-relevant fact.
+- **System state** (its own `ok`/`warn`/`bad`/`neutral` roles, see `components/ui/operational-status.tsx`) — describes the *tool*: is this screen connected, is this data stale, is this display reachable, do I hold the lock. An operator-relevant fact, never shown to a Stage audience.
+
+Reusing a show-state hue for system state (or vice versa) is exactly the ambiguity the audit flagged ("is orange a warning about the show, or about my connection?") — keep them visually related (same warm-graphite-tuned palette) but never literally the same token for two different questions.
+
+**Canonical components for each concept** (see `components/ui/`):
+
+| Concept | Component | Notes |
+|---|---|---|
+| Live / next / on-deck / run position | `RunPosition` (`components/operator/run-position.tsx`) | One row-position model; Program list, Live Details, and Remote all read the same `getLive`/`getNext`/`getOnDeck` helpers already in `lib/types.ts` — this component is the shared *display*, not new data. |
+| Timing / drift | `driftMinutes()` (`lib/types.ts`) + its rendering in `LiveDetailsPanel` | Already shipped (pilot-readiness phase) — one live-item comparison, not a rundown-wide projection. |
+| Control authority / ownership | `ControlLeaseStatus` (`components/ui/control-lease-status.tsx`) | Replaces the inline lock-icon-plus-link markup previously duplicated in `ControlsPanel` and Remote. |
+| Presence | `lib/use-operator-presence.ts` + its rendering | Already shipped — named, not a bare count. |
+| Connectivity | `ConnectionBadge` (`components/ui/connection-badge.tsx`) | Already a real system (console/stage variants, staleness escalation) — kept as-is, just documented here as the canonical answer to "is this screen connected," not re-invented per surface. |
+| Stale / offline / critical / warning / live / hold / rehearsal | `OperationalStatus` (`components/ui/operational-status.tsx`) | The new unification target — a `HoldBadge`-shaped concept existed once per surface; this is the one implementation. |
+| Display health | `OperationalStatus` variant `offline`/`stale`, consumed by Displays | Not yet migrated this pass — Displays itself is deferred (see the redesign traceability note). |
+
+**Console vs. Stage is a hard boundary, not a convention.** `components/tv/section-label.tsx` and `components/tv/hold-badge.tsx` are Stage components (Stage-scale `text-caption`) that had leaked into Console surfaces (`LiveDetailsPanel`, `Cue Sheet`, others) simply because nothing stopped the import. Fixed this pass: Console-scoped equivalents live in `components/ui/` (`SectionLabel` moved there at Console scale; a `StatusPill`-based `HoldBadge` replacement uses `OperationalStatus`). `components/tv/*` is Stage-only from here forward — a Console file importing from `components/tv/` is the drift this guardrail exists to catch.
+
+## Component catalog
+
+`app/(catalog)/dev/components/page.tsx` — a real route (not a static doc) rendering every canonical primitive across its meaningful states (default/hover/focus/disabled/loading/selected/error/live/hold/stale/offline/controlled-by-me/controlled-by-other). This is the visual reference for what "canonical" means; a new component or variant should be added there before — or as part of — being used in product surfaces. It is not gated behind auth (nothing sensitive renders there — synthetic data only) but is not linked from product navigation.
+
 ## Guardrails
 
 - Do not apply the Stage type scale to Console, or the reverse.
@@ -107,4 +136,5 @@ Font: Inter for language, JetBrains Mono (`--font-mono`, via the `.tnum` utility
 - Do not add gradients, glassmorphism, or ambient/decorative effects to Console.
 - Do not let a cue-sheet/queue row grow past 44px.
 - Do not convey status by color alone.
+- Do not import from `components/tv/*` in a Console surface (`app/e/[eventId]/operator/**`, `app/e/[eventId]/remote`, `app/e/[eventId]/broadcast`, `app/e/[eventId]/displays`, `app/e/[eventId]/settings`, dashboard) — that directory is Stage-scale only. Use `components/ui/*` (Console-scale) instead.
 - A CSS Grid column meant to scroll independently (`overflow-y-auto` on a grid child) needs the grid's row track pinned (`grid-rows-[1fr]` on the container, `min-h-0` on the child's own wrapper) or the row auto-sizes to the tallest column's content and the scroll clip silently fails — this exact bug shipped once on the Operator Console's three-column grid; verify visually (a real screenshot, not just code review) whenever a new fixed-height multi-column layout is added.

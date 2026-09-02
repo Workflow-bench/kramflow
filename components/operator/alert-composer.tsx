@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEventStore } from "@/lib/store";
 import type { AlertSeverity } from "@/lib/types";
-import { SectionLabel } from "@/components/tv/section-label";
+import { SectionLabel } from "@/components/ui/section-label";
 import { useToast } from "@/components/ui/toast";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { cn } from "@/lib/utils";

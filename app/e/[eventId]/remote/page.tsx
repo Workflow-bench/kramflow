@@ -29,7 +29,7 @@ import { useControlLock } from "@/lib/use-control-lock";
 import { useControllerName } from "@/lib/use-controller-name";
 import { useEventId } from "@/lib/event-context";
 import { ProgressBar } from "@/components/tv/progress-bar";
-import { HoldBadge } from "@/components/tv/hold-badge";
+import { OperationalStatus } from "@/components/ui/operational-status";
 import { BigActionButton } from "@/components/remote/big-action-button";
 import { QuickActionButton } from "@/components/remote/quick-action-button";
 import { Button } from "@/components/ui/button";
@@ -229,7 +229,7 @@ export default function RemotePage() {
           <>
             <div className="flex items-center gap-2">
               <p className="text-caption uppercase tracking-wide text-muted-2">Now</p>
-              {state.pausedAt && <HoldBadge />}
+              {state.pausedAt && <OperationalStatus kind="hold" />}
             </div>
             <p className="text-title text-primary mt-2 leading-tight">{live?.title}</p>
             {live?.presenter && <p className="text-body text-muted mt-1">{live.presenter}</p>}

@@ -35,7 +35,7 @@ import {
   ActionBarCount,
   ActionBarSeparator,
 } from "@/components/ui/action-bar";
-import { SectionLabel } from "@/components/tv/section-label";
+import { SectionLabel } from "@/components/ui/section-label";
 import { ProgramForm } from "@/components/forms/program-form";
 import { SessionForm } from "@/components/forms/session-form";
 import { EventNav } from "@/components/operator/event-nav";

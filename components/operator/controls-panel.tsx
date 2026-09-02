@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, Pause, Play, Square, ChevronRight, Lock, Unlock } from "lucide-react";
+import { ChevronLeft, Pause, Play, Square, ChevronRight } from "lucide-react";
 import { useEventStore } from "@/lib/store";
 import { useKeyboardShortcuts } from "@/lib/display-engine/use-keyboard-shortcuts";
 import { useControlLock } from "@/lib/use-control-lock";
@@ -9,13 +9,13 @@ import { useControllerName } from "@/lib/use-controller-name";
 import { useEventRole, useEventId } from "@/lib/event-context";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { SectionLabel } from "@/components/tv/section-label";
+import { SectionLabel } from "@/components/ui/section-label";
+import { ControlLeaseStatus } from "@/components/ui/control-lease-status";
 import { JumpControl } from "./jump-control";
 import { AlertComposer } from "./alert-composer";
 import { ActivityLog } from "./activity-log";
 import { OperatorBroadcastPanel } from "@/components/display-engine/operator-broadcast-panel";
 import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
 import type { Session } from "@/lib/types";
 
 const FAILURE_MESSAGE: Record<string, string> = {
@@ -185,67 +185,28 @@ export function ControlsPanel({
             this existed. QA_REPORT_ROUND2.md R2-BUG-1: this exists because
             two /operator tabs could otherwise drive the same show with a
             plain Next silently clearing another tab's just-set Hold. */}
-        <div className="mt-2 flex items-center gap-2 text-caption">
-          {readOnly ? (
-            <span className="flex items-center gap-1.5 text-muted-2">
-              <Lock className="h-3 w-3" strokeWidth={2} />
-              You have {role} access — only the event owner can run the live show
-            </span>
-          ) : iHaveControl ? (
-            <>
-              <span className="flex items-center gap-1.5 text-status-green">
-                <Lock className="h-3 w-3" strokeWidth={2} />
-                You have control
-              </span>
-              <button
-                type="button"
-                disabled={claimingOrReleasing}
-                onClick={async () => {
-                  setClaimingOrReleasing(true);
-                  const ok = await releaseControl();
-                  setClaimingOrReleasing(false);
-                  if (!ok) toast.error("Couldn't release control — try again");
-                }}
-                className="text-muted-2 hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {claimingOrReleasing ? "Releasing…" : "Release"}
-              </button>
-            </>
-          ) : lockedByOther ? (
-            <>
-              <span className="flex items-center gap-1.5 text-status-orange">
-                <Lock className="h-3 w-3" strokeWidth={2} />
-                {controllerName ? `${controllerName} has control` : "Locked by another operator"}
-              </span>
-              <button
-                type="button"
-                onClick={() => setConfirmKind("takeover")}
-                className="text-status-orange hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
-              >
-                Take Over
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              disabled={claimingOrReleasing}
-              onClick={async () => {
-                setClaimingOrReleasing(true);
-                const ok = await claimControl();
-                setClaimingOrReleasing(false);
-                if (ok) broadcastAction("took control");
-                else toast.error("Couldn't take control — try again");
-              }}
-              className={cn(
-                "flex items-center gap-1.5 text-muted-2 hover:text-primary cursor-pointer",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
-            >
-              <Unlock className="h-3 w-3" strokeWidth={2} />
-              {claimingOrReleasing ? "Taking control…" : "Take Control"}
-            </button>
-          )}
+        <div className="mt-2 text-caption">
+          <ControlLeaseStatus
+            role={role}
+            iHaveControl={iHaveControl}
+            lockedByOther={lockedByOther}
+            controllerName={controllerName}
+            busy={claimingOrReleasing}
+            onRelease={async () => {
+              setClaimingOrReleasing(true);
+              const ok = await releaseControl();
+              setClaimingOrReleasing(false);
+              if (!ok) toast.error("Couldn't release control — try again");
+            }}
+            onTakeControl={async () => {
+              setClaimingOrReleasing(true);
+              const ok = await claimControl();
+              setClaimingOrReleasing(false);
+              if (ok) broadcastAction("took control");
+              else toast.error("Couldn't take control — try again");
+            }}
+            onTakeOver={() => setConfirmKind("takeover")}
+          />
         </div>
         <div className="mt-3 flex flex-col gap-3">
           {currentOrder === null ? (

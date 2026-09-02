@@ -18,7 +18,7 @@ import { EventIdentity } from "@/components/operator/event-identity";
 import { LiveDetailsPanel } from "@/components/operator/live-details-panel";
 import { ControlsPanel } from "@/components/operator/controls-panel";
 import { ProgressFooter } from "@/components/tv/progress-footer";
-import { SectionLabel } from "@/components/tv/section-label";
+import { SectionLabel } from "@/components/ui/section-label";
 import { Button, LinkButton } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 
