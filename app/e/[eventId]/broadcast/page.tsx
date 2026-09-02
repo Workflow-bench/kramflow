@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FormField } from "@/components/ui/form-field";
 import { Panel } from "@/components/ui/card";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -369,14 +370,14 @@ export default function BroadcastCenterPage() {
           <SectionLabel>Compose</SectionLabel>
           <div className="mt-4 flex flex-col gap-5">
             <div className="flex flex-col gap-4">
-              <Field label="Title">
+              <FormField label="Title">
                 <Input
                   value={draft.title}
                   onChange={(e) => patchDraft({ title: e.target.value })}
                   placeholder="Broadcast title"
                 />
-              </Field>
-              <Field label="Message">
+              </FormField>
+              <FormField label="Message">
                 <Textarea
                   value={draft.message}
                   onChange={(e) => patchDraft({ message: e.target.value })}
@@ -384,22 +385,22 @@ export default function BroadcastCenterPage() {
                   rows={3}
                   className="resize-none"
                 />
-              </Field>
+              </FormField>
             </div>
 
             <div className="flex flex-col gap-3 pt-1 border-t border-line-soft">
               <SectionLabel className="mt-3">Audience</SectionLabel>
-              <Field label="Target">
+              <FormField label="Target">
                 <Select
                   value={draft.target.kind}
                   onChange={(v) => patchTarget(v as BroadcastTargetKind, undefined)}
                   options={TARGET_KIND_OPTIONS}
                   searchable={false}
                 />
-              </Field>
+              </FormField>
 
               {draft.target.kind === "type" && (
-                <Field label="Display Type">
+                <FormField label="Display Type">
                   <Select
                     value={draft.target.value ?? ""}
                     onChange={(v) => patchTarget("type", v)}
@@ -407,11 +408,11 @@ export default function BroadcastCenterPage() {
                     placeholder="Select a type"
                     searchable={false}
                   />
-                </Field>
+                </FormField>
               )}
 
               {draft.target.kind === "display" && (
-                <Field label="Display">
+                <FormField label="Display">
                   <Select
                     value={draft.target.value ?? ""}
                     onChange={(v) => patchTarget("display", v)}
@@ -419,11 +420,11 @@ export default function BroadcastCenterPage() {
                     placeholder="Select a display"
                     searchable={false}
                   />
-                </Field>
+                </FormField>
               )}
 
               {draft.target.kind === "group" && (
-                <Field label="Group">
+                <FormField label="Group">
                   <Select
                     value={draft.target.value ?? ""}
                     onChange={(v) => patchTarget("group", v)}
@@ -431,7 +432,7 @@ export default function BroadcastCenterPage() {
                     placeholder="Select a group"
                     searchable={false}
                   />
-                </Field>
+                </FormField>
               )}
 
               <TargetHealthSummary target={draft.target} registry={engine.registry} groups={engine.groups} />
@@ -440,7 +441,7 @@ export default function BroadcastCenterPage() {
             <div className="flex flex-col gap-4 pt-1 border-t border-line-soft">
               <SectionLabel className="mt-3">Severity</SectionLabel>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Type">
+                <FormField label="Type">
                   <Select
                     value={draft.type}
                     onChange={(v) => {
@@ -455,8 +456,8 @@ export default function BroadcastCenterPage() {
                     options={BROADCAST_TYPE_OPTIONS}
                     searchable={false}
                   />
-                </Field>
-                <Field label="Priority">
+                </FormField>
+                <FormField label="Priority">
                   <Select
                     value={String(draft.priority)}
                     onChange={(v) => patchDraft({ priority: Number(v) as 1 | 2 | 3 })}
@@ -464,22 +465,22 @@ export default function BroadcastCenterPage() {
                     searchable={false}
                     disabled={draft.type === "emergency"}
                   />
-                </Field>
+                </FormField>
               </div>
-              <Field label="Icon (optional)">
+              <FormField label="Icon (optional)">
                 <Input
                   value={draft.icon ?? ""}
                   onChange={(e) => patchDraft({ icon: e.target.value || null })}
                   placeholder="e.g. 📢"
                   className="max-w-40"
                 />
-              </Field>
+              </FormField>
             </div>
 
             <div className="flex flex-col gap-4 pt-1 border-t border-line-soft">
               <SectionLabel className="mt-3">Duration &amp; Persistence</SectionLabel>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Expires in (min)">
+                <FormField label="Expires in (min)">
                   <Input
                     type="number"
                     min={0}
@@ -487,8 +488,8 @@ export default function BroadcastCenterPage() {
                     onChange={(e) => patchDraft({ expiresInMinutes: e.target.value ? Number(e.target.value) : null })}
                     placeholder="No expiry"
                   />
-                </Field>
-                <Field label="Duration (sec)">
+                </FormField>
+                <FormField label="Duration (sec)">
                   <Input
                     type="number"
                     min={0}
@@ -496,7 +497,7 @@ export default function BroadcastCenterPage() {
                     onChange={(e) => patchDraft({ durationSeconds: e.target.value ? Number(e.target.value) : null })}
                     placeholder="Until dismissed"
                   />
-                </Field>
+                </FormField>
               </div>
 
               <div className="flex items-center gap-6">
@@ -875,14 +876,6 @@ function toDraft(m: { type: BroadcastType; title: string; message: string; icon:
   };
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-console-meta text-muted-2">{label}</span>
-      {children}
-    </label>
-  );
-}
 
 function TypeBadge({ type }: { type: BroadcastType }) {
   const meta = BROADCAST_TYPE_META[type];

@@ -22,12 +22,17 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventId, useEventRole } from "@/lib/event-context";
-import { Button, LinkButton } from "@/components/ui/button";
+import { useAuth } from "@/components/auth/auth-context";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ColorTagPicker } from "@/components/ui/color-tag-picker";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Panel } from "@/components/ui/card";
+import { Tooltip } from "@/components/ui/tooltip";
+import { OverflowMenu, type OverflowMenuItem } from "@/components/ui/overflow-menu";
 import {
   ActionBar,
   ActionBarButton,
@@ -122,6 +127,14 @@ function dndAnnouncements(rows: ProgramRow[]) {
   };
 }
 
+function formatDurationMinutes(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
+
 function rowToInput(row: ProgramRow): Partial<ProgramInput> {
   return {
     sessionId: row.session_id,
@@ -156,6 +169,7 @@ function rowToInput(row: ProgramRow): Partial<ProgramInput> {
 
 export default function CueSheetPage() {
   const eventId = useEventId();
+  const { lock } = useAuth();
   // Report finding #26 — a viewer can see the cue sheet but not touch it;
   // hiding the write affordances is a courtesy (the actual boundary is
   // server-side, in every mutating route's requireEventAccess(..., "editor")
@@ -437,6 +451,14 @@ export default function CueSheetPage() {
   // filtered view's neighbors aren't real neighbors.
   const partitionGroups = searchQuery || !filteredRows ? [] : groupByPartition(filteredRows, partitionLabels);
 
+  // Planning intelligence — only what's honestly derivable from data
+  // already on every row, not an invented readiness score. Total is the
+  // real sum a coordinator would otherwise add up by hand; the missing-
+  // duration count surfaces items that would silently print/export as a
+  // bare "—" without ever being flagged anywhere.
+  const totalDuration = (rows ?? []).reduce((sum, r) => sum + (r.duration > 0 ? r.duration : 0), 0);
+  const missingDurationCount = (rows ?? []).filter((r) => r.type !== "break" && !(r.duration > 0)).length;
+
   // Cmd/Ctrl+A selects the visible rows, Escape clears. Both competitors
   // ship these and the sheet feels markedly slower without them — at 244
   // items, reaching for a button to select a session's worth of rows is
@@ -468,77 +490,75 @@ export default function CueSheetPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [panel, filteredRows, bulkEditOpen, selected.size]);
 
+  // Low-frequency session/export actions, grouped into one trigger rather
+  // than kept at permanent equal weight with Session/Import/Add item in the
+  // sticky row below. This is also what keeps that row reliably one line
+  // at every breakpoint — see the row's own comment on why that matters.
+  const moreItems: OverflowMenuItem[] = [
+    {
+      label: "Export Excel",
+      icon: Download,
+      href: `/api/cue-sheet/export?eventId=${encodeURIComponent(eventId)}`,
+    },
+    {
+      label: "Export PDF",
+      icon: Printer,
+      href: `/e/${eventId}/operator/cue-sheet/print`,
+      target: "_blank",
+    },
+    ...(canEdit
+      ? [{ label: "New session", icon: CalendarPlus, onClick: () => setPanel("create-session") }]
+      : []),
+    ...(canEdit && activeSession
+      ? [
+          { label: "Edit session", icon: Pencil, onClick: () => setPanel({ editSession: activeSession }) },
+          {
+            label: "Delete session",
+            icon: Trash2,
+            tone: "danger" as const,
+            onClick: () => deleteSessionConfirm.request(activeSession),
+          },
+        ]
+      : []),
+  ];
+
   return (
     <main className="min-h-screen bg-background pb-28">
-      {/* Two-tier header. Tier one is identity and the two things you do to
-          the sheet as a whole; tier two is navigation — which session am I
-          editing — promoted out of the page body so it stays put while the
-          list scrolls. The session switcher is the most-used control here
-          and used to sit below the fold of a long sheet. */}
-      <header className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-line-soft">
-        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-2 sm:h-14 flex-wrap">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 min-w-0">
-            <EventIdentity />
-            <span aria-hidden="true" className="hidden sm:block h-5 w-px bg-line shrink-0" />
-            <EventNav />
-          </div>
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {/* Report finding #28 — no export path existed. Excel downloads
-                directly (same column layout the importer expects, so it can
-                be re-imported elsewhere); PDF opens a print-optimized page
-                and hands off to the browser's own Save-as-PDF rather than a
-                bundled PDF-generation dependency. Viewer-accessible — export
-                is a read, not a write. */}
-            <LinkButton
-              href={`/api/cue-sheet/export?eventId=${encodeURIComponent(eventId)}`}
-              download
-              variant="ghost"
-              size="sm"
-              aria-label="Export to Excel"
-            >
-              <Download className="h-4 w-4" strokeWidth={2} />
-              <span className="hidden md:inline">Export Excel</span>
-            </LinkButton>
-            <LinkButton
-              href={`/e/${eventId}/operator/cue-sheet/print`}
-              target="_blank"
-              rel="noopener noreferrer"
-              variant="ghost"
-              size="sm"
-              aria-label="Export to PDF"
-            >
-              <Printer className="h-4 w-4" strokeWidth={2} />
-              <span className="hidden md:inline">Export PDF</span>
-            </LinkButton>
-            {canEdit && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setPanel(panel === "upload" ? "none" : "upload")}
-              >
-                <Upload className="h-4 w-4" strokeWidth={2} />
-                <span className="hidden sm:inline">Import Excel</span>
-              </Button>
-            )}
-            {canEdit && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setPanel(panel === "create" ? "none" : "create")}
-                disabled={!activeSessionId}
-              >
-                <Plus className="h-4 w-4" strokeWidth={2} />
-                Add item
-              </Button>
-            )}
-          </div>
+      {/* Canonical page/session-context row — same shape as Console/
+          Displays/Broadcast Center's own headers (identity, title, nav,
+          Lock). Not sticky: unlike the command row below, nothing here is
+          needed while scrolling a long list, and keeping it out of the
+          sticky stack is what makes the sticky row's own height reliable
+          (see that row's comment). */}
+      <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5 flex-wrap">
+        <div className="min-w-0">
+          <EventIdentity />
+          <h1 className="text-console-lg text-primary mt-1.5">Cue Sheet</h1>
         </div>
+        <div className="flex items-center gap-4">
+          <EventNav />
+          <Button variant="ghost" size="sm" onClick={lock}>
+            Lock
+          </Button>
+        </div>
+      </header>
 
-        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 h-14 border-t border-line-soft">
+      {/* Session context + primary commands — the one sticky band on this
+          page (previously two independently-tall bands stacked, and a
+          partition header below relied on a hardcoded pixel offset that
+          assumed the *first* band's exact height; any wrap in that band's
+          four buttons silently broke the offset — a real, reproducible
+          layout bug, not a hypothetical one). Deliberately lean (Session,
+          Import, Add item — the three things worth having pinned while
+          scrolling 244 rows) so it never wraps, which is what makes a
+          single fixed `top-14` on the partition headers below correct at
+          every breakpoint instead of guessed. */}
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-line-soft">
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 h-14">
           {sessions.length === 0 ? (
-            <p className="text-console-sm text-muted-2">No sessions yet — add one to start building the cue sheet.</p>
+            <p className="text-console-sm text-muted-2 truncate">No sessions yet — add one to start building the cue sheet.</p>
           ) : (
-            <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex items-center gap-1 min-w-0">
               <Select
                 value={activeSessionId}
                 onChange={(id) => {
@@ -554,41 +574,36 @@ export default function CueSheetPage() {
                 }))}
                 placeholder="Select a session…"
                 aria-label="Session"
-                size="lg"
-                className="flex-1 min-w-0 sm:flex-none sm:w-[19rem]"
+                className="w-40 sm:w-64"
               />
-              {activeSession && (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Edit session"
-                    onClick={() => setPanel({ editSession: activeSession })}
-                  >
-                    <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
-                    <span className="hidden md:inline">Edit</span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Delete session"
-                    onClick={() => deleteSessionConfirm.request(activeSession)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                    <span className="hidden md:inline">Delete</span>
-                  </Button>
-                </>
-              )}
+              <OverflowMenu items={moreItems} iconOnly label="More session actions" />
             </div>
           )}
-          {canEdit && (
-            <Button variant="ghost" size="sm" onClick={() => setPanel("create-session")} className="shrink-0">
-              <CalendarPlus className="h-4 w-4" strokeWidth={2} />
-              <span className="hidden sm:inline">New session</span>
-            </Button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {canEdit && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setPanel(panel === "upload" ? "none" : "upload")}
+              >
+                <Upload className="h-4 w-4" strokeWidth={2} />
+                <span className="hidden sm:inline">Import</span>
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setPanel(panel === "create" ? "none" : "create")}
+                disabled={!activeSessionId}
+              >
+                <Plus className="h-4 w-4" strokeWidth={2} />
+                Add item
+              </Button>
+            )}
+          </div>
         </div>
-      </header>
+      </div>
 
       <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto flex flex-col gap-6">
 
@@ -620,6 +635,7 @@ export default function CueSheetPage() {
         {panel === "upload" && (
           <UploadPanel
             eventId={eventId}
+            sessions={sessions}
             onDone={() => {
               setPanel("none");
               toast.success("Cue sheet imported");
@@ -688,11 +704,17 @@ export default function CueSheetPage() {
         {panel === "none" && (
           <div>
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-baseline gap-2.5 min-w-0">
+              <div className="flex items-baseline gap-2.5 min-w-0 flex-wrap">
                 <h2 className="text-console-md text-primary">Items</h2>
                 {rows && rows.length > 0 && (
                   <span className="tnum text-console-meta text-muted-2">
                     {filteredRows?.length ?? 0} of {rows.length}
+                    {totalDuration > 0 && ` · ${formatDurationMinutes(totalDuration)} planned`}
+                  </span>
+                )}
+                {missingDurationCount > 0 && (
+                  <span className="text-console-meta text-status-orange">
+                    {missingDurationCount} missing duration
                   </span>
                 )}
               </div>
@@ -861,8 +883,11 @@ export default function CueSheetPage() {
                       // Sticky so you always know which section you're
                       // inside while scrolling a forty-row run — the old
                       // header scrolled away and partitions became
-                      // indistinguishable from each other mid-list.
-                      <div className="sticky top-28 z-10 flex items-center gap-2.5 bg-background/95 backdrop-blur-sm px-3 py-2 mt-6 first:mt-0 border-b border-line">
+                      // indistinguishable from each other mid-list. top-14
+                      // matches the sticky command row's own fixed h-14
+                      // exactly — reliable now that that row can no longer
+                      // wrap to a second line (see its own comment).
+                      <div className="sticky top-14 z-10 flex items-center gap-2.5 bg-background/95 backdrop-blur-sm px-3 py-2 mt-6 first:mt-0 border-b border-line">
                         <h3 className="text-console-label text-muted truncate">{group.label}</h3>
                         <span className="tnum text-console-label text-muted-2 shrink-0">
                           {group.rows.length}
@@ -1051,9 +1076,11 @@ function ProgramRowView({
       )}
     >
       {dragHandle}
-      <input
-        type="checkbox"
+      <Checkbox
         checked={selected}
+        hideLabel
+        label={`Select ${row.name}`}
+        className="shrink-0"
         // Letting the native toggle run and reading it back in onChange
         // (rather than preventDefault-ing the click and computing the next
         // state ourselves) avoids a real React quirk: calling
@@ -1066,11 +1093,9 @@ function ProgramRowView({
         onClick={(e) => {
           shiftKeyRef.current = e.shiftKey;
         }}
-        onChange={(e) => {
-          onToggleSelect(e.target.checked, shiftKeyRef.current);
+        onChange={(checked) => {
+          onToggleSelect(checked, shiftKeyRef.current);
         }}
-        aria-label={`Select ${row.name}`}
-        className="h-4 w-4 rounded-control border-line bg-background accent-accent cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       />
 
       <span role="cell" className="tnum hidden sm:block text-console-meta text-muted-2 text-right">{row.sort_order}</span>
@@ -1082,6 +1107,13 @@ function ProgramRowView({
               height for information that only needs to be glanceable. The
               accessible name carries the word, so it is never colour-only. */}
           {row.color_tag && (
+            // Native title, deliberately not the canonical Tooltip — Tooltip
+            // makes its child a real focus stop (aria-describedby + onFocus/
+            // onBlur), and at up to 244 rows that's 244 extra Tab stops for
+            // a screen-reader user who already gets this exact word from the
+            // sr-only span below without needing to focus anything. Kept as
+            // a mouse-only hint on the one row element dense-list keyboard
+            // efficiency outweighs it for.
             <span
               className={cn(
                 "h-2 w-2 rounded-full shrink-0",
@@ -1130,23 +1162,38 @@ function ProgramRowView({
           a live rundown (2026-09-01 UI/UX audit finding #11). Rows are
           already taller than 44px here (name + presenter subline), so this
           costs no extra row height. */}
+      {/* Not the canonical Button component — 44x44 is a deliberate,
+          already-fixed accessibility minimum (2026-09-01 UI/UX audit
+          finding #11, up from 32x32) that doesn't match any of Button's own
+          square sizes (36/56/80px), and neither shrinking nor inflating a
+          row action on a 244-row list is worth trading for componentizing
+          it. Tooltip is still the canonical one — these are already real
+          focusable buttons regardless (unlike the color dot above), so
+          pairing them with a visible hover/focus label costs no extra Tab
+          stop, just closes the "aria-label with no visible hint for a
+          sighted mouse user" gap DESIGN.md's component table calls out for
+          icon-only controls. */}
       <div role="cell" aria-label="Actions" className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-[110ms]">
-        <button
-          type="button"
-          aria-label={`Edit ${row.name}`}
-          onClick={onEdit}
-          className="grid h-11 w-11 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-raised hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
-        </button>
-        <button
-          type="button"
-          aria-label={`Delete ${row.name}`}
-          onClick={onDelete}
-          className="grid h-11 w-11 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-status-red/12 hover:text-status-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-        </button>
+        <Tooltip content={`Edit ${row.name}`}>
+          <button
+            type="button"
+            aria-label={`Edit ${row.name}`}
+            onClick={onEdit}
+            className="grid h-11 w-11 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-raised hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+        </Tooltip>
+        <Tooltip content={`Delete ${row.name}`}>
+          <button
+            type="button"
+            aria-label={`Delete ${row.name}`}
+            onClick={onDelete}
+            className="grid h-11 w-11 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-status-red/12 hover:text-status-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );
@@ -1388,7 +1435,17 @@ function BulkEditPanel({
   );
 }
 
-function UploadPanel({ eventId, onDone, onCancel }: { eventId: string; onDone: () => void; onCancel: () => void }) {
+function UploadPanel({
+  eventId,
+  sessions,
+  onDone,
+  onCancel,
+}: {
+  eventId: string;
+  sessions: Session[];
+  onDone: () => void;
+  onCancel: () => void;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<{ sessions: ParsedSession[]; programs: ParsedProgram[]; errors: { index: number; name: string; errors: string[] }[] } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1434,8 +1491,23 @@ function UploadPanel({ eventId, onDone, onCancel }: { eventId: string; onDone: (
     }
   }
 
+  // Import is a wholesale replace, not a merge — /api/cue-sheet/upload's
+  // own comment confirms it ("replaces each affected session's programs
+  // wholesale") and session ids are a deterministic slug of day+session
+  // label (lib/parse-cuesheet.ts, matching session-form.tsx's own id
+  // scheme), so a parsed session whose label matches one that already
+  // exists *will* land on that same id and silently delete its current
+  // items. The preview never said so — this makes the real consequence
+  // visible before Confirm rather than after.
+  const existingIds = new Set(sessions.map((s) => s.id));
+  const sessionVerdicts = preview?.sessions.map((s) => ({
+    session: s,
+    replaces: existingIds.has(s.id),
+    itemCount: preview.programs.filter((p) => p.session_id === s.id).length,
+  }));
+
   return (
-    <div className="rounded-card bg-card p-6 flex flex-col gap-4">
+    <Panel className="p-6 flex flex-col gap-4">
       <SectionLabel>Import Excel</SectionLabel>
       {/* Report finding #8 — no downloadable template or example existed
           anywhere, so a first-time import meant guessing the expected
@@ -1460,7 +1532,7 @@ function UploadPanel({ eventId, onDone, onCancel }: { eventId: string; onDone: (
         className="text-console-sm text-muted file:mr-4 file:h-9 file:px-4 file:rounded-control file:border-0 file:bg-primary file:text-background file:font-medium file:cursor-pointer cursor-pointer"
       />
 
-      {error && <p className="text-caption text-status-red">{error}</p>}
+      {error && <p className="text-console-meta text-status-red">{error}</p>}
 
       {!preview && (
         <div className="flex items-center gap-3">
@@ -1475,14 +1547,36 @@ function UploadPanel({ eventId, onDone, onCancel }: { eventId: string; onDone: (
 
       {preview && (
         <div className="flex flex-col gap-4">
-          <p className="text-body text-muted">
+          <p className="text-console-sm text-muted">
             Parsed {preview.sessions.length} sessions, {preview.programs.length} items.
             {preview.errors.length > 0 && (
               <span className="text-status-red"> {preview.errors.length} rows have validation errors.</span>
             )}
           </p>
+
+          {/* Import replaces, it never merges — a session whose day/session
+              label matches one that already exists lands on that session's
+              real id and its current items are deleted and replaced by
+              what's parsed here. Previously unstated; this is the real
+              consequence, not a hedge. */}
+          {sessionVerdicts && sessionVerdicts.some((v) => v.replaces) && (
+            <div className="rounded-panel border border-status-orange/30 bg-status-orange/10 px-4 py-3 flex flex-col gap-1.5">
+              <p className="text-console-sm text-status-orange font-medium">This replaces existing sessions</p>
+              <ul className="text-console-meta text-status-orange flex flex-col gap-0.5">
+                {sessionVerdicts
+                  .filter((v) => v.replaces)
+                  .map((v) => (
+                    <li key={v.session.id}>
+                      &ldquo;{v.session.day_label} • {v.session.session_label}&rdquo; — its current items are deleted
+                      and replaced with {v.itemCount} from this file.
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+
           {preview.errors.length > 0 && (
-            <ul className="text-caption text-status-red flex flex-col gap-1 max-h-40 overflow-y-auto">
+            <ul className="text-console-meta text-status-red flex flex-col gap-1 max-h-40 overflow-y-auto">
               {preview.errors.map((e) => (
                 <li key={e.index}>
                   Row {e.index + 1} ({e.name || "untitled"}): {e.errors.join(", ")}
@@ -1541,6 +1635,6 @@ function UploadPanel({ eventId, onDone, onCancel }: { eventId: string; onDone: (
           </div>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

@@ -18,6 +18,7 @@ import { SectionLabel } from "@/components/ui/section-label";
 import { Card, Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FormField } from "@/components/ui/form-field";
 import { Tooltip } from "@/components/ui/tooltip";
 import { PageHeader } from "@/components/ui/page-header";
 import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
@@ -272,6 +273,19 @@ export default function ComponentCatalogPage() {
         <Checkbox checked={checkboxValue} onChange={setCheckboxValue} label="Require acknowledgement" />
         <Checkbox checked={true} onChange={() => {}} label="Checked" />
         <Checkbox checked={false} onChange={() => {}} label="Disabled" disabled />
+        <Checkbox checked={true} onChange={() => {}} label="Hidden label (dense row selection)" hideLabel />
+      </Row>
+
+      <Row
+        title="FormField wrapper"
+        description="Label + control + optional error — Broadcast Center and the Add/Edit Item form each independently built this before this existed. The one implementation now."
+      >
+        <FormField label="Title" className="w-56">
+          <Input placeholder="Broadcast title" />
+        </FormField>
+        <FormField label="Title" error="Title is required" className="w-56">
+          <Input placeholder="Broadcast title" aria-invalid />
+        </FormField>
       </Row>
 
       <Row title="Typography — Console scale" description="13-22px, dense, scanned not read. Never mixed with Stage tokens on this surface family (see DESIGN.md's Console-vs-Stage guardrail).">
