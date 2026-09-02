@@ -1158,7 +1158,13 @@ function ProgramRowView({
             {row.sort_order}
             {" · "}
             {row.start_time ?? "—"}
-            {row.duration > 0 ? ` · ${row.duration}m` : ""}
+            {row.duration > 0 ? (
+              ` · ${row.duration}m`
+            ) : row.type === "break" ? (
+              ""
+            ) : (
+              <span className="text-status-orange font-medium"> · Missing duration</span>
+            )}
           </span>
           {row.presenter && <span className="sm:hidden">{" · "}</span>}
           {row.presenter}
@@ -1168,8 +1174,23 @@ function ProgramRowView({
       <span role="cell" aria-label="Start" className="tnum hidden sm:block text-console-meta text-muted text-right">
         {row.start_time ?? "—"}
       </span>
-      <span role="cell" aria-label="Duration" className="tnum hidden sm:block text-console-meta text-muted-2 text-right">
-        {row.duration > 0 ? `${row.duration}m` : "—"}
+      {/* Orange, not just muted "—", when a real timed item (not a
+          deliberately duration-less break) is missing one — this used to
+          be visible only as an aggregate count in the header ("N missing
+          duration"), with no way to tell *which* row without scanning the
+          whole list by eye. A blank duration means this item can't
+          contribute to schedule math, drift, or the live countdown once
+          it goes live — an error worth flagging where the operator is
+          already looking, not just tallying (error prevention). */}
+      <span
+        role="cell"
+        aria-label="Duration"
+        className={cn(
+          "tnum hidden sm:block text-console-meta text-right",
+          row.duration > 0 ? "text-muted-2" : row.type === "break" ? "text-muted-2" : "text-status-orange font-medium"
+        )}
+      >
+        {row.duration > 0 ? `${row.duration}m` : row.type === "break" ? "—" : "Missing"}
       </span>
 
       {/* Row actions stay dim until the row is hovered or focused within,
