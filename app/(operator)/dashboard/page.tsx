@@ -82,7 +82,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-background px-6 py-10 sm:px-10">
-      <div className="max-w-5xl mx-auto flex flex-col gap-8">
+      <div className="max-w-7xl mx-auto flex flex-col gap-8">
         <PageHeader
           eyebrow="Operator Dashboard"
           title="Your Events"
