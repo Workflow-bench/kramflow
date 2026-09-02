@@ -41,18 +41,22 @@ export function ControlLeaseStatus({
 }) {
   if (role !== "owner") {
     return (
-      <span className={cn("flex items-center gap-1.5 text-muted-2", className)}>
-        <Lock className="h-3 w-3" strokeWidth={2} />
+      <span className={cn("flex items-center gap-1.5 text-console-sm text-muted-2", className)}>
+        <Lock className="h-3.5 w-3.5" strokeWidth={2} />
         You have {role} access — only the event owner can run the live show
       </span>
     );
   }
 
   if (iHaveControl) {
+    // Routine — the calm default while operating alone — stays plain text,
+    // not a colored chip, so the exceptional "someone else has control"
+    // state below keeps its power (Von Restorff: only one of these states
+    // should visually shout).
     return (
-      <span className={cn("flex items-center gap-2", className)}>
+      <span className={cn("flex items-center gap-2 text-console-sm", className)}>
         <span className="flex items-center gap-1.5 text-status-green">
-          <Lock className="h-3 w-3" strokeWidth={2} />
+          <Lock className="h-3.5 w-3.5" strokeWidth={2} />
           You have control
         </span>
         <button
@@ -68,20 +72,32 @@ export function ControlLeaseStatus({
   }
 
   if (lockedByOther) {
+    // The one state on this screen where Next/Previous/Hold will actually
+    // fail if pressed — a filled, bordered chip (not just tinted text) so
+    // it reads as an alert-level fact the operator has to register before
+    // reaching for the buttons directly below it, matching the same
+    // "locked by other" question the redesign brief names as a ~1-second
+    // must-answer ("WHO HAS CONTROL?"). Every other state here stays plain
+    // text on purpose — this is the one that should visually stand apart.
     return (
-      <span className={cn("flex items-center gap-2", className)}>
-        <span className="flex items-center gap-1.5 text-status-orange">
-          <Lock className="h-3 w-3" strokeWidth={2} />
+      <div
+        className={cn(
+          "flex items-center gap-2 flex-wrap rounded-control border border-status-orange/30 bg-status-orange/10 px-3 py-2",
+          className
+        )}
+      >
+        <span className="flex items-center gap-1.5 text-console-sm font-medium text-status-orange">
+          <Lock className="h-3.5 w-3.5" strokeWidth={2} />
           {controllerName ? `${controllerName} has control` : "Locked by another operator"}
         </span>
         <button
           type="button"
           onClick={onTakeOver}
-          className="text-status-orange hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+          className="text-console-sm text-status-orange hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded ml-auto"
         >
           Take Over
         </button>
-      </span>
+      </div>
     );
   }
 
@@ -91,13 +107,13 @@ export function ControlLeaseStatus({
       disabled={busy}
       onClick={onTakeControl}
       className={cn(
-        "flex items-center gap-1.5 text-muted-2 hover:text-primary cursor-pointer",
+        "flex items-center gap-1.5 text-console-sm text-muted-2 hover:text-primary cursor-pointer",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded",
         "disabled:opacity-50 disabled:cursor-not-allowed",
         className
       )}
     >
-      <Unlock className="h-3 w-3" strokeWidth={2} />
+      <Unlock className="h-3.5 w-3.5" strokeWidth={2} />
       {busy ? "Taking control…" : "Take Control"}
     </button>
   );

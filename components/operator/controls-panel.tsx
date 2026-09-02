@@ -185,7 +185,7 @@ export function ControlsPanel({
             this existed. QA_REPORT_ROUND2.md R2-BUG-1: this exists because
             two /operator tabs could otherwise drive the same show with a
             plain Next silently clearing another tab's just-set Hold. */}
-        <div className="mt-2 text-console-meta">
+        <div className="mt-2">
           <ControlLeaseStatus
             role={role}
             iHaveControl={iHaveControl}
