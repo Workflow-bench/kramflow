@@ -62,14 +62,14 @@ export default function OperatorPage() {
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
             <EventIdentity />
-            <div className="flex items-center gap-2.5 mt-1.5 min-w-0">
-              <h1 className="text-title text-primary truncate">
+            <div className="flex items-center flex-wrap gap-2.5 mt-1.5 min-w-0">
+              <h1 className="text-title text-primary shrink-0">
                 <span className="sm:hidden">Console</span>
                 <span className="hidden sm:inline">Operator Console</span>
               </h1>
               {operatorCount > 1 && (
                 <span
-                  className="flex items-center gap-1.5 text-caption font-semibold uppercase tracking-wide text-status-orange bg-status-orange/15 px-2.5 py-1 rounded-full"
+                  className="flex items-center gap-1.5 text-caption font-semibold uppercase tracking-wide text-status-orange bg-status-orange/15 px-2.5 py-1 rounded-full shrink-0"
                   title={`Connected: ${operators.map((o) => o.name).join(", ")}`}
                 >
                   <Users className="h-3.5 w-3.5" strokeWidth={2} />
