@@ -37,6 +37,15 @@ export default function OperatorPage() {
   // OperatorGrid below for why this needs to be a real DOM reorder rather
   // than a CSS-only one.
   const isDesktopLayout = useMediaQuery("(min-width: 1280px)");
+  // A real 2-column master-detail at tablet width (1024-1279px), not a
+  // third stop on the same desktop/mobile spectrum — the 2026-09-01
+  // design-system audit's #1 ranked finding: the earlier mobile fix below
+  // (Live Now + Controls rendering before the rundown) solved "controls
+  // buried under a 40-row list" but at 1024px just inverted it into
+  // "rundown buried under Live/Controls/Jump/Alert/Broadcast/Activity."
+  // Neither strict order works in one column; 1024px has room for both to
+  // be on screen at once, so this stops being a stacking-order tradeoff.
+  const isTabletLayout = useMediaQuery("(min-width: 1024px)") && !isDesktopLayout;
 
   // A different connection just took an action — the same shape as the
   // "someone else is editing" toast in collaborative editors. Doesn't
@@ -149,6 +158,7 @@ export default function OperatorPage() {
           progress={progress}
           broadcastAction={broadcastAction}
           isDesktopLayout={isDesktopLayout}
+          isTabletLayout={isTabletLayout}
         />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4 sm:px-6 xl:px-12 py-16">
@@ -193,11 +203,13 @@ function OperatorGrid({
   progress,
   broadcastAction,
   isDesktopLayout,
+  isTabletLayout,
 }: {
   session: Session;
   progress: SessionProgress | undefined;
   broadcastAction: (message: string) => void;
   isDesktopLayout: boolean;
+  isTabletLayout: boolean;
 }) {
   const program = (
     <div className="min-w-0 xl:min-h-0 xl:overflow-y-auto px-4 sm:px-6 xl:px-12 py-6 xl:py-8">
@@ -254,6 +266,28 @@ function OperatorGrid({
             would have just experienced a dead button). */}
         <div className="xl:min-h-0 xl:flex xl:flex-col border-l border-white/5">{liveDetails}</div>
         <div className="xl:min-h-0 xl:flex xl:flex-col border-l border-white/5">{controls}</div>
+      </div>
+    );
+  }
+
+  if (isTabletLayout) {
+    // Master-detail, not a stacking-order compromise: Program stays
+    // visible in its own column the whole time an operator is on this
+    // page, at the one width where that's actually possible without
+    // shrinking either side below usable. Ordinary page-level scroll
+    // (no fixed-height/overflow-y-auto column like the xl: grid above) —
+    // deliberately not reusing that grid-rows-[1fr] pattern here: this
+    // width doesn't need independent-scroll panels to solve the audit's
+    // actual complaint, and that pattern has already caused one real
+    // layout bug and one real click-blocking bug on the desktop grid this
+    // session. Simpler and safer wins when it solves the same problem.
+    return (
+      <div className="flex-1 grid grid-cols-[1fr_380px]">
+        {program}
+        <div className="border-l border-white/5 flex flex-col">
+          <div className="border-b border-white/5">{liveDetails}</div>
+          {controls}
+        </div>
       </div>
     );
   }
