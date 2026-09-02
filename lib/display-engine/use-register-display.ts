@@ -6,10 +6,22 @@ import { useTimeSync } from "./use-time-sync";
 import type { DisplayCommand, DisplayInstance, DisplayType } from "./types";
 
 const HEARTBEAT_INTERVAL_MS = 15000;
+// One missed heartbeat (plus a little slack) reads as "stale" rather than
+// jumping straight from healthy to offline — the same "degrading before
+// declared dead" shape as ConnectionBadge's own STALE_AFTER_MS, just tuned
+// to this system's slower 15s cadence instead of Realtime's. Three missed
+// heartbeats (unchanged from the original single threshold) still means
+// offline — this doesn't move that line, just adds a warning before it.
+const STALE_AFTER_MS = 20000;
 export const OFFLINE_AFTER_MS = 45000;
 
-export function getDisplayStatus(display: DisplayInstance, nowMs: number): "online" | "offline" {
-  return nowMs - Date.parse(display.lastSeenAt) > OFFLINE_AFTER_MS ? "offline" : "online";
+export type DisplayHealth = "online" | "stale" | "offline";
+
+export function getDisplayStatus(display: DisplayInstance, nowMs: number): DisplayHealth {
+  const age = nowMs - Date.parse(display.lastSeenAt);
+  if (age > OFFLINE_AFTER_MS) return "offline";
+  if (age > STALE_AFTER_MS) return "stale";
+  return "online";
 }
 
 /**
@@ -30,9 +42,27 @@ export function useRegisterDisplay(
 
   const onCommandRef = useRef(onCommand);
   const latencyRef = useRef(latencyMs);
+  // useDisplayEngine() returns a fresh object — including fresh
+  // registerDisplay/heartbeatDisplay/resync closures — on every render, not
+  // just when identity actually changes. The registration effect below used
+  // to depend on those closures directly, which on a page that re-renders
+  // for any reason (a ticking clock, another display's heartbeat updating
+  // shared state, ...) re-ran registerDisplay() continuously: confirmed
+  // live at ~4 calls/second, permanently re-asserting this display's
+  // original name and silently reverting any rename made from Display
+  // Manager while the display stayed open. Routing the mutators through
+  // refs (the same pattern already used for onCommand/latencyMs just below)
+  // lets the effect call whatever the latest closure is without needing it
+  // in the dependency array.
+  const registerDisplayRef = useRef(registerDisplay);
+  const heartbeatDisplayRef = useRef(heartbeatDisplay);
+  const resyncRef = useRef(resync);
   useEffect(() => {
     onCommandRef.current = onCommand;
     latencyRef.current = latencyMs;
+    registerDisplayRef.current = registerDisplay;
+    heartbeatDisplayRef.current = heartbeatDisplay;
+    resyncRef.current = resync;
   });
 
   // clearCommand() is a round trip (writes, then Realtime echoes the change
@@ -50,13 +80,13 @@ export function useRegisterDisplay(
   const handledIssuedAtRef = useRef<string | null>(null);
 
   useEffect(() => {
-    registerDisplay({ id: clientId, name, type, room });
-    resync();
+    registerDisplayRef.current({ id: clientId, name, type, room });
+    resyncRef.current();
     const interval = setInterval(() => {
-      heartbeatDisplay(clientId, latencyRef.current);
+      heartbeatDisplayRef.current(clientId, latencyRef.current);
     }, HEARTBEAT_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [clientId, name, type, room, registerDisplay, heartbeatDisplay, resync]);
+  }, [clientId, name, type, room]);
 
   useEffect(() => {
     const command = state.registry[clientId]?.pendingCommand;

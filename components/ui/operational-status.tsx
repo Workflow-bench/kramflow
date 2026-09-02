@@ -16,12 +16,18 @@ import { cn } from "@/lib/utils";
 // product's own precedent, e.g. ConnectionBadge's "reconnecting" state):
 //   show state  (live/hold/ready)      — a bare dot. An audience-relevant fact.
 //   system/mode (rehearsal/stale/...)  — dot + icon. An operator-relevant fact.
-export type OperationalStatusKind = "live" | "hold" | "ready" | "rehearsal" | "stale" | "offline" | "warning" | "critical";
+export type OperationalStatusKind = "live" | "hold" | "ready" | "online" | "rehearsal" | "stale" | "offline" | "warning" | "critical";
 
 const CONFIG: Record<OperationalStatusKind, { label: string; tone: "green" | "orange" | "red"; Icon: typeof Circle | null }> = {
   live: { label: "Live", tone: "green", Icon: null },
   hold: { label: "Hold", tone: "orange", Icon: Pause },
   ready: { label: "Ready", tone: "green", Icon: null },
+  // A device/connection's own healthy state (e.g. a registered display
+  // that's heartbeating normally) — distinct from "ready" (an event/session
+  // is prepared to go live). Same calm bare-dot treatment as live/ready:
+  // the default expected state shouldn't compete for attention with the
+  // things that actually need it.
+  online: { label: "Online", tone: "green", Icon: null },
   rehearsal: { label: "Rehearsal", tone: "orange", Icon: FlaskConical },
   stale: { label: "Stale", tone: "orange", Icon: Clock },
   offline: { label: "Offline", tone: "red", Icon: WifiOff },

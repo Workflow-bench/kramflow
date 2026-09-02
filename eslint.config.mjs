@@ -18,17 +18,23 @@ import nextTs from "eslint-config-next/typescript";
 // Stage-scale type by design (arm's-length, one-handed, not desk-scanned)
 // — see DESIGN.md's explicit exception. Stage/display routes themselves
 // are excluded because Stage tokens are exactly correct there.
+// `*` stands in for the literal `[eventId]` route-group directory name
+// below, not a real wildcard segment — `[...]` is glob character-class
+// syntax, so a pattern with the literal brackets (as this array shipped
+// originally) never matches the actual on-disk path and silently
+// enforces nothing. Confirmed empirically: every app/e/[eventId]/** entry
+// was a no-op, which is how the Displays page's Stage-token leaks
+// (text-title/text-subtitle/text-body) shipped in the first place.
 const CONSOLE_SURFACE_GLOBS = [
   "app/(operator)/**/*.{ts,tsx}",
-  "app/e/[eventId]/operator/**/*.{ts,tsx}",
-  "app/e/[eventId]/broadcast/**/*.{ts,tsx}",
-  "app/e/[eventId]/displays/**/*.{ts,tsx}",
-  "app/e/[eventId]/settings/**/*.{ts,tsx}",
-  "app/e/[eventId]/rehearsal/**/*.{ts,tsx}",
+  "app/e/*/operator/**/*.{ts,tsx}",
+  "app/e/*/broadcast/**/*.{ts,tsx}",
+  "app/e/*/displays/**/*.{ts,tsx}",
+  "app/e/*/settings/**/*.{ts,tsx}",
+  "app/e/*/rehearsal/**/*.{ts,tsx}",
   "app/login/**/*.{ts,tsx}",
   "app/signup/**/*.{ts,tsx}",
   "app/invite/**/*.{ts,tsx}",
-  "app/dashboard/**/*.{ts,tsx}",
   "components/operator/**/*.{ts,tsx}",
   "components/dashboard/**/*.{ts,tsx}",
   "components/forms/**/*.{ts,tsx}",

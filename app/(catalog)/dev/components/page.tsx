@@ -50,7 +50,7 @@ function Swatch({ label, children }: { label: string; children: React.ReactNode 
   );
 }
 
-const ALL_STATUS_KINDS: OperationalStatusKind[] = ["live", "hold", "ready", "rehearsal", "stale", "offline", "warning", "critical"];
+const ALL_STATUS_KINDS: OperationalStatusKind[] = ["live", "hold", "ready", "online", "rehearsal", "stale", "offline", "warning", "critical"];
 const ALL_CONNECTION_STATES: ConnectionBadgeStatus[] = ["connected", "reconnecting", "disconnected"];
 
 export default function ComponentCatalogPage() {

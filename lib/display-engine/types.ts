@@ -21,7 +21,7 @@ export type DisplayType =
   | "general"
   | "custom";
 
-export type DisplayStatus = "online" | "offline";
+export type DisplayStatus = "online" | "stale" | "offline";
 
 export interface DisplayInstance {
   id: string;
