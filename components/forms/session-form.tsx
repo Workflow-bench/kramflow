@@ -68,10 +68,10 @@ export function SessionForm({ eventId, session, nextSortOrder, onSaved, onCancel
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-card bg-card p-6 flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="rounded-panel bg-card p-6 flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="text-caption text-muted-2">Day</label>
+          <label className="text-console-meta text-muted-2">Day</label>
           <Input
             className="mt-1.5"
             value={dayLabel}
@@ -81,7 +81,7 @@ export function SessionForm({ eventId, session, nextSortOrder, onSaved, onCancel
           />
         </div>
         <div>
-          <label className="text-caption text-muted-2">Session</label>
+          <label className="text-console-meta text-muted-2">Session</label>
           <Input
             className="mt-1.5"
             value={sessionLabel}
@@ -91,20 +91,20 @@ export function SessionForm({ eventId, session, nextSortOrder, onSaved, onCancel
         </div>
       </div>
       <div>
-        <label className="text-caption text-muted-2">Display title (optional)</label>
+        <label className="text-console-meta text-muted-2">Display title (optional)</label>
         <Input
           className="mt-1.5"
           value={eventName}
           onChange={(e) => setEventName(e.target.value)}
           placeholder="e.g. Evening Gala"
         />
-        <p className="text-caption text-muted-2 mt-1">
+        <p className="text-console-meta text-muted-2 mt-1">
           Shown as the headline on the General audience display while this session is live. Leave blank to show
           nothing.
         </p>
       </div>
 
-      {error && <p className="text-caption text-status-red">{error}</p>}
+      {error && <p className="text-console-meta text-status-red">{error}</p>}
 
       <div className="flex items-center gap-3">
         <Button type="submit" variant="primary" loading={saving}>

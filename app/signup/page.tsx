@@ -66,8 +66,8 @@ function SignupForm() {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
         <div className="flex flex-col items-center w-full max-w-sm text-center">
-          <h1 className="text-title text-primary">Check your email</h1>
-          <p className="text-body text-muted mt-3">
+          <h1 className="text-console-lg text-primary">Check your email</h1>
+          <p className="text-console-sm text-muted mt-3">
             We sent a confirmation link to <span className="text-primary">{email}</span>. Click it to activate your
             account, then come back and log in.
           </p>
@@ -82,10 +82,10 @@ function SignupForm() {
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
       <div className="flex flex-col items-center w-full max-w-sm">
-        <Link href="/" className="text-title text-primary hover:opacity-80 transition-opacity">
+        <Link href="/" className="text-console-lg text-primary hover:opacity-80 transition-opacity">
           KramFlow
         </Link>
-        <p className="text-body text-muted mt-2">Create your operator account</p>
+        <p className="text-console-sm text-muted mt-2">Create your operator account</p>
 
         <form onSubmit={handleSubmit} className="w-full mt-10 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">

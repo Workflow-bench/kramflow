@@ -96,10 +96,10 @@ function LoginForm() {
             landed here by accident or a stray bookmark — there was
             previously no way back to the public site short of editing the
             URL (2026-09-01 UI/UX audit finding #17). */}
-        <Link href="/" className="text-title text-primary hover:opacity-80 transition-opacity">
+        <Link href="/" className="text-console-lg text-primary hover:opacity-80 transition-opacity">
           KramFlow
         </Link>
-        <p className="text-body text-muted mt-2">Log in to your account</p>
+        <p className="text-console-sm text-muted mt-2">Log in to your account</p>
 
         <form onSubmit={handleSubmit} className="w-full mt-10 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
