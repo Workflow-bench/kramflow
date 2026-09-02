@@ -239,10 +239,10 @@ function OperatorGrid({
 
   if (isDesktopLayout) {
     return (
-      <div className="flex-1 xl:min-h-0 grid grid-cols-1 xl:grid-cols-[1fr_340px_280px] 2xl:grid-cols-[1fr_400px_320px]">
+      <div className="flex-1 xl:min-h-0 grid grid-cols-1 xl:grid-cols-[1fr_340px_280px] 2xl:grid-cols-[1fr_400px_320px] xl:grid-rows-[1fr]">
         {program}
-        <div className="border-l border-white/5">{liveDetails}</div>
-        <div className="border-l border-white/5">{controls}</div>
+        <div className="xl:min-h-0 border-l border-white/5">{liveDetails}</div>
+        <div className="xl:min-h-0 border-l border-white/5">{controls}</div>
       </div>
     );
   }
