@@ -29,6 +29,7 @@ interface SelectProps {
    *  app/presenter/presenter-display-client.tsx) still shouldn't be
    *  keyboard-focusable while invisible. */
   tabIndex?: number;
+  disabled?: boolean;
 }
 
 // A single accessible combobox — no Select/Combobox primitive existed in
@@ -43,6 +44,7 @@ export function Select({
   size = "md",
   className,
   tabIndex,
+  disabled = false,
   ...aria
 }: SelectProps) {
   const [open, setOpen] = useState(false);
@@ -90,6 +92,7 @@ export function Select({
   }, [open]);
 
   function handleToggle() {
+    if (disabled) return;
     if (open) {
       setOpen(false);
       return;
@@ -110,6 +113,7 @@ export function Select({
         type="button"
         onClick={handleToggle}
         tabIndex={tabIndex}
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={aria["aria-label"]}
@@ -118,6 +122,7 @@ export function Select({
           "transition-[background-color,border-color] duration-[110ms] ease-out",
           "hover:bg-card-hover hover:border-white/20",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-raised disabled:hover:border-line",
           open && "border-accent",
           size === "md" && "h-9 px-3 text-console-sm",
           size === "lg" && "h-11 px-3.5 text-console-md"

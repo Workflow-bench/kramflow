@@ -3,9 +3,12 @@
 import { useMemo, useRef, useState } from "react";
 import { AlertTriangle, Copy, Send, Star, Trash2, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-context";
+import { useEventRole } from "@/lib/event-context";
 import { EventNav } from "@/components/operator/event-nav";
 import { EventIdentity } from "@/components/operator/event-identity";
-import { useDisplayEngine } from "@/lib/display-engine/store";
+import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
+import { getDisplayStatus, type DisplayHealth } from "@/lib/display-engine/use-register-display";
+import type { TransportStatus } from "@/lib/display-engine/transport";
 import {
   EMERGENCY_PRESETS,
   type BroadcastDraft,
@@ -13,24 +16,22 @@ import {
   type BroadcastType,
   type DisplayType,
 } from "@/lib/display-engine/types";
+import { BROADCAST_TYPE_META, BROADCAST_TYPE_OPTIONS } from "@/lib/display-engine/broadcast-style";
+import { TargetHealthSummary } from "@/components/display-engine/target-health-summary";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Panel } from "@/components/ui/card";
 import { SectionLabel } from "@/components/ui/section-label";
+import { Tooltip } from "@/components/ui/tooltip";
+import { ConnectionBadge, type ConnectionBadgeStatus } from "@/components/ui/connection-badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-
-const BROADCAST_TYPES: { value: BroadcastType; label: string }[] = [
-  { value: "info", label: "Information" },
-  { value: "reminder", label: "Reminder" },
-  { value: "warning", label: "Warning" },
-  { value: "success", label: "Success" },
-  { value: "custom", label: "Custom" },
-  { value: "emergency", label: "Emergency" },
-];
 
 // The 4 canonical display types — see app/page.tsx.
 const DISPLAY_TYPES: { value: DisplayType; label: string }[] = [
@@ -77,6 +78,15 @@ function minScheduleValue(): string {
   return local.toISOString().slice(0, 16);
 }
 
+// Same mapping Displays uses for its own header — the Display Engine's
+// realtime transport is a different signal from any one display's
+// heartbeat health, but gets the same three-word vocabulary either way.
+function toConnectionStatus(status: TransportStatus): ConnectionBadgeStatus {
+  if (status === "open") return "connected";
+  if (status === "connecting") return "reconnecting";
+  return "disconnected";
+}
+
 type Tab = "history" | "scheduled" | "templates" | "drafts";
 type DestructiveAction =
   | { kind: "clear-emergencies" }
@@ -84,9 +94,19 @@ type DestructiveAction =
   | { kind: "delete-template"; id: string; name: string }
   | { kind: "delete-draft"; index: number; title: string };
 
+const PERMISSION_NOTE = "Only the event owner can send broadcasts.";
+
 export default function BroadcastCenterPage() {
   const { lock } = useAuth();
   const toast = useToast();
+  const transportStatus = useTransportStatus();
+  // Broadcasts are owner-gated server-side (requireEventAccess(eventId,
+  // "owner") in api/display-engine/broadcasts/route.ts) — an editor filling
+  // out the whole composer would otherwise only discover that on Send's
+  // 403. Draft/template save (local-only, no server call) stay available
+  // to everyone; only the actions that actually hit that route are gated
+  // here, as a courtesy on top of the real server-side boundary.
+  const readOnly = useEventRole() !== "owner";
   const {
     state: engine,
     sendBroadcast,
@@ -102,6 +122,11 @@ export default function BroadcastCenterPage() {
   } = useDisplayEngine();
 
   const registeredCount = Object.keys(engine.registry).length;
+  const registeredHealthCounts = useMemo(() => {
+    const counts: Record<DisplayHealth, number> = { online: 0, stale: 0, offline: 0 };
+    for (const d of Object.values(engine.registry)) counts[getDisplayStatus(d, Date.now())]++;
+    return counts;
+  }, [engine.registry]);
 
   const [draft, setDraft] = useState<BroadcastDraft>(EMPTY_DRAFT);
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
@@ -170,7 +195,7 @@ export default function BroadcastCenterPage() {
   }
 
   function requestSend() {
-    if (!draft.title.trim() || sendingRef.current) return;
+    if (!draft.title.trim() || sendingRef.current || readOnly) return;
     const scheduleError = scheduleValidationError();
     if (scheduleError) {
       toast.error(scheduleError);
@@ -184,7 +209,7 @@ export default function BroadcastCenterPage() {
   }
 
   async function handleSend() {
-    if (!draft.title.trim() || sendingRef.current) return;
+    if (!draft.title.trim() || sendingRef.current || readOnly) return;
     const scheduleError = scheduleValidationError();
     if (scheduleError) {
       toast.error(scheduleError);
@@ -271,14 +296,21 @@ export default function BroadcastCenterPage() {
     });
   }, [engine.broadcasts.templates, engine.broadcasts.favorites, search]);
 
+  const previewMeta = BROADCAST_TYPE_META[draft.type];
+  const PreviewIcon = previewMeta.Icon;
+  const activeEmergency = engine.broadcasts.active.find((m) => m.type === "emergency");
+
   return (
     <main className="min-h-screen bg-background">
       <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5 flex-wrap">
         <div className="min-w-0">
           <EventIdentity />
-          <h1 className="text-title text-primary mt-1.5">Broadcast Center</h1>
+          <div className="flex items-center flex-wrap gap-2.5 mt-1.5">
+            <h1 className="text-console-lg text-primary">Broadcast Center</h1>
+            <ConnectionBadge status={toConnectionStatus(transportStatus)} variant="console" />
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <EventNav />
           <Button variant="ghost" size="sm" onClick={lock}>
             Lock
@@ -288,195 +320,268 @@ export default function BroadcastCenterPage() {
 
       {/* Emergency quick-send — a bordered zone, not just red buttons, so it
           reads as categorically different from routine compose actions
-          below it. Previously these presets used the same rounded-pill
-          shape as secondary buttons elsewhere in the app, just tinted red —
-          the only signal that "Evacuate" carries more real-world
-          consequence than "Save Draft" was color alone. */}
-      <div className="mx-4 sm:mx-6 xl:mx-12 mt-6 rounded-card border-2 border-status-red/40 bg-status-red/[0.04] px-6 py-5">
+          below it. Real Button (danger tier) instead of a hand-tinted
+          pill — same guardrail weight DESIGN.md's tier table gives every
+          other destructive control in the product, not a one-off style. */}
+      <div className="mx-4 sm:mx-6 xl:mx-12 mt-6 rounded-panel border-2 border-status-red/40 bg-status-red/[0.04] px-6 py-5">
         <SectionLabel>Emergency Broadcast — Overrides Every Display</SectionLabel>
-        <div className="mt-3 flex flex-wrap gap-3">
+        <p className="text-console-meta text-muted-2 mt-1">
+          Takes over all {registeredCount} registered display{registeredCount === 1 ? "" : "s"} immediately
+          {registeredHealthCounts.offline > 0
+            ? ` — ${registeredHealthCounts.offline} currently offline will show it the moment they reconnect.`
+            : "."}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
           {EMERGENCY_PRESETS.map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              onClick={() => emergencyConfirm.request(preset)}
-              className="flex items-center gap-2 rounded-full bg-status-red/15 text-status-red px-4 py-2 text-body font-semibold cursor-pointer hover:bg-status-red/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              <AlertTriangle className="h-4 w-4" strokeWidth={2} />
-              {preset.label}
-            </button>
+            <MaybeTooltip key={preset.label} when={readOnly} content={PERMISSION_NOTE}>
+              <Button variant="danger" onClick={() => emergencyConfirm.request(preset)} disabled={readOnly}>
+                <AlertTriangle className="h-4 w-4" strokeWidth={2} />
+                {preset.label}
+              </Button>
+            </MaybeTooltip>
           ))}
         </div>
 
-        {engine.broadcasts.active.some((m) => m.type === "emergency") && (
-          <div className="mt-4 rounded-card bg-status-red/10 border border-status-red/30 px-6 py-3 flex items-center justify-between">
-            <p className="text-caption text-status-red font-medium">An emergency broadcast is currently active.</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => destructiveConfirm.request({ kind: "clear-emergencies" })}
-            >
-              Clear
-            </Button>
+        {activeEmergency && (
+          <div className="mt-4 rounded-control bg-status-red/10 border border-status-red/30 px-6 py-3 flex items-center justify-between gap-4">
+            <p className="text-console-meta text-status-red font-medium">
+              &ldquo;{activeEmergency.title}&rdquo; is currently active on every targeted display.
+            </p>
+            <MaybeTooltip when={readOnly} content={PERMISSION_NOTE}>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={readOnly}
+                onClick={() => destructiveConfirm.request({ kind: "clear-emergencies" })}
+              >
+                Clear
+              </Button>
+            </MaybeTooltip>
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-8 px-4 sm:px-6 xl:px-12 py-8">
-        {/* Compose */}
+      <div className="grid grid-cols-1 xl:grid-cols-[440px_1fr] gap-8 px-4 sm:px-6 xl:px-12 py-8">
+        {/* Compose — ordered Content -> Audience -> Severity -> Duration ->
+            Preview -> Send, so an operator reads what/who/how-serious/how-
+            long before ever reaching the button that commits to it. */}
         <div>
           <SectionLabel>Compose</SectionLabel>
-          <div className="mt-4 flex flex-col gap-4">
-            <Field label="Type">
-              <Select
-                value={draft.type}
-                onChange={(v) => patchDraft({ type: v as BroadcastType })}
-                options={BROADCAST_TYPES}
-                searchable={false}
-              />
-            </Field>
+          <div className="mt-4 flex flex-col gap-5">
+            <div className="flex flex-col gap-4">
+              <Field label="Title">
+                <Input
+                  value={draft.title}
+                  onChange={(e) => patchDraft({ title: e.target.value })}
+                  placeholder="Broadcast title"
+                />
+              </Field>
+              <Field label="Message">
+                <Textarea
+                  value={draft.message}
+                  onChange={(e) => patchDraft({ message: e.target.value })}
+                  placeholder="Message body"
+                  rows={3}
+                  className="resize-none"
+                />
+              </Field>
+            </div>
 
-            <Field label="Title">
-              <Input
-                value={draft.title}
-                onChange={(e) => patchDraft({ title: e.target.value })}
-                placeholder="Broadcast title"
-              />
-            </Field>
-
-            <Field label="Message">
-              <Textarea
-                value={draft.message}
-                onChange={(e) => patchDraft({ message: e.target.value })}
-                placeholder="Message body"
-                rows={3}
-                className="resize-none"
-              />
-            </Field>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Priority">
+            <div className="flex flex-col gap-3 pt-1 border-t border-line-soft">
+              <SectionLabel className="mt-3">Audience</SectionLabel>
+              <Field label="Target">
                 <Select
-                  value={String(draft.priority)}
-                  onChange={(v) => patchDraft({ priority: Number(v) as 1 | 2 | 3 })}
-                  options={PRIORITY_OPTIONS}
+                  value={draft.target.kind}
+                  onChange={(v) => patchTarget(v as BroadcastTargetKind, undefined)}
+                  options={TARGET_KIND_OPTIONS}
                   searchable={false}
                 />
               </Field>
+
+              {draft.target.kind === "type" && (
+                <Field label="Display Type">
+                  <Select
+                    value={draft.target.value ?? ""}
+                    onChange={(v) => patchTarget("type", v)}
+                    options={DISPLAY_TYPES}
+                    placeholder="Select a type"
+                    searchable={false}
+                  />
+                </Field>
+              )}
+
+              {draft.target.kind === "display" && (
+                <Field label="Display">
+                  <Select
+                    value={draft.target.value ?? ""}
+                    onChange={(v) => patchTarget("display", v)}
+                    options={Object.values(engine.registry).map((d) => ({ value: d.id, label: d.name }))}
+                    placeholder="Select a display"
+                    searchable={false}
+                  />
+                </Field>
+              )}
+
+              {draft.target.kind === "group" && (
+                <Field label="Group">
+                  <Select
+                    value={draft.target.value ?? ""}
+                    onChange={(v) => patchTarget("group", v)}
+                    options={Object.values(engine.groups).map((g) => ({ value: g.id, label: g.name }))}
+                    placeholder="Select a group"
+                    searchable={false}
+                  />
+                </Field>
+              )}
+
+              <TargetHealthSummary target={draft.target} registry={engine.registry} groups={engine.groups} />
+            </div>
+
+            <div className="flex flex-col gap-4 pt-1 border-t border-line-soft">
+              <SectionLabel className="mt-3">Severity</SectionLabel>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Type">
+                  <Select
+                    value={draft.type}
+                    onChange={(v) => {
+                      const type = v as BroadcastType;
+                      // Emergency is inherently max-priority — the preset
+                      // buttons above already hardcode this; letting a
+                      // manually-composed emergency sit at "Low" priority
+                      // would be a confusing dead combination the product
+                      // never actually means.
+                      patchDraft(type === "emergency" ? { type, priority: 3 } : { type });
+                    }}
+                    options={BROADCAST_TYPE_OPTIONS}
+                    searchable={false}
+                  />
+                </Field>
+                <Field label="Priority">
+                  <Select
+                    value={String(draft.priority)}
+                    onChange={(v) => patchDraft({ priority: Number(v) as 1 | 2 | 3 })}
+                    options={PRIORITY_OPTIONS}
+                    searchable={false}
+                    disabled={draft.type === "emergency"}
+                  />
+                </Field>
+              </div>
               <Field label="Icon (optional)">
                 <Input
                   value={draft.icon ?? ""}
                   onChange={(e) => patchDraft({ icon: e.target.value || null })}
                   placeholder="e.g. 📢"
+                  className="max-w-40"
                 />
               </Field>
             </div>
 
-            <Field label="Target">
-              <Select
-                value={draft.target.kind}
-                onChange={(v) => patchTarget(v as BroadcastTargetKind, undefined)}
-                options={TARGET_KIND_OPTIONS}
-                searchable={false}
-              />
-            </Field>
+            <div className="flex flex-col gap-4 pt-1 border-t border-line-soft">
+              <SectionLabel className="mt-3">Duration &amp; Persistence</SectionLabel>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Expires in (min)">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={draft.expiresInMinutes ?? ""}
+                    onChange={(e) => patchDraft({ expiresInMinutes: e.target.value ? Number(e.target.value) : null })}
+                    placeholder="No expiry"
+                  />
+                </Field>
+                <Field label="Duration (sec)">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={draft.durationSeconds ?? ""}
+                    onChange={(e) => patchDraft({ durationSeconds: e.target.value ? Number(e.target.value) : null })}
+                    placeholder="Until dismissed"
+                  />
+                </Field>
+              </div>
 
-            {draft.target.kind === "type" && (
-              <Field label="Display Type">
-                <Select
-                  value={draft.target.value ?? ""}
-                  onChange={(v) => patchTarget("type", v)}
-                  options={DISPLAY_TYPES}
-                  placeholder="Select a type"
-                  searchable={false}
+              <div className="flex items-center gap-6">
+                <Checkbox
+                  checked={draft.acknowledgementRequired}
+                  onChange={(v) => patchDraft({ acknowledgementRequired: v })}
+                  label="Require acknowledgement"
                 />
-              </Field>
-            )}
+                <Checkbox checked={draft.persistent} onChange={(v) => patchDraft({ persistent: v })} label="Persistent" />
+              </div>
 
-            {draft.target.kind === "display" && (
-              <Field label="Display">
-                <Select
-                  value={draft.target.value ?? ""}
-                  onChange={(v) => patchTarget("display", v)}
-                  options={Object.values(engine.registry).map((d) => ({ value: d.id, label: d.name }))}
-                  placeholder="Select a display"
-                  searchable={false}
+              <div>
+                <Checkbox
+                  checked={scheduleEnabled}
+                  onChange={(v) => {
+                    setScheduleEnabled(v);
+                    if (!v) patchDraft({ scheduledFor: null });
+                  }}
+                  label="Schedule for later"
                 />
-              </Field>
-            )}
-
-            {draft.target.kind === "group" && (
-              <Field label="Group">
-                <Select
-                  value={draft.target.value ?? ""}
-                  onChange={(v) => patchTarget("group", v)}
-                  options={Object.values(engine.groups).map((g) => ({ value: g.id, label: g.name }))}
-                  placeholder="Select a group"
-                  searchable={false}
-                />
-              </Field>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Expires in (min)">
-                <Input
-                  type="number"
-                  min={0}
-                  value={draft.expiresInMinutes ?? ""}
-                  onChange={(e) => patchDraft({ expiresInMinutes: e.target.value ? Number(e.target.value) : null })}
-                  placeholder="No expiry"
-                />
-              </Field>
-              <Field label="Duration (sec)">
-                <Input
-                  type="number"
-                  min={0}
-                  value={draft.durationSeconds ?? ""}
-                  onChange={(e) => patchDraft({ durationSeconds: e.target.value ? Number(e.target.value) : null })}
-                  placeholder="Until dismissed"
-                />
-              </Field>
+                {scheduleEnabled && (
+                  <Input
+                    type="datetime-local"
+                    min={minScheduleValue()}
+                    onChange={(e) =>
+                      patchDraft({ scheduledFor: e.target.value ? new Date(e.target.value).toISOString() : null })
+                    }
+                    className="mt-3"
+                  />
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center gap-6">
-              <Checkbox
-                checked={draft.acknowledgementRequired}
-                onChange={(v) => patchDraft({ acknowledgementRequired: v })}
-                label="Require acknowledgement"
-              />
-              <Checkbox
-                checked={draft.persistent}
-                onChange={(v) => patchDraft({ persistent: v })}
-                label="Persistent"
-              />
+            {/* Preview — the same styling BroadcastOverlay itself renders
+                with (BROADCAST_TYPE_META), not a separately-invented
+                mockup. Emergency's real behavior is a full-screen takeover,
+                which this panel can't and shouldn't literally reproduce
+                inline — so it says so in words instead of faking it. */}
+            <div className="pt-1 border-t border-line-soft">
+              <SectionLabel className="mt-3">Preview</SectionLabel>
+              <Panel className="mt-3 p-4">
+                <div className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      "flex items-center justify-center h-9 w-9 rounded-full shrink-0",
+                      previewMeta.accentClass
+                    )}
+                  >
+                    <PreviewIcon className="h-4 w-4" strokeWidth={2} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-console-sm text-primary font-semibold truncate">
+                      {draft.title.trim() || "Untitled broadcast"}
+                    </p>
+                    {draft.message.trim() && (
+                      <p className="text-console-meta text-muted truncate">{draft.message}</p>
+                    )}
+                  </div>
+                </div>
+                <p className="text-console-meta text-muted-2 mt-3">
+                  {draft.type === "emergency"
+                    ? "Takes over the full screen on every targeted display until acknowledged or cleared — not a corner banner like other types."
+                    : `Appears as a banner on each targeted display${
+                        draft.persistent
+                          ? " until dismissed."
+                          : draft.durationSeconds
+                            ? ` for ${draft.durationSeconds}s.`
+                            : "."
+                      }`}
+                </p>
+              </Panel>
             </div>
 
-            <div>
-              <Checkbox
-                checked={scheduleEnabled}
-                onChange={(v) => {
-                  setScheduleEnabled(v);
-                  if (!v) patchDraft({ scheduledFor: null });
-                }}
-                label="Schedule for later"
-              />
-              {scheduleEnabled && (
-                <Input
-                  type="datetime-local"
-                  min={minScheduleValue()}
-                  onChange={(e) =>
-                    patchDraft({ scheduledFor: e.target.value ? new Date(e.target.value).toISOString() : null })
-                  }
-                  className="mt-3"
-                />
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <Button variant="primary" onClick={requestSend} disabled={!draft.title.trim()} loading={sending}>
-                <Send className="h-4 w-4" strokeWidth={2} />
-                {isScheduling ? "Schedule" : "Send Now"}
-              </Button>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <MaybeTooltip when={readOnly} content={PERMISSION_NOTE}>
+                <Button
+                  variant="primary"
+                  onClick={requestSend}
+                  disabled={readOnly || !draft.title.trim()}
+                  loading={sending}
+                >
+                  <Send className="h-4 w-4" strokeWidth={2} />
+                  {isScheduling ? "Schedule" : "Send Now"}
+                </Button>
+              </MaybeTooltip>
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -531,131 +636,142 @@ export default function BroadcastCenterPage() {
           <div className="mt-5 flex flex-col gap-3">
             {tab === "history" &&
               (filteredHistory.length === 0 ? (
-                <EmptyState text="No broadcasts sent yet." />
+                <EmptyState title="No broadcasts sent yet" />
               ) : (
                 filteredHistory.map((m) => {
                   const isActive = engine.broadcasts.active.some((a) => a.id === m.id);
                   return (
-                    <div key={m.id} className="rounded-card bg-card px-6 py-4 flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-caption uppercase tracking-wide text-muted-2">
-                            {m.type} • {new Date(m.createdAt).toLocaleString()}
-                          </p>
+                    <BroadcastRow
+                      key={m.id}
+                      meta={
+                        <>
+                          <TypeBadge type={m.type} />
+                          <span className="text-console-meta text-muted-2">{new Date(m.createdAt).toLocaleString()}</span>
                           <Badge tone={isActive ? "green" : "muted"}>{isActive ? "Active" : "Dismissed"}</Badge>
-                        </div>
-                        <p className="text-body text-primary font-medium mt-1">{m.title}</p>
-                        {m.message && <p className="text-caption text-muted mt-1">{m.message}</p>}
-                        {m.acknowledgementRequired && (
-                          <p className="text-caption text-muted-2 mt-1">Acknowledged by {m.acknowledgedBy.length}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <IconButton label="Duplicate into compose" onClick={() => loadIntoCompose(toDraft(m))}>
-                          <Copy className="h-4 w-4" strokeWidth={2} />
-                        </IconButton>
-                        {isActive && (
-                          <IconButton label="Dismiss" onClick={() => dismissBroadcast(m.id)}>
-                            <X className="h-4 w-4" strokeWidth={2} />
+                        </>
+                      }
+                      title={m.title}
+                      message={m.message}
+                      footer={
+                        m.acknowledgementRequired ? `Acknowledged by ${m.acknowledgedBy.length}` : undefined
+                      }
+                      actions={
+                        <>
+                          <IconButton label="Duplicate into compose" onClick={() => loadIntoCompose(toDraft(m))}>
+                            <Copy className="h-4 w-4" strokeWidth={2} />
                           </IconButton>
-                        )}
-                      </div>
-                    </div>
+                          {isActive && (
+                            <IconButton label="Dismiss" onClick={() => dismissBroadcast(m.id)}>
+                              <X className="h-4 w-4" strokeWidth={2} />
+                            </IconButton>
+                          )}
+                        </>
+                      }
+                    />
                   );
                 })
               ))}
 
             {tab === "scheduled" &&
               (engine.broadcasts.scheduled.length === 0 ? (
-                <EmptyState text="No broadcasts scheduled." />
+                <EmptyState title="No broadcasts scheduled" />
               ) : (
                 engine.broadcasts.scheduled.map((m) => (
-                  <div key={m.id} className="rounded-card bg-card px-6 py-4 flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-caption uppercase tracking-wide text-muted-2">
-                        fires {m.scheduledFor ? new Date(m.scheduledFor).toLocaleString() : "—"}
-                      </p>
-                      <p className="text-body text-primary font-medium mt-1">{m.title}</p>
-                      {m.message && <p className="text-caption text-muted mt-1">{m.message}</p>}
-                    </div>
-                    <IconButton
-                      label="Cancel"
-                      onClick={() => destructiveConfirm.request({ kind: "cancel-scheduled", id: m.id, title: m.title })}
-                    >
-                      <Trash2 className="h-4 w-4" strokeWidth={2} />
-                    </IconButton>
-                  </div>
+                  <BroadcastRow
+                    key={m.id}
+                    meta={
+                      <>
+                        <TypeBadge type={m.type} />
+                        <span className="text-console-meta text-muted-2">
+                          fires {m.scheduledFor ? new Date(m.scheduledFor).toLocaleString() : "—"}
+                        </span>
+                      </>
+                    }
+                    title={m.title}
+                    message={m.message}
+                    actions={
+                      <IconButton
+                        label={readOnly ? PERMISSION_NOTE : "Cancel"}
+                        disabled={readOnly}
+                        onClick={() => destructiveConfirm.request({ kind: "cancel-scheduled", id: m.id, title: m.title })}
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={2} />
+                      </IconButton>
+                    }
+                  />
                 ))
               ))}
 
             {tab === "templates" &&
               (filteredTemplates.length === 0 ? (
-                <EmptyState text="No templates saved yet." />
+                <EmptyState title="No templates saved yet" />
               ) : (
                 filteredTemplates.map((t) => (
-                  <div key={t.id} className="rounded-card bg-card px-6 py-4 flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-caption uppercase tracking-wide text-muted-2">{t.draft.type}</p>
-                      <p className="text-body text-primary font-medium mt-1">{t.name}</p>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <IconButton
-                        label={engine.broadcasts.favorites.includes(t.id) ? "Unfavorite" : "Favorite"}
-                        onClick={() => toggleFavoriteTemplate(t.id)}
-                      >
-                        <Star
-                          className={cn(
-                            "h-4 w-4",
-                            engine.broadcasts.favorites.includes(t.id) && "fill-status-orange text-status-orange"
-                          )}
-                          strokeWidth={2}
-                        />
-                      </IconButton>
-                      <IconButton label="Use template" onClick={() => loadIntoCompose(t.draft)}>
-                        <Copy className="h-4 w-4" strokeWidth={2} />
-                      </IconButton>
-                      <IconButton
-                        label="Delete"
-                        onClick={() => destructiveConfirm.request({ kind: "delete-template", id: t.id, name: t.name })}
-                      >
-                        <Trash2 className="h-4 w-4" strokeWidth={2} />
-                      </IconButton>
-                    </div>
-                  </div>
+                  <BroadcastRow
+                    key={t.id}
+                    meta={<TypeBadge type={t.draft.type} />}
+                    title={t.name}
+                    actions={
+                      <>
+                        <IconButton
+                          label={engine.broadcasts.favorites.includes(t.id) ? "Unfavorite" : "Favorite"}
+                          onClick={() => toggleFavoriteTemplate(t.id)}
+                        >
+                          <Star
+                            className={cn(
+                              "h-4 w-4",
+                              engine.broadcasts.favorites.includes(t.id) && "fill-status-orange text-status-orange"
+                            )}
+                            strokeWidth={2}
+                          />
+                        </IconButton>
+                        <IconButton label="Use template" onClick={() => loadIntoCompose(t.draft)}>
+                          <Copy className="h-4 w-4" strokeWidth={2} />
+                        </IconButton>
+                        <IconButton
+                          label="Delete"
+                          onClick={() => destructiveConfirm.request({ kind: "delete-template", id: t.id, name: t.name })}
+                        >
+                          <Trash2 className="h-4 w-4" strokeWidth={2} />
+                        </IconButton>
+                      </>
+                    }
+                  />
                 ))
               ))}
 
             {tab === "drafts" &&
               (engine.broadcasts.drafts.length === 0 ? (
-                <EmptyState text="No drafts saved." />
+                <EmptyState title="No drafts saved" />
               ) : (
                 engine.broadcasts.drafts.map((d, i) => (
-                  <div key={i} className="rounded-card bg-card px-6 py-4 flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-caption uppercase tracking-wide text-muted-2">{d.type}</p>
-                      <p className="text-body text-primary font-medium mt-1">{d.title || "Untitled draft"}</p>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <IconButton label="Load" onClick={() => loadIntoCompose(d)}>
-                        <Copy className="h-4 w-4" strokeWidth={2} />
-                      </IconButton>
-                      <IconButton
-                        label="Delete"
-                        onClick={() => destructiveConfirm.request({ kind: "delete-draft", index: i, title: d.title || "Untitled draft" })}
-                      >
-                        <Trash2 className="h-4 w-4" strokeWidth={2} />
-                      </IconButton>
-                    </div>
-                  </div>
+                  <BroadcastRow
+                    key={i}
+                    meta={<TypeBadge type={d.type} />}
+                    title={d.title || "Untitled draft"}
+                    actions={
+                      <>
+                        <IconButton label="Load" onClick={() => loadIntoCompose(d)}>
+                          <Copy className="h-4 w-4" strokeWidth={2} />
+                        </IconButton>
+                        <IconButton
+                          label="Delete"
+                          onClick={() => destructiveConfirm.request({ kind: "delete-draft", index: i, title: d.title || "Untitled draft" })}
+                        >
+                          <Trash2 className="h-4 w-4" strokeWidth={2} />
+                        </IconButton>
+                      </>
+                    }
+                  />
                 ))
               ))}
           </div>
         </div>
       </div>
 
-      {/* Shows the exact broadcast body and a real target count, not just
-          the preset name and a generic "every display" claim — the
-          2026-09-01 audit's KF-031 specifically wanted "exact target/
+      {/* Shows the exact broadcast body and a real target-health summary,
+          not just the preset name and a generic "every display" claim —
+          the 2026-09-01 audit's KF-031 specifically wanted "exact target/
           affected-display summary" before a venue-wide emergency override
           arms. Registered-display count, not an online-filtered one: for a
           decision this consequential, undercounting (a display that just
@@ -663,7 +779,7 @@ export default function BroadcastCenterPage() {
       <ConfirmDialog
         open={emergencyConfirm.isOpen}
         title={`Send "${emergencyConfirm.pending?.title}" to every display?`}
-        description={`"${emergencyConfirm.pending?.message}" — takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately. Send an update or Clear afterward if needed.`}
+        description={`"${emergencyConfirm.pending?.message}" — takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately (${registeredHealthCounts.online} online, ${registeredHealthCounts.stale} stale, ${registeredHealthCounts.offline} offline). Send an update or Clear afterward if needed.`}
         confirmLabel="Send Emergency"
         tone="danger"
         loading={emergencySending}
@@ -762,23 +878,46 @@ function toDraft(m: { type: BroadcastType; title: string; message: string; icon:
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-caption text-muted-2">{label}</span>
+      <span className="text-console-meta text-muted-2">{label}</span>
       {children}
     </label>
   );
 }
 
-function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+function TypeBadge({ type }: { type: BroadcastType }) {
+  const meta = BROADCAST_TYPE_META[type];
+  const Icon = meta.Icon;
   return (
-    <label className="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded-control border-line bg-background accent-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      />
-      <span className="text-caption text-muted">{label}</span>
-    </label>
+    <Badge tone={meta.tone}>
+      <Icon className="h-3 w-3" strokeWidth={2.5} />
+      {meta.label}
+    </Badge>
+  );
+}
+
+function BroadcastRow({
+  meta,
+  title,
+  message,
+  footer,
+  actions,
+}: {
+  meta: React.ReactNode;
+  title: string;
+  message?: string;
+  footer?: string;
+  actions: React.ReactNode;
+}) {
+  return (
+    <Panel className="px-6 py-4 flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">{meta}</div>
+        <p className="text-console-sm text-primary font-medium mt-1.5">{title}</p>
+        {message && <p className="text-console-meta text-muted mt-1 line-clamp-2">{message}</p>}
+        {footer && <p className="text-console-meta text-muted-2 mt-1">{footer}</p>}
+      </div>
+      <div className="flex items-center gap-1 shrink-0">{actions}</div>
+    </Panel>
   );
 }
 
@@ -790,14 +929,30 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   );
 }
 
-function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+function IconButton({
+  label,
+  onClick,
+  disabled,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <Button type="button" variant="ghost" size="sm" square onClick={onClick} aria-label={label} title={label}>
-      {children}
-    </Button>
+    <Tooltip content={label}>
+      <Button type="button" variant="ghost" size="sm" square onClick={onClick} disabled={disabled} aria-label={label}>
+        {children}
+      </Button>
+    </Tooltip>
   );
 }
 
-function EmptyState({ text }: { text: string }) {
-  return <p className="text-body text-muted-2 py-6">{text}</p>;
+// Wraps a control in the canonical Tooltip only while `when` is true — the
+// permission note only needs saying at the moment a control is actually
+// disabled by it. Same helper as app/e/[eventId]/displays/page.tsx's own
+// MaybeTooltip.
+function MaybeTooltip({ when, content, children }: { when: boolean; content: string; children: React.ReactElement }) {
+  return when ? <Tooltip content={content}>{children}</Tooltip> : children;
 }

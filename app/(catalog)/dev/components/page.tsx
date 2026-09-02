@@ -17,8 +17,11 @@ import { ConnectionBadge, type ConnectionBadgeStatus } from "@/components/ui/con
 import { SectionLabel } from "@/components/ui/section-label";
 import { Card, Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip } from "@/components/ui/tooltip";
 import { PageHeader } from "@/components/ui/page-header";
+import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
+import type { BroadcastType } from "@/lib/display-engine/types";
 import { RunPosition } from "@/components/operator/run-position";
 import type { Program } from "@/lib/types";
 import { Trash2 } from "lucide-react";
@@ -55,6 +58,7 @@ const ALL_CONNECTION_STATES: ConnectionBadgeStatus[] = ["connected", "reconnecti
 
 export default function ComponentCatalogPage() {
   const [inputValue, setInputValue] = useState("");
+  const [checkboxValue, setCheckboxValue] = useState(false);
 
   return (
     <main className="min-h-screen bg-background text-primary px-6 py-10 max-w-5xl mx-auto">
@@ -244,6 +248,30 @@ export default function ComponentCatalogPage() {
         />
         <Input placeholder="Disabled" disabled className="w-56" />
         <Input placeholder="Invalid" aria-invalid className="w-56 border-status-red" />
+      </Row>
+
+      <Row
+        title="Broadcast type"
+        description="One type→color→icon mapping (lib/display-engine/broadcast-style.ts), previously duplicated three ways — the actual on-display rendering, Broadcast Center's compose/history UI, and the Operator Console's quick-send panel each had their own drifting subset. This is the single source all three now read from."
+      >
+        {(Object.keys(BROADCAST_TYPE_META) as BroadcastType[]).map((type) => {
+          const meta = BROADCAST_TYPE_META[type];
+          const Icon = meta.Icon;
+          return (
+            <Swatch key={type} label={type}>
+              <Badge tone={meta.tone}>
+                <Icon className="h-3 w-3" strokeWidth={2.5} />
+                {meta.label}
+              </Badge>
+            </Swatch>
+          );
+        })}
+      </Row>
+
+      <Row title="Checkbox" description="Broadcast Center hand-rolled this three times over (acknowledgement, persistent, schedule-for-later) before this — the one implementation every checkbox in the product should use now.">
+        <Checkbox checked={checkboxValue} onChange={setCheckboxValue} label="Require acknowledgement" />
+        <Checkbox checked={true} onChange={() => {}} label="Checked" />
+        <Checkbox checked={false} onChange={() => {}} label="Disabled" disabled />
       </Row>
 
       <Row title="Typography — Console scale" description="13-22px, dense, scanned not read. Never mixed with Stage tokens on this surface family (see DESIGN.md's Console-vs-Stage guardrail).">

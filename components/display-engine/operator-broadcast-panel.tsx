@@ -10,15 +10,16 @@ import { useToast } from "@/components/ui/toast";
 import { SectionLabel } from "@/components/ui/section-label";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { EMERGENCY_PRESETS, type BroadcastType } from "@/lib/display-engine/types";
-import { useEventId } from "@/lib/event-context";
+import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
+import { useEventId, useEventRole } from "@/lib/event-context";
 import { cn } from "@/lib/utils";
 
-const QUICK_TYPES: { value: BroadcastType; label: string; tone: string }[] = [
-  { value: "info", label: "Info", tone: "bg-status-blue/15 text-status-blue" },
-  { value: "reminder", label: "Reminder", tone: "bg-status-blue/15 text-status-blue" },
-  { value: "warning", label: "Warning", tone: "bg-status-orange/15 text-status-orange" },
-  { value: "success", label: "Success", tone: "bg-status-green/15 text-status-green" },
-];
+// The routine quick-send types only — emergency has its own dedicated
+// presets below, and "custom" doesn't make sense as a one-tap quick type.
+// Colors come from BROADCAST_TYPE_META, the same mapping Broadcast Center
+// and the display-side rendering both use, rather than a fourth locally
+// hand-tinted copy.
+const QUICK_TYPES: BroadcastType[] = ["info", "reminder", "warning", "success"];
 
 /**
  * Quick-send broadcast controls embedded directly in the Operator
@@ -30,6 +31,12 @@ const QUICK_TYPES: { value: BroadcastType; label: string; tone: string }[] = [
  */
 export function OperatorBroadcastPanel() {
   const eventId = useEventId();
+  // Broadcasts are owner-gated server-side (requireEventAccess(eventId,
+  // "owner") in api/display-engine/broadcasts/route.ts) — an editor could
+  // fill this whole panel out and only discover it 403s on Send. Disabling
+  // up front is a courtesy on top of that real boundary, matching the
+  // pattern controls-panel.tsx already uses for the transport controls.
+  const readOnly = useEventRole() !== "owner";
   const { sendBroadcast, state: engine } = useDisplayEngine();
   const registeredCount = Object.keys(engine.registry).length;
   const toast = useToast();
@@ -95,18 +102,18 @@ export function OperatorBroadcastPanel() {
           <div className="flex flex-wrap gap-2">
             {QUICK_TYPES.map((t) => (
               <button
-                key={t.value}
+                key={t}
                 type="button"
-                onClick={() => setType(t.value)}
-                aria-pressed={type === t.value}
+                onClick={() => setType(t)}
+                aria-pressed={type === t}
                 className={cn(
                   "rounded-full px-3 py-1.5 text-caption font-semibold uppercase tracking-wide transition-opacity cursor-pointer whitespace-nowrap",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                  t.tone,
-                  type !== t.value && "opacity-40"
+                  BROADCAST_TYPE_META[t].accentClass,
+                  type !== t && "opacity-40"
                 )}
               >
-                {t.label}
+                {BROADCAST_TYPE_META[t].label}
               </button>
             ))}
           </div>
@@ -123,9 +130,10 @@ export function OperatorBroadcastPanel() {
             variant="primary"
             size="sm"
             className="w-full"
-            disabled={!title.trim() || sending}
+            disabled={!title.trim() || sending || readOnly}
             loading={sending}
             onClick={send}
+            title={readOnly ? "Only the event owner can send broadcasts" : undefined}
           >
             <Send className="h-4 w-4" strokeWidth={2} />
             Send to All Displays
@@ -145,7 +153,9 @@ export function OperatorBroadcastPanel() {
                   key={preset.label}
                   type="button"
                   onClick={() => emergencyConfirm.request(preset)}
-                  className="flex items-center gap-1.5 rounded-full bg-status-red/15 text-status-red px-3 py-1.5 text-caption font-semibold cursor-pointer hover:bg-status-red/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  disabled={readOnly}
+                  title={readOnly ? "Only the event owner can send broadcasts" : undefined}
+                  className="flex items-center gap-1.5 rounded-full bg-status-red/15 text-status-red px-3 py-1.5 text-caption font-semibold cursor-pointer hover:bg-status-red/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-status-red/15"
                 >
                   <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
                   {preset.label}
