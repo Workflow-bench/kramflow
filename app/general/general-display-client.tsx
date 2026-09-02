@@ -7,7 +7,7 @@ import { getLive, getNext, getOnDeck } from "@/lib/types";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
 import { useDisplayClock, formatClock } from "@/lib/display-engine/use-display-timer";
-import { useRegisterDisplay } from "@/lib/display-engine/use-register-display";
+import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
 import { useTimeSync, syncedNow } from "@/lib/display-engine/use-time-sync";
 import { useFullscreen } from "@/lib/display-engine/use-fullscreen";
 import { DisplayShell } from "@/components/display-engine/display-shell";
@@ -15,8 +15,8 @@ import { HoldScreen } from "@/components/display-engine/hold-screen";
 import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay";
 import { TestMessageOverlay } from "@/components/display-engine/test-message-overlay";
 import { FullscreenPrompt } from "@/components/display-engine/fullscreen-prompt";
-import { useTestMessage } from "@/lib/display-engine/use-test-message";
 import { AlertBanner } from "@/components/ui/alert-banner";
+import { parseTimeLabel } from "@/lib/schedule";
 
 /**
  * General Display — public, audience-facing, no operator controls. The
@@ -29,17 +29,16 @@ import { AlertBanner } from "@/components/ui/alert-banner";
 /**
  * Program.scheduledStart is a pre-formatted display string from the cue
  * sheet ("5:00 PM"), not an ISO timestamp — `new Date(...)` can't parse it.
- * Parsed against today's date, which is safe for a live-event display that
- * only ever runs on the actual event day.
+ * lib/schedule.ts's parseTimeLabel (the single source of truth for this
+ * format, used by the duration cascade) returns minutes-since-midnight;
+ * anchored here to today's date, which is safe for a live-event display
+ * that only ever runs on the actual event day.
  */
 function parseTimeToday(label: string, nowMs: number): number | null {
-  const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(label.trim());
-  if (!match) return null;
-  let hours = Number(match[1]) % 12;
-  if (/pm/i.test(match[3])) hours += 12;
-  const minutes = Number(match[2]);
+  const minutes = parseTimeLabel(label);
+  if (minutes === null) return null;
   const now = new Date(nowMs);
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0).getTime();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, minutes, 0, 0).getTime();
 }
 export default function GeneralDisplayClient({ token, eventId }: { token?: string; eventId?: string }) {
   return (
@@ -66,13 +65,10 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
   // than show a blank line.
   const eventName = session?.eventName?.trim() || null;
 
-  const { testMessage, showTestMessage } = useTestMessage();
-  const [fullscreenPrompt, setFullscreenPrompt] = useState(false);
-  const display = useRegisterDisplay("General Display", "general", null, (command) => {
-    if (command.type === "reload") window.location.reload();
-    if (command.type === "test-message") showTestMessage(command.text, command.issuedAt);
-    if (command.type === "force-fullscreen") setFullscreenPrompt(true);
-  });
+  const { display, testMessage, fullscreenPrompt, dismissFullscreenPrompt } = useDisplayCommands(
+    "General Display",
+    "general"
+  );
 
   const clockLabel = useDisplayClock(offsetMs);
   const [now, setNow] = useState<number | null>(null);
@@ -94,9 +90,9 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
         visible={fullscreenPrompt}
         onEnter={() => {
           void fullscreen.enter();
-          setFullscreenPrompt(false);
+          dismissFullscreenPrompt();
         }}
-        onDismiss={() => setFullscreenPrompt(false)}
+        onDismiss={dismissFullscreenPrompt}
       />
 
       {!engine.hold.active && (

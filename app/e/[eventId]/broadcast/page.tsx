@@ -11,10 +11,10 @@ import { getDisplayStatus, type DisplayHealth } from "@/lib/display-engine/use-r
 import type { TransportStatus } from "@/lib/display-engine/transport";
 import {
   EMERGENCY_PRESETS,
+  DISPLAY_TYPES,
   type BroadcastDraft,
   type BroadcastTargetKind,
   type BroadcastType,
-  type DisplayType,
 } from "@/lib/display-engine/types";
 import { BROADCAST_TYPE_META, BROADCAST_TYPE_OPTIONS } from "@/lib/display-engine/broadcast-style";
 import { TargetHealthSummary } from "@/components/display-engine/target-health-summary";
@@ -33,15 +33,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-
-// The 4 canonical display types — see app/page.tsx.
-const DISPLAY_TYPES: { value: DisplayType; label: string }[] = [
-  { value: "presenter", label: "Presenter" },
-  { value: "green-room", label: "Green Room" },
-  { value: "av", label: "AV" },
-  { value: "general", label: "General" },
-  { value: "custom", label: "Custom" },
-];
 
 const PRIORITY_OPTIONS = [
   { value: "1", label: "Low" },
@@ -218,14 +209,17 @@ export default function BroadcastCenterPage() {
     }
     sendingRef.current = true;
     setSending(true);
-    const res = isScheduling ? await scheduleBroadcast(draft, draft.scheduledFor!) : await sendBroadcast(draft);
-    sendingRef.current = false;
-    setSending(false);
-    if (res && res.ok) {
-      toast.success(isScheduling ? "Broadcast scheduled" : "Broadcast sent");
-      resetCompose();
-    } else {
-      toast.error("Couldn't send the broadcast — try again");
+    try {
+      const res = isScheduling ? await scheduleBroadcast(draft, draft.scheduledFor!) : await sendBroadcast(draft);
+      if (res && res.ok) {
+        toast.success(isScheduling ? "Broadcast scheduled" : "Broadcast sent");
+        resetCompose();
+      } else {
+        toast.error("Couldn't send the broadcast — try again");
+      }
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
     }
   }
 
@@ -789,21 +783,24 @@ export default function BroadcastCenterPage() {
           if (!preset || emergencySendingRef.current) return;
           emergencySendingRef.current = true;
           setEmergencySending(true);
-          const res = await sendBroadcast({
-            ...EMPTY_DRAFT,
-            type: "emergency",
-            title: preset.title,
-            message: preset.message,
-            priority: 3,
-            target: { kind: "all" },
-            acknowledgementRequired: true,
-            persistent: true,
-          });
-          emergencySendingRef.current = false;
-          setEmergencySending(false);
-          emergencyConfirm.cancel();
-          if (res && res.ok) toast.success("Emergency broadcast sent");
-          else toast.error("Couldn't send the emergency broadcast — try again immediately");
+          try {
+            const res = await sendBroadcast({
+              ...EMPTY_DRAFT,
+              type: "emergency",
+              title: preset.title,
+              message: preset.message,
+              priority: 3,
+              target: { kind: "all" },
+              acknowledgementRequired: true,
+              persistent: true,
+            });
+            emergencyConfirm.cancel();
+            if (res && res.ok) toast.success("Emergency broadcast sent");
+            else toast.error("Couldn't send the emergency broadcast — try again immediately");
+          } finally {
+            emergencySendingRef.current = false;
+            setEmergencySending(false);
+          }
         }}
         onCancel={emergencyConfirm.cancel}
       />

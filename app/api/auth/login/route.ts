@@ -4,7 +4,7 @@ import { checkRateLimit, getClientIp, recordFailure, recordSuccess } from "@/lib
 
 export async function POST(request: Request) {
   const ip = getClientIp(request);
-  const limit = checkRateLimit("login", ip);
+  const limit = await checkRateLimit("login", ip);
   if (!limit.allowed) {
     return NextResponse.json(
       { ok: false, error: "Too many attempts. Please wait and try again.", retryAfterSeconds: limit.retryAfterSeconds },
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    recordFailure("login", ip);
+    await recordFailure("login", ip);
     // Older GoTrue versions returned a distinct "Email not confirmed" for
     // an unconfirmed account, which this used to special-case into its own
     // message. Verified directly against this project's Auth API (bypassing
@@ -50,6 +50,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: message }, { status: 401 });
   }
 
-  recordSuccess("login", ip);
+  await recordSuccess("login", ip);
   return NextResponse.json({ ok: true });
 }

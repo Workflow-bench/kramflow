@@ -7,7 +7,7 @@ import { getClientId } from "./client-id";
 import { useEventId } from "./event-context";
 import { resolveDisplayName } from "./shared/display-name";
 
-// QA_REPORT_ROUND2.md R2-BUG-1: two /operator tabs can drive the same show
+// Two /operator tabs can drive the same show
 // with zero indication to either person that someone else is connected —
 // confirmed live (Tab A's Hold got silently cleared by Tab B's ordinary
 // Next). This is the presence/coordination signal; the actual control lock

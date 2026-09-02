@@ -70,7 +70,7 @@ export function ProgramList({ session }: { session: Session }) {
         description="This changes what's live on every connected display right now."
         confirmLabel="Jump Here"
         onConfirm={() => {
-          if (jumpConfirm.pending) jumpTo(jumpConfirm.pending.order);
+          if (jumpConfirm.pending) jumpTo(jumpConfirm.pending.order, session.items.length);
           jumpConfirm.cancel();
         }}
         onCancel={jumpConfirm.cancel}

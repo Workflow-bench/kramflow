@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import { useDisplayView } from "@/lib/use-display-view";
 import { getSessionById } from "@/lib/data/sessions";
 import { audioSummary, getLive, getNext, getOnDeck, lightingSummary, videoSummary } from "@/lib/types";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
 import { useDisplayTimer, useDisplayClock } from "@/lib/display-engine/use-display-timer";
-import { useRegisterDisplay } from "@/lib/display-engine/use-register-display";
+import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
+import { deriveProgress, deriveAutoTimerInput } from "@/lib/display-engine/live-progress";
 import { useTimeSync } from "@/lib/display-engine/use-time-sync";
 import { useFullscreen } from "@/lib/display-engine/use-fullscreen";
 import { TIMER_COLORS } from "@/lib/display-engine/colors";
@@ -16,9 +16,8 @@ import { HoldScreen } from "@/components/display-engine/hold-screen";
 import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay";
 import { TestMessageOverlay } from "@/components/display-engine/test-message-overlay";
 import { FullscreenPrompt } from "@/components/display-engine/fullscreen-prompt";
-import { useTestMessage } from "@/lib/display-engine/use-test-message";
+import { DisplayHeader } from "@/components/display-engine/display-header";
 import { AlertBanner } from "@/components/ui/alert-banner";
-import { cn } from "@/lib/utils";
 
 /**
  * AV Waiting Room Display — new Display Engine route, distinct from and
@@ -45,23 +44,14 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
   const live = session ? getLive(session, appState) : null;
   const next = session ? getNext(session, appState) : null;
   const onDeck = session ? getOnDeck(session, appState) : null;
-  const progress = session ? appState.progressBySession[appState.activeSessionId] : undefined;
-  const currentOrder = progress?.currentOrder ?? null;
-  const total = session?.items.length ?? 0;
-  const isFinished = currentOrder !== null && currentOrder > total;
+  const { progress, isFinished } = deriveProgress(session, appState);
 
-  const { testMessage, showTestMessage } = useTestMessage();
-  const [fullscreenPrompt, setFullscreenPrompt] = useState(false);
-  const display = useRegisterDisplay("AV Waiting Room Display", "av", null, (command) => {
-    if (command.type === "reload") window.location.reload();
-    if (command.type === "test-message") showTestMessage(command.text, command.issuedAt);
-    if (command.type === "force-fullscreen") setFullscreenPrompt(true);
-  });
+  const { display, testMessage, fullscreenPrompt, dismissFullscreenPrompt } = useDisplayCommands(
+    "AV Waiting Room Display",
+    "av"
+  );
 
-  const autoInput =
-    live && live.type === "item"
-      ? { durationMinutes: live.durationMinutes, startedAt: progress?.startedAt ?? null, pausedAt: appState.pausedAt }
-      : null;
+  const autoInput = deriveAutoTimerInput(live, progress, appState.pausedAt);
   const timer = useDisplayTimer(autoInput, offsetMs);
   const clockLabel = useDisplayClock(offsetMs);
   const color = TIMER_COLORS[timer.colorState];
@@ -78,36 +68,14 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
         visible={fullscreenPrompt}
         onEnter={() => {
           void fullscreen.enter();
-          setFullscreenPrompt(false);
+          dismissFullscreenPrompt();
         }}
-        onDismiss={() => setFullscreenPrompt(false)}
+        onDismiss={dismissFullscreenPrompt}
       />
 
       {!engine.hold.active && (
         <>
-          <div className="flex items-start justify-between flex-wrap gap-y-3">
-            <div>
-              <p className="text-caption uppercase tracking-wide text-muted-2">
-                {session ? `${session.dayLabel} • ${session.sessionLabel}` : "KramFlow"}
-              </p>
-              <p className="text-title text-primary mt-1">AV Waiting Room</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-hero tabular-nums text-muted" style={{ fontSize: "clamp(2rem, 3vw, 3rem)" }}>
-                {clockLabel}
-              </span>
-              <span
-                className={cn(
-                  "text-caption font-semibold uppercase tracking-wide px-3 py-1 rounded-full",
-                  stageStatus === "LIVE" && "bg-status-green/15 text-status-green",
-                  stageStatus === "PAUSED" && "bg-status-orange/15 text-status-orange",
-                  stageStatus === "STANDBY" && "bg-white/5 text-muted-2"
-                )}
-              >
-                {stageStatus}
-              </span>
-            </div>
-          </div>
+          <DisplayHeader title="AV Waiting Room" session={session} clockLabel={clockLabel} stageStatus={stageStatus} />
 
           {appState.alert && <AlertBanner alert={appState.alert} className="mt-6" />}
 
@@ -119,8 +87,7 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
               </p>
               {!isFinished && (
                 <>
-                  {/* QA_REPORT_ROUND2.md R2-BUG-6, same pattern as Green
-                      Room: once finished, autoInput is null and this would
+                  {/* Same pattern as Green Room: once finished, autoInput is null and this would
                       otherwise fall back to the Display Engine's unrelated
                       manual-timer state instead of blanking. */}
                   <p

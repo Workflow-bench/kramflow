@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/server/require-auth";
+import { requireAuthUser } from "@/lib/server/require-auth";
 import { eventLimitForTier } from "@/lib/server/plan-limits";
-import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 // GET — every event this operator can actually open: owned, plus accepted
 // collaborations. Previously owner-only ("fixing collaborator visibility
@@ -13,23 +13,22 @@ import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
 // `role` on each returned event tells the client which actions are
 // theirs — owner-only affordances (delete, settings) stay gated on it
 // client-side, on top of the server already enforcing it on every
-// mutating route regardless of what this list shows.
+// mutating route regardless of what this list shows. Also relies on
+// "owner select" RLS as a second, independent boundary (supabase/
+// schema.sql) — the owner_id/user_id filters below aren't the only thing
+// standing between operators.
 export async function GET() {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
-
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const auth = await requireAuthUser();
+  if (auth instanceof NextResponse) return auth;
+  const { user } = auth;
 
   const admin = supabaseAdmin();
   const [ownedResult, collabResult] = await Promise.all([
-    admin.from("events").select("*").eq("owner_id", user!.id).order("created_at", { ascending: false }),
+    admin.from("events").select("*").eq("owner_id", user.id).order("created_at", { ascending: false }),
     admin
       .from("event_collaborators")
       .select("role, event:events(*)")
-      .eq("user_id", user!.id)
+      .eq("user_id", user.id)
       .eq("status", "accepted"),
   ]);
   if (ownedResult.error) return NextResponse.json({ ok: false, error: ownedResult.error.message }, { status: 500 });
@@ -51,8 +50,9 @@ export async function GET() {
 // on both tables has a DB default — see the migration — so this is a
 // bare insert of just event_id).
 export async function POST(request: Request) {
-  const unauthorized = await requireAuth();
-  if (unauthorized) return unauthorized;
+  const auth = await requireAuthUser();
+  if (auth instanceof NextResponse) return auth;
+  const { user } = auth;
 
   let body: { name?: unknown } = {};
   try {
@@ -62,11 +62,6 @@ export async function POST(request: Request) {
   }
   const name = typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 120) : "Untitled Event";
 
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const admin = supabaseAdmin();
 
   // Enforced here, not in the UI — this route (via the service-role
@@ -75,12 +70,12 @@ export async function POST(request: Request) {
   // clicking the "Create Event" button. The tier read and the count are
   // both fresh per request (no caching) since this only runs on the
   // low-frequency create path, not a hot loop.
-  const { data: profile } = await admin.from("profiles").select("tier").eq("id", user!.id).single();
+  const { data: profile } = await admin.from("profiles").select("tier").eq("id", user.id).single();
   const limit = eventLimitForTier(profile?.tier);
   const { count, error: countError } = await admin
     .from("events")
     .select("*", { count: "exact", head: true })
-    .eq("owner_id", user!.id);
+    .eq("owner_id", user.id);
   if (countError) {
     return NextResponse.json({ ok: false, error: countError.message }, { status: 500 });
   }
@@ -94,7 +89,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: event, error } = await admin.from("events").insert({ owner_id: user!.id, name }).select("*").single();
+  const { data: event, error } = await admin.from("events").insert({ owner_id: user.id, name }).select("*").single();
   if (error || !event) {
     return NextResponse.json({ ok: false, error: error?.message ?? "Failed to create event" }, { status: 500 });
   }

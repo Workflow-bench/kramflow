@@ -3,6 +3,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 import { getTransport, type TransportStatus } from "./transport";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { fetchDisplayViewPolled } from "@/lib/shared-display-view-poll";
 import { createInitialEngineState } from "./defaults";
 import { useDisplayEngineIdentity, type DisplayEngineIdentity } from "./context";
 import type {
@@ -303,11 +304,68 @@ async function fetchRemoteSliceViaSupabase(inst: EngineInstance, eventId: string
       .order("created_at", { ascending: false }),
   ]);
 
-  if (stateRes.error) {
-    console.error("[display-engine] fetch display_state failed:", stateRes.error);
+  // All three are checked, not just display_state — an error on the
+  // registry or broadcasts query looks identical to "nothing registered"/
+  // "nothing sent" once discarded via `?? []`, silently telling an
+  // operator every display is offline when it's actually a query failure.
+  const failed = [stateRes, registryRes, broadcastsRes].find((r) => r.error);
+  if (failed) {
+    console.error("[display-engine] fetch display-engine slice failed:", failed.error);
     return;
   }
   applyRemoteRows(inst, stateRes.data as DisplayStateRow, (registryRes.data ?? []) as RegistryRow[], (broadcastsRes.data ?? []) as BroadcastRow[]);
+}
+
+// Scoped counterparts to fetchRemoteSliceViaSupabase, one per table, for
+// ensureRemoteConnected's three separate postgres_changes listeners below.
+// A Realtime change on any one of display_state/display_registry/
+// display_broadcasts used to re-fetch all three unconditionally — with
+// every connected display's 15s heartbeat write being itself a
+// display_registry change, that meant O(displays) heartbeats x 3 queries
+// x every connected client every ~15s, mostly refreshing tables that
+// hadn't actually changed. Each of these only re-fetches the one table
+// its own listener fired for, merging into the existing remoteSlice.
+async function fetchDisplayStateSlice(inst: EngineInstance, eventId: string) {
+  const client = supabaseBrowser();
+  const { data, error } = await client.from("display_state").select("*").eq("event_id", eventId).single();
+  if (error) {
+    console.error("[display-engine] fetch display_state failed:", error);
+    return;
+  }
+  const stateRow = data as DisplayStateRow;
+  inst.remoteSlice = { ...inst.remoteSlice, timer: stateRow.timer, hold: stateRow.hold, speakerReady: stateRow.speaker_ready };
+  rebuild(inst);
+  runSchedulerCheck(inst);
+}
+
+async function fetchRegistrySlice(inst: EngineInstance, eventId: string) {
+  const client = supabaseBrowser();
+  const { data, error } = await client.from("display_registry").select("*").eq("event_id", eventId);
+  if (error) {
+    console.error("[display-engine] fetch display_registry failed:", error);
+    return;
+  }
+  const registry: Record<string, DisplayInstance> = {};
+  for (const row of (data ?? []) as RegistryRow[]) registry[row.id] = rowToInstance(row);
+  inst.remoteSlice = { ...inst.remoteSlice, registry };
+  rebuild(inst);
+  runSchedulerCheck(inst);
+}
+
+async function fetchBroadcastsSlice(inst: EngineInstance, eventId: string) {
+  const client = supabaseBrowser();
+  const { data, error } = await client
+    .from("display_broadcasts")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("[display-engine] fetch display_broadcasts failed:", error);
+    return;
+  }
+  inst.remoteSlice = { ...inst.remoteSlice, broadcastRows: (data ?? []) as BroadcastRow[] };
+  rebuild(inst);
+  runSchedulerCheck(inst);
 }
 
 async function fetchRemoteSliceViaPoll(inst: EngineInstance) {
@@ -315,10 +373,18 @@ async function fetchRemoteSliceViaPoll(inst: EngineInstance) {
     const qs = inst.identity.token
       ? `token=${encodeURIComponent(inst.identity.token)}`
       : `eventId=${encodeURIComponent(inst.identity.eventId!)}`;
-    const res = await fetch(`/api/display-view?${qs}`);
-    const data = await res.json();
+    // Shared with lib/use-display-view.ts, which polls this exact same
+    // endpoint on the same identity — every public display page renders
+    // both hooks together, so this coalesces what would otherwise be two
+    // independent fetches of the identical server-joined payload.
+    const data = (await fetchDisplayViewPolled(qs)) as {
+      ok: boolean;
+      displayState?: DisplayStateRow;
+      displayRegistry?: RegistryRow[];
+      displayBroadcasts?: BroadcastRow[];
+    };
     if (!data.ok || !data.displayState) return;
-    applyRemoteRows(inst, data.displayState as DisplayStateRow, (data.displayRegistry ?? []) as RegistryRow[], (data.displayBroadcasts ?? []) as BroadcastRow[]);
+    applyRemoteRows(inst, data.displayState, data.displayRegistry ?? [], data.displayBroadcasts ?? []);
   } catch (err) {
     console.error("[display-engine] poll failed:", err);
   }
@@ -348,13 +414,13 @@ function ensureRemoteConnected(inst: EngineInstance) {
     supabaseBrowser()
       .channel(`display-engine-sync:${eventId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "display_state", filter: `event_id=eq.${eventId}` }, () =>
-        fetchRemoteSliceViaSupabase(inst, eventId)
+        fetchDisplayStateSlice(inst, eventId)
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "display_registry", filter: `event_id=eq.${eventId}` }, () =>
-        fetchRemoteSliceViaSupabase(inst, eventId)
+        fetchRegistrySlice(inst, eventId)
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "display_broadcasts", filter: `event_id=eq.${eventId}` }, () =>
-        fetchRemoteSliceViaSupabase(inst, eventId)
+        fetchBroadcastsSlice(inst, eventId)
       )
       .subscribe();
   } else if (inst.identity.token) {

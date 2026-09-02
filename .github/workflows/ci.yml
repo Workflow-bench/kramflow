@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+# The E2E job (auth-golden-path.spec.ts) logs into one shared Supabase test
+# account and mutates its events, so two runs executing at once race each
+# other (concurrent logins, one run's beforeEach cleanup deleting events
+# out from under another run's assertions, the account tripping the 3-event
+# free-tier cap). Scoping the group to just the workflow name (no ref/branch
+# in the key) queues every run repo-wide behind whichever is already in
+# flight instead of letting them stomp on the shared account in parallel.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      # GitHub withholds repo secrets from pull_request runs authored by
+      # Dependabot, so these steps would just fail on every dependency-bump
+      # PR. Rather than switch to pull_request_target for secrets (that runs
+      # the bumped dependency's own install/build scripts with full secrets
+      # in scope on a checkout of the PR's exact — dependency-controlled —
+      # code, i.e. a "pwn request": CodeQL flags this as
+      # actions/untrusted-checkout/critical), skip the secret-requiring
+      # steps for Dependabot and rely on typecheck/lint/unit-test above for
+      # its PRs. Build and E2E still run in full for every human-authored
+      # PR and every push to a branch.
+      - name: Build
+        if: github.actor != 'dependabot[bot]'
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Install Playwright browsers
+        if: github.actor != 'dependabot[bot]'
+        run: npx playwright install --with-deps chromium
+
+      # e2e/auth-golden-path.spec.ts skips itself with a clear message if
+      # E2E_TEST_EMAIL/PASSWORD aren't set, so this step is safe even
+      # before the test account secrets exist. SUPABASE_SERVICE_ROLE_KEY
+      # is needed here (not in the Build step above) because Playwright's
+      # webServer boots a real dev server that performs real writes
+      # (event creation) during the test.
+      - name: E2E tests
+        if: github.actor != 'dependabot[bot]'
+        run: npm run test:e2e
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+
+      - name: Upload Playwright report on failure
+        if: failure() && github.actor != 'dependabot[bot]'
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: test-results/
+          retention-days: 7

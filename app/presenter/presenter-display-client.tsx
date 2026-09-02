@@ -17,7 +17,8 @@ import { getLive, getNext } from "@/lib/types";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
 import { useDisplayTimer, useDisplayClock, formatClock } from "@/lib/display-engine/use-display-timer";
-import { useRegisterDisplay } from "@/lib/display-engine/use-register-display";
+import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
+import { deriveProgress, deriveAutoTimerInput } from "@/lib/display-engine/live-progress";
 import { useTimeSync } from "@/lib/display-engine/use-time-sync";
 import { useFullscreen } from "@/lib/display-engine/use-fullscreen";
 import { useKeyboardShortcuts } from "@/lib/display-engine/use-keyboard-shortcuts";
@@ -31,7 +32,7 @@ import { HoldScreen } from "@/components/display-engine/hold-screen";
 import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay";
 import { TestMessageOverlay } from "@/components/display-engine/test-message-overlay";
 import { FullscreenPrompt } from "@/components/display-engine/fullscreen-prompt";
-import { useTestMessage } from "@/lib/display-engine/use-test-message";
+import { StageStatusPill } from "@/components/display-engine/stage-status-pill";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
@@ -72,24 +73,18 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
   const [holdPresetIndex, setHoldPresetIndex] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
 
-  const { testMessage, showTestMessage } = useTestMessage();
-  const [fullscreenPrompt, setFullscreenPrompt] = useState(false);
-  const display = useRegisterDisplay("Presenter Display", "presenter", null, (command) => {
-    // requestFullscreen() requires a real gesture on this device — a
-    // Realtime command can't provide one, so this shows a tappable prompt
-    // instead of calling fullscreen.enter() directly (see
-    // components/display-engine/fullscreen-prompt.tsx).
-    if (command.type === "force-fullscreen") setFullscreenPrompt(true);
-    if (command.type === "reload") window.location.reload();
-    if (command.type === "test-message") showTestMessage(command.text, command.issuedAt);
-  });
+  // requestFullscreen() requires a real gesture on this device — a
+  // Realtime command can't provide one, so useDisplayCommands' built-in
+  // force-fullscreen handling (a tappable prompt) is what's needed here
+  // too, same as every other display client.
+  const { display, testMessage, fullscreenPrompt, dismissFullscreenPrompt } = useDisplayCommands(
+    "Presenter Display",
+    "presenter"
+  );
 
   const live = session ? getLive(session, appState) : null;
   const next = session ? getNext(session, appState) : null;
-  const progress = session ? appState.progressBySession[appState.activeSessionId] : undefined;
-  const total = session?.items.length ?? 0;
-  const currentOrder = progress?.currentOrder ?? null;
-  const isFinished = currentOrder !== null && currentOrder > total;
+  const { progress, isFinished } = deriveProgress(session, appState);
   // Phase 2 finding: in auto (queue-following) mode with nothing live, the
   // countdown/progress-bar chrome below used to render anyway — driven by
   // whatever the Display Engine's own leftover manual-timer state happened
@@ -100,10 +95,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
   // not a gap to suppress.
   const showNotStarted = engine.timer.source === "auto" && !live;
 
-  const autoInput =
-    live && live.type === "item"
-      ? { durationMinutes: live.durationMinutes, startedAt: progress?.startedAt ?? null, pausedAt: appState.pausedAt }
-      : null;
+  const autoInput = deriveAutoTimerInput(live, progress, appState.pausedAt);
 
   const timer = useDisplayTimer(engine.timer.source === "auto" ? autoInput : null, offsetMs);
   const clockLabel = useDisplayClock(offsetMs);
@@ -137,9 +129,9 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
         visible={fullscreenPrompt}
         onEnter={() => {
           void fullscreen.enter();
-          setFullscreenPrompt(false);
+          dismissFullscreenPrompt();
         }}
-        onDismiss={() => setFullscreenPrompt(false)}
+        onDismiss={dismissFullscreenPrompt}
       />
 
       {!engine.hold.active && (
@@ -155,17 +147,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
               </div>
               <div className="flex items-center gap-3">
                 {appState.alert && <AlertBanner alert={appState.alert} compact />}
-                <span
-                  className={cn(
-                    "text-caption font-semibold uppercase tracking-wide px-3 py-1 rounded-full",
-                    stageStatus === "LIVE" && "bg-status-green/15 text-status-green",
-                    stageStatus === "ON HOLD" && "bg-status-orange/15 text-status-orange",
-                    stageStatus === "PAUSED" && "bg-status-orange/15 text-status-orange",
-                    stageStatus === "STANDBY" && "bg-white/5 text-muted-2"
-                  )}
-                >
-                  {stageStatus}
-                </span>
+                <StageStatusPill status={stageStatus} />
               </div>
             </div>
           )}

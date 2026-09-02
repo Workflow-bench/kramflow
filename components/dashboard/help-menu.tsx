@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { reopenGettingStarted } from "./getting-started-checklist";
 import { cn } from "@/lib/utils";
+import { useDismissOnOutsideOrEscape } from "@/lib/use-dismiss-on-outside-or-escape";
 
 // The one help entry point in the app. Previously a single "Getting
 // started" item that just reopened the onboarding checklist — a dead end
@@ -19,14 +20,7 @@ export function HelpMenu() {
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    function onClickOutside(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, [open]);
+  useDismissOnOutsideOrEscape(rootRef, open, () => setOpen(false));
 
   function handleReopen() {
     reopenGettingStarted();

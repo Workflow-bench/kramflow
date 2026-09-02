@@ -209,7 +209,7 @@ export default function RemotePage() {
       </div>
 
       {/* Main focus — current + next, huge countdown */}
-      {/* QA_REPORT.md BUG-7: plain `justify-center` on a scrollable overflow
+      {/* Plain `justify-center` on a scrollable overflow
           container centers the overflow itself, so at scroll position 0 the
           browser shows the *middle* of a wrapped 3-line title, not the top —
           the top line was scrolled off above the visible viewport by
@@ -440,7 +440,7 @@ export default function RemotePage() {
         confirmLabel="Jump Here"
         onConfirm={() => {
           if (typeof confirmKind === "object" && confirmKind && "jump" in confirmKind) {
-            jumpTo(confirmKind.jump);
+            jumpTo(confirmKind.jump, max);
           }
           setConfirmKind(null);
         }}
@@ -459,24 +459,27 @@ export default function RemotePage() {
           if (!preset || emergencySendingRef.current) return;
           emergencySendingRef.current = true;
           setEmergencySending(true);
-          const res = await sendBroadcast({
-            type: "emergency",
-            title: preset.title,
-            message: preset.message,
-            icon: null,
-            priority: 3,
-            target: { kind: "all" },
-            expiresInMinutes: null,
-            durationSeconds: null,
-            acknowledgementRequired: true,
-            persistent: true,
-            scheduledFor: null,
-          });
-          emergencySendingRef.current = false;
-          setEmergencySending(false);
-          emergencyConfirm.cancel();
-          if (res && res.ok) toast.success("Emergency broadcast sent");
-          else toast.error("Couldn't send the emergency broadcast — try again immediately");
+          try {
+            const res = await sendBroadcast({
+              type: "emergency",
+              title: preset.title,
+              message: preset.message,
+              icon: null,
+              priority: 3,
+              target: { kind: "all" },
+              expiresInMinutes: null,
+              durationSeconds: null,
+              acknowledgementRequired: true,
+              persistent: true,
+              scheduledFor: null,
+            });
+            emergencyConfirm.cancel();
+            if (res && res.ok) toast.success("Emergency broadcast sent");
+            else toast.error("Couldn't send the emergency broadcast — try again immediately");
+          } finally {
+            emergencySendingRef.current = false;
+            setEmergencySending(false);
+          }
         }}
         onCancel={emergencyConfirm.cancel}
       />
@@ -509,6 +512,21 @@ function QuickPanel({
   const [alertValue, setAlertValue] = useState("");
   const [notesValue, setNotesValue] = useState(currentNotes);
   const [broadcastValue, setBroadcastValue] = useState("");
+
+  // QuickPanel stays mounted across sub-panel switches (only which section
+  // renders changes) — useState(currentNotes) above only captures the
+  // value from the first mount, so switching to the jump/alert/broadcast
+  // panel and back to notes without unmounting showed stale notes if the
+  // live item changed in between. Adjusted during render (same pattern as
+  // components/forms/event-settings-panel.tsx's trackedInitialName) rather
+  // than an effect, and only on the rising edge into "notes" — not on
+  // every currentNotes change while already viewing it, so a Realtime
+  // update elsewhere doesn't clobber an in-progress edit.
+  const [trackedPanel, setTrackedPanel] = useState(panel);
+  if (panel !== trackedPanel) {
+    setTrackedPanel(panel);
+    if (panel === "notes") setNotesValue(currentNotes);
+  }
 
   return (
     <div className="rounded-card bg-card p-5 mb-3">

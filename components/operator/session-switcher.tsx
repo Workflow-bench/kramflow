@@ -15,7 +15,7 @@ export function SessionSwitcher() {
   const sessions = useSessions();
   const switchConfirm = useConfirmDialog<{ id: string; label: string }>();
   const scrollRef = useRef<HTMLDivElement>(null);
-  // QA_REPORT.md BUG-2 / QA_REPORT_ROUND2.md R2-EXT-1: at narrower widths
+  // At narrower widths
   // (the operator dashboard's own 1250-1440px band, or any width once
   // zoomed) not every session pill fits, and overflow-x-auto alone gives
   // no visible sign there's more to scroll to. Only rendered once there

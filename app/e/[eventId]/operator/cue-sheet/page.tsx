@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus } from "lucide-react";
 import {
   DndContext,
@@ -226,14 +226,23 @@ export default function CueSheetPage() {
   // several rows as one undoable action, not one timer per row.
   const pendingDeleteTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
+  // Tracks which session's fetch is the most recently requested — if the
+  // operator switches sessions again before an in-flight fetch resolves,
+  // a slower/earlier response landing after a newer one must not overwrite
+  // rows with the wrong session's items (real network jitter can reorder
+  // responses relative to request order).
+  const latestRequestedSessionId = useRef<string | null>(null);
+
   async function loadRows(sessionId: string) {
+    latestRequestedSessionId.current = sessionId;
     setLoadingRows(true);
     try {
       const res = await fetch(`/api/programs?eventId=${encodeURIComponent(eventId)}&sessionId=${encodeURIComponent(sessionId)}`);
       const data = await res.json();
+      if (latestRequestedSessionId.current !== sessionId) return;
       setRows(data.programs ?? []);
     } finally {
-      setLoadingRows(false);
+      if (latestRequestedSessionId.current === sessionId) setLoadingRows(false);
     }
   }
 
@@ -437,19 +446,42 @@ export default function CueSheetPage() {
   // (244 items across 6 sessions, measured directly from the real file),
   // scrolling to find one item by eye stops being reasonable.
   const searchQuery = search.trim().toLowerCase();
-  const filteredRows = !searchQuery || !rows
-    ? rows
-    : rows.filter(
-        (r) => r.name.toLowerCase().includes(searchQuery) || (r.presenter ?? "").toLowerCase().includes(searchQuery)
-      );
-
   const activeSession = sessions.find((s) => s.id === activeSessionId);
-  const partitionLabels = new Map((activeSession?.partitions ?? []).map((p) => [p.id, p.label]));
+
+  // Memoized — this component has many independent pieces of state
+  // (selection, drag, panel toggles) that trigger re-renders without
+  // rows/searchQuery changing; without this, every one of those re-runs
+  // a filter + partition-group pass over up to 244 real items.
+  //
+  // react-hooks/preserve-manual-memoization (a React Compiler-readiness
+  // lint rule — the compiler itself isn't enabled in next.config.ts, so
+  // this is advisory only) can't see into groupByPartition (this file,
+  // above) to verify it doesn't mutate the rows array passed into it —
+  // it only ever pushes into an array it creates itself (`rows: [row]`).
+  // Manually verified safe; disabled for this block rather than restructured.
+  /* eslint-disable react-hooks/preserve-manual-memoization */
+  const filteredRows = useMemo(
+    () =>
+      !searchQuery || !rows
+        ? rows
+        : rows.filter(
+            (r) => r.name.toLowerCase().includes(searchQuery) || (r.presenter ?? "").toLowerCase().includes(searchQuery)
+          ),
+    [rows, searchQuery]
+  );
+  const partitionLabels = useMemo(
+    () => new Map((activeSession?.partitions ?? []).map((p) => [p.id, p.label])),
+    [activeSession]
+  );
   // Grouping (and therefore drag-and-drop) only makes sense against the
   // full, unfiltered order — same reasoning the old arrow-based reorder
   // already had for hiding its controls while a search is active, since a
   // filtered view's neighbors aren't real neighbors.
-  const partitionGroups = searchQuery || !filteredRows ? [] : groupByPartition(filteredRows, partitionLabels);
+  const partitionGroups = useMemo(
+    () => (searchQuery || !filteredRows ? [] : groupByPartition(filteredRows, partitionLabels)),
+    [searchQuery, filteredRows, partitionLabels]
+  );
+  /* eslint-enable react-hooks/preserve-manual-memoization */
 
   // Planning intelligence — only what's honestly derivable from data
   // already on every row, not an invented readiness score. Total is the

@@ -21,7 +21,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // GoTrue's own anti-enumeration behavior rather than undoing it here.
 export async function POST(request: Request) {
   const ip = getClientIp(request);
-  const limit = checkRateLimit("resend", ip);
+  const limit = await checkRateLimit("resend", ip);
   if (!limit.allowed) {
     return NextResponse.json(
       { ok: false, error: "Too many attempts. Please wait and try again.", retryAfterSeconds: limit.retryAfterSeconds },
@@ -49,13 +49,13 @@ export async function POST(request: Request) {
   // generic success response so this endpoint doesn't become the thing
   // that leaks what /login and /signup deliberately don't.
   if (error?.message.toLowerCase().includes("rate limit")) {
-    recordFailure("resend", ip);
+    await recordFailure("resend", ip);
     return NextResponse.json(
       { ok: false, error: "Too many attempts right now — please wait a few minutes and try again." },
       { status: 429 }
     );
   }
 
-  recordSuccess("resend", ip);
+  await recordSuccess("resend", ip);
   return NextResponse.json({ ok: true });
 }

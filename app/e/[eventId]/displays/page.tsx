@@ -8,7 +8,7 @@ import { useEventId } from "@/lib/event-context";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
 import { getDisplayStatus, type DisplayHealth } from "@/lib/display-engine/use-register-display";
 import type { TransportStatus } from "@/lib/display-engine/transport";
-import type { DisplayInstance, DisplayType } from "@/lib/display-engine/types";
+import { DISPLAY_TYPES, type DisplayInstance, type DisplayType } from "@/lib/display-engine/types";
 import { EventNav } from "@/components/operator/event-nav";
 import { EventIdentity } from "@/components/operator/event-identity";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -35,16 +35,6 @@ const PREVIEW_LINKS: { path: string; label: string; icon: typeof Tv }[] = [
   { path: "/av", label: "AV", icon: Tv },
   { path: "/green-room", label: "Green Room", icon: Tv },
   { path: "/presenter", label: "Presenter", icon: Presentation },
-];
-
-// The 4 canonical display types (Operator/Remote aren't Display Engine
-// surfaces, so they're not here).
-const DISPLAY_TYPES: { value: DisplayType; label: string; route: string }[] = [
-  { value: "presenter", label: "Presenter", route: "/presenter" },
-  { value: "green-room", label: "Green Room", route: "/green-room" },
-  { value: "av", label: "AV", route: "/av" },
-  { value: "general", label: "General", route: "/general" },
-  { value: "custom", label: "Custom", route: "/presenter" },
 ];
 
 function routeFor(type: DisplayType): string {
@@ -162,45 +152,49 @@ export default function DisplayManagerPage() {
     if (!action || confirmingRef.current === action) return;
     confirmingRef.current = action;
     setConfirming(true);
-    switch (action.kind) {
-      case "reassign-type": {
-        const res = await assignDisplay(action.id, { type: action.type });
-        if (!res || !res.ok) toast.error(`Couldn't change ${action.name}'s type — try again`);
-        break;
+    try {
+      switch (action.kind) {
+        case "reassign-type": {
+          const res = await assignDisplay(action.id, { type: action.type });
+          if (!res || !res.ok) toast.error(`Couldn't change ${action.name}'s type — try again`);
+          break;
+        }
+        case "reload": {
+          const res = await sendCommand(action.id, { type: "reload", issuedAt: new Date().toISOString() });
+          if (res && res.ok) toast.success(`Reload sent to ${action.name}`);
+          else toast.error(`Couldn't reload ${action.name} — try again`);
+          break;
+        }
+        case "remove": {
+          const res = await removeDisplay(action.id);
+          if (res && res.ok) toast.success(`${action.name} removed`);
+          else toast.error(`Couldn't remove ${action.name} — try again`);
+          break;
+        }
+        case "reload-all-offline": {
+          const results = await Promise.all(
+            action.ids.map((id) => sendCommand(id, { type: "reload", issuedAt: new Date().toISOString() }))
+          );
+          const failed = results.filter((res) => !res || !res.ok).length;
+          const sent = action.ids.length - failed;
+          if (sent > 0) toast.success(`Reload queued for ${sent} offline display${sent === 1 ? "" : "s"} — it'll apply once each reconnects`);
+          if (failed > 0) toast.error(`Couldn't queue reload for ${failed} of them — try again`);
+          break;
+        }
+        case "remove-all-offline": {
+          const results = await Promise.all(action.ids.map((id) => removeDisplay(id)));
+          const failed = results.filter((res) => !res || !res.ok).length;
+          const removed = action.ids.length - failed;
+          if (removed > 0) toast.success(`Removed ${removed} offline display${removed === 1 ? "" : "s"}`);
+          if (failed > 0) toast.error(`Couldn't remove ${failed} of them — try again`);
+          break;
+        }
       }
-      case "reload": {
-        const res = await sendCommand(action.id, { type: "reload", issuedAt: new Date().toISOString() });
-        if (res && res.ok) toast.success(`Reload sent to ${action.name}`);
-        else toast.error(`Couldn't reload ${action.name} — try again`);
-        break;
-      }
-      case "remove": {
-        const res = await removeDisplay(action.id);
-        if (res && res.ok) toast.success(`${action.name} removed`);
-        else toast.error(`Couldn't remove ${action.name} — try again`);
-        break;
-      }
-      case "reload-all-offline": {
-        const results = await Promise.all(
-          action.ids.map((id) => sendCommand(id, { type: "reload", issuedAt: new Date().toISOString() }))
-        );
-        const failed = results.filter((res) => !res || !res.ok).length;
-        const sent = action.ids.length - failed;
-        if (sent > 0) toast.success(`Reload queued for ${sent} offline display${sent === 1 ? "" : "s"} — it'll apply once each reconnects`);
-        if (failed > 0) toast.error(`Couldn't queue reload for ${failed} of them — try again`);
-        break;
-      }
-      case "remove-all-offline": {
-        const results = await Promise.all(action.ids.map((id) => removeDisplay(id)));
-        const failed = results.filter((res) => !res || !res.ok).length;
-        const removed = action.ids.length - failed;
-        if (removed > 0) toast.success(`Removed ${removed} offline display${removed === 1 ? "" : "s"}`);
-        if (failed > 0) toast.error(`Couldn't remove ${failed} of them — try again`);
-        break;
-      }
+    } finally {
+      confirmingRef.current = null;
+      setConfirming(false);
+      confirmAction.cancel();
     }
-    setConfirming(false);
-    confirmAction.cancel();
   }
 
   return (

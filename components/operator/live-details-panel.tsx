@@ -69,9 +69,12 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
   async function handleSave() {
     if (!live) return;
     setSaving(true);
-    const ok = await setNotes(live.id, draft);
-    setSaving(false);
-    if (!ok) toast.error("Couldn't save notes — try again");
+    try {
+      const ok = await setNotes(live.id, draft);
+      if (!ok) toast.error("Couldn't save notes — try again");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (

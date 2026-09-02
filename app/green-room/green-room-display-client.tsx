@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { useDisplayView } from "@/lib/use-display-view";
 import { getSessionById } from "@/lib/data/sessions";
@@ -8,7 +7,8 @@ import { effectiveNotes, getLive, getNext, getOnDeck } from "@/lib/types";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
 import { useDisplayTimer, useDisplayClock } from "@/lib/display-engine/use-display-timer";
-import { useRegisterDisplay } from "@/lib/display-engine/use-register-display";
+import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
+import { deriveProgress, deriveAutoTimerInput } from "@/lib/display-engine/live-progress";
 import { useTimeSync } from "@/lib/display-engine/use-time-sync";
 import { useFullscreen } from "@/lib/display-engine/use-fullscreen";
 import { TIMER_COLORS } from "@/lib/display-engine/colors";
@@ -17,7 +17,7 @@ import { HoldScreen } from "@/components/display-engine/hold-screen";
 import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay";
 import { TestMessageOverlay } from "@/components/display-engine/test-message-overlay";
 import { FullscreenPrompt } from "@/components/display-engine/fullscreen-prompt";
-import { useTestMessage } from "@/lib/display-engine/use-test-message";
+import { DisplayHeader } from "@/components/display-engine/display-header";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { cn } from "@/lib/utils";
 
@@ -49,23 +49,14 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
   const live = session ? getLive(session, appState) : null;
   const next = session ? getNext(session, appState) : null;
   const onDeck = session ? getOnDeck(session, appState) : null;
-  const progress = session ? appState.progressBySession[appState.activeSessionId] : undefined;
-  const total = session?.items.length ?? 0;
-  const currentOrder = progress?.currentOrder ?? null;
-  const isFinished = currentOrder !== null && currentOrder > total;
+  const { progress, currentOrder, total, isFinished } = deriveProgress(session, appState);
 
-  const { testMessage, showTestMessage } = useTestMessage();
-  const [fullscreenPrompt, setFullscreenPrompt] = useState(false);
-  const display = useRegisterDisplay("Green Room Display", "green-room", null, (command) => {
-    if (command.type === "reload") window.location.reload();
-    if (command.type === "test-message") showTestMessage(command.text, command.issuedAt);
-    if (command.type === "force-fullscreen") setFullscreenPrompt(true);
-  });
+  const { display, testMessage, fullscreenPrompt, dismissFullscreenPrompt } = useDisplayCommands(
+    "Green Room Display",
+    "green-room"
+  );
 
-  const autoInput =
-    live && live.type === "item"
-      ? { durationMinutes: live.durationMinutes, startedAt: progress?.startedAt ?? null, pausedAt: appState.pausedAt }
-      : null;
+  const autoInput = deriveAutoTimerInput(live, progress, appState.pausedAt);
   const timer = useDisplayTimer(autoInput, offsetMs);
   const clockLabel = useDisplayClock(offsetMs);
   const color = TIMER_COLORS[timer.colorState];
@@ -82,36 +73,14 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
         visible={fullscreenPrompt}
         onEnter={() => {
           void fullscreen.enter();
-          setFullscreenPrompt(false);
+          dismissFullscreenPrompt();
         }}
-        onDismiss={() => setFullscreenPrompt(false)}
+        onDismiss={dismissFullscreenPrompt}
       />
 
       {!engine.hold.active && (
         <>
-          <div className="flex items-start justify-between flex-wrap gap-y-3">
-            <div>
-              <p className="text-caption uppercase tracking-wide text-muted-2">
-                {session ? `${session.dayLabel} • ${session.sessionLabel}` : "KramFlow"}
-              </p>
-              <p className="text-title text-primary mt-1">Green Room</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-hero tabular-nums text-muted" style={{ fontSize: "clamp(2rem, 3vw, 3rem)" }}>
-                {clockLabel}
-              </span>
-              <span
-                className={cn(
-                  "text-caption font-semibold uppercase tracking-wide px-3 py-1 rounded-full",
-                  stageStatus === "LIVE" && "bg-status-green/15 text-status-green",
-                  stageStatus === "PAUSED" && "bg-status-orange/15 text-status-orange",
-                  stageStatus === "STANDBY" && "bg-white/5 text-muted-2"
-                )}
-              >
-                {stageStatus}
-              </span>
-            </div>
-          </div>
+          <DisplayHeader title="Green Room" session={session} clockLabel={clockLabel} stageStatus={stageStatus} />
 
           {appState.alert && <AlertBanner alert={appState.alert} className="mt-6" />}
 
@@ -119,9 +88,9 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
             {/* justify-start, not -center: centering doesn't clip — content
                 taller than this cell bled equally up *and down* past it,
                 which is what actually caused the "Queue Position" row below
-                to visually overlap the countdown at a short viewport
-                (QA_REPORT_ROUND2.md R2-BUG-4), not the outer shell's own
-                justify-between (already fixed separately). Top-aligning
+                to visually overlap the countdown at a short viewport,
+                not the outer shell's own justify-between (already fixed
+                separately). Top-aligning
                 this cell means it can only overflow downward, where the
                 page already scrolls, instead of in both directions. */}
             <div className="min-h-0 flex flex-col justify-start">
@@ -132,7 +101,7 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
               {live?.presenter && <p className="text-title text-muted mt-3">{live.presenter}</p>}
               {!isFinished && (
                 <>
-                  {/* QA_REPORT_ROUND2.md R2-BUG-6: this used to render
+                  {/* This used to render
                       unconditionally, so once a session finished (live ===
                       null, autoInput === null) it fell back to the Display
                       Engine's own separate manual-timer state — an unrelated

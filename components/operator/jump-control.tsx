@@ -61,7 +61,7 @@ export function JumpControl({ max }: { max: number }) {
           if (!isValid || jumpingRef.current) return;
           jumpingRef.current = true;
           setJumping(true);
-          const ok = await jumpTo(order);
+          const ok = await jumpTo(order, max);
           jumpingRef.current = false;
           setJumping(false);
           setConfirmOpen(false);

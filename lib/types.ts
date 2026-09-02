@@ -126,7 +126,9 @@ export interface LiveState {
   /** programId -> real actual start/end timestamps, written server-side
    *  (app/api/live/route.ts) as the show progresses — see that file's
    *  item_actuals comment for the exact overwrite/clear semantics. Keyed
-   *  by program id (stable across reorders), not order. */
+   *  by program id (stable across reorders), not order. Column added by
+   *  supabase/migrations/0007_pilot_readiness_v2.sql — same shape this
+   *  branch and main's converged on independently. */
   itemActuals: Record<string, { actualStart: string | null; actualEnd: string | null }>;
 }
 

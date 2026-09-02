@@ -38,8 +38,8 @@ export function DisplayShell({
           item's default min-height:auto refuses to shrink below its
           content's natural height, so any unconstrained-length child
           balloons this div's height instead of laying out normally within
-          it. Overflow itself is no longer silently clipped (QA_REPORT_
-          ROUND2.md R2-BUG-4/R2-BUG-5: at short/landscape-phone viewports —
+          it. Overflow itself is no longer silently clipped (at
+          short/landscape-phone viewports —
           e.g. a phone in landscape used by AV crew in practice — real
           content like the countdown or the LIVE badge was rendered but
           unreachable, with <main>'s old overflow-hidden and no scrollbar).

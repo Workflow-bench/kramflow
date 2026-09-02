@@ -30,8 +30,8 @@ interface LiveStateRow {
 }
 
 // Sequencing actions are the ones that silently clobber another operator's
-// state (QA_REPORT_ROUND2.md R2-BUG-1 — Next clearing a Hold someone else
-// just set). Alert/Notes stay unlocked and collaborative on purpose — they
+// state (Next clearing a Hold someone else just set). Alert/Notes stay
+// unlocked and collaborative on purpose — they
 // don't have the same "someone else's in-progress action gets erased"
 // failure mode, and gating them too would make ordinary multi-operator use
 // needlessly more locked-down than the bug this exists to fix.
@@ -259,8 +259,17 @@ export async function PATCH(request: Request) {
     }
     case "jumpTo": {
       const order = body.order;
-      if (typeof order !== "number" || !Number.isFinite(order)) {
+      const maxOrder = body.maxOrder;
+      if (typeof order !== "number" || typeof maxOrder !== "number") {
         return NextResponse.json({ ok: false }, { status: 400 });
+      }
+      // Unlike next/previous (which no-op past a boundary a rapid double
+      // click can legitimately reach), an out-of-range jump target is
+      // invalid input, not a race — reject it outright rather than
+      // clamping, matching what the Jump dialog's own client-side input
+      // already restricts to (1..max).
+      if (order < 1 || order > maxOrder) {
+        return NextResponse.json({ ok: false, error: "order is out of range" }, { status: 400 });
       }
       const { currentOrder } = activeProgress();
       const now = new Date().toISOString();

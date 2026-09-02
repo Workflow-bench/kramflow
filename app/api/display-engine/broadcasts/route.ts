@@ -28,6 +28,9 @@ export async function POST(request: Request) {
   const now = new Date();
   const expiresInMinutes = typeof draft.expiresInMinutes === "number" ? draft.expiresInMinutes : null;
   const baseTime = scheduledFor ? Date.parse(scheduledFor) : now.getTime();
+  if (Number.isNaN(baseTime)) {
+    return NextResponse.json({ ok: false, error: "scheduledFor is not a valid date" }, { status: 400 });
+  }
 
   const row = {
     event_id: auth.eventId,

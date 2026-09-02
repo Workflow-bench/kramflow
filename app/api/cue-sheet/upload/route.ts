@@ -12,6 +12,14 @@ import { programRowSchema } from "@/lib/validation/program";
 // (same "delete then insert" reasoning as scripts/seed.ts — the parser
 // doesn't assign stable per-row ids across re-uploads).
 
+// xlsx (SheetJS) has two open, unfixed high-severity advisories (prototype
+// pollution, ReDoS — GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9) with no
+// upstream patch available. This route is the only place untrusted bytes
+// reach it, so bound the blast radius here: reject anything past a size a
+// real cue sheet has no reason to approach (the bundled reference sheet is
+// well under 1MB) before it ever reaches XLSX.read.
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
 interface RowError {
   index: number;
   name: string;
@@ -50,6 +58,13 @@ export async function POST(request: Request) {
 
   if (!file) {
     return NextResponse.json({ ok: false, error: "No file provided" }, { status: 400 });
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { ok: false, error: `File too large (${Math.round(file.size / 1024 / 1024)}MB) — the limit is 10MB.` },
+      { status: 413 }
+    );
   }
 
   let parsed: { sessions: ParsedSession[]; partitions: ParsedPartition[]; programs: ParsedProgram[] };
