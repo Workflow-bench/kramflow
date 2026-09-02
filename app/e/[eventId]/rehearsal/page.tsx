@@ -5,6 +5,8 @@ import { FlaskConical, ArrowLeft, Play, Pause, ChevronLeft, ChevronRight, Square
 import { useSessions } from "@/lib/use-sessions";
 import { useEventId } from "@/lib/event-context";
 import { getLive, getNext, getOnDeck, type LiveState, type Alert as AlertType, type AlertSeverity } from "@/lib/types";
+import { useCountdown } from "@/lib/use-countdown";
+import { formatClock } from "@/lib/display-engine/use-display-timer";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
@@ -12,6 +14,7 @@ import { Select } from "@/components/ui/select";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { SectionLabel } from "@/components/ui/section-label";
 import { OperationalStatus } from "@/components/ui/operational-status";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { RunPosition } from "@/components/operator/run-position";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +69,16 @@ export default function RehearsalPage() {
   const live = session && !isFinished ? getLive(session, { ...state, activeSessionId }) : null;
   const next = session ? getNext(session, { ...state, activeSessionId }) : null;
   const onDeck = session ? getOnDeck(session, { ...state, activeSessionId }) : null;
+  // Same countdown Console runs on the real show (lib/use-countdown.ts) —
+  // reading progress.startedAt/pausedAt from this page's own local state
+  // instead of the real live_state row, but otherwise identical, so
+  // rehearsing means actually practicing against the one element that
+  // dominates the real Console's screen (the redesign brief's "timing
+  // visibility" + "muscle-memory relationship to Operator"). Previously
+  // this page had no timer at all — the single most important thing to
+  // rehearse (reading the countdown, reacting before it runs out) wasn't
+  // rehearsable.
+  const countdown = useCountdown(progress?.startedAt ?? null, live?.durationMinutes ?? 0, state.pausedAt);
 
   function setProgress(order: number | null) {
     setState((s) => ({
@@ -195,6 +208,28 @@ export default function RehearsalPage() {
               </div>
               <p className="text-console-lg text-primary mt-1">{isFinished ? "Rehearsal complete" : live ? live.title : "—"}</p>
               {live?.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
+
+              {live && live.type === "item" && live.durationMinutes > 0 && (
+                <div className="mt-6">
+                  <p
+                    className={cn(
+                      "text-console-headline tabular-nums",
+                      countdown.isOverrun ? "text-status-red" : "text-primary"
+                    )}
+                  >
+                    {countdown.isOverrun ? "+" : ""}
+                    {formatClock(countdown.remainingSeconds)}
+                  </p>
+                  <div className="mt-3">
+                    <ProgressBar
+                      fraction={countdown.fraction}
+                      tone={state.pausedAt ? "orange" : countdown.isOverrun ? "red" : "green"}
+                    />
+                  </div>
+                  <p className="text-console-meta text-muted mt-2">{countdown.isOverrun ? "over" : "remaining"}</p>
+                </div>
+              )}
+
               <RunPosition next={next} onDeck={onDeck} />
             </section>
 
