@@ -497,7 +497,7 @@ function DisplayRow({
           <span className="hidden sm:inline text-console-meta text-muted-2 tabular-nums shrink-0">
             {status === "online" && display.latencyMs !== null
               ? `${Math.round(display.latencyMs)}ms`
-              : `Seen ${formatRelativeAge(now - Date.parse(display.lastSeenAt))} ago`}
+              : `Seen ${formatRelativeAge(now - Date.parse(display.lastSeenAt))}`}
           </span>
           {expanded ? (
             <ChevronUp className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
@@ -558,7 +558,7 @@ function DisplayRow({
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <SectionLabel>Diagnose</SectionLabel>
               <span className="text-console-meta text-muted-2" title={new Date(display.lastSeenAt).toLocaleString()}>
-                Last seen {formatRelativeAge(now - Date.parse(display.lastSeenAt))} ago
+                Last seen {formatRelativeAge(now - Date.parse(display.lastSeenAt))}
               </span>
             </div>
             {/* Screenshot/Force Fullscreen/Test Message all send a command
