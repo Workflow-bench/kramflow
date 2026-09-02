@@ -31,8 +31,9 @@ export async function GET(request: Request) {
   }
 
   const admin = supabaseAdmin();
-  const [sessions, liveStateResult, displayStateResult, registryResult, broadcastsResult] = await Promise.all([
+  const [sessions, eventResult, liveStateResult, displayStateResult, registryResult, broadcastsResult] = await Promise.all([
     fetchSessions(admin, access.eventId),
+    admin.from("events").select("name, venue").eq("id", access.eventId).single(),
     admin.from("live_state").select("*").eq("event_id", access.eventId).single(),
     admin.from("display_state").select("*").eq("event_id", access.eventId).single(),
     admin.from("display_registry").select("*").eq("event_id", access.eventId),
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
   // any of them (RLS misconfig, transient outage) must not look like "no
   // displays registered" or "no broadcasts sent" to a public TV display
   // that has no other way to surface a backend problem.
-  const failed = [liveStateResult, displayStateResult, registryResult, broadcastsResult].find((r) => r.error);
+  const failed = [eventResult, liveStateResult, displayStateResult, registryResult, broadcastsResult].find((r) => r.error);
   if (failed) {
     return NextResponse.json({ ok: false, error: failed.error!.message }, { status: 500 });
   }
@@ -51,6 +52,13 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: true,
     eventId: access.eventId,
+    // The public displays previously had no account-level event identity at
+    // all — only an optional per-session "Display title" field. A viewer
+    // standing in front of a TV in a multi-tenant venue had no way to
+    // confirm which event they were even looking at (2026-09-01 audit,
+    // KF-014 / design-system audit's "generic public display identity").
+    eventName: eventResult.data?.name ?? null,
+    eventVenue: eventResult.data?.venue ?? null,
     sessions,
     liveState: liveStateResult.data,
     displayState: displayStateResult.data ?? null,

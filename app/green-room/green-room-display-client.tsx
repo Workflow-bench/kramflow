@@ -8,7 +8,7 @@ import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
 import { useDisplayTimer, useDisplayClock } from "@/lib/display-engine/use-display-timer";
 import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
-import { deriveProgress, deriveAutoTimerInput } from "@/lib/display-engine/live-progress";
+import { deriveProgress, deriveAutoTimerInput, deriveStageStatus } from "@/lib/display-engine/live-progress";
 import { useTimeSync } from "@/lib/display-engine/use-time-sync";
 import { useFullscreen } from "@/lib/display-engine/use-fullscreen";
 import { TIMER_COLORS } from "@/lib/display-engine/colors";
@@ -39,7 +39,7 @@ export default function GreenRoomDisplayClient({ token, eventId }: { token?: str
 }
 
 function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({ token, eventId });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine } = useDisplayEngine();
 
@@ -61,7 +61,7 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
   const clockLabel = useDisplayClock(offsetMs);
   const color = TIMER_COLORS[timer.colorState];
 
-  const stageStatus = appState.pausedAt ? "PAUSED" : live ? "LIVE" : "STANDBY";
+  const stageStatus = deriveStageStatus(live, appState.pausedAt);
   const nextReady = next ? Boolean(engine.speakerReady[next.id]) : false;
 
   return (
@@ -80,7 +80,14 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
 
       {!engine.hold.active && (
         <>
-          <DisplayHeader title="Green Room" session={session} clockLabel={clockLabel} stageStatus={stageStatus} />
+          <DisplayHeader
+            title="Green Room"
+            eventName={eventName}
+            room={display?.room}
+            session={session}
+            clockLabel={clockLabel}
+            stageStatus={stageStatus}
+          />
 
           {appState.alert && <AlertBanner alert={appState.alert} className="mt-6" />}
 
@@ -138,14 +145,20 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
                 // treatment — a status hue escalated from a badge to
                 // background wash, not just here for decoration. General
                 // and AV keep status confined to badges/dots throughout;
-                // this is the single deliberate exception, reserved for
-                // exactly this cue.
-                <div className="rounded-card bg-status-orange/8 p-8">
+                // this is the single deliberate exception, reserved for an
+                // actual next speaker — a break needs no readiness wash, so
+                // it stays on the neutral card treatment instead.
+                <div className={cn("rounded-card p-8", next.type === "item" ? "bg-status-orange/8" : "bg-card/50")}>
                   <div className="flex items-center justify-between">
-                    <p className="text-caption uppercase tracking-wide text-muted-2">Next — Please Prepare</p>
-                    <span className="text-caption text-muted-2 tabular-nums">
-                      {next.scheduledStart ?? "Expected time TBD"}
-                    </span>
+                    {/* A break needs no speaker prep — "Please Prepare"
+                        framing on a breakfast break instructed a green-room
+                        coordinator to prep someone who isn't presenting. */}
+                    <p className="text-caption uppercase tracking-wide text-muted-2">
+                      {next.type === "item" ? "Next — Please Prepare" : "Next"}
+                    </p>
+                    {next.scheduledStart && (
+                      <span className="text-caption text-muted-2 tabular-nums">{next.scheduledStart}</span>
+                    )}
                   </div>
                   <p className="text-subtitle text-primary mt-3">{next.title}</p>
                   {next.presenter && (

@@ -7,7 +7,7 @@ import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
 import { useDisplayTimer, useDisplayClock } from "@/lib/display-engine/use-display-timer";
 import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
-import { deriveProgress, deriveAutoTimerInput } from "@/lib/display-engine/live-progress";
+import { deriveProgress, deriveAutoTimerInput, deriveStageStatus } from "@/lib/display-engine/live-progress";
 import { useTimeSync } from "@/lib/display-engine/use-time-sync";
 import { useFullscreen } from "@/lib/display-engine/use-fullscreen";
 import { TIMER_COLORS } from "@/lib/display-engine/colors";
@@ -34,7 +34,7 @@ export default function AvDisplayClient({ token, eventId }: { token?: string; ev
 }
 
 function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({ token, eventId });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine } = useDisplayEngine();
 
@@ -57,7 +57,7 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
   const color = TIMER_COLORS[timer.colorState];
 
   const cueTarget = next?.type === "item" ? next : live?.type === "item" ? live : null;
-  const stageStatus = appState.pausedAt ? "PAUSED" : live ? "LIVE" : "STANDBY";
+  const stageStatus = deriveStageStatus(live, appState.pausedAt);
 
   return (
     <DisplayShell connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>
@@ -75,7 +75,14 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
 
       {!engine.hold.active && (
         <>
-          <DisplayHeader title="AV Waiting Room" session={session} clockLabel={clockLabel} stageStatus={stageStatus} />
+          <DisplayHeader
+            title="AV Waiting Room"
+            eventName={eventName}
+            room={display?.room}
+            session={session}
+            clockLabel={clockLabel}
+            stageStatus={stageStatus}
+          />
 
           {appState.alert && <AlertBanner alert={appState.alert} className="mt-6" />}
 
@@ -128,10 +135,16 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
               {next && (
                 <div className="rounded-card bg-card/50 px-6 py-5">
                   <div className="flex items-center justify-between">
-                    <p className="text-caption uppercase tracking-wide text-muted-2">Next — Please Prepare</p>
-                    <span className="text-caption text-muted-2 tabular-nums">
-                      {next.scheduledStart ?? "Expected time TBD"}
-                    </span>
+                    {/* A break needs no AV prep — "Please Prepare" framing on
+                        a breakfast break read as a false instruction to the
+                        crew. Neutral "Next" for a break, the real prep
+                        prompt only for an actual item. */}
+                    <p className="text-caption uppercase tracking-wide text-muted-2">
+                      {next.type === "item" ? "Next — Please Prepare" : "Next"}
+                    </p>
+                    {next.scheduledStart && (
+                      <span className="text-caption text-muted-2 tabular-nums">{next.scheduledStart}</span>
+                    )}
                   </div>
                   <p className="text-subtitle text-primary mt-3">{next.title}</p>
                   {next.presenter && <p className="text-body text-muted mt-2">{next.presenter}</p>}

@@ -18,7 +18,7 @@ import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
 import { useDisplayTimer, useDisplayClock, formatClock } from "@/lib/display-engine/use-display-timer";
 import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
-import { deriveProgress, deriveAutoTimerInput } from "@/lib/display-engine/live-progress";
+import { deriveProgress, deriveAutoTimerInput, deriveStageStatus } from "@/lib/display-engine/live-progress";
 import { useTimeSync } from "@/lib/display-engine/use-time-sync";
 import { useFullscreen } from "@/lib/display-engine/use-fullscreen";
 import { useKeyboardShortcuts } from "@/lib/display-engine/use-keyboard-shortcuts";
@@ -62,7 +62,7 @@ export default function PresenterDisplayClient({ token, eventId }: { token?: str
 }
 
 function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({ token, eventId });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine, setTimerMode, setTimerSource, pauseTimer, resumeTimer, resetTimer, adjustTimer, activateHold, deactivateHold } =
     useDisplayEngine();
@@ -118,7 +118,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
 
   const mode = engine.timer.mode;
   const color = TIMER_COLORS[timer.colorState];
-  const stageStatus = engine.hold.active ? "ON HOLD" : appState.pausedAt ? "PAUSED" : live ? "LIVE" : "STANDBY";
+  const stageStatus = deriveStageStatus(live, appState.pausedAt, engine.hold.active);
 
   return (
     <DisplayShell connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>
@@ -139,9 +139,11 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
           {/* Ambient info — top row, only in information-dense modes */}
           {(mode === "program" || mode === "countdown" || mode === "count-up" || mode === "session") && (
             <div className="flex items-start justify-between flex-wrap gap-y-3">
-              <div>
-                <p className="text-caption uppercase tracking-wide text-muted-2">
-                  {session ? `${session.dayLabel} • ${session.sessionLabel}` : "KramFlow"}
+              <div className="min-w-0">
+                <p className="text-caption uppercase tracking-wide text-muted-2 truncate">
+                  {eventName ?? "Kramflow"}
+                  {session && ` · ${session.dayLabel} • ${session.sessionLabel}`}
+                  {display?.room && ` · ${display.room}`}
                 </p>
                 {live?.kicker && <p className="text-subtitle text-muted mt-1">{live.kicker}</p>}
               </div>

@@ -68,6 +68,12 @@ export interface DisplayViewResult {
   sessions: Session[];
   liveState: LiveState;
   eventId: string | null;
+  // The account-level event name — distinct from a session's own optional
+  // "Display title" field (session.eventName), which is per-session and
+  // frequently unset. This is what answers "what event is this?" on a
+  // public display; the per-session title layers on top when present.
+  eventName: string | null;
+  eventVenue: string | null;
   loading: boolean;
   error: string | null;
   connectionStatus: DisplayConnectionStatus;
@@ -85,6 +91,8 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
   const [sessions, setSessions] = useState<Session[]>([]);
   const [liveState, setLiveState] = useState<LiveState>(initialLiveState);
   const [resolvedEventId, setResolvedEventId] = useState<string | null>(null);
+  const [eventName, setEventName] = useState<string | null>(null);
+  const [eventVenue, setEventVenue] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<DisplayConnectionStatus>("connected");
@@ -114,6 +122,8 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
           sessions?: Session[];
           liveState: LiveStateRow;
           eventId: string;
+          eventName?: string | null;
+          eventVenue?: string | null;
         };
         if (cancelled) return;
         if (!data.ok) {
@@ -130,6 +140,8 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
         setSessions(data.sessions ?? []);
         setLiveState(mapLiveState(data.liveState));
         setResolvedEventId(data.eventId);
+        setEventName(data.eventName ?? null);
+        setEventVenue(data.eventVenue ?? null);
         setError(null);
         setLoading(false);
         setLastUpdatedAt(Date.now());
@@ -150,5 +162,15 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
     };
   }, [token, requestedEventId]);
 
-  return { sessions, liveState, eventId: resolvedEventId, loading, error, connectionStatus, lastUpdatedAt };
+  return {
+    sessions,
+    liveState,
+    eventId: resolvedEventId,
+    eventName,
+    eventVenue,
+    loading,
+    error,
+    connectionStatus,
+    lastUpdatedAt,
+  };
 }
