@@ -8,6 +8,9 @@ import { getLive, getNext, getOnDeck, type LiveState, type Alert as AlertType, t
 import { Button, LinkButton } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { AlertBanner } from "@/components/ui/alert-banner";
+import { SectionLabel } from "@/components/ui/section-label";
+import { OperationalStatus } from "@/components/ui/operational-status";
+import { RunPosition } from "@/components/operator/run-position";
 import { cn } from "@/lib/utils";
 
 const REHEARSAL_INITIAL: LiveState = {
@@ -101,7 +104,7 @@ export default function RehearsalPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background flex flex-col">
       {/* Unmistakable by design — solid amber, diagonal hazard stripe,
           sticky across the whole page, worded to say explicitly what it
           does NOT do. This is the one visual element in this feature that
@@ -129,76 +132,72 @@ export default function RehearsalPage() {
         </LinkButton>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-8">
-        {sessions.length > 1 && (
-          <label className="flex flex-col gap-1.5 max-w-sm">
-            <span className="text-console-meta text-muted-2">Session to rehearse</span>
-            <Select
-              value={activeSessionId}
-              onChange={(id) => {
+      {!session ? (
+        <div className="px-6 py-8">
+          {sessions.length > 1 && (
+            <SessionSelect sessions={sessions} activeSessionId={activeSessionId} onChange={(id) => {
+              setSessionId(id);
+              setState({ ...REHEARSAL_INITIAL, activeSessionId: id });
+            }} />
+          )}
+          <p className="text-console-sm text-muted-2 mt-4">No session to rehearse yet — add one in the Cue Sheet first.</p>
+        </div>
+      ) : (
+        // Same rundown-beside-live-state relationship as the real Console's
+        // tablet/desktop composition (app/e/[eventId]/operator/page.tsx) —
+        // deliberately reused rather than re-invented, so the muscle memory
+        // ("the list is on the left, what's happening is on the right")
+        // carries over. Single column below lg: — this surface never had
+        // Console's Activity/Broadcast/presence weight, so one column at
+        // narrow widths doesn't bury anything the way Console's did.
+        <div className="flex-1 lg:grid lg:grid-cols-[1fr_380px] flex flex-col">
+          <div className="min-w-0 px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
+            {sessions.length > 1 && (
+              <SessionSelect sessions={sessions} activeSessionId={activeSessionId} onChange={(id) => {
                 setSessionId(id);
                 setState({ ...REHEARSAL_INITIAL, activeSessionId: id });
-              }}
-              options={sessions.map((s) => ({ value: s.id, label: `${s.dayLabel} • ${s.sessionLabel}` }))}
-            />
-          </label>
-        )}
+              }} />
+            )}
+            <SectionLabel className={sessions.length > 1 ? "mt-6" : undefined}>
+              {session.dayLabel} • {session.sessionLabel}
+            </SectionLabel>
+            <ul className="mt-3 flex flex-col rounded-panel border border-line-soft overflow-hidden">
+              {session.items.map((item) => {
+                const isLive = live?.id === item.id;
+                const isDone = currentOrder !== null && item.order < currentOrder;
+                return (
+                  <li
+                    key={item.id}
+                    className={cn(
+                      "flex items-center justify-between gap-3 px-4 py-2.5 border-b border-line-soft last:border-b-0",
+                      isLive && "bg-status-orange/15"
+                    )}
+                  >
+                    <span className={cn("text-console-row", isDone ? "text-muted-2 line-through" : "text-primary")}>
+                      {item.order}. {item.title}
+                    </span>
+                    {isLive && <OperationalStatus kind="rehearsal" label="Rehearsing" />}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
 
-        {!session ? (
-          <p className="text-console-sm text-muted-2">No session to rehearse yet — add one in the Cue Sheet first.</p>
-        ) : (
-          <>
+          <div className="lg:border-l border-line-soft min-w-0 px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex flex-col gap-8">
             {state.alert && <AlertBanner alert={state.alert} />}
 
-            <section className="flex flex-col gap-3">
-              <h2 className="text-console-label text-muted-2 uppercase tracking-wide">
-                {session.dayLabel} • {session.sessionLabel}
-              </h2>
-              <ul className="flex flex-col rounded-panel border border-line-soft overflow-hidden">
-                {session.items.map((item) => {
-                  const isLive = live?.id === item.id;
-                  const isDone = currentOrder !== null && item.order < currentOrder;
-                  return (
-                    <li
-                      key={item.id}
-                      className={cn(
-                        "flex items-center justify-between gap-3 px-4 py-2.5 border-b border-line-soft last:border-b-0",
-                        isLive && "bg-status-orange/15"
-                      )}
-                    >
-                      <span className={cn("text-console-row", isDone ? "text-muted-2 line-through" : "text-primary")}>
-                        {item.order}. {item.title}
-                      </span>
-                      {isLive && (
-                        <span className="text-console-meta font-semibold uppercase tracking-wide text-status-orange bg-status-orange/20 px-2 py-0.5 rounded-chip">
-                          Rehearsing
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-
             <section className="flex flex-col gap-2">
-              <h2 className="text-console-label text-muted-2 uppercase tracking-wide">
-                {isFinished ? "Finished" : live ? "Rehearsing now" : "Not started"}
-              </h2>
-              <p className="text-subtitle text-primary">{isFinished ? "Rehearsal complete" : live ? live.title : "—"}</p>
-              {live?.presenter && <p className="text-console-sm text-muted">{live.presenter}</p>}
-              {state.pausedAt && (
-                <span className="self-start text-console-meta font-semibold uppercase tracking-wide text-status-orange bg-status-orange/15 px-2.5 py-1 rounded-full">
-                  On Hold
-                </span>
-              )}
-              <div className="mt-1 flex gap-6 text-console-sm text-muted-2">
-                <span>Next: {next?.title ?? "—"}</span>
-                <span>On deck: {onDeck?.title ?? "—"}</span>
+              <div className="flex items-center gap-2">
+                <SectionLabel>{isFinished ? "Finished" : live ? "Rehearsing now" : "Not started"}</SectionLabel>
+                {state.pausedAt && <OperationalStatus kind="hold" />}
               </div>
+              <p className="text-console-lg text-primary mt-1">{isFinished ? "Rehearsal complete" : live ? live.title : "—"}</p>
+              {live?.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
+              <RunPosition next={next} onDeck={onDeck} />
             </section>
 
             <section className="flex flex-col gap-3">
-              <h2 className="text-console-label text-muted-2 uppercase tracking-wide">Controls</h2>
+              <SectionLabel>Controls</SectionLabel>
               <div className="flex flex-col gap-3">
                 {currentOrder === null ? (
                   <Button variant="primary" size="lg" onClick={start}>
@@ -234,13 +233,13 @@ export default function RehearsalPage() {
             </section>
 
             <section className="flex flex-col gap-3">
-              <h2 className="text-console-label text-muted-2 uppercase tracking-wide">Raise Alert (rehearsal only)</h2>
-              <div className="flex flex-col sm:flex-row gap-2">
+              <SectionLabel>Raise Alert (rehearsal only)</SectionLabel>
+              <div className="flex flex-col gap-2">
                 <input
                   value={alertDraft}
                   onChange={(e) => setAlertDraft(e.target.value)}
                   placeholder="e.g. Drama Team, please report Stage Left"
-                  className="flex-1 h-9 px-3 rounded-control bg-background border border-line text-primary text-console-sm outline-none focus:border-accent"
+                  className="h-9 px-3 rounded-control bg-background border border-line text-primary text-console-sm outline-none focus:border-accent"
                 />
                 <div className="flex gap-2">
                   {(["info", "warning", "critical"] as AlertSeverity[]).map((sev) => (
@@ -257,7 +256,7 @@ export default function RehearsalPage() {
                     </button>
                   ))}
                 </div>
-                <Button variant="secondary" onClick={postAlert}>
+                <Button variant="secondary" onClick={postAlert} className="self-start">
                   Post
                 </Button>
               </div>
@@ -267,9 +266,30 @@ export default function RehearsalPage() {
                 </Button>
               )}
             </section>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </main>
+  );
+}
+
+function SessionSelect({
+  sessions,
+  activeSessionId,
+  onChange,
+}: {
+  sessions: { id: string; dayLabel: string; sessionLabel: string }[];
+  activeSessionId: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5 max-w-sm">
+      <span className="text-console-meta text-muted-2">Session to rehearse</span>
+      <Select
+        value={activeSessionId}
+        onChange={onChange}
+        options={sessions.map((s) => ({ value: s.id, label: `${s.dayLabel} • ${s.sessionLabel}` }))}
+      />
+    </label>
   );
 }
