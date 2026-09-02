@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { effectiveNotes, getLive, driftMinutes, type LiveState, type Program, type Session } from "@/lib/types";
+import { effectiveNotes, getLive, getNext, getOnDeck, driftMinutes, type LiveState, type Program, type Session } from "@/lib/types";
 import { useEventStore } from "@/lib/store";
 import { useEventId } from "@/lib/event-context";
 import { useCountdown } from "@/lib/use-countdown";
@@ -10,6 +10,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { OperationalStatus } from "@/components/ui/operational-status";
 import { SectionLabel } from "@/components/ui/section-label";
+import { RunPosition } from "./run-position";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
@@ -19,6 +20,8 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
   const { state, setNotes } = useEventStore();
   const toast = useToast();
   const live = getLive(session, state);
+  const next = getNext(session, state);
+  const onDeck = getOnDeck(session, state);
   const progress = state.progressBySession[state.activeSessionId];
   const currentOrder = progress?.currentOrder ?? null;
   const countdown = useCountdown(progress?.startedAt ?? null, live?.durationMinutes ?? 0, state.pausedAt);
@@ -105,6 +108,8 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
           </p>
         </div>
       )}
+
+      <RunPosition next={next} onDeck={onDeck} />
 
       <div className="mt-10 flex-1 flex flex-col min-h-0">
         <div className="flex items-center justify-between">

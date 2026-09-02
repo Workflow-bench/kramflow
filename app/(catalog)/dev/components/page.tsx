@@ -18,7 +18,15 @@ import { SectionLabel } from "@/components/ui/section-label";
 import { Card, Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tooltip } from "@/components/ui/tooltip";
+import { RunPosition } from "@/components/operator/run-position";
+import type { Program } from "@/lib/types";
 import { Trash2 } from "lucide-react";
+
+// Minimal synthetic Program — RunPosition only reads .title; the cast
+// avoids hand-filling every cue-sheet field for a catalog swatch.
+function mockProgram(title: string): Program {
+  return { title } as Program;
+}
 
 function Row({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -154,6 +162,19 @@ export default function ComponentCatalogPage() {
             onTakeOver={() => {}}
           />
         </Swatch>
+      </Row>
+
+      <Row
+        title="Run position — Current / Next / On Deck"
+        description="Current, Next, and On Deck as one relationship, not one alone — Console previously showed only the live item in detail, with nothing about what's coming (the audit's 'Live/current/next' finding: Remote and every TV display already carried Next/On Deck; Console didn't). getLive/getNext/getOnDeck (lib/types.ts) are the shared data; this owns only the shared presentation."
+      >
+        <div className="bg-card border border-line-soft rounded-panel p-5 w-80">
+          <RunPosition next={mockProgram("Breakfast 7:45 to 8:45")} onDeck={mockProgram("Arrival + Registration + Audience Seating")} />
+        </div>
+        <div className="bg-card border border-line-soft rounded-panel p-5 w-80">
+          <p className="text-console-label uppercase text-muted-2 mb-2">Next only (last item — no on-deck)</p>
+          <RunPosition next={mockProgram("Closing Remarks")} onDeck={null} />
+        </div>
       </Row>
 
       <Row title="Buttons" description="One action foundation (components/ui/button.tsx) — primary/secondary/ghost/warning plus a three-step danger escalation that commits weight through one hue rather than a spreading family of destructive colors.">
