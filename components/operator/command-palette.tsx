@@ -186,10 +186,10 @@ export function CommandPalette() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: -8 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="w-full max-w-lg rounded-panel bg-card border border-white/10 shadow-lg overflow-hidden"
+            className="w-full max-w-lg rounded-panel bg-card border border-line shadow-lg overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-line">
               <Search className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
               <input
                 ref={inputRef}
@@ -202,7 +202,7 @@ export function CommandPalette() {
                 // and Select's own embedded search field.
                 className="flex-1 bg-transparent text-base sm:text-console-sm text-primary placeholder:text-muted-2 outline-none"
               />
-              <kbd className="text-console-meta text-muted-2 border border-white/10 rounded px-1.5 py-0.5">Esc</kbd>
+              <kbd className="text-console-meta text-muted-2 border border-line rounded px-1.5 py-0.5">Esc</kbd>
             </div>
             <div className="max-h-80 overflow-y-auto py-2">
               {filtered.length === 0 && (

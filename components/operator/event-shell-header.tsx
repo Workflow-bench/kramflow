@@ -63,7 +63,7 @@ export function EventShellHeader({
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3 flex-wrap px-4 sm:px-6 xl:px-12 py-4 xl:py-5 border-b border-white/5">
+      <div className="flex items-center justify-between gap-3 flex-wrap px-4 sm:px-6 xl:px-12 py-4 xl:py-5 border-b border-line-soft">
         <div className="flex items-center flex-wrap gap-2.5 min-w-0">
           <h1 className={cn("text-console-lg text-primary shrink-0", titleMobile && "hidden sm:inline")}>{title}</h1>
           {titleMobile && (

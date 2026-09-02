@@ -282,17 +282,17 @@ export function ControlsPanel({
         </div>
       </div>
 
-      <div className="border-t border-white/5 pt-8">
+      <div className="border-t border-line-soft pt-8">
         <JumpControl max={max} />
       </div>
 
-      <div className="border-t border-white/5 pt-8">
+      <div className="border-t border-line-soft pt-8">
         <AlertComposer />
       </div>
 
       <OperatorBroadcastPanel />
 
-      <div className="border-t border-white/5 pt-8">
+      <div className="border-t border-line-soft pt-8">
         <ActivityLog />
       </div>
 

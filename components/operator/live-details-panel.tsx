@@ -93,7 +93,7 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
         <div className="mt-8">
           <p
             className={cn(
-              "text-[3rem] leading-none font-semibold tabular-nums",
+              "text-console-headline tabular-nums",
               countdown.isOverrun ? "text-status-red" : "text-primary"
             )}
           >
@@ -260,7 +260,7 @@ function SessionSummary({ session, state }: { session: Session; state: LiveState
       </div>
 
       {(notesCount > 0 || alertCount > 0) && (
-        <div className="mt-8 pt-6 border-t border-white/10 flex flex-col gap-1.5 max-w-sm">
+        <div className="mt-8 pt-6 border-t border-line flex flex-col gap-1.5 max-w-sm">
           {alertCount > 0 && (
             <p className="text-console-meta text-muted">
               {alertCount} alert{alertCount === 1 ? "" : "s"} raised during the session

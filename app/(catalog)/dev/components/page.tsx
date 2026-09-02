@@ -419,9 +419,11 @@ export default function ComponentCatalogPage() {
         </FormField>
       </Row>
 
-      <Row title="Typography — Console scale" description="13-22px, dense, scanned not read. Never mixed with Stage tokens on this surface family (see DESIGN.md's Console-vs-Stage guardrail).">
+      <Row title="Typography — Console scale" description="13-48px, dense, scanned not read. Never mixed with Stage tokens on this surface family (see DESIGN.md's Console-vs-Stage guardrail).">
         <div className="flex flex-col gap-2">
-          <p className="text-console-lg font-bold">console-lg — Page title</p>
+          <p className="text-console-headline tabular-nums">+20:02</p>
+          <p className="text-console-meta text-muted-2 -mt-1">console-headline (48px) — the one number that matters most, e.g. the live countdown</p>
+          <p className="text-console-lg font-bold mt-2">console-lg — Page title</p>
           <p className="text-console-md font-semibold">console-md — Panel heading</p>
           <p className="text-console-sm">console-sm — Body, form fields</p>
           <p className="text-console-row font-medium">console-row — Queue row title</p>

@@ -95,7 +95,7 @@ export default function OperatorPage() {
           </LinkButton>
         }
         belowNav={
-          <div className="px-4 sm:px-6 xl:px-12 py-3 border-b border-white/5">
+          <div className="px-4 sm:px-6 xl:px-12 py-3 border-b border-line-soft">
             <SessionSwitcher />
           </div>
         }
@@ -139,7 +139,7 @@ export default function OperatorPage() {
       )}
 
       {session && (
-        <footer className="shrink-0 px-4 sm:px-6 xl:px-12 py-5 border-t border-white/5">
+        <footer className="shrink-0 px-4 sm:px-6 xl:px-12 py-5 border-t border-line-soft">
           <ProgressFooter
             dayLabel={session.dayLabel}
             sessionLabel={session.sessionLabel}
@@ -228,8 +228,8 @@ function OperatorGrid({
             the session-progress footer, unclickable (Playwright caught
             it as "footer subtree intercepts pointer events"; a person
             would have just experienced a dead button). */}
-        <div className="xl:min-h-0 xl:flex xl:flex-col border-l border-white/5">{liveDetails}</div>
-        <div className="xl:min-h-0 xl:flex xl:flex-col border-l border-white/5">{controls}</div>
+        <div className="xl:min-h-0 xl:flex xl:flex-col border-l border-line-soft">{liveDetails}</div>
+        <div className="xl:min-h-0 xl:flex xl:flex-col border-l border-line-soft">{controls}</div>
       </div>
     );
   }
@@ -248,8 +248,8 @@ function OperatorGrid({
     return (
       <div className="flex-1 grid grid-cols-[1fr_380px]">
         {program}
-        <div className="border-l border-white/5 flex flex-col">
-          <div className="border-b border-white/5">{liveDetails}</div>
+        <div className="border-l border-line-soft flex flex-col">
+          <div className="border-b border-line-soft">{liveDetails}</div>
           {controls}
         </div>
       </div>
@@ -258,8 +258,8 @@ function OperatorGrid({
 
   return (
     <div className="flex-1 grid grid-cols-1">
-      <div className="border-b border-white/5">{liveDetails}</div>
-      <div className="border-b border-white/5">{controls}</div>
+      <div className="border-b border-line-soft">{liveDetails}</div>
+      <div className="border-b border-line-soft">{controls}</div>
       {program}
     </div>
   );

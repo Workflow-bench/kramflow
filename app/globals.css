@@ -87,6 +87,21 @@
   --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.5);
 
   /* ── Console scale — operator surfaces, 18-24in. ───────────────────── */
+  /* The one number an operator's eye should find fastest on the whole
+     screen — how much time is left on the live item. Existed for a while
+     as a one-off `text-[3rem]` in live-details-panel.tsx with nothing else
+     in the type scale between console-lg (22px, a page title) and it; the
+     2026-09 visual redesign promotes it to a real token both because it's
+     the correct answer to "strong numeric emphasis" for live operations
+     (Phase 2 of that pass) and because Rehearsal's own countdown (sharing
+     Console's operational DNA) needs the identical treatment rather than
+     re-guessing the size. Deliberately still well short of the Stage
+     hero (92px, arm's-length/TV distance) — this is desk-scanned, not
+     read across a room. */
+  --text-console-headline: 3rem; /* 48px — live countdown, the one number that matters most */
+  --text-console-headline--line-height: 1;
+  --text-console-headline--font-weight: 600;
+
   --text-console-lg: 1.375rem; /* 22px — page title */
   --text-console-lg--line-height: 1.2;
   --text-console-lg--letter-spacing: -0.01em;

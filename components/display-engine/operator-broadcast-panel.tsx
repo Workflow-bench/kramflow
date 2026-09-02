@@ -84,7 +84,7 @@ export function OperatorBroadcastPanel() {
   }
 
   return (
-    <div className="border-t border-white/5 pt-8">
+    <div className="border-t border-line-soft pt-8">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -148,7 +148,7 @@ export function OperatorBroadcastPanel() {
             More options — schedule, templates, target one display →
           </Link>
 
-          <div className="border-t border-white/5 pt-3 mt-1">
+          <div className="border-t border-line-soft pt-3 mt-1">
             <div className="flex flex-wrap gap-2">
               {EMERGENCY_PRESETS.map((preset) => (
                 <MaybeTooltip key={preset.label} when={readOnly} content="Only the event owner can send broadcasts">

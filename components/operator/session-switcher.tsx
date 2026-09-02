@@ -88,7 +88,7 @@ export function SessionSwitcher() {
                 // showing, so the current session is stated with a border
                 // as well as a fill — at a glance, from a metre away, a
                 // fill alone was too easy to misread on this dark ground.
-                active ? "bg-raised border-white/20" : "border-transparent hover:bg-card-hover"
+                active ? "bg-raised border-line" : "border-transparent hover:bg-card-hover"
               )}
             >
               <span className="flex items-center gap-1.5">
