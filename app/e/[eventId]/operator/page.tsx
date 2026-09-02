@@ -226,13 +226,13 @@ function OperatorGrid({
   );
 
   const liveDetails = (
-    <div className="min-w-0 px-4 sm:px-6 xl:px-10 py-6 xl:py-8 xl:overflow-y-auto">
+    <div className="min-w-0 xl:min-h-0 xl:flex-1 px-4 sm:px-6 xl:px-10 py-6 xl:py-8 xl:overflow-y-auto">
       <LiveDetailsPanel session={session} />
     </div>
   );
 
   const controls = (
-    <div className="min-w-0 px-4 sm:px-6 xl:px-8 py-6 xl:py-8 xl:overflow-y-auto">
+    <div className="min-w-0 xl:min-h-0 xl:flex-1 px-4 sm:px-6 xl:px-8 py-6 xl:py-8 xl:overflow-y-auto">
       <ControlsPanel session={session} broadcastAction={broadcastAction} />
     </div>
   );
@@ -241,8 +241,19 @@ function OperatorGrid({
     return (
       <div className="flex-1 xl:min-h-0 grid grid-cols-1 xl:grid-cols-[1fr_340px_280px] 2xl:grid-cols-[1fr_400px_320px] xl:grid-rows-[1fr]">
         {program}
-        <div className="xl:min-h-0 border-l border-white/5">{liveDetails}</div>
-        <div className="xl:min-h-0 border-l border-white/5">{controls}</div>
+        {/* liveDetails/controls each need to be a flex column here, not
+            just a min-h-0 grid item — xl:overflow-y-auto on a *plain
+            block* child doesn't make it inherit the wrapper's bounded
+            height (only a CSS Grid item stretches to its track by
+            default; a nested block child does not), so without xl:flex
+            the inner scroll div's own height just grows to its content
+            again, past the wrapper's real bottom edge — this exact gap
+            let the Controls column's Post Alert button render underneath
+            the session-progress footer, unclickable (Playwright caught
+            it as "footer subtree intercepts pointer events"; a person
+            would have just experienced a dead button). */}
+        <div className="xl:min-h-0 xl:flex xl:flex-col border-l border-white/5">{liveDetails}</div>
+        <div className="xl:min-h-0 xl:flex xl:flex-col border-l border-white/5">{controls}</div>
       </div>
     );
   }
