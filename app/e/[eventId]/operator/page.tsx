@@ -20,6 +20,7 @@ import { ControlsPanel } from "@/components/operator/controls-panel";
 import { ProgressFooter } from "@/components/ui/progress-footer";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Button, LinkButton } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 
 export default function OperatorPage() {
@@ -161,16 +162,18 @@ export default function OperatorPage() {
           isTabletLayout={isTabletLayout}
         />
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4 sm:px-6 xl:px-12 py-16">
-          <p className="text-console-sm text-muted">
-            {sessions.length === 0 ? "No sessions yet." : "Select a session to get started."}
-          </p>
-          {sessions.length === 0 && (
-            <LinkButton href={`/e/${eventId}/operator/cue-sheet`} variant="primary" size="sm">
-              <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />
-              Go to Cue Sheet
-            </LinkButton>
-          )}
+        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 xl:px-12 py-16">
+          <EmptyState
+            title={sessions.length === 0 ? "No sessions yet." : "Select a session to get started."}
+            action={
+              sessions.length === 0 && (
+                <LinkButton href={`/e/${eventId}/operator/cue-sheet`} variant="primary" size="sm">
+                  <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />
+                  Go to Cue Sheet
+                </LinkButton>
+              )
+            }
+          />
         </div>
       )}
 
