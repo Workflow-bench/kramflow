@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, Pause, Play, Square, ChevronRight } from "lucide-react";
 import { useEventStore } from "@/lib/store";
+import { useDisplayEngine } from "@/lib/display-engine/store";
 import { useKeyboardShortcuts } from "@/lib/display-engine/use-keyboard-shortcuts";
 import { useControlLock } from "@/lib/use-control-lock";
 import { useControllerName } from "@/lib/use-controller-name";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SectionLabel } from "@/components/ui/section-label";
 import { ControlLeaseStatus } from "@/components/ui/control-lease-status";
+import { TargetHealthSummary } from "@/components/display-engine/target-health-summary";
 import { JumpControl } from "./jump-control";
 import { AlertComposer } from "./alert-composer";
 import { ActivityLog } from "./activity-log";
@@ -40,6 +42,7 @@ export function ControlsPanel({
 }) {
   const { state, start, next, previous, finish, togglePause, claimControl, releaseControl, renewControl } =
     useEventStore();
+  const { state: engine } = useDisplayEngine();
   // Report finding #26 — "can-edit vs. can-go-live": an editor/viewer
   // collaborator can see this screen but every one of these actions 403s
   // server-side (app/api/live/route.ts's requireEventAccess(..., "owner")),
@@ -208,6 +211,22 @@ export function ControlsPanel({
             onTakeOver={() => setConfirmKind("takeover")}
           />
         </div>
+
+        {/* "IS THE SYSTEM HEALTHY?" — a question this screen had no answer
+            to at all before (an operator had to leave Console for Displays
+            or Broadcast Center to find out). Reuses TargetHealthSummary
+            exactly as Broadcast Center's own pre-send check does, with
+            target={{kind:"all"}} standing in for "the whole fleet" — same
+            matching/health logic, not a second implementation. Skipped
+            entirely (not even an empty state) when nothing has registered
+            yet — that's the normal pre-show state, not something worth a
+            dashed-box callout in a dense controls column. */}
+        {Object.keys(engine.registry).length > 0 && (
+          <div className="mt-3">
+            <TargetHealthSummary target={{ kind: "all" }} registry={engine.registry} groups={engine.groups} />
+          </div>
+        )}
+
         <div className="mt-3 flex flex-col gap-3">
           {currentOrder === null ? (
             <Button
