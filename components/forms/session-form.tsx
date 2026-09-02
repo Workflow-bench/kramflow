@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import type { Session } from "@/lib/types";
 
 interface SessionFormProps {
@@ -70,34 +71,30 @@ export function SessionForm({ eventId, session, nextSortOrder, onSaved, onCancel
   return (
     <form onSubmit={handleSubmit} className="rounded-panel bg-card p-6 flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-console-meta text-muted-2">Day</label>
+        <FormField label="Day">
           <Input
-            className="mt-1.5"
             value={dayLabel}
             onChange={(e) => setDayLabel(e.target.value)}
             placeholder="e.g. Saturday"
             autoFocus
           />
-        </div>
-        <div>
-          <label className="text-console-meta text-muted-2">Session</label>
+        </FormField>
+        <FormField label="Session">
           <Input
-            className="mt-1.5"
             value={sessionLabel}
             onChange={(e) => setSessionLabel(e.target.value)}
             placeholder="e.g. Evening Session"
           />
-        </div>
+        </FormField>
       </div>
       <div>
-        <label className="text-console-meta text-muted-2">Display title (optional)</label>
-        <Input
-          className="mt-1.5"
-          value={eventName}
-          onChange={(e) => setEventName(e.target.value)}
-          placeholder="e.g. Evening Gala"
-        />
+        <FormField label="Display title (optional)">
+          <Input
+            value={eventName}
+            onChange={(e) => setEventName(e.target.value)}
+            placeholder="e.g. Evening Gala"
+          />
+        </FormField>
         <p className="text-console-meta text-muted-2 mt-1">
           Shown as the headline on the General audience display while this session is live. Leave blank to show
           nothing.

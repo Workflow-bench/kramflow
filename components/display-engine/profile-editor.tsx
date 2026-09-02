@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { SectionLabel } from "@/components/ui/section-label";
+import { FormField } from "@/components/ui/form-field";
 import { Panel } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -232,14 +233,12 @@ export function ProfileEditor() {
                 what changed. */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-8">
               <div className="flex flex-col gap-4">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-console-meta text-muted-2">Name</span>
+                <FormField label="Name">
                   <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
-                </label>
+                </FormField>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-console-meta text-muted-2">Font Scale</span>
+                  <FormField label="Font Scale">
                     <Input
                       type="number"
                       step={0.1}
@@ -250,9 +249,8 @@ export function ProfileEditor() {
                         setEditing({ ...editing, layout: { ...editing.layout, fontScale: Number(e.target.value) } })
                       }
                     />
-                  </label>
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-console-meta text-muted-2">Orientation</span>
+                  </FormField>
+                  <FormField label="Orientation">
                     <Select
                       value={editing.layout.orientation}
                       onChange={(v) =>
@@ -264,7 +262,7 @@ export function ProfileEditor() {
                       options={ORIENTATION_OPTIONS}
                       searchable={false}
                     />
-                  </label>
+                  </FormField>
                 </div>
 
                 <div className="flex items-center gap-6">
@@ -280,8 +278,7 @@ export function ProfileEditor() {
                   />
                 </div>
 
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-console-meta text-muted-2">Refresh Interval (ms)</span>
+                <FormField label="Refresh Interval (ms)">
                   <Input
                     type="number"
                     min={1000}
@@ -289,7 +286,7 @@ export function ProfileEditor() {
                     value={editing.refreshMs}
                     onChange={(e) => setEditing({ ...editing, refreshMs: Number(e.target.value) })}
                   />
-                </label>
+                </FormField>
 
                 <div>
                   <span className="text-console-meta text-muted-2">Visible Widgets</span>

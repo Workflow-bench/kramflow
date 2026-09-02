@@ -7,6 +7,7 @@ import { useEventId } from "@/lib/event-context";
 import { getLive, getNext, getOnDeck, type LiveState, type Alert as AlertType, type AlertSeverity } from "@/lib/types";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FormField } from "@/components/ui/form-field";
 import { Select } from "@/components/ui/select";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { SectionLabel } from "@/components/ui/section-label";
@@ -284,13 +285,12 @@ function SessionSelect({
   onChange: (id: string) => void;
 }) {
   return (
-    <label className="flex flex-col gap-1.5 max-w-sm">
-      <span className="text-console-meta text-muted-2">Session to rehearse</span>
+    <FormField label="Session to rehearse" className="max-w-sm">
       <Select
         value={activeSessionId}
         onChange={onChange}
         options={sessions.map((s) => ({ value: s.id, label: `${s.dayLabel} • ${s.sessionLabel}` }))}
       />
-    </label>
+    </FormField>
   );
 }
