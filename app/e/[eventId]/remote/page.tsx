@@ -28,7 +28,7 @@ import { EMERGENCY_PRESETS } from "@/lib/display-engine/types";
 import { useControlLock } from "@/lib/use-control-lock";
 import { useControllerName } from "@/lib/use-controller-name";
 import { useEventId } from "@/lib/event-context";
-import { ProgressBar } from "@/components/tv/progress-bar";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { OperationalStatus } from "@/components/ui/operational-status";
 import { BigActionButton } from "@/components/remote/big-action-button";
 import { QuickActionButton } from "@/components/remote/quick-action-button";

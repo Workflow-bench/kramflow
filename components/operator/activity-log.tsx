@@ -80,7 +80,7 @@ export function ActivityLog() {
       <SectionLabel>Activity</SectionLabel>
       <ul className="mt-3 flex flex-col gap-1.5 max-h-48 overflow-y-auto">
         {rows.map((row) => (
-          <li key={row.id} className="flex items-baseline gap-2 text-caption">
+          <li key={row.id} className="flex items-baseline gap-2 text-console-meta">
             <span className="text-muted-2 tabular-nums shrink-0">{formatTime(row.created_at)}</span>
             <span className="text-muted truncate">
               {row.detail ?? row.action}

@@ -175,7 +175,7 @@ export function ControlsPanel({
         <div className="flex items-center justify-between gap-3">
           <SectionLabel>Controls</SectionLabel>
           {currentOrder !== null && !isFinished && (
-            <p className="text-caption text-muted-2 tabular-nums">← → Next/Prev · H Hold</p>
+            <p className="text-console-meta text-muted-2 tabular-nums">← → Next/Prev · H Hold</p>
           )}
         </div>
 
@@ -185,7 +185,7 @@ export function ControlsPanel({
             this existed. QA_REPORT_ROUND2.md R2-BUG-1: this exists because
             two /operator tabs could otherwise drive the same show with a
             plain Next silently clearing another tab's just-set Hold. */}
-        <div className="mt-2 text-caption">
+        <div className="mt-2 text-console-meta">
           <ControlLeaseStatus
             role={role}
             iHaveControl={iHaveControl}
@@ -223,7 +223,7 @@ export function ControlsPanel({
           ) : (
             <>
               {isFinished ? (
-                <p className="text-body text-muted-2 py-2">Session finished.</p>
+                <p className="text-console-sm text-muted-2 py-2">Session finished.</p>
               ) : (
                 <>
                   <Button

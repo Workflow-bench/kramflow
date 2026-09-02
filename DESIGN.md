@@ -30,6 +30,8 @@ and rejected (see their own text) — but do not treat them as current.
 
 Never apply one scale's type/density rules to the other surface. This has already caused a real regression once (Console inheriting Stage's "no tiny text, cards breathe" rules and reading as bloated) — see `docs/DESIGN_SYSTEM.md`'s own note.
 
+**One explicit, deliberate exception: Remote.** `/e/[id]/remote` is Console-*governed* (it drives the real control lease, is owner-only, and belongs to the same operational language) but Console-*scale* text is wrong for it — it's held one-handed at arm's length while walking backstage, not scanned at a desk. It keeps Stage-scale type (`text-title` for the live item, `text-hero` for the countdown, `text-body` for secondary lines) on purpose; the 2026-09-01 audit independently praised the result ("the most coherent mobile surface... Now, Next and thumb-zone controls are clear") and shrinking it to Console density would be a real regression, not a fix. Do not migrate Remote's typography when closing Console/Stage token leaks elsewhere — check this section before "fixing" it. Its *components* (ControlLeaseStatus, OperationalStatus, the shared page-shell where applicable) are still canonical Console/ui components; only its type scale opts out.
+
 ## Colors
 
 Chrome is warm graphite, not cool slate — the use scene is warm-black hardware under practical stage light, not an office screen. Achromatic; carries no meaning.

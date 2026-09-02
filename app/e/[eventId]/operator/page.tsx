@@ -17,7 +17,7 @@ import { EventNav } from "@/components/operator/event-nav";
 import { EventIdentity } from "@/components/operator/event-identity";
 import { LiveDetailsPanel } from "@/components/operator/live-details-panel";
 import { ControlsPanel } from "@/components/operator/controls-panel";
-import { ProgressFooter } from "@/components/tv/progress-footer";
+import { ProgressFooter } from "@/components/ui/progress-footer";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Button, LinkButton } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -72,13 +72,13 @@ export default function OperatorPage() {
           <div className="min-w-0 flex-1">
             <EventIdentity />
             <div className="flex items-center flex-wrap gap-2.5 mt-1.5 min-w-0">
-              <h1 className="text-title text-primary shrink-0">
+              <h1 className="text-console-lg text-primary shrink-0">
                 <span className="sm:hidden">Console</span>
                 <span className="hidden sm:inline">Operator Console</span>
               </h1>
               {operatorCount > 1 && (
                 <span
-                  className="flex items-center gap-1.5 text-caption font-semibold uppercase tracking-wide text-status-orange bg-status-orange/15 px-2.5 py-1 rounded-full shrink-0"
+                  className="flex items-center gap-1.5 text-console-meta font-semibold uppercase tracking-wide text-status-orange bg-status-orange/15 px-2.5 py-1 rounded-full shrink-0"
                   title={`Connected: ${operators.map((o) => o.name).join(", ")}`}
                 >
                   <Users className="h-3.5 w-3.5" strokeWidth={2} />
@@ -112,7 +112,7 @@ export default function OperatorPage() {
             </LinkButton>
 
             <span
-              className="flex items-center gap-1.5 text-caption text-muted-2 pl-1"
+              className="flex items-center gap-1.5 text-console-meta text-muted-2 pl-1"
               title="Open the command palette to jump to any route, session, or tool"
             >
               <kbd className="border border-white/10 rounded px-1.5 py-0.5">⌘K</kbd>
@@ -150,7 +150,7 @@ export default function OperatorPage() {
           role="status"
           aria-live="polite"
         >
-          <p className="text-body text-muted">Loading sessions…</p>
+          <p className="text-console-sm text-muted">Loading sessions…</p>
         </div>
       ) : session ? (
         <OperatorGrid
@@ -162,7 +162,7 @@ export default function OperatorPage() {
         />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4 sm:px-6 xl:px-12 py-16">
-          <p className="text-body text-muted">
+          <p className="text-console-sm text-muted">
             {sessions.length === 0 ? "No sessions yet." : "Select a session to get started."}
           </p>
           {sessions.length === 0 && (
@@ -219,7 +219,7 @@ function OperatorGrid({
             to miss down there while scanning the rundown — this slim one
             sits right where the eye already is, readable peripherally
             without looking away from the item list. */}
-        <span className="text-caption text-muted-2 tabular-nums shrink-0">
+        <span className="text-console-meta text-muted-2 tabular-nums shrink-0">
           {Math.min(progress?.currentOrder ?? 0, session.items.length)} / {session.items.length}
         </span>
       </div>

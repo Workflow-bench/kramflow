@@ -7,7 +7,7 @@ import { useEventId } from "@/lib/event-context";
 import { useCountdown } from "@/lib/use-countdown";
 import { formatClock } from "@/lib/display-engine/use-display-timer";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { ProgressBar } from "@/components/tv/progress-bar";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { OperationalStatus } from "@/components/ui/operational-status";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
   if (currentOrder === null || !live) {
     return (
       <div className="h-full flex items-center">
-        <p className="text-body text-muted-2">Press Start to begin the program.</p>
+        <p className="text-console-sm text-muted-2">Press Start to begin the program.</p>
       </div>
     );
   }
@@ -78,9 +78,9 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
         {state.pausedAt && <OperationalStatus kind="hold" />}
       </div>
 
-      {live.kicker && <p className="text-caption text-muted-2 mt-3">{live.kicker}</p>}
-      <p className="text-subtitle text-primary mt-1">{live.title}</p>
-      {live.presenter && <p className="text-body text-muted mt-2">{live.presenter}</p>}
+      {live.kicker && <p className="text-console-meta text-muted-2 mt-3">{live.kicker}</p>}
+      <p className="text-console-lg text-primary mt-1">{live.title}</p>
+      {live.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
       <DriftLine program={live} state={state} />
 
       {live.type === "item" && live.durationMinutes > 0 && (
@@ -100,7 +100,7 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
               tone={state.pausedAt ? "orange" : countdown.isOverrun ? "red" : "green"}
             />
           </div>
-          <p className="text-caption text-muted mt-2">
+          <p className="text-console-meta text-muted mt-2">
             {countdown.isOverrun ? "over" : "remaining"}
           </p>
         </div>
@@ -140,11 +140,11 @@ function DriftLine({ program, state }: { program: Program; state: LiveState }) {
   if (drift === null) return null;
 
   if (Math.abs(drift) < 1) {
-    return <p className="text-caption text-muted-2 mt-2">On schedule</p>;
+    return <p className="text-console-meta text-muted-2 mt-2">On schedule</p>;
   }
   const behind = drift > 0;
   return (
-    <p className={cn("text-caption mt-2 tabular-nums", behind ? "text-status-orange" : "text-status-blue")}>
+    <p className={cn("text-console-meta mt-2 tabular-nums", behind ? "text-status-orange" : "text-status-blue")}>
       {Math.abs(drift)}m {behind ? "behind schedule" : "ahead of schedule"}
     </p>
   );
@@ -235,11 +235,11 @@ function SessionSummary({ session, state }: { session: Session; state: LiveState
   return (
     <div className="h-full flex flex-col justify-center">
       <SectionLabel>Session Summary</SectionLabel>
-      <p className="text-subtitle text-primary mt-2">
+      <p className="text-console-lg text-primary mt-2">
         {session.dayLabel} · {session.sessionLabel}
       </p>
       {startedAt && finishedAt && (
-        <p className="text-caption text-muted-2 mt-1">
+        <p className="text-console-meta text-muted-2 mt-1">
           {formatClockTime(startedAt)} – {formatClockTime(finishedAt)}
         </p>
       )}
@@ -254,12 +254,12 @@ function SessionSummary({ session, state }: { session: Session; state: LiveState
       {(notesCount > 0 || alertCount > 0) && (
         <div className="mt-8 pt-6 border-t border-white/10 flex flex-col gap-1.5 max-w-sm">
           {alertCount > 0 && (
-            <p className="text-caption text-muted">
+            <p className="text-console-meta text-muted">
               {alertCount} alert{alertCount === 1 ? "" : "s"} raised during the session
             </p>
           )}
           {notesCount > 0 && (
-            <p className="text-caption text-muted">
+            <p className="text-console-meta text-muted">
               {notesCount} item{notesCount === 1 ? "" : "s"} had stage notes
             </p>
           )}
@@ -272,8 +272,8 @@ function SessionSummary({ session, state }: { session: Session; state: LiveState
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-title text-primary tabular-nums">{value}</p>
-      <p className="text-caption text-muted-2 mt-1">{label}</p>
+      <p className="text-console-lg text-primary tabular-nums">{value}</p>
+      <p className="text-console-meta text-muted-2 mt-1">{label}</p>
     </div>
   );
 }
