@@ -36,6 +36,18 @@ export function supabaseBrowser() {
         } = await browserClient.auth.getSession();
         return session?.access_token ?? null;
       },
+      // realtime-js's own default (25s) means a hard, silent network cut —
+      // no clean WebSocket close, just packets going nowhere — isn't
+      // detected until a heartbeat goes unanswered, so the connection
+      // badge kept reading SYNCED for 45-50s after the socket was actually
+      // dead (measured live via CDP-simulated offline). During a live show
+      // "is this screen actually connected" is exactly the kind of thing
+      // this product's own design brief says an operator must be able to
+      // read at a glance — a near-minute lag before the UI admits it isn't
+      // is a real "misleading connectivity" gap, not just slow to notice.
+      // 8s roughly halves detection time without materially increasing
+      // heartbeat traffic for a handful of connected clients per event.
+      heartbeatIntervalMs: 8000,
     },
   });
   return browserClient;
