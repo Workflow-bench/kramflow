@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { SectionLabel } from "@/components/ui/section-label";
+import { MaybeTooltip } from "@/components/ui/tooltip";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { EMERGENCY_PRESETS, type BroadcastType } from "@/lib/display-engine/types";
 import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
@@ -107,7 +108,7 @@ export function OperatorBroadcastPanel() {
                 onClick={() => setType(t)}
                 aria-pressed={type === t}
                 className={cn(
-                  "rounded-full px-3 py-1.5 text-caption font-semibold uppercase tracking-wide transition-opacity cursor-pointer whitespace-nowrap",
+                  "rounded-full px-3 py-1.5 text-console-meta font-semibold uppercase tracking-wide transition-opacity cursor-pointer whitespace-nowrap",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   BROADCAST_TYPE_META[t].accentClass,
                   type !== t && "opacity-40"
@@ -126,22 +127,23 @@ export function OperatorBroadcastPanel() {
             aria-label="Broadcast message"
           />
 
-          <Button
-            variant="primary"
-            size="sm"
-            className="w-full"
-            disabled={!title.trim() || sending || readOnly}
-            loading={sending}
-            onClick={send}
-            title={readOnly ? "Only the event owner can send broadcasts" : undefined}
-          >
-            <Send className="h-4 w-4" strokeWidth={2} />
-            Send to All Displays
-          </Button>
+          <MaybeTooltip when={readOnly} content="Only the event owner can send broadcasts">
+            <Button
+              variant="primary"
+              size="sm"
+              className="w-full"
+              disabled={!title.trim() || sending || readOnly}
+              loading={sending}
+              onClick={send}
+            >
+              <Send className="h-4 w-4" strokeWidth={2} />
+              Send to All Displays
+            </Button>
+          </MaybeTooltip>
 
           <Link
             href={`/e/${eventId}/broadcast`}
-            className="text-caption text-muted-2 hover:text-primary text-center underline-offset-2 hover:underline"
+            className="text-console-meta text-muted-2 hover:text-primary text-center underline-offset-2 hover:underline"
           >
             More options — schedule, templates, target one display →
           </Link>
@@ -149,17 +151,17 @@ export function OperatorBroadcastPanel() {
           <div className="border-t border-white/5 pt-3 mt-1">
             <div className="flex flex-wrap gap-2">
               {EMERGENCY_PRESETS.map((preset) => (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => emergencyConfirm.request(preset)}
-                  disabled={readOnly}
-                  title={readOnly ? "Only the event owner can send broadcasts" : undefined}
-                  className="flex items-center gap-1.5 rounded-full bg-status-red/15 text-status-red px-3 py-1.5 text-caption font-semibold cursor-pointer hover:bg-status-red/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-status-red/15"
-                >
-                  <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
-                  {preset.label}
-                </button>
+                <MaybeTooltip key={preset.label} when={readOnly} content="Only the event owner can send broadcasts">
+                  <button
+                    type="button"
+                    onClick={() => emergencyConfirm.request(preset)}
+                    disabled={readOnly}
+                    className="flex items-center gap-1.5 rounded-full bg-status-red/15 text-status-red px-3 py-1.5 text-console-meta font-semibold cursor-pointer hover:bg-status-red/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-status-red/15"
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
+                    {preset.label}
+                  </button>
+                </MaybeTooltip>
               ))}
             </div>
           </div>

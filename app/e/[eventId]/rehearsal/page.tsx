@@ -6,6 +6,7 @@ import { useSessions } from "@/lib/use-sessions";
 import { useEventId } from "@/lib/event-context";
 import { getLive, getNext, getOnDeck, type LiveState, type Alert as AlertType, type AlertSeverity } from "@/lib/types";
 import { Button, LinkButton } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { SectionLabel } from "@/components/ui/section-label";
@@ -235,11 +236,11 @@ export default function RehearsalPage() {
             <section className="flex flex-col gap-3">
               <SectionLabel>Raise Alert (rehearsal only)</SectionLabel>
               <div className="flex flex-col gap-2">
-                <input
+                <Input
                   value={alertDraft}
                   onChange={(e) => setAlertDraft(e.target.value)}
                   placeholder="e.g. Drama Team, please report Stage Left"
-                  className="h-9 px-3 rounded-control bg-background border border-line text-primary text-console-sm outline-none focus:border-accent"
+                  aria-label="Alert message"
                 />
                 <div className="flex gap-2">
                   {(["info", "warning", "critical"] as AlertSeverity[]).map((sev) => (

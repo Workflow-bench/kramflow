@@ -38,6 +38,19 @@ const CONSOLE_SURFACE_GLOBS = [
   "components/operator/**/*.{ts,tsx}",
   "components/dashboard/**/*.{ts,tsx}",
   "components/forms/**/*.{ts,tsx}",
+  // components/display-engine/** is otherwise Stage-only (the four display
+  // clients' shared chrome — DisplayShell, HoldScreen, BroadcastOverlay,
+  // etc. — legitimately use Stage-scale tokens and are excluded on
+  // purpose), but these three files render exclusively inside Console
+  // routes (Operator Console's broadcast panel, Display Manager's profile
+  // editor and target-health summary) — found with real Stage-token leaks
+  // during the 2026-09 design-system cleanup because the directory-level
+  // exclusion above covered them by accident. Listed individually rather
+  // than widening the directory glob, which would incorrectly flag the
+  // genuinely Stage-only files in the same directory.
+  "components/display-engine/operator-broadcast-panel.tsx",
+  "components/display-engine/profile-editor.tsx",
+  "components/display-engine/target-health-summary.tsx",
 ];
 
 const STAGE_TOKEN_PATTERN =

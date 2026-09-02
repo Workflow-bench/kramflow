@@ -192,5 +192,5 @@ Hold/Timer/Speaker-Ready/Registry/Broadcasts rehydrate from Supabase on load (a 
 
 ## Known constraints
 
-- **Framer Motion over `styled-jsx`** — `AGENTS.md` warns this Next.js version has unverified/changed APIs; the TimerRing's blink and the HoldScreen's fade both use Framer Motion (already a project dependency) rather than risk `styled-jsx`.
+- **Framer Motion over `styled-jsx`** — `AGENTS.md` warns this Next.js version has unverified/changed APIs; HoldScreen's fade uses Framer Motion (already a project dependency) rather than risk `styled-jsx`.
 - **No new runtime dependencies** — the WS relay is hand-rolled specifically to avoid adding `ws` to `package.json` for what is now genuinely optional infrastructure (only relevant to the local-only Profiles/Groups slice, if ever needed cross-device).

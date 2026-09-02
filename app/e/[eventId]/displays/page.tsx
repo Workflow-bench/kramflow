@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { OperationalStatus } from "@/components/ui/operational-status";
 import { ConnectionBadge, type ConnectionBadgeStatus } from "@/components/ui/connection-badge";
 import { SectionLabel } from "@/components/ui/section-label";
-import { Tooltip } from "@/components/ui/tooltip";
+import { MaybeTooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProfileEditor } from "@/components/display-engine/profile-editor";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -63,15 +63,6 @@ const FILTERS: { id: "all" | DisplayHealth; label: string }[] = [
   { id: "stale", label: "Stale" },
   { id: "offline", label: "Offline" },
 ];
-
-// Wraps a control in the canonical Tooltip only while `when` is true — used
-// for the maintenance actions below, which are only worth explaining at the
-// moment they're actually disabled. A bare native title= attribute was the
-// prior implementation (2026-09-01 audit's own count of 56 such uses across
-// the app); this is the real, focus-reachable replacement.
-function MaybeTooltip({ when, content, children }: { when: boolean; content: string; children: React.ReactElement }) {
-  return when ? <Tooltip content={content}>{children}</Tooltip> : children;
-}
 
 type ConfirmAction =
   | { kind: "reassign-type"; id: string; name: string; type: DisplayType }

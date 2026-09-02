@@ -36,12 +36,18 @@ export function OverflowMenu({
   items,
   label = "More",
   iconOnly = false,
+  triggerIcon: TriggerIcon = MoreHorizontal,
 }: {
   items: OverflowMenuItem[];
   label?: string;
   /** Icon-only trigger (no visible "More" text) for tight command rows —
    *  the accessible name still carries `label`. */
   iconOnly?: boolean;
+  /** Override the trigger's icon — the "more actions" `MoreHorizontal`
+   *  glyph is right for an overflow-actions menu, wrong for a menu that's
+   *  itself the primary entry point (e.g. Help). Defaults to
+   *  `MoreHorizontal` so every other call site is unaffected. */
+  triggerIcon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -51,7 +57,7 @@ export function OverflowMenu({
   return (
     <div ref={rootRef} className="relative">
       <Button variant="ghost" size="sm" square={iconOnly} aria-label={iconOnly ? label : undefined} onClick={() => setOpen((v) => !v)}>
-        <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+        <TriggerIcon className="h-4 w-4" strokeWidth={2} />
         {!iconOnly && label}
       </Button>
       {open && (

@@ -27,7 +27,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
 import { Panel } from "@/components/ui/card";
 import { SectionLabel } from "@/components/ui/section-label";
-import { Tooltip } from "@/components/ui/tooltip";
+import { Tooltip, MaybeTooltip } from "@/components/ui/tooltip";
 import { ConnectionBadge, type ConnectionBadgeStatus } from "@/components/ui/connection-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -937,12 +937,4 @@ function IconButton({
       </Button>
     </Tooltip>
   );
-}
-
-// Wraps a control in the canonical Tooltip only while `when` is true — the
-// permission note only needs saying at the moment a control is actually
-// disabled by it. Same helper as app/e/[eventId]/displays/page.tsx's own
-// MaybeTooltip.
-function MaybeTooltip({ when, content, children }: { when: boolean; content: string; children: React.ReactElement }) {
-  return when ? <Tooltip content={content}>{children}</Tooltip> : children;
 }

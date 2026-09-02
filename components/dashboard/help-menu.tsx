@@ -1,12 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { HelpCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { HelpCircle, Rocket, Keyboard, BookOpen } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { OverflowMenu, type OverflowMenuItem } from "@/components/ui/overflow-menu";
 import { reopenGettingStarted } from "./getting-started-checklist";
-import { cn } from "@/lib/utils";
-import { useDismissOnOutsideOrEscape } from "@/lib/use-dismiss-on-outside-or-escape";
 
 // The one help entry point in the app. Previously a single "Getting
 // started" item that just reopened the onboarding checklist — a dead end
@@ -14,64 +12,24 @@ import { useDismissOnOutsideOrEscape } from "@/lib/use-dismiss-on-outside-or-esc
 // wants a shortcut reference mid-show. Still a single-purpose popover, not
 // a full account menu (nothing else needs one yet) — just with two more
 // real, static destinations instead of one repeated one.
+//
+// Was its own hand-rolled dropdown shell — OverflowMenu's own doc comment
+// named this exact file as the thing it was meant to replace once it grew
+// callback-item support (for Cue Sheet's session actions), but the
+// migration itself was never done until this design-system cleanup pass.
 export function HelpMenu() {
-  const [open, setOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
 
-  useDismissOnOutsideOrEscape(rootRef, open, () => setOpen(false));
-
-  function handleReopen() {
-    reopenGettingStarted();
-    setOpen(false);
-  }
+  const items: OverflowMenuItem[] = [
+    { label: "Getting started", icon: Rocket, onClick: reopenGettingStarted },
+    { label: "Keyboard shortcuts", icon: Keyboard, onClick: () => setShortcutsOpen(true) },
+    { label: "Glossary", icon: BookOpen, onClick: () => setGlossaryOpen(true) },
+  ];
 
   return (
-    <div ref={rootRef} className="relative">
-      <Button variant="ghost" size="md" square onClick={() => setOpen((v) => !v)} aria-label="Help">
-        <HelpCircle className="h-4.5 w-4.5" strokeWidth={2} />
-      </Button>
-      {open && (
-        <div
-          role="menu"
-          className={cn(
-            "absolute right-0 z-30 mt-1.5 min-w-[13rem] rounded-panel bg-card border border-line shadow-float py-1",
-            "motion-safe:animate-rise"
-          )}
-        >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleReopen}
-            className="w-full text-left px-3 py-2 text-console-sm text-primary hover:bg-card-hover transition-colors cursor-pointer"
-          >
-            Getting started
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setShortcutsOpen(true);
-              setOpen(false);
-            }}
-            className="w-full text-left px-3 py-2 text-console-sm text-primary hover:bg-card-hover transition-colors cursor-pointer"
-          >
-            Keyboard shortcuts
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setGlossaryOpen(true);
-              setOpen(false);
-            }}
-            className="w-full text-left px-3 py-2 text-console-sm text-primary hover:bg-card-hover transition-colors cursor-pointer"
-          >
-            Glossary
-          </button>
-        </div>
-      )}
+    <>
+      <OverflowMenu items={items} label="Help" iconOnly triggerIcon={HelpCircle} />
 
       <Modal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title="Keyboard Shortcuts" size="sm">
         <ShortcutsContent />
@@ -80,7 +38,7 @@ export function HelpMenu() {
       <Modal open={glossaryOpen} onClose={() => setGlossaryOpen(false)} title="Glossary" size="md">
         <GlossaryContent />
       </Modal>
-    </div>
+    </>
   );
 }
 

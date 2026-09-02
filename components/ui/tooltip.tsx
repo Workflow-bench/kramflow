@@ -64,3 +64,24 @@ export function Tooltip({
     </span>
   );
 }
+
+// Wraps a control in Tooltip only while `when` is true — the common case
+// being a disabled control whose reason is only worth explaining at the
+// moment it's actually disabled. Was independently hand-copied into
+// app/e/[eventId]/displays/page.tsx and app/e/[eventId]/broadcast/page.tsx
+// (the latter's own comment already pointed at the former as "the same
+// helper"), with a third spot — operator-broadcast-panel.tsx's disabled
+// Send button — using a bare title= for the identical need instead of
+// either copy. Canonical now so a fourth call site reaches for this
+// instead of a fourth copy or a native title= regression.
+export function MaybeTooltip({
+  when,
+  content,
+  children,
+}: {
+  when: boolean;
+  content: string;
+  children: React.ReactElement;
+}) {
+  return when ? <Tooltip content={content}>{children}</Tooltip> : children;
+}

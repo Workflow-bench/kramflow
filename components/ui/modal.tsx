@@ -26,7 +26,7 @@ export function Modal({
   open: boolean;
   onClose: () => void;
   title: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   children: React.ReactNode;
 }) {
   const [overlayId] = useState(() => Symbol("modal"));
@@ -75,7 +75,8 @@ export function Modal({
               "w-full rounded-card bg-card flex flex-col max-h-full overflow-hidden focus:outline-none",
               size === "sm" && "max-w-sm",
               size === "md" && "max-w-lg",
-              size === "lg" && "max-w-2xl"
+              size === "lg" && "max-w-2xl",
+              size === "xl" && "max-w-3xl"
             )}
             onClick={(e) => e.stopPropagation()}
           >
