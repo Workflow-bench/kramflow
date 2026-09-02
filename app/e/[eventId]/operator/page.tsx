@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { FileSpreadsheet, FlaskConical, Lock, Users } from "lucide-react";
+import { FileSpreadsheet, FlaskConical, Users } from "lucide-react";
 import { useEventStore, useConnectionStatus } from "@/lib/store";
-import { ConnectionBadge } from "@/components/ui/connection-badge";
 import { useSessions, useSessionsLoading } from "@/lib/use-sessions";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useEventId } from "@/lib/event-context";
@@ -13,20 +12,19 @@ import { useAuth } from "@/components/auth/auth-context";
 import { useOperatorPresence } from "@/lib/use-operator-presence";
 import { ProgramList } from "@/components/operator/program-list";
 import { SessionSwitcher } from "@/components/operator/session-switcher";
-import { EventNav } from "@/components/operator/event-nav";
-import { EventIdentity } from "@/components/operator/event-identity";
+import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { LiveDetailsPanel } from "@/components/operator/live-details-panel";
 import { ControlsPanel } from "@/components/operator/controls-panel";
 import { ProgressFooter } from "@/components/ui/progress-footer";
 import { SectionLabel } from "@/components/ui/section-label";
-import { Button, LinkButton } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 
 export default function OperatorPage() {
   const eventId = useEventId();
   const { state } = useEventStore();
-  const { status, lock } = useAuth();
+  const { status } = useAuth();
   const sessions = useSessions();
   const sessionsLoading = useSessionsLoading();
   const session = getSessionById(sessions, state.activeSessionId);
@@ -60,85 +58,48 @@ export default function OperatorPage() {
 
   return (
     <main className="min-h-screen xl:h-screen xl:overflow-hidden bg-background flex flex-col">
-      {/* Two stable rows at xl+, not one row three flex children raced for —
-          that's what the 2026-09-01 UI/UX audit's P0 finding #1 actually
-          was: EventIdentity was shrink-0 (protected), SessionSwitcher was
-          flex-1 (greedy), and this nav cluster was min-w-0 (no floor at
-          all), so real content — 6 sessions, a full event name — collided
-          at ordinary laptop widths (reproduced at 1440×900). Giving
-          SessionSwitcher its own full-width row removes the three-way
-          fight entirely instead of tuning the min-widths that caused it. */}
-      <header className="flex flex-col gap-3 px-4 sm:px-6 xl:px-12 py-4 xl:py-5 border-b border-white/5 shrink-0">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <EventIdentity />
-            <div className="flex items-center flex-wrap gap-2.5 mt-1.5 min-w-0">
-              <h1 className="text-console-lg text-primary shrink-0">
-                <span className="sm:hidden">Console</span>
-                <span className="hidden sm:inline">Operator Console</span>
-              </h1>
-              {operatorCount > 1 && (
-                <span
-                  className="flex items-center gap-1.5 text-console-meta font-semibold uppercase tracking-wide text-status-orange bg-status-orange/15 px-2.5 py-1 rounded-full shrink-0"
-                  title={`Connected: ${operators.map((o) => o.name).join(", ")}`}
-                >
-                  <Users className="h-3.5 w-3.5" strokeWidth={2} />
-                  {operatorCount} operators
-                </span>
-              )}
-              <ConnectionBadge status={connectionStatus} variant="console" />
-            </div>
-          </div>
-
-          <div className="hidden xl:flex items-center gap-2 shrink-0">
-            <EventNav />
-
-            {/* Rehearsal Mode deliberately lives here, next to Lock, rather
-                than as a nav destination — it's an operating mode for the
-                live console, not a content screen (see
-                kramflow_nav_layout_ground_up.md). Still its own route under
-                the hood (rehearsal state must never touch the real live_state
-                row — see app/e/[eventId]/rehearsal/page.tsx), just entered
-                from a mode-toggle-styled affordance instead of a menu item. */}
-            <LinkButton
-              href={`/e/${eventId}/rehearsal`}
-              variant="warning"
-              size="sm"
-              className="rounded-full"
-              aria-label="Rehearsal Mode"
-              title="Rehearsal Mode — practice the sequence without touching the real live show"
-            >
-              <FlaskConical className="h-3.5 w-3.5" strokeWidth={2} />
-              <span className="hidden 2xl:inline">Rehearsal Mode</span>
-            </LinkButton>
-
+      <EventShellHeader
+        title="Operator Console"
+        titleMobile="Console"
+        connectionStatus={connectionStatus}
+        badges={
+          operatorCount > 1 && (
             <span
-              className="flex items-center gap-1.5 text-console-meta text-muted-2 pl-1"
-              title="Open the command palette to jump to any route, session, or tool"
+              className="flex items-center gap-1.5 text-console-meta font-semibold uppercase tracking-wide text-status-orange bg-status-orange/15 px-2.5 py-1 rounded-full shrink-0"
+              title={`Connected: ${operators.map((o) => o.name).join(", ")}`}
             >
-              <kbd className="border border-white/10 rounded px-1.5 py-0.5">⌘K</kbd>
+              <Users className="h-3.5 w-3.5" strokeWidth={2} />
+              {operatorCount} operators
             </span>
-
-            <Button variant="ghost" size="sm" onClick={lock} aria-label="Lock">
-              <Lock className="h-4 w-4" strokeWidth={2} />
-            </Button>
-          </div>
-
-          <Button variant="ghost" size="sm" className="xl:hidden shrink-0" onClick={lock} aria-label="Lock">
-            <Lock className="h-4 w-4" strokeWidth={2} />
-          </Button>
-        </div>
-
-        <div className="xl:hidden flex items-center flex-wrap gap-2">
-          <EventNav />
-          <LinkButton href={`/e/${eventId}/rehearsal`} variant="warning" size="sm" className="rounded-full">
+          )
+        }
+        actions={
+          // Rehearsal Mode deliberately lives here, next to Lock, rather
+          // than as a nav destination — it's an operating mode for the
+          // live console, not a content screen (see
+          // kramflow_nav_layout_ground_up.md). Still its own route under
+          // the hood (rehearsal state must never touch the real live_state
+          // row — see app/e/[eventId]/rehearsal/page.tsx), just entered
+          // from a mode-toggle-styled affordance instead of a menu item.
+          <LinkButton
+            key="rehearsal"
+            href={`/e/${eventId}/rehearsal`}
+            variant="warning"
+            size="sm"
+            className="rounded-full"
+            aria-label="Rehearsal Mode"
+            title="Rehearsal Mode — practice the sequence without touching the real live show"
+          >
             <FlaskConical className="h-3.5 w-3.5" strokeWidth={2} />
-            <span className="hidden md:inline">Rehearsal Mode</span>
+            <span className="hidden lg:inline">Rehearsal Mode</span>
           </LinkButton>
-        </div>
-
-        <SessionSwitcher />
-      </header>
+        }
+        belowNav={
+          <div className="px-4 sm:px-6 xl:px-12 py-3 border-b border-white/5">
+            <SessionSwitcher />
+          </div>
+        }
+      />
 
       {sessionsLoading ? (
         // Distinct from the "No sessions yet" branch below on purpose — see

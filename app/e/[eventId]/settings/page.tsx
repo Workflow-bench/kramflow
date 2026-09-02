@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/auth/auth-context";
 import { useEventId } from "@/lib/event-context";
-import { EventNav } from "@/components/operator/event-nav";
-import { EventIdentity } from "@/components/operator/event-identity";
+import { useConnectionStatus } from "@/lib/store";
+import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { EventSettingsPanel } from "@/components/forms/event-settings-panel";
-import { Button } from "@/components/ui/button";
 
 // Promoted out of the gear icon that used to live inside Cue Sheet's own
 // header — collaborators/auditoriums/event details are properties of the
@@ -27,7 +25,7 @@ import { Button } from "@/components/ui/button";
 export default function EventSettingsPage() {
   const eventId = useEventId();
   const router = useRouter();
-  const { lock } = useAuth();
+  const connectionStatus = useConnectionStatus();
   const [eventName, setEventName] = useState("");
   const [auditoriums, setAuditoriums] = useState<{ id: string; name: string }[]>([]);
 
@@ -49,18 +47,7 @@ export default function EventSettingsPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5 flex-wrap">
-        <div className="min-w-0">
-          <EventIdentity />
-          <h1 className="text-console-lg text-primary mt-1.5">Settings</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <EventNav />
-          <Button variant="ghost" size="sm" onClick={lock}>
-            Lock
-          </Button>
-        </div>
-      </header>
+      <EventShellHeader title="Settings" connectionStatus={connectionStatus} />
 
       <div className="px-4 sm:px-6 xl:px-12 py-8 max-w-3xl mx-auto">
         <EventSettingsPanel

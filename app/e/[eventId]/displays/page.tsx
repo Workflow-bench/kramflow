@@ -3,21 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, ChevronDown, ChevronUp, Eye, Maximize, Megaphone, Presentation, RotateCw, Send, Trash2, Tv, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAuth } from "@/components/auth/auth-context";
 import { useEventId } from "@/lib/event-context";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
 import { getDisplayStatus, type DisplayHealth } from "@/lib/display-engine/use-register-display";
 import type { TransportStatus } from "@/lib/display-engine/transport";
 import { DISPLAY_TYPES, type DisplayInstance, type DisplayType } from "@/lib/display-engine/types";
-import { EventNav } from "@/components/operator/event-nav";
-import { EventIdentity } from "@/components/operator/event-identity";
+import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Panel } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { OperationalStatus } from "@/components/ui/operational-status";
-import { ConnectionBadge, type ConnectionBadgeStatus } from "@/components/ui/connection-badge";
+import { type ConnectionBadgeStatus } from "@/components/ui/connection-badge";
 import { SectionLabel } from "@/components/ui/section-label";
 import { MaybeTooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -73,7 +71,6 @@ type ConfirmAction =
 
 export default function DisplayManagerPage() {
   const eventId = useEventId();
-  const { lock } = useAuth();
   const { state: engine, renameDisplay, assignDisplay, removeDisplay, sendCommand } = useDisplayEngine();
   const transportStatus = useTransportStatus();
   const toast = useToast();
@@ -190,21 +187,7 @@ export default function DisplayManagerPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5 flex-wrap">
-        <div className="min-w-0">
-          <EventIdentity />
-          <div className="flex items-center flex-wrap gap-2.5 mt-1.5">
-            <h1 className="text-console-lg text-primary">Displays</h1>
-            <ConnectionBadge status={toConnectionStatus(transportStatus)} variant="console" />
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <EventNav />
-          <Button variant="ghost" size="sm" onClick={lock}>
-            Lock
-          </Button>
-        </div>
-      </header>
+      <EventShellHeader title="Displays" connectionStatus={toConnectionStatus(transportStatus)} />
 
       <div className="px-4 sm:px-6 xl:px-12 py-8">
         <SectionLabel>Preview a display</SectionLabel>

@@ -22,7 +22,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventId, useEventRole } from "@/lib/event-context";
-import { useAuth } from "@/components/auth/auth-context";
+import { useConnectionStatus } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -43,8 +43,7 @@ import {
 import { SectionLabel } from "@/components/ui/section-label";
 import { ProgramForm } from "@/components/forms/program-form";
 import { SessionForm } from "@/components/forms/session-form";
-import { EventNav } from "@/components/operator/event-nav";
-import { EventIdentity } from "@/components/operator/event-identity";
+import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import type { ProgramInput } from "@/lib/validation/program";
@@ -169,7 +168,7 @@ function rowToInput(row: ProgramRow): Partial<ProgramInput> {
 
 export default function CueSheetPage() {
   const eventId = useEventId();
-  const { lock } = useAuth();
+  const connectionStatus = useConnectionStatus();
   // Report finding #26 — a viewer can see the cue sheet but not touch it;
   // hiding the write affordances is a courtesy (the actual boundary is
   // server-side, in every mutating route's requireEventAccess(..., "editor")
@@ -556,24 +555,11 @@ export default function CueSheetPage() {
 
   return (
     <main className="min-h-screen bg-background pb-28">
-      {/* Canonical page/session-context row — same shape as Console/
-          Displays/Broadcast Center's own headers (identity, title, nav,
-          Lock). Not sticky: unlike the command row below, nothing here is
-          needed while scrolling a long list, and keeping it out of the
-          sticky stack is what makes the sticky row's own height reliable
-          (see that row's comment). */}
-      <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5 flex-wrap">
-        <div className="min-w-0">
-          <EventIdentity />
-          <h1 className="text-console-lg text-primary mt-1.5">Cue Sheet</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <EventNav />
-          <Button variant="ghost" size="sm" onClick={lock}>
-            Lock
-          </Button>
-        </div>
-      </header>
+      {/* Canonical shell — not sticky: unlike the command row below, nothing
+          here is needed while scrolling a long list, and keeping it out of
+          the sticky stack is what makes the sticky row's own height
+          reliable (see that row's comment). */}
+      <EventShellHeader title="Cue Sheet" connectionStatus={connectionStatus} />
 
       {/* Session context + primary commands — the one sticky band on this
           page (previously two independently-tall bands stacked, and a

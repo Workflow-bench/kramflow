@@ -2,10 +2,8 @@
 
 import { useMemo, useRef, useState } from "react";
 import { AlertTriangle, Copy, Send, Star, Trash2, X } from "lucide-react";
-import { useAuth } from "@/components/auth/auth-context";
 import { useEventRole } from "@/lib/event-context";
-import { EventNav } from "@/components/operator/event-nav";
-import { EventIdentity } from "@/components/operator/event-identity";
+import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
 import { getDisplayStatus, type DisplayHealth } from "@/lib/display-engine/use-register-display";
 import type { TransportStatus } from "@/lib/display-engine/transport";
@@ -28,7 +26,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Panel } from "@/components/ui/card";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Tooltip, MaybeTooltip } from "@/components/ui/tooltip";
-import { ConnectionBadge, type ConnectionBadgeStatus } from "@/components/ui/connection-badge";
+import { type ConnectionBadgeStatus } from "@/components/ui/connection-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
@@ -89,7 +87,6 @@ type DestructiveAction =
 const PERMISSION_NOTE = "Only the event owner can send broadcasts.";
 
 export default function BroadcastCenterPage() {
-  const { lock } = useAuth();
   const toast = useToast();
   const transportStatus = useTransportStatus();
   // Broadcasts are owner-gated server-side (requireEventAccess(eventId,
@@ -297,21 +294,7 @@ export default function BroadcastCenterPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="flex items-center justify-between gap-4 px-4 sm:px-6 xl:px-12 py-4 xl:py-6 border-b border-white/5 flex-wrap">
-        <div className="min-w-0">
-          <EventIdentity />
-          <div className="flex items-center flex-wrap gap-2.5 mt-1.5">
-            <h1 className="text-console-lg text-primary">Broadcast Center</h1>
-            <ConnectionBadge status={toConnectionStatus(transportStatus)} variant="console" />
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <EventNav />
-          <Button variant="ghost" size="sm" onClick={lock}>
-            Lock
-          </Button>
-        </div>
-      </header>
+      <EventShellHeader title="Broadcast Center" connectionStatus={toConnectionStatus(transportStatus)} />
 
       {/* Emergency quick-send — a bordered zone, not just red buttons, so it
           reads as categorically different from routine compose actions
