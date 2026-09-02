@@ -52,8 +52,8 @@ import type {
 //   browser's own preferences, never sent anywhere).
 //
 // useDisplayEngine()'s public return shape is unchanged — every consuming
-// component (HoldScreen, BroadcastOverlay, TimerRing, every display page)
-// keeps working without modification, as long as it renders under a
+// component (HoldScreen, BroadcastOverlay, every display page) keeps
+// working without modification, as long as it renders under a
 // <DisplayEngineProvider eventId={...}> or <DisplayEngineProvider token={...}>.
 // ---------------------------------------------------------------------------
 

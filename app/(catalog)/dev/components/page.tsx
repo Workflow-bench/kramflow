@@ -25,7 +25,18 @@ import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
 import type { BroadcastType } from "@/lib/display-engine/types";
 import { RunPosition } from "@/components/operator/run-position";
 import type { Program } from "@/lib/types";
-import { Trash2 } from "lucide-react";
+import { Trash2, Pencil, Copy } from "lucide-react";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { OverflowMenu } from "@/components/ui/overflow-menu";
+import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ColorTagPicker } from "@/components/ui/color-tag-picker";
+import { useToast } from "@/components/ui/toast";
+import { ActionBar, ActionBarClear, ActionBarCount, ActionBarSeparator, ActionBarButton } from "@/components/ui/action-bar";
+import { MaybeTooltip } from "@/components/ui/tooltip";
+import { StageStatusPill, type StageStatus } from "@/components/display-engine/stage-status-pill";
 
 // Minimal synthetic Program — RunPosition only reads .title; the cast
 // avoids hand-filling every cue-sheet field for a catalog swatch.
@@ -56,10 +67,23 @@ function Swatch({ label, children }: { label: string; children: React.ReactNode 
 
 const ALL_STATUS_KINDS: OperationalStatusKind[] = ["live", "hold", "ready", "online", "rehearsal", "stale", "offline", "warning", "critical"];
 const ALL_CONNECTION_STATES: ConnectionBadgeStatus[] = ["connected", "reconnecting", "disconnected"];
+const ALL_STAGE_STATUSES: StageStatus[] = ["LIVE", "PAUSED", "ON HOLD", "STANDBY"];
+
+const CATALOG_SELECT_OPTIONS = [
+  { value: "a", label: "Friday · Evening Session" },
+  { value: "b", label: "Saturday · Morning Session 1 & 2" },
+  { value: "c", label: "Saturday · Afternoon Session" },
+];
 
 export default function ComponentCatalogPage() {
   const [inputValue, setInputValue] = useState("");
   const [checkboxValue, setCheckboxValue] = useState(false);
+  const [selectValue, setSelectValue] = useState("a");
+  const [colorTag, setColorTag] = useState<string | null>("green");
+  const [modalOpen, setModalOpen] = useState(false);
+  const confirmDemo = useConfirmDialog<void>();
+  const [actionBarOpen, setActionBarOpen] = useState(false);
+  const toast = useToast();
 
   return (
     <main className="min-h-screen bg-background text-primary px-6 py-10 max-w-5xl mx-auto">
@@ -240,7 +264,7 @@ export default function ComponentCatalogPage() {
         </div>
       </Row>
 
-      <Row title="Form field" description="Console-scale input, with focus/error states.">
+      <Row title="Form field" description="Console-scale input, select, and textarea — one token set, so a form mixing field types reads as one system.">
         <Input
           placeholder="Type something…"
           value={inputValue}
@@ -249,6 +273,113 @@ export default function ComponentCatalogPage() {
         />
         <Input placeholder="Disabled" disabled className="w-56" />
         <Input placeholder="Invalid" aria-invalid className="w-56 border-status-red" />
+        <Select value={selectValue} onChange={setSelectValue} options={CATALOG_SELECT_OPTIONS} className="w-56" />
+        <Textarea placeholder="Notes…" className="w-56" />
+      </Row>
+
+      <Row
+        title="Menus"
+        description="One overflow-menu implementation (previously HelpMenu's own hand-rolled dropdown shell existed alongside this) — supports both navigation (href) and callback (onClick) items, with an optional danger tone for destructive entries."
+      >
+        <OverflowMenu
+          label="Session"
+          items={[
+            { label: "Edit session", icon: Pencil, onClick: () => {} },
+            { label: "Duplicate", icon: Copy, onClick: () => {} },
+            { label: "Delete session", icon: Trash2, onClick: () => {}, tone: "danger" },
+          ]}
+        />
+      </Row>
+
+      <Row
+        title="Tooltip"
+        description="Wraps a single focusable child. MaybeTooltip conditionally applies one only when a `when` condition holds (e.g. explaining why a control is disabled) — previously reimplemented inline in 3 separate files before this existed."
+      >
+        <Tooltip content="Explains what this does">
+          <Button variant="secondary" size="sm">Hover me</Button>
+        </Tooltip>
+        <MaybeTooltip when={true} content="Only the event owner can do this">
+          <Button variant="secondary" size="sm" disabled>
+            MaybeTooltip (when=true)
+          </Button>
+        </MaybeTooltip>
+        <MaybeTooltip when={false} content="Never shown">
+          <Button variant="secondary" size="sm">
+            MaybeTooltip (when=false)
+          </Button>
+        </MaybeTooltip>
+      </Row>
+
+      <Row
+        title="Color tag"
+        description="Programs' optional color_tag — every option carries a dot and a word, never color alone (colorblindness, and washed-out venue monitors under stage lighting)."
+      >
+        <ColorTagPicker value={colorTag} onChange={setColorTag} />
+      </Row>
+
+      <Row
+        title="Dialogs"
+        description="Modal (arbitrary multi-step content) and ConfirmDialog (fixed confirm/cancel, tier-aware guardrail weight) share one backdrop/entrance/focus-trap/stacked-overlay system (overlay-stack.ts + use-dialog-focus.ts) — click to open either live."
+      >
+        <Button variant="secondary" onClick={() => setModalOpen(true)}>
+          Open Modal
+        </Button>
+        <Button variant="danger" onClick={() => confirmDemo.request()}>
+          Open ConfirmDialog
+        </Button>
+      </Row>
+
+      <Row
+        title="Empty state"
+        description="Says what's true, why, and what to do next, with the control to do it right there — replaced a scattered set of single grey sentences across Displays, Broadcast Center, and the Operator Console."
+      >
+        <EmptyState title="No broadcasts sent yet" className="w-64" />
+        <EmptyState title="No displays have registered yet" body="Open a display route on a device to see it here — registration happens automatically." className="w-72" />
+        <EmptyState
+          title="No sessions yet."
+          action={
+            <Button variant="primary" size="sm">
+              Go to Cue Sheet
+            </Button>
+          }
+          className="w-64"
+        />
+      </Row>
+
+      <Row title="Toast" description="Persistent bottom-right stack (ToastProvider, mounted once at the app root) — success/error/info, with an optional button-weight action (e.g. Undo) rather than a text link.">
+        <Button variant="secondary" size="sm" onClick={() => toast.success("Broadcast sent")}>
+          Trigger success
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => toast.error("Couldn't send — try again")}>
+          Trigger error
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => toast.info("Item removed", { label: "Undo", onClick: () => {} })}
+        >
+          Trigger with action
+        </Button>
+      </Row>
+
+      <Row
+        title="Action bar"
+        description="Fixed, viewport-anchored bottom pill for bulk-selection actions — floats above the toast stack's own corner so the two never collide. Can't be meaningfully boxed in a swatch (it's fixed to the viewport, not the catalog card); click to see it live at the bottom of this page."
+      >
+        <Button variant="secondary" size="sm" onClick={() => setActionBarOpen((v) => !v)}>
+          {actionBarOpen ? "Hide" : "Show"} action bar
+        </Button>
+      </Row>
+
+      <Row
+        title="Stage status pill (display components)"
+        description="Was hand-rolled independently in each of the four display clients (General/AV/Green Room/Presenter) with drifting opacity values before this existed — Stage-scale by design (text-caption), unlike everything else on this Console-scale catalog page."
+      >
+        {ALL_STAGE_STATUSES.map((status) => (
+          <Swatch key={status} label={status}>
+            <StageStatusPill status={status} />
+          </Swatch>
+        ))}
       </Row>
 
       <Row
@@ -298,6 +429,40 @@ export default function ComponentCatalogPage() {
           <p className="text-console-label uppercase text-muted-2">console-label — uppercase tracked</p>
         </div>
       </Row>
+
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Example Modal" size="md">
+        <p className="text-console-sm text-muted">
+          Arbitrary content goes here — this is the shell every multi-step configuration dialog in the product
+          shares (Add/Edit Item, Event Settings sections, Edit Profile).
+        </p>
+        <div className="flex items-center gap-2 mt-6">
+          <Button variant="primary" onClick={() => setModalOpen(false)}>
+            Done
+          </Button>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={confirmDemo.isOpen}
+        title="Delete this item?"
+        description="This can't be undone."
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={confirmDemo.cancel}
+        onCancel={confirmDemo.cancel}
+      />
+
+      {actionBarOpen && (
+        <ActionBar>
+          <ActionBarClear onClick={() => setActionBarOpen(false)} />
+          <ActionBarCount n={3}>selected</ActionBarCount>
+          <ActionBarSeparator />
+          <ActionBarButton tone="accent">Select all</ActionBarButton>
+          <ActionBarButton tone="danger" onClick={() => setActionBarOpen(false)}>
+            Delete
+          </ActionBarButton>
+        </ActionBar>
+      )}
     </main>
   );
 }
