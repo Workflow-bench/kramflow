@@ -37,6 +37,22 @@ import { AlertBanner } from "@/components/ui/alert-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
+// A fixed vw fraction alone doesn't account for string length — a short
+// "05:30" and a long overrun "21:06:34" (or a multi-digit-hour overrun,
+// which real cue data can produce) got an identical font size, so the
+// longer string clipped at the screen edges at real hardware widths below
+// ~1920px (reproduced live at 1600x900 against actual overrun demo data:
+// the digits ran off both sides with no scrollbar, since Stage surfaces
+// intentionally lock scroll). baseVw is the fraction tuned for the
+// reference 5-character case ("05:30"); longer strings scale it down
+// proportionally so every realistic duration stays legible and uncut at
+// any viewport, not just the one it happened to be tuned against.
+function countdownFontSize(text: string, minRem: number, maxRem: number, baseVw: number): string {
+  const chars = Math.max(text.length, 5);
+  const vw = Math.min(baseVw, Math.round(((baseVw * 5) / chars) * 10) / 10);
+  return `clamp(${minRem}rem, ${vw}vw, ${maxRem}rem)`;
+}
+
 const MODES: { mode: TimerMode; label: string }[] = [
   { mode: "program", label: "Program" },
   { mode: "countdown", label: "Countdown" },
@@ -169,7 +185,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
             {mode === "minimal" && (
               <p
                 className="tabular-nums font-semibold leading-none"
-                style={{ fontSize: "clamp(8rem, 22vw, 20rem)", color }}
+                style={{ fontSize: countdownFontSize(timer.label, 8, 20, 22), color }}
               >
                 {timer.label}
               </p>
@@ -194,7 +210,15 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
                   <>
                     <p
                       className="tabular-nums font-bold leading-none"
-                      style={{ fontSize: "clamp(9rem, 28vw, 24rem)", color }}
+                      style={{
+                        fontSize: countdownFontSize(
+                          mode === "countdown" || mode === "program" ? timer.label : formatClock(timer.elapsedSeconds),
+                          9,
+                          24,
+                          28
+                        ),
+                        color,
+                      }}
                     >
                       {mode === "countdown" || mode === "program" ? timer.label : formatClock(timer.elapsedSeconds)}
                     </p>
