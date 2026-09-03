@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SectionLabel } from "@/components/ui/section-label";
 import { ControlLeaseStatus } from "@/components/ui/control-lease-status";
 import { TargetHealthSummary } from "@/components/display-engine/target-health-summary";
+import { SessionReadiness } from "./session-readiness";
 import { JumpControl } from "./jump-control";
 import { AlertComposer } from "./alert-composer";
 import { ActivityLog } from "./activity-log";
@@ -217,6 +218,18 @@ export function ControlsPanel({
             onTakeOver={() => setConfirmKind("takeover")}
           />
         </div>
+
+        {/* "IS THIS SESSION READY TO GO LIVE?" — a pre-show question,
+            answered once here and never again once the session has
+            actually started (currentOrder !== null): re-flagging "the cue
+            sheet is empty" mid-show would be noise, since by definition
+            it isn't anymore. See lib/readiness.ts for what's checked and
+            why collaborator access is deliberately not one of them. */}
+        {currentOrder === null && (
+          <div className="mt-3">
+            <SessionReadiness session={session} registry={engine.registry} />
+          </div>
+        )}
 
         {/* "IS THE SYSTEM HEALTHY?" — a question this screen had no answer
             to at all before (an operator had to leave Console for Displays
