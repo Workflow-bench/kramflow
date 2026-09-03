@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { getUserDisplayName } from "@/lib/server/user-display-name";
+import { logActivityAs } from "@/lib/server/activity-log";
 import type { Alert } from "@/lib/types";
 
 // Single PATCH endpoint for every live-state mutation (start/next/previous/
@@ -55,19 +55,6 @@ const CONTROLLER_STALE_MS = 45_000;
 function isControllerActive(row: LiveStateRow): boolean {
   if (!row.controller_id || !row.controller_claimed_at) return false;
   return Date.now() - Date.parse(row.controller_claimed_at) < CONTROLLER_STALE_MS;
-}
-
-async function logActivity(
-  eventId: string,
-  action: string,
-  detail: string,
-  actor: { userId: string; name: string }
-) {
-  const supabase = supabaseAdmin();
-  const { error } = await supabase
-    .from("activity_log")
-    .insert({ event_id: eventId, action, detail, actor_user_id: actor.userId, actor_name: actor.name });
-  if (error) console.error("[api/live] activity_log insert failed:", error);
 }
 
 // item_actuals is keyed by programs.id (stable across reorders), but every
@@ -401,8 +388,7 @@ export async function PATCH(request: Request) {
   // meaningful audit event; logging it would spam the Activity feed
   // operators actually read with noise unrelated to the show itself.
   if (detail) {
-    const actorName = await getUserDisplayName(supabase, auth.userId);
-    await logActivity(auth.eventId, action, detail, { userId: auth.userId, name: actorName });
+    await logActivityAs(supabase, auth.eventId, auth.userId, action, detail);
   }
   return NextResponse.json({ ok: true, state: updated[0] });
 }

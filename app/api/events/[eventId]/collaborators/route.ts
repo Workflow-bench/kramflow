@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { generateInviteToken, INVITE_EXPIRY_DAYS } from "@/lib/server/collaborator-invites";
 import { sendCollaboratorInviteEmail } from "@/lib/server/email";
 import { getUserDisplayName } from "@/lib/server/user-display-name";
+import { logActivityAs } from "@/lib/server/activity-log";
 
 // Report finding #26 / #25 — collaborator management. An email that matches
 // an existing Kramflow account is added immediately (status 'accepted'); one
@@ -82,6 +83,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
         { onConflict: "event_id,user_id" }
       );
     if (insertError) return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });
+    await logActivityAs(admin, eventId, auth.userId, "collaboratorAdd", `Added ${email} as ${role}`);
     return NextResponse.json({ ok: true, status: "accepted" });
   }
 
@@ -115,6 +117,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     ? await admin.from("event_collaborators").update(pendingFields).eq("id", existingPending.id)
     : await admin.from("event_collaborators").insert({ event_id: eventId, user_id: null, ...pendingFields });
   if (inviteError) return NextResponse.json({ ok: false, error: inviteError.message }, { status: 500 });
+  await logActivityAs(admin, eventId, auth.userId, "collaboratorInvite", `Invited ${email} as ${role}`);
 
   const acceptUrl = `${new URL(request.url).origin}/invite/${token}`;
   const emailResult = await sendCollaboratorInviteEmail({
@@ -145,8 +148,16 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ e
   }
 
   const admin = supabaseAdmin();
+  // Captured before the delete — the row (and the email/role it names) is
+  // gone afterward, and the activity entry should say who was removed.
+  const lookup = admin.from("event_collaborators").select("invited_email, role, status").eq("event_id", eventId);
+  const { data: existing } = userId ? await lookup.eq("user_id", userId).maybeSingle() : await lookup.eq("id", inviteId!).maybeSingle();
+
   const query = admin.from("event_collaborators").delete().eq("event_id", eventId);
   const { error } = userId ? await query.eq("user_id", userId) : await query.eq("id", inviteId!);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  const label = existing ? `${existing.invited_email} (${existing.role})` : "a collaborator";
+  const action = existing?.status === "pending" ? "Revoked invite for" : "Removed";
+  await logActivityAs(admin, eventId, auth.userId, "collaboratorRemove", `${action} ${label}`);
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { logActivityAs } from "@/lib/server/activity-log";
 
 // requireEventAccess(owner)-gated — only Display Manager (an authenticated
 // operator managing their own event) renames/reassigns/commands/removes a
@@ -28,6 +29,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const supabase = supabaseAdmin();
   const { error } = await supabase.from("display_registry").update(patch).eq("id", id).eq("event_id", auth.eventId);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+  // Only deliberate operator actions are worth an activity entry — not
+  // every field this route can touch. pendingCommand: null is the display
+  // client's own ack that it picked up and cleared a command (see
+  // lib/display-engine/use-register-display.ts's clearCommand call, fired
+  // automatically on every command receipt), not an operator doing
+  // something; logging that would spam the feed with a noisy echo of an
+  // action already logged when the command was sent.
+  const detail =
+    typeof body.name === "string"
+      ? `Renamed display to "${body.name}"`
+      : typeof body.type === "string"
+        ? `Changed display type to ${body.type}`
+        : body.room !== undefined
+          ? `Set display room to "${body.room ?? "(none)"}"`
+          : body.pendingCommand !== undefined && body.pendingCommand !== null
+            ? `Sent ${(body.pendingCommand as { type?: string })?.type ?? "a"} command to display`
+            : null;
+  if (detail) {
+    await logActivityAs(supabase, auth.eventId, auth.userId, "displayUpdate", detail);
+  }
   return NextResponse.json({ ok: true });
 }
 
@@ -38,7 +60,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (auth instanceof NextResponse) return auth;
 
   const supabase = supabaseAdmin();
+  const { data: existing } = await supabase.from("display_registry").select("name").eq("id", id).eq("event_id", auth.eventId).maybeSingle();
   const { error } = await supabase.from("display_registry").delete().eq("id", id).eq("event_id", auth.eventId);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  await logActivityAs(supabase, auth.eventId, auth.userId, "displayRemove", `Removed display "${existing?.name ?? "unknown"}"`);
   return NextResponse.json({ ok: true });
 }

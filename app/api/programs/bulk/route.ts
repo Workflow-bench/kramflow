@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { logActivityAs } from "@/lib/server/activity-log";
 import { COLOR_TAG_VALUES } from "@/lib/color-tags";
 
 // Mirrors the enum columns bulk_update_programs' p_field allow-list
@@ -66,6 +67,13 @@ export async function PATCH(request: Request) {
     }
     const { data, error } = await supabase.rpc("bulk_update_programs", { p_ids: uniqueIds, p_field: field, p_value: value });
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    await logActivityAs(
+      supabase,
+      auth.eventId,
+      auth.userId,
+      "programBulkUpdate",
+      `Set ${field} to "${value ?? "(none)"}" on ${uniqueIds.length} item${uniqueIds.length === 1 ? "" : "s"}`
+    );
     return NextResponse.json({ ok: true, programs: data });
   }
 
@@ -75,6 +83,13 @@ export async function PATCH(request: Request) {
     }
     const { error } = await supabase.rpc("bulk_move_programs_to_partition", { p_ids: uniqueIds, p_partition_id: partitionId });
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    await logActivityAs(
+      supabase,
+      auth.eventId,
+      auth.userId,
+      "programBulkMove",
+      `Moved ${uniqueIds.length} item${uniqueIds.length === 1 ? "" : "s"} to a different section`
+    );
     return NextResponse.json({ ok: true });
   }
 

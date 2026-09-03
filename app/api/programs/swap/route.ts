@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { logActivityAs } from "@/lib/server/activity-log";
 
 // Atomically swaps two programs' sort_order — see supabase/schema.sql's
 // swap_program_order for why this needs to be a single transaction, and
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
   const supabase = supabaseAdmin();
   const { data: owned, error: ownedError } = await supabase
     .from("programs")
-    .select("id")
+    .select("id, name")
     .eq("event_id", auth.eventId)
     .in("id", uniqueIds);
   if (ownedError) return NextResponse.json({ ok: false, error: ownedError.message }, { status: 500 });
@@ -37,5 +38,8 @@ export async function POST(request: Request) {
 
   const { error } = await supabase.rpc("swap_program_order", { p_id_a: idA, p_id_b: idB });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  const nameA = owned.find((p) => p.id === idA)?.name ?? "an item";
+  const nameB = owned.find((p) => p.id === idB)?.name ?? "an item";
+  await logActivityAs(supabase, auth.eventId, auth.userId, "programSwap", `Swapped order of "${nameA}" and "${nameB}"`);
   return NextResponse.json({ ok: true });
 }
