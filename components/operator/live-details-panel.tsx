@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { effectiveNotes, getLive, getNext, getOnDeck, driftMinutes, type LiveState, type Program, type Session } from "@/lib/types";
-import { computeRundownProjection, driftSeverity, formatClockTime, formatMinutes } from "@/lib/timing";
+import { computeRundownProjection, computeSessionTimingReport, driftSeverity, formatClockTime, formatMinutes } from "@/lib/timing";
 import { useEventStore } from "@/lib/store";
 import { useEventId } from "@/lib/event-context";
 import { useCountdown } from "@/lib/use-countdown";
@@ -268,18 +268,28 @@ interface ActivityRow {
 // the operator's shift — the single largest piece of screen real estate
 // doing nothing at exactly the moment there's the most to review.
 //
-// activity_log has no session_id column (it's a short shared operator
-// history, not per-session analytics — see components/operator/
-// activity-log.tsx), so "this session's" actual start/finish can't be
-// queried directly. Heuristic instead: the newest "Finished session" entry
-// is the one that just triggered this view (finishing is a deliberate,
-// infrequent action), and the newest "Started" entry before it is when
-// this run began. Good enough for a same-shift summary; deliberately not
-// attempted across a session switch, where it'd shown nothing rather than
-// something misleading.
+// 2026-09 product-integrity pass: start/finish/actual-runtime now come from
+// computeSessionTimingReport (item_actuals), not activity_log string-
+// matching. The old approach had a real, already-documented fragility —
+// activity_log has no session_id, so pairing "Started"/"Finished session"
+// required a backward walk that bailed on a "Switched session" boundary —
+// and, less obviously, a correctness gap the walk itself couldn't see: the
+// "Started" entry is logged only once per Start press, so it's immune to a
+// mid-show backward jump overwriting item 1's actualStart, but that same
+// immunity meant it couldn't reflect a session_specific reset + re-run
+// either — the newest "Finished session" always wins regardless of which
+// session it actually belongs to once two sessions interleave in the same
+// operator's activity feed. item_actuals is scoped by program id, which is
+// unambiguous per session by construction — no walk, no bail case, no
+// cross-session mis-pairing possible. Alert count is the one thing here
+// that's still, correctly, an activity_log-only concept (no other record
+// of "an alert was raised" exists) — scoped by the report's own
+// actualStart/actualFinish window instead of the old walk's Started/
+// Finished boundaries, same idea, simpler and no longer string-fragile.
 function SessionSummary({ session, state }: { session: Session; state: LiveState }) {
   const eventId = useEventId();
   const [rows, setRows] = useState<ActivityRow[] | null>(null);
+  const report = computeSessionTimingReport(session, state);
 
   useEffect(() => {
     let cancelled = false;
@@ -299,37 +309,15 @@ function SessionSummary({ session, state }: { session: Session; state: LiveState
 
   const items = session.items.filter((i) => i.type === "item");
   const breaks = session.items.filter((i) => i.type === "break");
-  const scheduledMinutes = session.items.reduce((sum, i) => sum + i.durationMinutes, 0);
   const notesCount = session.items.filter((i) => effectiveNotes(state, i).length > 0).length;
+  const itemsRun = report.items.filter((i) => i.program.type === "item" && i.exception === "none").length;
 
-  let startedAt: string | null = null;
-  let finishedAt: string | null = null;
-  let alertCount = 0;
-  if (rows) {
-    const finishIdx = rows.findIndex((r) => r.detail === "Finished session");
-    if (finishIdx >= 0) {
-      finishedAt = rows[finishIdx].created_at;
-      // Walk backward in time from the finish looking for the "Started"
-      // that began this run. A "Switched session" entry in between means
-      // the log crossed into a different session's history before we found
-      // one — activity_log has no session_id, so that "Started" (if any)
-      // could belong to whatever session was active before the switch.
-      // Bail rather than pair mismatched Start/Finish across sessions.
-      for (let i = finishIdx + 1; i < rows.length; i++) {
-        const detail = rows[i].detail;
-        if (detail === "Switched session") break;
-        if (detail === "Started") {
-          startedAt = rows[i].created_at;
-          // rows is newest-first, so the run's window is the slice between
-          // the finish (older index bound) and this start (younger bound).
-          alertCount = rows.slice(finishIdx + 1, i).filter((r) => r.detail?.startsWith("Alert:")).length;
-          break;
-        }
-      }
-    }
-  }
-  const actualMinutes =
-    startedAt && finishedAt ? Math.round((Date.parse(finishedAt) - Date.parse(startedAt)) / 60000) : null;
+  const alertCount =
+    rows && report.actualStart && report.actualFinish
+      ? rows.filter(
+          (r) => r.detail?.startsWith("Alert:") && r.created_at >= report.actualStart! && r.created_at <= report.actualFinish!
+        ).length
+      : 0;
 
   return (
     <div className="h-full flex flex-col justify-center">
@@ -337,17 +325,20 @@ function SessionSummary({ session, state }: { session: Session; state: LiveState
       <p className="text-console-lg text-primary mt-2">
         {session.dayLabel} · {session.sessionLabel}
       </p>
-      {startedAt && finishedAt && (
+      {report.actualStart && report.actualFinish && (
         <p className="text-console-meta text-muted-2 mt-1">
-          {formatClockTime(startedAt)} – {formatClockTime(finishedAt)}
+          {formatClockTime(report.actualStart)} – {formatClockTime(report.actualFinish)}
         </p>
       )}
 
       <div className="grid grid-cols-2 gap-x-8 gap-y-5 mt-8 max-w-sm">
-        <Stat label="Items run" value={String(items.length)} />
+        <Stat label="Items run" value={`${itemsRun}/${items.length}`} />
         <Stat label="Breaks" value={String(breaks.length)} />
-        <Stat label="Scheduled" value={formatMinutes(scheduledMinutes)} />
-        <Stat label="Actual runtime" value={actualMinutes !== null ? formatMinutes(actualMinutes) : "—"} />
+        <Stat label="Scheduled" value={formatMinutes(report.plannedDurationMinutes)} />
+        <Stat
+          label="Actual runtime"
+          value={report.actualDurationMinutes !== null ? formatMinutes(report.actualDurationMinutes) : "—"}
+        />
       </div>
 
       {(notesCount > 0 || alertCount > 0) && (

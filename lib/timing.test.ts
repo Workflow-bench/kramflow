@@ -397,3 +397,89 @@ describe("computeSessionTimingReport", () => {
     expect(report.items[0].exception).toBe("skipped");
   });
 });
+
+// Section 5 of the 2026-09 product-integrity pass — verifies the timing
+// engine's behavior after app/api/live/route.ts's resetSession action,
+// which removes only progress_by_session[sessionId] (simulated here by a
+// state with no entry for the reset session) while deliberately leaving
+// item_actuals untouched (real timing history, per migration
+// 0007_pilot_readiness_v2.sql's own comment on that column).
+describe("post-reset behavior (resetSession leaves item_actuals in place)", () => {
+  function twoSessionFixture() {
+    const sessionA = session([
+      program({ id: "a1", order: 1, title: "A1", durationMinutes: 10, scheduledStart: "9:00 AM" }),
+      program({ id: "a2", order: 2, title: "A2", durationMinutes: 10, scheduledStart: "9:10 AM" }),
+    ]);
+    sessionA.id = "sA";
+    const sessionB = session([
+      program({ id: "b1", order: 1, title: "B1", durationMinutes: 10, scheduledStart: "2:00 PM" }),
+    ]);
+    sessionB.id = "sB";
+    return { sessionA, sessionB };
+  }
+
+  it("computeRundownProjection shows the planned finish (not projected) for a reset session, with no false backward-jump", () => {
+    const { sessionA } = twoSessionFixture();
+    // sA was fully run once (both items have real actuals) then reset —
+    // progress_by_session has no entry for it at all.
+    const state = stateWith({
+      progressBySession: {}, // sA's entry removed by resetSession; sB untouched (has none either, never run)
+      itemActuals: {
+        a1: { actualStart: at(9, 0), actualEnd: at(9, 10) },
+        a2: { actualStart: at(9, 10), actualEnd: at(9, 21) },
+      },
+    });
+    const result = computeRundownProjection(sessionA, state, NOW);
+    expect(result.finish.kind).toBe("planned");
+    expect(result.isReplayingEarlierItem).toBe(false);
+    expect(result.currentDriftMinutes).toBeNull();
+  });
+
+  it("computeSessionTimingReport still honestly reflects the prior run's actuals — isFinished is false, not fabricated true", () => {
+    const { sessionA } = twoSessionFixture();
+    const state = stateWith({
+      progressBySession: {}, // reset
+      itemActuals: {
+        a1: { actualStart: at(9, 0), actualEnd: at(9, 10) },
+        a2: { actualStart: at(9, 10), actualEnd: at(9, 21) },
+      },
+    });
+    const report = computeSessionTimingReport(sessionA, state);
+    // currentOrder is null post-reset -> not finished, even though every
+    // item happens to have a completed actual pair from the prior run.
+    expect(report.isFinished).toBe(false);
+    // The historical record itself is untouched and still honest.
+    expect(report.items[0].exception).toBe("none");
+    expect(report.items[0].actualMinutes).toBe(10);
+    expect(report.items[1].varianceMinutes).toBe(1);
+    // No fabricated "session finish" while progress says not-started.
+    expect(report.actualFinish).toBeNull();
+    expect(report.finishVarianceMinutes).toBeNull();
+  });
+
+  it("resetting one session's progress leaves an unrelated session's report byte-for-byte unaffected", () => {
+    const { sessionB } = twoSessionFixture();
+    const beforeReset = stateWith({
+      progressBySession: {
+        sA: { currentOrder: 3, startedAt: at(9, 10) }, // sA finished (past its 2 items)
+        sB: { currentOrder: 1, startedAt: at(14, 0) }, // sB mid-run
+      },
+      itemActuals: {
+        a1: { actualStart: at(9, 0), actualEnd: at(9, 10) },
+        a2: { actualStart: at(9, 10), actualEnd: at(9, 21) },
+        b1: { actualStart: at(14, 0), actualEnd: null },
+      },
+    });
+    const reportBBefore = computeSessionTimingReport(sessionB, beforeReset);
+
+    // Simulate resetSession("sA") — removes only sA's progress entry,
+    // sB's and all item_actuals untouched, exactly as the API route does.
+    const afterReset = stateWith({
+      ...beforeReset,
+      progressBySession: { sB: beforeReset.progressBySession.sB },
+    });
+    const reportBAfter = computeSessionTimingReport(sessionB, afterReset);
+
+    expect(reportBAfter).toEqual(reportBBefore);
+  });
+});

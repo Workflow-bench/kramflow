@@ -250,6 +250,8 @@ export function useEventStore() {
     dismissAlert: () => sendAction(eventId, { action: "dismissAlert" }),
     setNotes: (programId: string, notes: string) => sendAction(eventId, { action: "setNotes", programId, notes }),
     reset: () => sendAction(eventId, { action: "reset" }),
+    resetSession: (sessionId: string) =>
+      sendAction(eventId, { action: "resetSession", sessionId, clientId: getClientId() }),
     // Sequencing control lock — opt-in. `force` is only for an explicit
     // "Take Over" confirmation the UI shows when someone else already
     // holds it.

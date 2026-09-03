@@ -85,6 +85,17 @@ function SessionReportSection({ session, state, isFirst }: { session: Session; s
   const report = computeSessionTimingReport(session, state);
   const hasRun = report.actualStart !== null;
   const isFinished = report.isFinished;
+  // A resetSession leaves item_actuals in place (real timing history) but
+  // removes the session's progress_by_session entry entirely — so hasRun
+  // stays true (there IS a prior run to report on) while currentOrder is
+  // null, which is neither "in progress" (that needs a real currentOrder)
+  // nor "finished." Distinguishing this from a genuinely-running session
+  // matters: "still in progress" would be an honest-sounding but wrong
+  // claim about a session that was deliberately stopped, not one that's
+  // actively advancing right now. Live-verified this exact state during
+  // the 2026-09 product-integrity pass's resetSession testing.
+  const currentOrder = state.progressBySession[session.id]?.currentOrder ?? null;
+  const wasReset = hasRun && !isFinished && currentOrder === null;
 
   return (
     <section className={isFirst ? "mt-6" : "mt-10 print:break-before-page print:mt-0"}>
@@ -96,7 +107,13 @@ function SessionReportSection({ session, state, isFirst }: { session: Session; s
         <p className="mt-3 text-neutral-500 text-sm">This session has not been run yet — nothing to report.</p>
       ) : (
         <>
-          {!isFinished && (
+          {wasReset && (
+            <p className="mt-3 text-sm text-neutral-500 bg-neutral-50 border border-neutral-200 rounded px-3 py-2">
+              This session&apos;s progress was reset and it isn&apos;t currently active — figures below are from its
+              most recent run, preserved as timing history.
+            </p>
+          )}
+          {!isFinished && !wasReset && (
             <p className="mt-3 text-sm text-neutral-500 bg-neutral-50 border border-neutral-200 rounded px-3 py-2">
               This session is still in progress — figures below reflect what&apos;s happened so far, not a final
               summary. Items not yet reached aren&apos;t listed as exceptions.
@@ -108,7 +125,13 @@ function SessionReportSection({ session, state, isFirst }: { session: Session; s
             <Stat label="Planned" value={formatMinutes(report.plannedDurationMinutes)} />
             <Stat
               label="Actual"
-              value={isFinished && report.actualDurationMinutes !== null ? formatMinutes(report.actualDurationMinutes) : "In progress"}
+              value={
+                isFinished && report.actualDurationMinutes !== null
+                  ? formatMinutes(report.actualDurationMinutes)
+                  : wasReset
+                    ? "—"
+                    : "In progress"
+              }
             />
             <Stat
               label="Ran"
@@ -116,7 +139,7 @@ function SessionReportSection({ session, state, isFirst }: { session: Session; s
                 report.actualStart && isFinished && report.actualFinish
                   ? `${formatClockTime(report.actualStart)} – ${formatClockTime(report.actualFinish)}`
                   : report.actualStart
-                    ? `${formatClockTime(report.actualStart)} – in progress`
+                    ? `${formatClockTime(report.actualStart)} – ${wasReset ? "not completed" : "in progress"}`
                     : "—"
               }
             />

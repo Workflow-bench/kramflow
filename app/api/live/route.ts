@@ -44,6 +44,7 @@ const LOCKED_ACTIONS = new Set([
   "togglePause",
   "selectSession",
   "reset",
+  "resetSession",
 ]);
 
 // A claim older than this is treated as abandoned — the controlling tab
@@ -348,6 +349,55 @@ export async function PATCH(request: Request) {
         notes_overrides: {},
       };
       detail = "Reset";
+      break;
+    }
+    // Session-scoped un-start — 2026-09 product-integrity pass. The
+    // event-wide "reset" above was never reachable from any UI (verified
+    // by grep — Presenter's own local timer Reset and Rehearsal's local
+    // reset() share the label but never call this route) and, by design,
+    // clears every session's progress/hold/alert/notes at once — verified
+    // as a real gap during whole-rundown-projection testing, where
+    // un-starting one test session had no way to avoid wiping every other
+    // session's legitimate progress too.
+    //
+    // Scoped strictly to progress_by_session[sessionId] — removes that one
+    // key, every other session's entry untouched. Deliberately does NOT
+    // touch item_actuals: migration 0007_pilot_readiness_v2.sql's own
+    // column comment states this exactly ("a session/rehearsal-adjacent
+    // reset on the real console does not erase real timing history") —
+    // this is the same established principle, just applied at session
+    // scope instead of event scope, not a new one. Deliberately does NOT
+    // touch notes_overrides either — stage notes are operator-authored cue
+    // annotations, not progress; keyed by program id, not session, so
+    // "this session's notes" isn't even a well-defined subset without a
+    // second query, and conflating "restart this session's sequence" with
+    // "erase notes someone wrote" would be a real, unrelated side effect
+    // (the existing event-wide reset already does this, but extending
+    // that specific behavior wasn't asked for and isn't reused here).
+    case "resetSession": {
+      const sessionId = body.sessionId;
+      if (typeof sessionId !== "string") return NextResponse.json({ ok: false }, { status: 400 });
+      const { data: sessionRow, error: sessionError } = await supabase
+        .from("sessions")
+        .select("day_label, session_label")
+        .eq("id", sessionId)
+        .eq("event_id", auth.eventId)
+        .maybeSingle();
+      if (sessionError) return NextResponse.json({ ok: false, error: sessionError.message }, { status: 500 });
+      if (!sessionRow) return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
+
+      const remainingProgress = { ...current.progress_by_session };
+      delete remainingProgress[sessionId];
+      patch = { progress_by_session: remainingProgress };
+      // paused_at/alert are event-wide singleton fields, not session-
+      // scoped — only clear them when the session being reset is the one
+      // that's actually active right now; otherwise they belong to
+      // whichever OTHER session is live and must not be touched.
+      if (current.active_session_id === sessionId) {
+        patch.paused_at = null;
+        patch.alert = null;
+      }
+      detail = `Reset progress for "${sessionRow.day_label} • ${sessionRow.session_label}"`;
       break;
     }
     default:

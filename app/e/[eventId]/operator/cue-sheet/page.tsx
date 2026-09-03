@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus, Clock } from "lucide-react";
+import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus, Clock, RotateCcw } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -22,7 +22,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventId, useEventRole } from "@/lib/event-context";
-import { useConnectionStatus } from "@/lib/store";
+import { useConnectionStatus, useEventStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -176,6 +176,11 @@ export default function CueSheetPage() {
   // failed request at a time.
   const role = useEventRole();
   const canEdit = role !== "viewer";
+  // Session-scoped un-start is a live-show control (app/api/live/route.ts
+  // gates it "owner", the same tier every sequencing action requires), not
+  // a content-edit — canEdit ("editor" or above) isn't sufficient here.
+  const canResetSession = role === "owner";
+  const { resetSession } = useEventStore();
   const sessions = useSessions();
   const toast = useToast();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -197,6 +202,7 @@ export default function CueSheetPage() {
   >("none");
   const deleteConfirm = useConfirmDialog<ProgramRow[]>();
   const deleteSessionConfirm = useConfirmDialog<Session>();
+  const resetSessionConfirm = useConfirmDialog<Session>();
   // Whether the currently-open Add/Edit Item form has unsaved changes —
   // gates the Add/Edit Item Modal's close affordances (backdrop click, the
   // X button, Escape) behind a confirm step instead of discarding silently.
@@ -437,6 +443,15 @@ export default function CueSheetPage() {
     }
   }
 
+  async function handleResetSessionConfirmed() {
+    const target = resetSessionConfirm.pending;
+    if (!target) return;
+    const ok = await resetSession(target.id);
+    resetSessionConfirm.cancel();
+    if (ok) toast.success(`Reset "${target.dayLabel} • ${target.sessionLabel}"`);
+    else toast.error("Couldn't reset the session — try again");
+  }
+
   const sessionOptions = sessions.map((s) => ({ id: s.id, label: `${s.dayLabel} • ${s.sessionLabel}` }));
   const partitionsBySession = Object.fromEntries(sessions.map((s) => [s.id, s.partitions]));
 
@@ -547,8 +562,25 @@ export default function CueSheetPage() {
       ? [{ label: "New session", icon: CalendarPlus, onClick: () => setPanel("create-session") }]
       : []),
     ...(canEdit && activeSession
+      ? [{ label: "Edit session", icon: Pencil, onClick: () => setPanel({ editSession: activeSession }) }]
+      : []),
+    // Owner-only (not just canEdit) — matches app/api/live/route.ts's own
+    // "owner" gate on every sequencing action, same tier Start/Next/Hold
+    // already require. Scoped strictly to this one session's progress —
+    // see resetSession's own comment in app/api/live/route.ts for why
+    // item_actuals and other sessions' progress are untouched.
+    ...(canResetSession && activeSession
       ? [
-          { label: "Edit session", icon: Pencil, onClick: () => setPanel({ editSession: activeSession }) },
+          {
+            label: "Reset session progress",
+            icon: RotateCcw,
+            tone: "danger" as const,
+            onClick: () => resetSessionConfirm.request(activeSession),
+          },
+        ]
+      : []),
+    ...(canEdit && activeSession
+      ? [
           {
             label: "Delete session",
             icon: Trash2,
@@ -1029,6 +1061,16 @@ export default function CueSheetPage() {
         tone="danger"
         onConfirm={handleDeleteSessionConfirmed}
         onCancel={deleteSessionConfirm.cancel}
+      />
+
+      <ConfirmDialog
+        open={resetSessionConfirm.isOpen}
+        title={`Reset "${resetSessionConfirm.pending?.dayLabel} • ${resetSessionConfirm.pending?.sessionLabel}"?`}
+        description="Returns this session to not-started — clears its current position, and its Hold/Alert too if it's the one currently live. The cue sheet itself and every other session are untouched, and the timing record of what already actually happened is preserved, not erased."
+        confirmLabel="Reset Session"
+        tone="danger"
+        onConfirm={handleResetSessionConfirmed}
+        onCancel={resetSessionConfirm.cancel}
       />
 
       <ConfirmDialog
