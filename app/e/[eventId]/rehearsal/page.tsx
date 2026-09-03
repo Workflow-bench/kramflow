@@ -162,11 +162,17 @@ export default function RehearsalPage() {
         // tablet/desktop composition (app/e/[eventId]/operator/page.tsx) —
         // deliberately reused rather than re-invented, so the muscle memory
         // ("the list is on the left, what's happening is on the right")
-        // carries over. Single column below lg: — this surface never had
-        // Console's Activity/Broadcast/presence weight, so one column at
-        // narrow widths doesn't bury anything the way Console's did.
+        // carries over at lg+. Below lg, order-* flips the visual sequence
+        // (not the DOM, so screen-reader/tab order still follows the list
+        // first) to match Operator's own mobile priority — current/next,
+        // countdown, and transport controls before the cue list, the same
+        // fix the 2026-09 convergence sprint applied to Operator itself.
+        // Rehearsing with the list first, controls second — the reverse of
+        // Operator's real mobile order — would teach the wrong scan
+        // pattern, defeating this page's whole purpose as a safe practice
+        // run for live muscle memory.
         <div className="flex-1 lg:grid lg:grid-cols-[1fr_380px] flex flex-col">
-          <div className="min-w-0 px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
+          <div className="order-2 lg:order-1 min-w-0 px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
             {sessions.length > 1 && (
               <SessionSelect sessions={sessions} activeSessionId={activeSessionId} onChange={(id) => {
                 setSessionId(id);
@@ -198,7 +204,7 @@ export default function RehearsalPage() {
             </ul>
           </div>
 
-          <div className="lg:border-l border-line-soft min-w-0 px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex flex-col gap-8">
+          <div className="order-1 lg:order-2 lg:border-l border-line-soft min-w-0 px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex flex-col gap-8">
             {state.alert && <AlertBanner alert={state.alert} />}
 
             <section className="flex flex-col gap-2">
