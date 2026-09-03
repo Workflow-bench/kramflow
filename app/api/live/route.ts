@@ -372,12 +372,23 @@ export async function PATCH(request: Request) {
   // (two near-simultaneous actions), this update() matches zero rows
   // instead of silently overwriting that other write — the client retries
   // once (lib/store.tsx's sendAction) rather than losing an update.
+  //
+  // select("*"), not select("version") — the write itself was already
+  // atomic and correctly version-checked; the only gap was that this
+  // route computed the authoritative next state and then threw it away,
+  // so the initiating tab had nothing to apply except the boolean success
+  // and had to wait for its own Realtime echo of the write it just made
+  // (2026-09 blocker remediation: same-tab action acknowledgement). The
+  // full updated row lets lib/store.tsx's sendAction apply it immediately
+  // via the exact same mapRow() the Realtime handler already uses — one
+  // mapping function, two places it gets called from, not two competing
+  // implementations of "what does a live_state row mean."
   const { data: updated, error: updateError } = await supabase
     .from("live_state")
     .update({ ...patch, version: current.version + 1 })
     .eq("event_id", auth.eventId)
     .eq("version", current.version)
-    .select("version");
+    .select("*");
   if (updateError) {
     return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
   }
@@ -393,5 +404,5 @@ export async function PATCH(request: Request) {
     const actorName = await getUserDisplayName(supabase, auth.userId);
     await logActivity(auth.eventId, action, detail, { userId: auth.userId, name: actorName });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, state: updated[0] });
 }

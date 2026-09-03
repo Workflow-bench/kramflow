@@ -168,6 +168,24 @@ function ensureBrowserListeners(inst: EventStoreInstance) {
 // optimistic-concurrency check finds live_state changed between its read
 // and write. The route always recomputes from a fresh read, so resending
 // the same action succeeds once the other write has landed.
+//
+// Same-tab acknowledgement (2026-09 blocker remediation): the route's
+// write was always atomic and correctly version-checked — the gap was
+// that its response carried nothing but a boolean, so the initiating tab
+// had to wait for its own Realtime echo of the write it had just made
+// before its own screen reflected it (a real Doherty-threshold problem:
+// press Next, watch nothing happen for a beat). The route now returns the
+// full updated row; applied here, synchronously, before this function
+// resolves, using the exact same mapRow() the Realtime handler already
+// uses for every other client's eventual update. This is deliberately
+// NOT naive optimistic UI — nothing is applied until the server has
+// already committed the write and confirmed it in its response; a
+// rejected/conflicted/failed request (409 exhausted, 423 locked, network
+// failure) applies nothing and falls through to the existing `false`
+// return, which every caller already treats as a real failure (a toast,
+// not a silently-reverted optimistic state). The Realtime echo still
+// arrives afterward and re-applies the identical state — a harmless
+// no-op, not a second source of truth.
 async function sendAction(eventId: string, body: Record<string, unknown>, attempt = 0): Promise<boolean> {
   try {
     const res = await fetch("/api/live", {
@@ -179,6 +197,12 @@ async function sendAction(eventId: string, body: Record<string, unknown>, attemp
     if (!res.ok) {
       console.error("[store] action failed:", body.action, res.status);
       return false;
+    }
+    const data = (await res.json()) as { ok: boolean; noop?: boolean; state?: LiveStateRow };
+    if (data.state) {
+      const inst = getInstance(eventId);
+      inst.cachedState = mapRow(data.state);
+      notify(inst);
     }
     return true;
   } catch (err) {
