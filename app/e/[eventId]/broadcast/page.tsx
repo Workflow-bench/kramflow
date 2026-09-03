@@ -587,7 +587,14 @@ export default function BroadcastCenterPage() {
         {/* History / Scheduled / Templates / Drafts */}
         <div className="min-w-0">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-1 rounded-full bg-card p-1">
+            {/* overflow-x-auto, not flex-wrap — four tabs plus their counts
+                ("Scheduled (0)") don't reliably fit one line at 390px, and
+                wrapping a rounded-full pill group onto two lines reads as
+                broken rather than intentional. A horizontally-scrollable
+                segmented control is the same pattern iOS-style tab strips
+                already use for this exact case — no information lost, no
+                second layout to maintain. */}
+            <div className="flex items-center gap-1 rounded-full bg-card p-1 max-w-full overflow-x-auto">
               <TabButton active={tab === "history"} onClick={() => setTab("history")}>
                 History
               </TabButton>

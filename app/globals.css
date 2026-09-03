@@ -186,6 +186,27 @@
 
 html {
   color-scheme: dark;
+  /* `clip`, not `hidden` — `overflow-x: hidden` on an ancestor breaks
+     `position: sticky` on descendants (Cue Sheet's sticky command bar and
+     partition headers depend on it), while `clip` was specifically
+     designed to contain overflow without establishing a new scroll/
+     formatting context. Guards against exactly the bug the 2026-09
+     convergence sprint traced precisely: components/ui/tooltip.tsx
+     centers its (invisible until hover/focus) content under its trigger
+     with no viewport-edge awareness by design — a lightweight, correct
+     choice for a tooltip that's cheap to build and almost always fine,
+     but for a trigger near the right edge (e.g. Cue Sheet/Broadcast's
+     rightmost row-action icons) the centered content extends past the
+     viewport while opacity-0. That still counts toward
+     document.documentElement.scrollWidth even though nothing is ever
+     visibly there, which is what both post-redesign audits' overflow
+     findings for Cue Sheet and Broadcast actually measured — confirmed by
+     hiding every [role="tooltip"] element and re-measuring: the "overflow"
+     dropped to exactly 0 in every case but one (a real, separate, much
+     smaller 4px case fixed directly in broadcast/page.tsx). This is the
+     one-line fix for the general class of bug rather than hunting down
+     every individual near-edge trigger. */
+  overflow-x: clip;
 }
 
 body {
