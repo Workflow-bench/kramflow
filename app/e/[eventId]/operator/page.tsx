@@ -13,8 +13,8 @@ import { useOperatorPresence } from "@/lib/use-operator-presence";
 import { ProgramList } from "@/components/operator/program-list";
 import { SessionSwitcher } from "@/components/operator/session-switcher";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
-import { LiveDetailsPanel } from "@/components/operator/live-details-panel";
-import { ControlsPanel } from "@/components/operator/controls-panel";
+import { LiveDetailsPanel, LiveNotes } from "@/components/operator/live-details-panel";
+import { ControlsPanel, ControlsSecondaryTools } from "@/components/operator/controls-panel";
 import { ProgressFooter } from "@/components/ui/progress-footer";
 import { SectionLabel } from "@/components/ui/section-label";
 import { LinkButton } from "@/components/ui/button";
@@ -256,11 +256,35 @@ function OperatorGrid({
     );
   }
 
+  // Mobile: not desktop's columns stacked vertically. The 2026-09 UI/UX
+  // convergence sprint measured the previous stack precisely — Next sat at
+  // 880px in an 844px viewport (just past first paint), and Activity Log
+  // (a passive audit trail) rendered *before* the Program list it should
+  // never outrank. Reordered around what the redesign brief's ~1-second
+  // question list actually needs visible without scrolling — current/live
+  // state, countdown, control ownership, Next, Previous/Hold, system
+  // health — then Program (still a primary task surface, not supplementary
+  // — a rundown reference is looked up far more often than notes are
+  // edited or the activity log is read), and only then the lower-frequency
+  // Notes/Jump/Alert/Broadcast/Activity tools. hideNotes/hideSecondaryTools
+  // move those two pieces to their own later position via <LiveNotes>/
+  // <ControlsSecondaryTools> instead of dropping them — nothing here is
+  // reachable-only-on-desktop.
   return (
-    <div className="flex-1 grid grid-cols-1">
-      <div className="border-b border-line-soft">{liveDetails}</div>
-      <div className="border-b border-line-soft">{controls}</div>
+    <div className="flex-1 flex flex-col">
+      <div className="border-b border-line-soft px-4 sm:px-6 py-6">
+        <LiveDetailsPanel session={session} hideNotes />
+      </div>
+      <div className="border-b border-line-soft px-4 sm:px-6 py-6">
+        <ControlsPanel session={session} broadcastAction={broadcastAction} hideSecondaryTools />
+      </div>
       {program}
+      <div className="border-t border-line-soft px-4 sm:px-6 py-6">
+        <LiveNotes session={session} />
+      </div>
+      <div className="border-t border-line-soft px-4 sm:px-6 py-6">
+        <ControlsSecondaryTools session={session} />
+      </div>
     </div>
   );
 }

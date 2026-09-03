@@ -33,12 +33,18 @@ type ConfirmKind = "start" | "finish" | "takeover" | null;
 export function ControlsPanel({
   session,
   broadcastAction,
+  hideSecondaryTools = false,
 }: {
   session: Session;
   /** Tells other connected /operator tabs what just happened here — see
    *  lib/use-operator-presence.ts and R2-BUG-1 (a Hold silently cleared by
    *  another tab's Next, with no indication to either operator). */
   broadcastAction: (message: string) => void;
+  /** Mobile-only: Jump/Alert/Broadcast/Activity render separately via
+   *  <ControlsSecondaryTools> further down the page instead of inline here
+   *  — see operator/page.tsx's mobile ordering comment for why. Desktop/
+   *  tablet never pass this, so their layout is unchanged. */
+  hideSecondaryTools?: boolean;
 }) {
   const { state, start, next, previous, finish, togglePause, claimControl, releaseControl, renewControl } =
     useEventStore();
@@ -301,19 +307,23 @@ export function ControlsPanel({
         </div>
       </div>
 
-      <div className="border-t border-line-soft pt-8">
-        <JumpControl max={max} />
-      </div>
+      {!hideSecondaryTools && (
+        <>
+          <div className="border-t border-line-soft pt-8">
+            <JumpControl max={max} />
+          </div>
 
-      <div className="border-t border-line-soft pt-8">
-        <AlertComposer />
-      </div>
+          <div className="border-t border-line-soft pt-8">
+            <AlertComposer />
+          </div>
 
-      <OperatorBroadcastPanel />
+          <OperatorBroadcastPanel />
 
-      <div className="border-t border-line-soft pt-8">
-        <ActivityLog />
-      </div>
+          <div className="border-t border-line-soft pt-8">
+            <ActivityLog />
+          </div>
+        </>
+      )}
 
       <ConfirmDialog
         open={confirmKind === "start"}
@@ -359,6 +369,27 @@ export function ControlsPanel({
         }}
         onCancel={() => setConfirmKind(null)}
       />
+    </div>
+  );
+}
+
+// Mobile-only placement of Jump/Alert/Broadcast/Activity, positioned lower
+// on the page (see operator/page.tsx) than the primary transport controls —
+// see this file's ControlsPanel hideSecondaryTools prop comment. Each of
+// these is already a fully self-contained component with no dependency on
+// ControlsPanel's own local state (claim/release/pending/etc.), so this is
+// a plain re-render, not a second copy of any control logic.
+export function ControlsSecondaryTools({ session }: { session: Session }) {
+  return (
+    <div className="flex flex-col gap-10">
+      <JumpControl max={session.items.length} />
+      <div className="border-t border-line-soft pt-8">
+        <AlertComposer />
+      </div>
+      <OperatorBroadcastPanel />
+      <div className="border-t border-line-soft pt-8">
+        <ActivityLog />
+      </div>
     </div>
   );
 }

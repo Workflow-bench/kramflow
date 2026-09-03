@@ -16,9 +16,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
-export function LiveDetailsPanel({ session }: { session: Session }) {
-  const { state, setNotes } = useEventStore();
-  const toast = useToast();
+export function LiveDetailsPanel({
+  session,
+  hideNotes = false,
+}: {
+  session: Session;
+  /** Mobile-only: Notes renders separately via <LiveNotes> further down the
+   *  page instead of inline here — see operator/page.tsx's mobile ordering
+   *  comment for why. Desktop/tablet never pass this, so their layout is
+   *  unchanged. */
+  hideNotes?: boolean;
+}) {
+  const { state } = useEventStore();
   const live = getLive(session, state);
   const next = getNext(session, state);
   const onDeck = getOnDeck(session, state);
@@ -26,33 +35,6 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
   const currentOrder = progress?.currentOrder ?? null;
   const countdown = useCountdown(progress?.startedAt ?? null, live?.durationMinutes ?? 0, state.pausedAt);
   const isFinished = currentOrder !== null && currentOrder > session.items.length;
-
-  // Controlled + an explicit Save button, not save-on-blur — a stray click
-  // away from the textarea (switching panels, clicking a control) used to
-  // silently commit whatever was typed, with no review step.
-  //
-  // Must seed/track against effectiveNotes (the notesOverrides-aware
-  // helper), not the raw live.notes field — live.notes is only the static
-  // cue-sheet value. Using the raw field meant this editor never showed a
-  // saved override (the operator's own prior edit, or one saved from
-  // /remote), even though every TV display correctly renders it via
-  // effectiveNotes() — the operator was the one person who couldn't see
-  // what was actually live, and typing from that stale blank baseline would
-  // silently clobber the real note on Save.
-  const liveNotes = live ? effectiveNotes(state, live) : "";
-  const [draft, setDraft] = useState(liveNotes);
-  const [saving, setSaving] = useState(false);
-  // Reset the draft whenever the live item or its stored notes change —
-  // done during render (React's documented "adjusting state when a prop
-  // changes" pattern) rather than in a useEffect, which would run an
-  // extra render-after-commit cycle for what's really a synchronous
-  // derivation.
-  const notesKey = `${live?.id ?? ""}:${liveNotes}`;
-  const [trackedNotesKey, setTrackedNotesKey] = useState(notesKey);
-  if (notesKey !== trackedNotesKey) {
-    setTrackedNotesKey(notesKey);
-    setDraft(liveNotes);
-  }
 
   if (isFinished) return <SessionSummary session={session} state={state} />;
 
@@ -62,19 +44,6 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
         <p className="text-console-sm text-muted-2">Press Start to begin the program.</p>
       </div>
     );
-  }
-
-  const dirty = draft !== liveNotes;
-
-  async function handleSave() {
-    if (!live) return;
-    setSaving(true);
-    try {
-      const ok = await setNotes(live.id, draft);
-      if (!ok) toast.error("Couldn't save notes — try again");
-    } finally {
-      setSaving(false);
-    }
   }
 
   return (
@@ -114,24 +83,93 @@ export function LiveDetailsPanel({ session }: { session: Session }) {
 
       <RunPosition next={next} onDeck={onDeck} />
 
-      <div className="mt-10 flex-1 flex flex-col min-h-0">
-        <div className="flex items-center justify-between">
-          <SectionLabel>Notes</SectionLabel>
-          {dirty && (
-            <Button variant="primary" size="sm" onClick={handleSave} loading={saving}>
-              Save
-            </Button>
-          )}
+      {!hideNotes && (
+        <div className="mt-10 flex-1 flex flex-col min-h-0">
+          <LiveNotesFields session={session} />
         </div>
-        <Textarea
-          key={live.id}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Stage notes — cues, mic setup, entrances…"
-          aria-label="Stage notes"
-          className="mt-3 flex-1 min-h-24 bg-card resize-none"
-        />
+      )}
+    </div>
+  );
+}
+
+// The notes editor itself, factored out so mobile can place it in a
+// different scroll position (<LiveNotes>, below) from the rest of Live Now
+// without a second, drifting copy of the save logic.
+function LiveNotesFields({ session }: { session: Session }) {
+  const { state, setNotes } = useEventStore();
+  const toast = useToast();
+  const live = getLive(session, state);
+  const [saving, setSaving] = useState(false);
+
+  // Controlled + an explicit Save button, not save-on-blur — a stray click
+  // away from the textarea (switching panels, clicking a control) used to
+  // silently commit whatever was typed, with no review step.
+  //
+  // Must seed/track against effectiveNotes (the notesOverrides-aware
+  // helper), not the raw live.notes field — live.notes is only the static
+  // cue-sheet value. Using the raw field meant this editor never showed a
+  // saved override (the operator's own prior edit, or one saved from
+  // /remote), even though every TV display correctly renders it via
+  // effectiveNotes() — the operator was the one person who couldn't see
+  // what was actually live, and typing from that stale blank baseline would
+  // silently clobber the real note on Save.
+  const liveNotes = live ? effectiveNotes(state, live) : "";
+  const [draft, setDraft] = useState(liveNotes);
+  // Reset the draft whenever the live item or its stored notes change —
+  // done during render (React's documented "adjusting state when a prop
+  // changes" pattern) rather than in a useEffect, which would run an
+  // extra render-after-commit cycle for what's really a synchronous
+  // derivation.
+  const notesKey = `${live?.id ?? ""}:${liveNotes}`;
+  const [trackedNotesKey, setTrackedNotesKey] = useState(notesKey);
+  if (notesKey !== trackedNotesKey) {
+    setTrackedNotesKey(notesKey);
+    setDraft(liveNotes);
+  }
+
+  if (!live) return null;
+  const dirty = draft !== liveNotes;
+
+  async function handleSave() {
+    if (!live) return;
+    setSaving(true);
+    try {
+      const ok = await setNotes(live.id, draft);
+      if (!ok) toast.error("Couldn't save notes — try again");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <SectionLabel>Notes</SectionLabel>
+        {dirty && (
+          <Button variant="primary" size="sm" onClick={handleSave} loading={saving}>
+            Save
+          </Button>
+        )}
       </div>
+      <Textarea
+        key={live.id}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="Stage notes — cues, mic setup, entrances…"
+        aria-label="Stage notes"
+        className="mt-3 flex-1 min-h-24 bg-card resize-none"
+      />
+    </>
+  );
+}
+
+// Mobile-only placement of the notes editor, positioned lower on the page
+// (see operator/page.tsx) than Live Now's other content — see this file's
+// LiveDetailsPanel hideNotes prop comment.
+export function LiveNotes({ session }: { session: Session }) {
+  return (
+    <div className="flex flex-col">
+      <LiveNotesFields session={session} />
     </div>
   );
 }
