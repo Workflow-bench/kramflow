@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { effectiveNotes, getLive, getNext, getOnDeck, driftMinutes, type LiveState, type Program, type Session } from "@/lib/types";
+import { computeRundownProjection, driftSeverity, formatClockTime, formatMinutes } from "@/lib/timing";
 import { useEventStore } from "@/lib/store";
 import { useEventId } from "@/lib/event-context";
 import { useCountdown } from "@/lib/use-countdown";
@@ -35,13 +36,19 @@ export function LiveDetailsPanel({
   const currentOrder = progress?.currentOrder ?? null;
   const countdown = useCountdown(progress?.startedAt ?? null, live?.durationMinutes ?? 0, state.pausedAt);
   const isFinished = currentOrder !== null && currentOrder > session.items.length;
+  // EXPECTED_START(next item) = PLANNED_START(next item) + current drift —
+  // see lib/timing.ts's module doc. The same one number applies uniformly
+  // to every not-yet-reached item ("if current drift persists"), so Next
+  // needs nothing more than the live item's own drift, already computed.
+  const currentDriftMinutes = live ? driftMinutes(live, state) : null;
 
   if (isFinished) return <SessionSummary session={session} state={state} />;
 
   if (currentOrder === null || !live) {
     return (
-      <div className="h-full flex items-center">
+      <div className="h-full flex flex-col items-center justify-center gap-1.5">
         <p className="text-console-sm text-muted-2">Press Start to begin the program.</p>
+        {currentOrder === null && <ProjectedFinishLine session={session} state={state} />}
       </div>
     );
   }
@@ -57,6 +64,7 @@ export function LiveDetailsPanel({
       <p className="text-console-lg text-primary mt-1">{live.title}</p>
       {live.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
       <DriftLine program={live} state={state} />
+      <ProjectedFinishLine session={session} state={state} />
 
       {live.type === "item" && live.durationMinutes > 0 && (
         <div className="mt-8">
@@ -81,7 +89,7 @@ export function LiveDetailsPanel({
         </div>
       )}
 
-      <RunPosition next={next} onDeck={onDeck} />
+      <RunPosition next={next} onDeck={onDeck} currentDriftMinutes={currentDriftMinutes} />
 
       {!hideNotes && (
         <div className="mt-10 flex-1 flex flex-col min-h-0">
@@ -185,13 +193,68 @@ function DriftLine({ program, state }: { program: Program; state: LiveState }) {
   const drift = driftMinutes(program, state);
   if (drift === null) return null;
 
-  if (Math.abs(drift) < 1) {
+  const severity = driftSeverity(drift);
+  if (severity === "on-schedule") {
     return <p className="text-console-meta text-muted-2 mt-2">On schedule</p>;
   }
   const behind = drift > 0;
+  // ±10s reads identically to ±4m today (both just "mild," same weight as
+  // the pre-existing single-tier treatment) — severity === "significant"
+  // (the ≥5min line, same one lib/timing.ts's Presenter-timer-derived
+  // threshold uses) is the one case this phase's own instruction called
+  // out: "do not make ±10 seconds visually equivalent to +20 minutes."
   return (
-    <p className={cn("text-console-meta mt-2 tabular-nums", behind ? "text-status-orange" : "text-status-blue")}>
+    <p
+      className={cn(
+        "text-console-meta mt-2 tabular-nums",
+        severity === "significant"
+          ? behind
+            ? "text-status-red font-medium"
+            : "text-status-blue font-medium"
+          : behind
+            ? "text-status-orange"
+            : "text-status-blue"
+      )}
+    >
       {Math.abs(drift)}m {behind ? "behind schedule" : "ahead of schedule"}
+    </p>
+  );
+}
+
+// Whole-rundown projection — "what does the current drift mean for the
+// REST of the session," the gap plain per-item drift (above) doesn't
+// answer. One canonical computation (lib/timing.ts's
+// computeRundownProjection), shared with the post-event report so the two
+// can never calculate this differently. Recomputed every 30s, not every
+// second — formatClockTime only shows hour:minute, so finer-grained
+// updates would just be wasted renders, not any real added precision.
+function ProjectedFinishLine({ session, state }: { session: Session; state: LiveState }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const projection = computeRundownProjection(session, state, now);
+
+  if (projection.finish.kind === "unavailable") {
+    // "finished" is handled by SessionSummary taking over the whole panel;
+    // "not-started" has nothing to extrapolate from yet — both render
+    // nothing here rather than an empty/confusing line.
+    if (projection.finish.reason !== "replaying-earlier-item") return null;
+    return <p className="text-console-meta text-muted-2 mt-1">Replaying an earlier item — projection paused</p>;
+  }
+
+  const label = projection.finish.kind === "planned" ? "Planned finish" : "Projected finish";
+  const severity = projection.currentDriftMinutes !== null ? driftSeverity(projection.currentDriftMinutes) : "on-schedule";
+  return (
+    <p
+      className={cn(
+        "text-console-meta mt-1 tabular-nums",
+        severity === "significant" ? "text-status-orange font-medium" : "text-muted-2"
+      )}
+    >
+      {label} ~{formatClockTime(projection.finish.at)}
     </p>
   );
 }
@@ -199,16 +262,6 @@ function DriftLine({ program, state }: { program: Program; state: LiveState }) {
 interface ActivityRow {
   detail: string | null;
   created_at: string;
-}
-
-function formatMinutes(total: number): string {
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
-
-function formatClockTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 // The center panel used to just say "Session finished." for the rest of

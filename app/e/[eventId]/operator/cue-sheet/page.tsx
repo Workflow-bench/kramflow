@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus } from "lucide-react";
+import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus, Clock } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -535,6 +535,12 @@ export default function CueSheetPage() {
       label: "Export PDF",
       icon: Printer,
       href: `/e/${eventId}/operator/cue-sheet/print`,
+      target: "_blank",
+    },
+    {
+      label: "Timing Report",
+      icon: Clock,
+      href: `/e/${eventId}/operator/cue-sheet/report`,
       target: "_blank",
     },
     ...(canEdit
