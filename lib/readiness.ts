@@ -29,7 +29,7 @@ export function computeSessionReadiness(
   const checks: ReadinessCheck[] = [];
 
   if (session.items.length === 0) {
-    checks.push({ id: "items", status: "fail", detail: "Cue sheet is empty — nothing to run" });
+    checks.push({ id: "items", status: "fail", detail: "Cue sheet is empty, nothing to run" });
     return checks;
   }
 

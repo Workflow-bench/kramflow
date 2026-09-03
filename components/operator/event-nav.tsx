@@ -77,7 +77,7 @@ export function EventNav() {
         variant="ghost"
         size="sm"
         aria-label="Remote"
-        title="Remote — one-handed mobile control"
+        title="Remote: one-handed mobile control"
       >
         <Smartphone className="h-3.5 w-3.5" strokeWidth={2} />
         <span className="hidden lg:inline">Remote</span>

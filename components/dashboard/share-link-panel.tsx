@@ -121,7 +121,7 @@ export function ShareLinkPanel({
       }
       setLinks((prev) => prev?.map((l) => (l.id === revokeTarget.id ? data.link! : l)) ?? null);
       setNow(Date.now());
-      toast.success("Link revoked — it will no longer open for anyone.");
+      toast.success("Link revoked. It will no longer open for anyone.");
       setRevokeTarget(null);
     } catch {
       toast.error("Couldn't reach the server.");
@@ -159,7 +159,7 @@ export function ShareLinkPanel({
           <div>
             <h2 className="text-console-md text-primary">Share Display Link</h2>
             <p className="text-console-meta text-muted-2 mt-1">
-              Generate a no-login link + QR code for a TV or tablet — picks a screen (General, AV, Green Room,
+              Generate a no-login link + QR code for a TV or tablet. Picks a screen (General, AV, Green Room,
               Presenter) and shows a live, read-only view.
             </p>
           </div>
@@ -174,7 +174,7 @@ export function ShareLinkPanel({
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <p className="text-console-meta text-muted-2 flex-1 min-w-[16rem]">
           Anyone who opens the link picks a screen (General, AV, Green Room, Presenter) and sees a live, read-only
-          view — no account needed.
+          view. No account needed.
         </p>
         <div className="flex items-center gap-2 shrink-0">
           <Select value={expiryDays} onChange={setExpiryDays} options={EXPIRY_OPTIONS} className="w-28" aria-label="Link expiry" />

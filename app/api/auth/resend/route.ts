@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   if (error?.message.toLowerCase().includes("rate limit")) {
     await recordFailure("resend", ip);
     return NextResponse.json(
-      { ok: false, error: "Too many attempts right now — please wait a few minutes and try again." },
+      { ok: false, error: "Too many attempts right now. Please wait a few minutes and try again." },
       { status: 429 }
     );
   }

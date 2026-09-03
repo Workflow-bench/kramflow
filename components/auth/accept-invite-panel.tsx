@@ -119,7 +119,7 @@ function SignedOutCta({
     <div className="flex flex-col items-center text-center gap-4 max-w-md">
       <h1 className="text-title text-primary">You&rsquo;re invited to {eventName}</h1>
       <p className="text-body text-muted">
-        Join as {role === "editor" ? "an Editor" : "a Viewer"} — {role === "editor" ? "edit the cue sheet" : "view the live cue sheet"}.
+        Join as {role === "editor" ? "an Editor" : "a Viewer"}: {role === "editor" ? "edit the cue sheet" : "view the live cue sheet"}.
       </p>
       <LinkButton
         href={hasAccount ? loginHref : signupHref}

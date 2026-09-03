@@ -64,7 +64,7 @@ export default function TimingReportPage() {
 
       <div className="max-w-3xl mx-auto px-6 py-8 print:p-0 print:max-w-none">
         <h1 className="text-2xl font-semibold">{eventName || "Timing Report"}</h1>
-        <p className="text-neutral-500 text-sm mt-1">Planned vs. actual — one section per session, most recent run only.</p>
+        <p className="text-neutral-500 text-sm mt-1">Planned vs. actual: one section per session, most recent run only.</p>
 
         {sessions.length === 0 && <p className="mt-4 text-neutral-500">No sessions to report on yet.</p>}
 
@@ -104,18 +104,18 @@ function SessionReportSection({ session, state, isFirst }: { session: Session; s
       </h2>
 
       {!hasRun ? (
-        <p className="mt-3 text-neutral-500 text-sm">This session has not been run yet — nothing to report.</p>
+        <p className="mt-3 text-neutral-500 text-sm">This session has not been run yet. Nothing to report.</p>
       ) : (
         <>
           {wasReset && (
             <p className="mt-3 text-sm text-neutral-500 bg-neutral-50 border border-neutral-200 rounded px-3 py-2">
-              This session&apos;s progress was reset and it isn&apos;t currently active — figures below are from its
+              This session&apos;s progress was reset and it isn&apos;t currently active. Figures below are from its
               most recent run, preserved as timing history.
             </p>
           )}
           {!isFinished && !wasReset && (
             <p className="mt-3 text-sm text-neutral-500 bg-neutral-50 border border-neutral-200 rounded px-3 py-2">
-              This session is still in progress — figures below reflect what&apos;s happened so far, not a final
+              This session is still in progress. Figures below reflect what&apos;s happened so far, not a final
               summary. Items not yet reached aren&apos;t listed as exceptions.
             </p>
           )}
@@ -211,7 +211,7 @@ function SessionReportSection({ session, state, isFirst }: { session: Session; s
                   .filter((i) => i.exception === "skipped" || i.exception === "interrupted")
                   .map((i) => (
                     <li key={i.program.id}>
-                      {i.program.title} — {i.exception === "skipped" ? "never run" : "started but not completed (interrupted)"}
+                      {i.program.title}: {i.exception === "skipped" ? "never run" : "started but not completed (interrupted)"}
                     </li>
                   ))}
               </ul>

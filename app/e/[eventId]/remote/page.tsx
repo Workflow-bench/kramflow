@@ -51,7 +51,7 @@ import { cn } from "@/lib/utils";
 // rendered fully clickable for every role, and a non-owner only found out
 // it was owner-only after pressing it and getting a generic "That didn't
 // work" toast for what the server had already correctly rejected as a 403.
-const OWNER_ONLY_NOTE = "Only the event owner can control the show from here — you can still watch and mark the speaker ready.";
+const OWNER_ONLY_NOTE = "Only the event owner can control the show from here. You can still watch and mark the speaker ready.";
 
 type Panel = "none" | "jump" | "alert" | "notes" | "broadcast";
 type ConfirmKind = "start" | "finish" | { session: string; label: string } | { jump: number } | null;
@@ -148,7 +148,7 @@ export default function RemotePage() {
           // generic failure that leaves the operator guessing.
           toast.error("You no longer have permission to perform this action.");
         } else {
-          toast.error("That didn't work — try again");
+          toast.error("That didn't work. Try again.");
         }
       }
     } finally {
@@ -182,7 +182,7 @@ export default function RemotePage() {
       } else if (getLastActionStatus(eventId) === 403) {
         toast.error("You no longer have permission to perform this action.");
       } else {
-        toast.error("Couldn't switch session — try again");
+        toast.error("Couldn't switch session. Try again.");
       }
     }
   }
@@ -200,7 +200,7 @@ export default function RemotePage() {
     return (
       <main className="h-screen w-full max-w-md mx-auto flex items-center justify-center bg-background px-6 text-center">
         <p className="text-body text-muted">
-          {sessions.length === 0 ? "No sessions yet — add one from the Operator dashboard." : "Select a session to get started."}
+          {sessions.length === 0 ? "No sessions yet. Add one from the Operator dashboard." : "Select a session to get started."}
         </p>
       </main>
     );
@@ -357,7 +357,7 @@ export default function RemotePage() {
                 toast.error(
                   getLastActionStatus(eventId) === 403
                     ? "You no longer have permission to perform this action."
-                    : "Couldn't save notes — try again"
+                    : "Couldn't save notes. Try again."
                 );
               }
             }}
@@ -380,7 +380,7 @@ export default function RemotePage() {
                 toast.error(
                   res?.status === 403
                     ? "You no longer have permission to perform this action."
-                    : "Couldn't send the broadcast — try again"
+                    : "Couldn't send the broadcast. Try again."
                 );
               }
             }}
@@ -554,7 +554,7 @@ export default function RemotePage() {
       <ConfirmDialog
         open={emergencyConfirm.isOpen}
         title={`Send "${emergencyConfirm.pending?.title}" to every display?`}
-        description={`"${emergencyConfirm.pending?.message}" — takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately. Send an update or Clear afterward if needed.`}
+        description={`"${emergencyConfirm.pending?.message}": takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately. Send an update or Clear afterward if needed.`}
         confirmLabel="Send Emergency"
         tone="danger"
         loading={emergencySending}
@@ -580,7 +580,7 @@ export default function RemotePage() {
             emergencyConfirm.cancel();
             if (res && res.ok) toast.success("Emergency broadcast sent");
             else if (res?.status === 403) toast.error("You no longer have permission to perform this action.");
-            else toast.error("Couldn't send the emergency broadcast — try again immediately");
+            else toast.error("Couldn't send the emergency broadcast. Try again immediately.");
           } finally {
             emergencySendingRef.current = false;
             setEmergencySending(false);

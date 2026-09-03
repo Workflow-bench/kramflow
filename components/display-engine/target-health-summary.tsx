@@ -42,7 +42,7 @@ export function TargetHealthSummary({
     return (
       <EmptyState
         title="No registered displays match this target"
-        body="Nothing will receive this until a matching display is open on a display route. You can still send — it delivers to any that connect afterward."
+        body="Nothing will receive this until a matching display is open on a display route. You can still send. It delivers to any that connect afterward."
       />
     );
   }

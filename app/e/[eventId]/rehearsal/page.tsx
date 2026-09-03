@@ -135,7 +135,7 @@ export default function RehearsalPage() {
         <div className="flex items-center gap-2.5 text-background font-semibold">
           <FlaskConical className="h-4.5 w-4.5 shrink-0" strokeWidth={2.5} />
           <span className="text-console-sm uppercase tracking-wide bg-background/90 text-status-orange px-2.5 py-1 rounded-chip">
-            Rehearsal Mode — not live
+            Rehearsal Mode: Not Live
           </span>
           <span className="hidden sm:inline text-console-meta text-background/80">
             Nothing here reaches a real display, share link, or the real Operator Console.
@@ -155,7 +155,7 @@ export default function RehearsalPage() {
               setState({ ...REHEARSAL_INITIAL, activeSessionId: id });
             }} />
           )}
-          <p className="text-console-sm text-muted-2 mt-4">No session to rehearse yet — add one in the Cue Sheet first.</p>
+          <p className="text-console-sm text-muted-2 mt-4">No session to rehearse yet. Add one in the Cue Sheet first.</p>
         </div>
       ) : (
         // Same rundown-beside-live-state relationship as the real Console's

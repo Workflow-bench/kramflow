@@ -129,7 +129,7 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
                     {timer.isOverrun ? `+${timer.label}` : timer.label}
                   </p>
                   <p className="text-caption uppercase tracking-wide text-muted-2 mt-2">
-                    {timer.isOverrun ? "over — countdown until called" : "remaining — countdown until called"}
+                    {timer.isOverrun ? "over, counting down until called" : "remaining, counting down until called"}
                   </p>
                 </>
               )}
@@ -158,7 +158,7 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
                         framing on a breakfast break instructed a green-room
                         coordinator to prep someone who isn't presenting. */}
                     <p className="text-caption uppercase tracking-wide text-muted-2">
-                      {next.type === "item" ? "Next — Please Prepare" : "Next"}
+                      {next.type === "item" ? "Next: Please Prepare" : "Next"}
                     </p>
                     {next.scheduledStart && (
                       <span className="text-caption text-muted-2 tabular-nums">{next.scheduledStart}</span>
@@ -188,7 +188,7 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
 
               {next?.props && (
                 <div className="rounded-card bg-card/50 p-6">
-                  <p className="text-caption uppercase tracking-wide text-muted-2">Props — {next.title}</p>
+                  <p className="text-caption uppercase tracking-wide text-muted-2">Props: {next.title}</p>
                   <p className="text-body text-primary mt-2">{next.props}</p>
                 </div>
               )}

@@ -22,7 +22,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
   if (!resolved.ok) {
     const messages: Record<typeof resolved.reason, string> = {
       not_found: "This invite isn't recognized.",
-      expired: "This invite has expired — ask the event owner to send a new one.",
+      expired: "This invite has expired. Ask the event owner to send a new one.",
       already_accepted: "This invite has already been accepted.",
     };
     return NextResponse.json({ ok: false, error: messages[resolved.reason] }, { status: 404 });
@@ -31,7 +31,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
   const { invite, event } = resolved;
   if (invite.invited_email.toLowerCase() !== user.email?.toLowerCase()) {
     return NextResponse.json(
-      { ok: false, error: `This invite was sent to ${invite.invited_email} — you're logged in as ${user.email}.` },
+      { ok: false, error: `This invite was sent to ${invite.invited_email}, but you're logged in as ${user.email}.` },
       { status: 403 }
     );
   }

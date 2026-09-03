@@ -203,7 +203,7 @@ export function ProgramForm({
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 409) {
-          setErrors({ form: [data.error ?? "This item was changed by someone else — reload the cue sheet and try again"] });
+          setErrors({ form: [data.error ?? "This item was changed by someone else. Reload the cue sheet and try again."] });
         } else {
           setErrors(data.errors?.fieldErrors ?? {});
         }
@@ -288,7 +288,7 @@ export function ProgramForm({
                       strokeWidth={2}
                     />
                     Production Requirements
-                    {!auditoriumSet && <span className="text-console-meta italic">— select an auditorium to configure</span>}
+                    {!auditoriumSet && <span className="text-console-meta italic">: select an auditorium to configure</span>}
                   </button>
                   {auditoriumSet && productionOpen && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 px-4 pb-4 pt-1 border-t border-line-soft">

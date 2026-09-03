@@ -9,7 +9,7 @@ const MESSAGES: Record<ResolveInviteReason, { title: string; body: string }> = {
   },
   already_accepted: {
     title: "This invite was already used",
-    body: "If you're the one who accepted it, just log in — you already have access.",
+    body: "If you're the one who accepted it, just log in. You already have access.",
   },
   not_found: {
     title: "This invite isn't recognized",

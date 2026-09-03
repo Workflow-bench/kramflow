@@ -39,7 +39,7 @@ export function AlertComposer() {
     if (ok) {
       setMessage("");
     } else {
-      toast.error("Couldn't post the alert — try again");
+      toast.error("Couldn't post the alert. Try again.");
     }
   }
 

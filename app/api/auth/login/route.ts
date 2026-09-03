@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     // this response alone can't tell them apart.
     const message =
       error.message === "Email not confirmed"
-        ? "Please confirm your email before logging in — check your inbox for the confirmation link."
+        ? "Please confirm your email before logging in. Check your inbox for the confirmation link."
         : "Incorrect email or password, or your account hasn't been confirmed yet.";
     return NextResponse.json({ ok: false, error: message }, { status: 401 });
   }

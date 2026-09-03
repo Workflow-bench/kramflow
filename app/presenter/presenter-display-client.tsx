@@ -398,7 +398,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
       <ConfirmDialog
         open={confirmReset}
         title="Reset the timer?"
-        description="This zeroes the current progress — it can't be undone."
+        description="This zeroes the current progress. It can't be undone."
         confirmLabel="Reset"
         tone="danger"
         onConfirm={() => {

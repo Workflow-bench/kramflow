@@ -114,7 +114,7 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
               {cueTarget && (
                 <div className="mt-8 pt-6 border-t border-white/10">
                   <p className="text-caption uppercase tracking-wide text-muted-2">
-                    Prep Requirements — {cueTarget.title}
+                    Prep Requirements: {cueTarget.title}
                   </p>
                   <div className="mt-3 divide-y divide-white/5">
                     <RequirementRow label="Microphone / Track" value={audioSummary(cueTarget.audio)} />
@@ -144,7 +144,7 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
                         crew. Neutral "Next" for a break, the real prep
                         prompt only for an actual item. */}
                     <p className="text-caption uppercase tracking-wide text-muted-2">
-                      {next.type === "item" ? "Next — Please Prepare" : "Next"}
+                      {next.type === "item" ? "Next: Please Prepare" : "Next"}
                     </p>
                     {next.scheduledStart && (
                       <span className="text-caption text-muted-2 tabular-nums">{next.scheduledStart}</span>

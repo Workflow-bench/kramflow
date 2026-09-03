@@ -1,4 +1,5 @@
 import { Lock, Unlock } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { EventRole } from "@/lib/event-context";
 
@@ -12,10 +13,18 @@ import type { EventRole } from "@/lib/event-context";
 // comment. That's a real, kept context difference, not fragmentation.
 //
 // Four states, mutually exclusive:
-//   read-only    — role below owner; can't ever hold the lease
-//   held by me   — iHaveControl
+//   read-only     — role below owner; can't ever hold the lease
+//   held by me    — iHaveControl
 //   held by other — lockedByOther, names who
-//   unclaimed    — none of the above
+//   unclaimed     — none of the above
+//
+// Every state renders as the same shape (icon, one-line status, one
+// action) at the same height, so the eye reads "this is the ownership
+// row" once and then just tracks which variant it's in (Similarity) —
+// only the color/weight escalates with how much it actually matters:
+// unclaimed and held-by-me stay calm, held-by-other is the one state
+// where Next/Previous/Hold will actually fail if pressed, so it's the one
+// that visually stands apart (Von Restorff).
 export function ControlLeaseStatus({
   role,
   iHaveControl,
@@ -41,80 +50,103 @@ export function ControlLeaseStatus({
 }) {
   if (role !== "owner") {
     return (
-      <span className={cn("flex items-center gap-1.5 text-console-sm text-muted-2", className)}>
-        <Lock className="h-3.5 w-3.5" strokeWidth={2} />
-        You have {role} access — only the event owner can run the live show
-      </span>
+      <div className={cn("flex items-center gap-2.5 rounded-control border border-line-soft px-3 py-2.5", className)}>
+        <Lock className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
+        <p className="text-console-sm text-muted-2">
+          You have {role} access. Only the event owner can run the live show.
+        </p>
+      </div>
     );
   }
 
   if (iHaveControl) {
-    // Routine — the calm default while operating alone — stays plain text,
-    // not a colored chip, so the exceptional "someone else has control"
-    // state below keeps its power (Von Restorff: only one of these states
-    // should visually shout).
     return (
-      <span className={cn("flex items-center gap-2 text-console-sm", className)}>
-        <span className="flex items-center gap-1.5 text-status-green">
-          <Lock className="h-3.5 w-3.5" strokeWidth={2} />
-          You have control
-        </span>
+      <div
+        className={cn(
+          "flex items-center gap-2.5 rounded-control border border-status-green/25 bg-status-green/6 px-3 py-2.5",
+          className
+        )}
+      >
+        <Lock className="h-4 w-4 text-status-green shrink-0" strokeWidth={2} />
+        <p className="text-console-sm font-medium text-status-green flex-1 min-w-0">You have control</p>
         <button
           type="button"
           disabled={busy}
           onClick={onRelease}
-          className="text-muted-2 hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded disabled:opacity-50 disabled:cursor-not-allowed"
+          className="text-console-meta text-muted-2 hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {busy ? "Releasing…" : "Release"}
-        </button>
-      </span>
-    );
-  }
-
-  if (lockedByOther) {
-    // The one state on this screen where Next/Previous/Hold will actually
-    // fail if pressed — a filled, bordered chip (not just tinted text) so
-    // it reads as an alert-level fact the operator has to register before
-    // reaching for the buttons directly below it, matching the same
-    // "locked by other" question the redesign brief names as a ~1-second
-    // must-answer ("WHO HAS CONTROL?"). Every other state here stays plain
-    // text on purpose — this is the one that should visually stand apart.
-    return (
-      <div
-        className={cn(
-          "flex items-center gap-2 flex-wrap rounded-control border border-status-orange/30 bg-status-orange/10 px-3 py-2",
-          className
-        )}
-      >
-        <span className="flex items-center gap-1.5 text-console-sm font-medium text-status-orange">
-          <Lock className="h-3.5 w-3.5" strokeWidth={2} />
-          {controllerName ? `${controllerName} has control` : "Locked by another operator"}
-        </span>
-        <button
-          type="button"
-          onClick={onTakeOver}
-          className="text-console-sm text-status-orange hover:text-primary cursor-pointer underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded ml-auto"
-        >
-          Take Over
         </button>
       </div>
     );
   }
 
+  if (lockedByOther) {
+    // The one state on this row where Next/Previous/Hold will actually
+    // fail if pressed — filled, bordered, and paired with a plain-language
+    // reason rather than the lock icon alone (spec: "do not rely on a tiny
+    // lock icon alone"), so an operator reads *why* the transport controls
+    // below won't respond before they try one and get a silent failure.
+    // Stacked (not a row with the button squeezed to one side) because
+    // Controls' own floor — CONTROLS_MIN, 280px (lib/use-operator-column-
+    // layout.ts) — doesn't leave enough width for icon + two-line message +
+    // button side by side without either overlapping or wrapping the text
+    // into an unreadable single column.
+    return (
+      <div
+        className={cn(
+          "flex flex-col gap-2.5 rounded-control border border-status-orange/30 bg-status-orange/10 px-3 py-3",
+          className
+        )}
+      >
+        <div className="flex items-start gap-2.5">
+          <Lock className="h-4 w-4 text-status-orange shrink-0 mt-0.5" strokeWidth={2} />
+          <div className="min-w-0 flex-1">
+            <p className="text-console-sm font-medium text-status-orange">
+              {controllerName ? `${controllerName} has control` : "Locked by another operator"}
+            </p>
+            <p className="text-console-meta text-status-orange/80 mt-0.5">
+              Next, Previous, and Hold won&apos;t respond until you take over.
+            </p>
+          </div>
+        </div>
+        <Button variant="warning" size="sm" className="w-full" onClick={onTakeOver}>
+          Take Over
+        </Button>
+      </div>
+    );
+  }
+
+  // Unclaimed — the state the redesign specifically targets: a real,
+  // deliberate control (icon, status line, and a primary-weight full-width
+  // button), not a loose text link floating above the transport buttons.
+  // Stacked for the same width reason as locked-by-other above. Deliberately
+  // doesn't claim the show can't be run without claiming first (it can,
+  // solo — see lib/use-control-lock.ts's own "opt-in" framing): the real
+  // reason to claim is keeping a second operator's Next from silently
+  // overriding yours mid-show, so that's what the subtext says.
   return (
-    <button
-      type="button"
-      disabled={busy}
-      onClick={onTakeControl}
+    <div
       className={cn(
-        "flex items-center gap-1.5 text-console-sm text-muted-2 hover:text-primary cursor-pointer",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded",
-        "disabled:opacity-50 disabled:cursor-not-allowed",
+        "flex flex-col gap-2.5 rounded-control border border-line bg-raised/60 px-3 py-3",
         className
       )}
     >
-      <Unlock className="h-3.5 w-3.5" strokeWidth={2} />
-      {busy ? "Taking control…" : "Take Control"}
-    </button>
+      <div className="flex items-start gap-2.5">
+        <Unlock className="h-4 w-4 text-muted-2 shrink-0 mt-0.5" strokeWidth={2} />
+        <div className="min-w-0 flex-1">
+          <p className="text-console-sm font-medium text-primary">No one has control</p>
+          <p className="text-console-meta text-muted-2 mt-0.5">
+            Claim it so another operator can&apos;t interrupt the sequence.
+          </p>
+        </div>
+      </div>
+      {/* No icon here (the row above already carries one) — at Controls'
+          own floor (280px, CONTROLS_MIN) a second icon plus the loading
+          spinner crowds "Take Control" into wrapping across two lines. */}
+      <Button variant="primary" size="sm" className="w-full" onClick={onTakeControl} loading={busy} disabled={busy}>
+        Take Control
+      </Button>
+    </div>
   );
 }

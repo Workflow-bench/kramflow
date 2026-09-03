@@ -79,7 +79,7 @@ export function OperatorBroadcastPanel() {
       setMessage("");
       toast.success("Broadcast sent");
     } else {
-      toast.error("Couldn't send the broadcast — try again");
+      toast.error("Couldn't send the broadcast. Try again.");
     }
   }
 
@@ -145,7 +145,7 @@ export function OperatorBroadcastPanel() {
             href={`/e/${eventId}/broadcast`}
             className="text-console-meta text-muted-2 hover:text-primary text-center underline-offset-2 hover:underline"
           >
-            More options — schedule, templates, target one display →
+            More options: schedule, templates, target one display →
           </Link>
 
           <div className="border-t border-line-soft pt-3 mt-1">
@@ -173,7 +173,7 @@ export function OperatorBroadcastPanel() {
       <ConfirmDialog
         open={emergencyConfirm.isOpen}
         title={`Send "${emergencyConfirm.pending?.title}" to every display?`}
-        description={`"${emergencyConfirm.pending?.message}" — takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately. Send an update or Clear afterward if needed.`}
+        description={`"${emergencyConfirm.pending?.message}": takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately. Send an update or Clear afterward if needed.`}
         confirmLabel="Send Emergency"
         tone="danger"
         loading={emergencySending}
@@ -199,7 +199,7 @@ export function OperatorBroadcastPanel() {
           setEmergencySending(false);
           emergencyConfirm.cancel();
           if (res && res.ok) toast.success("Emergency broadcast sent");
-          else toast.error("Couldn't send the emergency broadcast — try again immediately");
+          else toast.error("Couldn't send the emergency broadcast. Try again immediately.");
         }}
         onCancel={emergencyConfirm.cancel}
       />

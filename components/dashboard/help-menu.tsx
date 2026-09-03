@@ -111,17 +111,17 @@ function GlossaryTerm({ term, definition }: { term: string; definition: string }
 // same word — worth explaining rather than renaming everywhere at once.
 function GlossaryContent() {
   const terms = [
-    { term: "Session", definition: "A block of the day within an event — e.g. \"Saturday Evening.\" Holds an ordered list of items, not a single agenda entry." },
-    { term: "Item", definition: "One row on the cue sheet — a single segment, speech, or piece of the running order within a session." },
+    { term: "Session", definition: "A block of the day within an event (e.g. \"Saturday Evening\"). Holds an ordered list of items, not a single agenda entry." },
+    { term: "Item", definition: "One row on the cue sheet: a single segment, speech, or piece of the running order within a session." },
     { term: "Auditorium", definition: "A physical room or venue space you can assign to an item. Assigning one unlocks that item's Production Requirements fields." },
-    { term: "Production Requirements", definition: "The AV/technical needs for an item — lighting, curtains, sidescreen, and similar — visible once that item has an Auditorium." },
+    { term: "Production Requirements", definition: "The AV/technical needs for an item (lighting, curtains, sidescreen, and similar), visible once that item has an Auditorium." },
     { term: "Color tag", definition: "A status marker on an item: Ready, VIP, Needs Confirmation, or Urgent. Meant to be scanned at a glance during a live show." },
     { term: "Hold", definition: "Pauses the live show without ending it. Displays reflect Hold differently depending on audience (General) vs. crew (Presenter, Green Room, AV) screens." },
-    { term: "On deck", definition: "The item after \"Next\" — the AV display shows Live / Next / On Deck as a three-deep lookahead." },
-    { term: "Broadcast", definition: "A message sent to some or all of your display screens — includes separate, visually distinct Emergency presets for urgent alerts." },
-    { term: "Display Manager", definition: "Where every screen currently connected to your event is registered and controlled — reload, test message, force fullscreen, and similar." },
+    { term: "On deck", definition: "The item after \"Next\": the AV display shows Live / Next / On Deck as a three-deep lookahead." },
+    { term: "Broadcast", definition: "A message sent to some or all of your display screens. Includes separate, visually distinct Emergency presets for urgent alerts." },
+    { term: "Display Manager", definition: "Where every screen currently connected to your event is registered and controlled: reload, test message, force fullscreen, and similar." },
     { term: "Share Link", definition: "A URL (with a scannable QR code) that lets a screen connect to one of your event's displays without logging in." },
-    { term: "Operator Console", definition: "The screen you run the live show from — Start, Next, Previous, Hold, and alerts. Distinct from your account's dashboard." },
+    { term: "Operator Console", definition: "The screen you run the live show from: Start, Next, Previous, Hold, and alerts. Distinct from your account's dashboard." },
   ];
   return (
     <dl className="flex flex-col gap-3">

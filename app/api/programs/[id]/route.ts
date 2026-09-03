@@ -76,7 +76,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   if (!data || data.length === 0) {
     return NextResponse.json(
-      { ok: false, error: "This item was changed by someone else — reload the cue sheet and try again" },
+      { ok: false, error: "This item was changed by someone else. Reload the cue sheet and try again." },
       { status: 409 }
     );
   }

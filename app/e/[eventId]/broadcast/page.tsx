@@ -180,7 +180,7 @@ export default function BroadcastCenterPage() {
       return 'Pick a date and time to schedule this broadcast, or turn off "Schedule for later" to send now.';
     }
     if (new Date(draft.scheduledFor).getTime() <= Date.now()) {
-      return "That date and time has already passed — pick one in the future.";
+      return "That date and time has already passed. Pick one in the future.";
     }
     return null;
   }
@@ -214,7 +214,7 @@ export default function BroadcastCenterPage() {
         toast.success(isScheduling ? "Broadcast scheduled" : "Broadcast sent");
         resetCompose();
       } else {
-        toast.error("Couldn't send the broadcast — try again");
+        toast.error("Couldn't send the broadcast. Try again.");
       }
     } finally {
       sendingRef.current = false;
@@ -245,7 +245,7 @@ export default function BroadcastCenterPage() {
         setDestructiveLoading(true);
         const results = await clearEmergencies();
         setDestructiveLoading(false);
-        if (results.some((r) => !r || !r.ok)) toast.error("Some emergency broadcasts couldn't be cleared — try again");
+        if (results.some((r) => !r || !r.ok)) toast.error("Some emergency broadcasts couldn't be cleared. Try again.");
         break;
       }
       case "cancel-scheduled": {
@@ -253,7 +253,7 @@ export default function BroadcastCenterPage() {
         const res = await cancelScheduled(action.id);
         setDestructiveLoading(false);
         if (res && res.ok) toast.success("Scheduled broadcast cancelled");
-        else toast.error("Couldn't cancel — try again");
+        else toast.error("Couldn't cancel. Try again.");
         break;
       }
       case "delete-template":
@@ -304,11 +304,11 @@ export default function BroadcastCenterPage() {
           pill — same guardrail weight DESIGN.md's tier table gives every
           other destructive control in the product, not a one-off style. */}
       <div className="mx-4 sm:mx-6 xl:mx-12 mt-6 rounded-panel border-2 border-status-red/40 bg-status-red/[0.04] px-6 py-5">
-        <SectionLabel>Emergency Broadcast — Overrides Every Display</SectionLabel>
+        <SectionLabel>Emergency Broadcast: Overrides Every Display</SectionLabel>
         <p className="text-console-meta text-muted-2 mt-1">
           Takes over all {registeredCount} registered display{registeredCount === 1 ? "" : "s"} immediately
           {registeredHealthCounts.offline > 0
-            ? ` — ${registeredHealthCounts.offline} currently offline will show it the moment they reconnect.`
+            ? `. ${registeredHealthCounts.offline} currently offline will show it the moment they reconnect.`
             : "."}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -538,7 +538,7 @@ export default function BroadcastCenterPage() {
                 </div>
                 <p className="text-console-meta text-muted-2 mt-3">
                   {draft.type === "emergency"
-                    ? "Takes over the full screen on every targeted display until acknowledged or cleared — not a corner banner like other types."
+                    ? "Takes over the full screen on every targeted display until acknowledged or cleared, not a corner banner like other types."
                     : `Appears as a banner on each targeted display${
                         draft.persistent
                           ? " until dismissed."
@@ -766,7 +766,7 @@ export default function BroadcastCenterPage() {
       <ConfirmDialog
         open={emergencyConfirm.isOpen}
         title={`Send "${emergencyConfirm.pending?.title}" to every display?`}
-        description={`"${emergencyConfirm.pending?.message}" — takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately (${registeredHealthCounts.online} online, ${registeredHealthCounts.stale} stale, ${registeredHealthCounts.offline} offline). Send an update or Clear afterward if needed.`}
+        description={`"${emergencyConfirm.pending?.message}": takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately (${registeredHealthCounts.online} online, ${registeredHealthCounts.stale} stale, ${registeredHealthCounts.offline} offline). Send an update or Clear afterward if needed.`}
         confirmLabel="Send Emergency"
         tone="danger"
         loading={emergencySending}
@@ -788,7 +788,7 @@ export default function BroadcastCenterPage() {
             });
             emergencyConfirm.cancel();
             if (res && res.ok) toast.success("Emergency broadcast sent");
-            else toast.error("Couldn't send the emergency broadcast — try again immediately");
+            else toast.error("Couldn't send the emergency broadcast. Try again immediately.");
           } finally {
             emergencySendingRef.current = false;
             setEmergencySending(false);
@@ -808,7 +808,7 @@ export default function BroadcastCenterPage() {
         }
         description={
           isScheduling
-            ? `This fires automatically at ${draft.scheduledFor ? new Date(draft.scheduledFor).toLocaleString() : "the selected time"} with no further confirmation — double check the date and time. You can cancel it from the Scheduled tab any time before then.${draft.type === "emergency" ? " As an emergency broadcast, it will take over every connected screen the moment it fires." : ""}`
+            ? `This fires automatically at ${draft.scheduledFor ? new Date(draft.scheduledFor).toLocaleString() : "the selected time"} with no further confirmation. Double check the date and time. You can cancel it from the Scheduled tab any time before then.${draft.type === "emergency" ? " As an emergency broadcast, it will take over every connected screen the moment it fires." : ""}`
             : "This takes over every connected screen immediately."
         }
         confirmLabel={isScheduling ? "Schedule" : "Send Emergency"}

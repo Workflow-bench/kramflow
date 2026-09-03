@@ -18,16 +18,16 @@ const MIN_PASSWORD_LENGTH = 8;
 function friendlySignupError(message: string): string {
   const lower = message.toLowerCase();
   if (lower.includes("already registered") || lower.includes("already exists")) {
-    return "An account with that email already exists — try logging in instead.";
+    return "An account with that email already exists. Try logging in instead.";
   }
   if (lower.includes("rate limit")) {
-    return "Too many signup attempts right now — please wait a few minutes and try again.";
+    return "Too many signup attempts right now. Please wait a few minutes and try again.";
   }
   if (lower.includes("password")) {
-    return "That password doesn't meet the requirements — use at least 8 characters.";
+    return "That password doesn't meet the requirements. Use at least 8 characters.";
   }
   if (lower.includes("email")) {
-    return "That email address couldn't be used — check it and try again.";
+    return "That email address couldn't be used. Check it and try again.";
   }
   return "Something went wrong creating your account. Please try again.";
 }

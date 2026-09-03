@@ -101,7 +101,7 @@ export function GettingStartedChecklist({ events }: { events: EventSummary[] }) 
         <div>
           <h2 className="text-console-md text-primary">Getting started</h2>
           <p className="text-console-meta text-muted-2 mt-0.5">
-            Three real steps to your first working event — no tour, just the actual thing.
+            Three real steps to your first working event. No tour, just the actual thing.
           </p>
         </div>
         <Button variant="ghost" size="sm" square onClick={dismissGettingStarted} aria-label="Dismiss getting started">

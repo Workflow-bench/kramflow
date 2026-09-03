@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 
   if (file.size > MAX_UPLOAD_BYTES) {
     return NextResponse.json(
-      { ok: false, error: `File too large (${Math.round(file.size / 1024 / 1024)}MB) — the limit is 10MB.` },
+      { ok: false, error: `File too large (${Math.round(file.size / 1024 / 1024)}MB). The limit is 10MB.` },
       { status: 413 }
     );
   }

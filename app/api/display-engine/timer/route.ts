@@ -121,7 +121,7 @@ export async function PATCH(request: Request) {
     .select("timer_version");
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   if (!updated || updated.length === 0) {
-    return NextResponse.json({ ok: false, error: "Conflict — timer changed, please retry" }, { status: 409 });
+    return NextResponse.json({ ok: false, error: "The timer changed. Try again." }, { status: 409 });
   }
   return NextResponse.json({ ok: true });
 }

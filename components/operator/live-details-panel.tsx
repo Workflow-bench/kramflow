@@ -143,7 +143,7 @@ function LiveNotesFields({ session }: { session: Session }) {
     setSaving(true);
     try {
       const ok = await setNotes(live.id, draft);
-      if (!ok) toast.error("Couldn't save notes — try again");
+      if (!ok) toast.error("Couldn't save notes. Try again.");
     } finally {
       setSaving(false);
     }
@@ -163,7 +163,7 @@ function LiveNotesFields({ session }: { session: Session }) {
         key={live.id}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder="Stage notes — cues, mic setup, entrances…"
+        placeholder="Stage notes: cues, mic setup, entrances…"
         aria-label="Stage notes"
         className="mt-3 flex-1 min-h-24 bg-card resize-none"
       />

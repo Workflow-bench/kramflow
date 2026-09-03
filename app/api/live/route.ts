@@ -430,7 +430,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
   }
   if (!updated || updated.length === 0) {
-    return NextResponse.json({ ok: false, error: "Conflict — live state changed, please retry" }, { status: 409 });
+    return NextResponse.json({ ok: false, error: "The live state changed. Try again." }, { status: 409 });
   }
 
   // renewControl's success path deliberately leaves `detail` empty — it's

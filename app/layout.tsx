@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     template: "%s · KramFlow",
   },
   description:
-    "KramFlow — a live event operating system for coordinating stage managers, AV operators, and performers across TV displays and mobile control.",
+    "KramFlow is a live-event operating system for coordinating stage managers, AV operators, and performers across TV displays and mobile control.",
 };
 
 export default function RootLayout({

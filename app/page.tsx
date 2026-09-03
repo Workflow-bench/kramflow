@@ -62,7 +62,7 @@ function Hero() {
   return (
     <section className="max-w-6xl mx-auto px-6 sm:px-10 pt-16 sm:pt-24 pb-20 flex flex-col items-center text-center">
       <h1 className="text-title text-primary max-w-3xl text-balance">
-        Run the show from one screen — sync it to every display.
+        Run the show from one screen. Sync it to every display.
       </h1>
       <p className="text-body text-muted mt-5 max-w-xl">
         Kramflow is a live-show control console for event coordinators, AV operators, and stage managers. Build your
@@ -73,7 +73,7 @@ function Hero() {
         <LinkButton href="/signup" variant="primary" size="xl">
           Sign up free
         </LinkButton>
-        <p className="text-console-sm text-muted-2">No credit card required — set up your first event in minutes.</p>
+        <p className="text-console-sm text-muted-2">No credit card required. Set up your first event in minutes.</p>
       </div>
 
       <div className="mt-16 w-full max-w-2xl">
@@ -90,9 +90,9 @@ function Hero() {
 // event content, not lorem ipsum and not a claimed real customer's event.
 function HeroMockup() {
   const rows = [
-    { name: "Welcome Remarks", meta: "Opening — 5 min", tag: "ready" as const },
-    { name: "Keynote Address", meta: "Main Hall — 20 min", tag: "vip" as const },
-    { name: "Closing Video", meta: "Needs confirmation — 3 min", tag: "needs_confirmation" as const },
+    { name: "Welcome Remarks", meta: "Opening · 5 min", tag: "ready" as const },
+    { name: "Keynote Address", meta: "Main Hall · 20 min", tag: "vip" as const },
+    { name: "Closing Video", meta: "Needs confirmation · 3 min", tag: "needs_confirmation" as const },
   ];
   return (
     <Card className="p-0 overflow-hidden text-left rounded-2xl border border-line-soft shadow-float">
@@ -138,7 +138,7 @@ function HeroMockup() {
       <div className="flex items-center gap-2 px-5 py-3.5 border-t border-line-soft bg-raised/40">
         <Radio className="h-3.5 w-3.5 text-status-green shrink-0" strokeWidth={2} />
         <p className="text-console-meta text-muted-2">
-          Synced to 4 displays — General, AV, Green Room, Presenter
+          Synced to 4 displays: General, AV, Green Room, Presenter
         </p>
       </div>
     </Card>
@@ -164,21 +164,21 @@ const FEATURES: Feature[] = [
     eyebrow: "Live Sync",
     title: "One console, every screen, always in sync",
     description:
-      "Press Start, Next, Previous, or Hold from the Operator Console and every connected display updates immediately — no refresh, no lag between what you press and what the room sees.",
+      "Press Start, Next, Previous, or Hold from the Operator Console and every connected display updates immediately. No refresh, no lag between what you press and what the room sees.",
     icon: Radio,
   },
   {
     eyebrow: "Four Displays",
     title: "A different view for every role",
     description:
-      "General for the audience, AV for the tech booth (with a live look-ahead at what's coming next), Green Room for backstage, and Presenter as a confidence monitor — each shows only what that person actually needs.",
+      "General for the audience, AV for the tech booth (with a live look-ahead at what's coming next), Green Room for backstage, and Presenter as a confidence monitor. Each shows only what that person actually needs.",
     icon: MonitorPlay,
   },
   {
     eyebrow: "Hold & Alerts",
     title: "Handle the unexpected without breaking stride",
     description:
-      "Put the whole show on Hold without ending it, or raise an alert that reaches the right screens instantly — built for the moments a live show doesn't go exactly to plan.",
+      "Put the whole show on Hold without ending it, or raise an alert that reaches the right screens instantly. Built for the moments a live show doesn't go exactly to plan.",
     icon: PauseCircle,
   },
 ];
@@ -214,7 +214,7 @@ function FeatureBlock({ feature }: { feature: Feature }) {
 const STEPS = [
   {
     title: "Create your event",
-    description: "Name it, and you're in a real cue sheet in seconds — no setup wizard in the way.",
+    description: "Name it, and you're in a real cue sheet in seconds. No setup wizard in the way.",
   },
   {
     title: "Build your cue sheet",
@@ -254,11 +254,11 @@ function GetStarted() {
 const AUDIENCES = [
   {
     role: "Event Coordinators",
-    description: "Keep the full run of show, production requirements, and day-of changes in one place — not a spreadsheet three people are editing separately.",
+    description: "Keep the full run of show, production requirements, and day-of changes in one place, not a spreadsheet three people are editing separately.",
   },
   {
     role: "AV Operators",
-    description: "A dedicated display shows exactly what the current and next item need — lighting, sidescreen, curtains — before you're asked for it.",
+    description: "A dedicated display shows exactly what the current and next item need (lighting, sidescreen, curtains) before you're asked for it.",
   },
   {
     role: "Stage Managers",
@@ -299,7 +299,7 @@ function FinalCta() {
         <LinkButton href="/signup" variant="primary" size="xl">
           Sign up free
         </LinkButton>
-        <p className="text-console-sm text-muted-2">Free to start — no credit card required.</p>
+        <p className="text-console-sm text-muted-2">Free to start, no credit card required.</p>
       </div>
     </section>
   );

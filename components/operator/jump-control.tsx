@@ -68,7 +68,7 @@ export function JumpControl({ max }: { max: number }) {
           if (ok) {
             setValue("");
           } else {
-            toast.error("Couldn't jump to that item — try again");
+            toast.error("Couldn't jump to that item. Try again.");
           }
         }}
         onCancel={() => setConfirmOpen(false)}

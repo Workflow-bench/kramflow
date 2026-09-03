@@ -172,19 +172,19 @@ export default function DisplayManagerPage() {
       switch (action.kind) {
         case "reassign-type": {
           const res = await assignDisplay(action.id, { type: action.type });
-          if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't change ${action.name}'s type — try again`));
+          if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't change ${action.name}'s type. Try again.`));
           break;
         }
         case "reload": {
           const res = await sendCommand(action.id, { type: "reload", issuedAt: new Date().toISOString() });
           if (res && res.ok) toast.success(`Reload sent to ${action.name}`);
-          else toast.error(forbiddenAware(res, `Couldn't reload ${action.name} — try again`));
+          else toast.error(forbiddenAware(res, `Couldn't reload ${action.name}. Try again.`));
           break;
         }
         case "remove": {
           const res = await removeDisplay(action.id);
           if (res && res.ok) toast.success(`${action.name} removed`);
-          else toast.error(forbiddenAware(res, `Couldn't remove ${action.name} — try again`));
+          else toast.error(forbiddenAware(res, `Couldn't remove ${action.name}. Try again.`));
           break;
         }
         case "reload-all-offline": {
@@ -193,8 +193,8 @@ export default function DisplayManagerPage() {
           );
           const failed = results.filter((res) => !res || !res.ok).length;
           const sent = action.ids.length - failed;
-          if (sent > 0) toast.success(`Reload queued for ${sent} offline display${sent === 1 ? "" : "s"} — it'll apply once each reconnects`);
-          if (failed > 0) toast.error(forbiddenAware(results.find((res) => !res || !res.ok), `Couldn't queue reload for ${failed} of them — try again`));
+          if (sent > 0) toast.success(`Reload queued for ${sent} offline display${sent === 1 ? "" : "s"}. It'll apply once each reconnects.`);
+          if (failed > 0) toast.error(forbiddenAware(results.find((res) => !res || !res.ok), `Couldn't queue reload for ${failed} of them. Try again.`));
           break;
         }
         case "remove-all-offline": {
@@ -202,7 +202,7 @@ export default function DisplayManagerPage() {
           const failed = results.filter((res) => !res || !res.ok).length;
           const removed = action.ids.length - failed;
           if (removed > 0) toast.success(`Removed ${removed} offline display${removed === 1 ? "" : "s"}`);
-          if (failed > 0) toast.error(forbiddenAware(results.find((res) => !res || !res.ok), `Couldn't remove ${failed} of them — try again`));
+          if (failed > 0) toast.error(forbiddenAware(results.find((res) => !res || !res.ok), `Couldn't remove ${failed} of them. Try again.`));
           break;
         }
       }
@@ -322,7 +322,7 @@ export default function DisplayManagerPage() {
           <EmptyState
             className="mt-6"
             title="No displays have registered yet"
-            body="Open a display route (e.g. /presenter) on a device to see it here — registration happens automatically, no setup step needed."
+            body="Open a display route (e.g. /presenter) on a device to see it here. Registration happens automatically, no setup step needed."
           />
         ) : visibleDisplays.length === 0 ? (
           <p className="text-console-sm text-muted-2 mt-6">No displays are currently {filter}.</p>
@@ -341,11 +341,11 @@ export default function DisplayManagerPage() {
                   onToggleExpand={() => setExpandedId(expandedId === display.id ? null : display.id)}
                   onRename={async (name) => {
                     const res = await renameDisplay(display.id, name);
-                    if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't rename ${display.name} — try again`));
+                    if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't rename ${display.name}. Try again.`));
                   }}
                   onRoom={async (room) => {
                     const res = await assignDisplay(display.id, { room });
-                    if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't update ${display.name}'s room — try again`));
+                    if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't update ${display.name}'s room. Try again.`));
                   }}
                   onRequestTypeChange={(type) =>
                     confirmAction.request({ kind: "reassign-type", id: display.id, name: display.name, type })
@@ -354,7 +354,7 @@ export default function DisplayManagerPage() {
                   onScreenshot={() => void takeScreenshot(display)}
                   onForceFullscreen={async () => {
                     const res = await sendCommand(display.id, { type: "force-fullscreen", issuedAt: new Date().toISOString() });
-                    if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't force fullscreen on ${display.name} — try again`));
+                    if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't force fullscreen on ${display.name}. Try again.`));
                   }}
                   onOpenMessage={() => setMessagingId(display.id)}
                   onRequestReload={() => confirmAction.request({ kind: "reload", id: display.id, name: display.name })}
@@ -371,7 +371,7 @@ export default function DisplayManagerPage() {
           <div className="w-full max-w-5xl">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2.5">
-                <p className="text-console-md text-primary font-medium">{previewing.name} — live preview</p>
+                <p className="text-console-md text-primary font-medium">{previewing.name}: live preview</p>
                 <Badge tone="muted">{typeLabel(previewing.type)}</Badge>
               </div>
               <Button variant="ghost" size="sm" onClick={() => setPreviewing(null)} aria-label="Close preview">
@@ -398,7 +398,7 @@ export default function DisplayManagerPage() {
           if (!id) return;
           const res = await sendCommand(id, { type: "test-message", text, issuedAt: new Date().toISOString() });
           if (res && res.ok) toast.success("Test message sent");
-          else toast.error(forbiddenAware(res, "Couldn't send the test message — try again"));
+          else toast.error(forbiddenAware(res, "Couldn't send the test message. Try again."));
         }}
       />
 
@@ -423,7 +423,7 @@ export default function DisplayManagerPage() {
             : confirmAction.pending?.kind === "reload"
               ? "This interrupts whatever's currently on that screen."
               : confirmAction.pending?.kind === "reload-all-offline"
-                ? "Each one applies the reload once its device reconnects — nothing happens to a device that stays offline."
+                ? "Each one applies the reload once its device reconnects. Nothing happens to a device that stays offline."
                 : confirmAction.pending?.kind === "remove-all-offline"
                   ? "Each one will reappear automatically if its device is still open on a display route."
                   : "This removes it from the registry. It'll reappear automatically if the device is still open on a display route."
@@ -497,7 +497,7 @@ function DisplayRow({
     setRoomDraft(display.room ?? "");
   }
 
-  const disabledReason = "This display is offline — nothing is listening to respond.";
+  const disabledReason = "This display is offline. Nothing is listening to respond.";
   // Two independent reasons a diagnose command can be unavailable — not
   // owner, or the display isn't listening — combined into one disabled
   // state with whichever reason is actually true (owner takes priority:
@@ -644,7 +644,7 @@ function DisplayRow({
                 plainly what it does, and no longer gated on display
                 status — that status was never actually relevant to it. */}
             <div className="flex flex-wrap items-center gap-2 mt-3">
-              <Tooltip content="Opens your own screen-share picker — not a remote capture of this display">
+              <Tooltip content="Opens your own screen-share picker, not a remote capture of this display">
                 <Button variant="secondary" size="sm" onClick={onScreenshot} aria-label={`Capture your own screen (manual, not remote to ${display.name})`}>
                   <Camera className="h-3.5 w-3.5" strokeWidth={2} />
                   Capture Screen

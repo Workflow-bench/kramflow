@@ -359,7 +359,7 @@ export default function CueSheetPage() {
     if (res.ok) {
       loadRows(activeSessionId);
     } else {
-      toast.error("Couldn't reorder — try again");
+      toast.error("Couldn't reorder. Try again.");
     }
   }
 
@@ -406,7 +406,7 @@ export default function CueSheetPage() {
         setSelected(new Set());
         loadRows(activeSessionId);
       } else {
-        toast.error("Couldn't apply the bulk edit — try again");
+        toast.error("Couldn't apply the bulk edit. Try again.");
       }
     } finally {
       setBulkApplying(false);
@@ -427,7 +427,7 @@ export default function CueSheetPage() {
         setSelected(new Set());
         loadRows(activeSessionId);
       } else {
-        toast.error("Couldn't move the selected items — try again");
+        toast.error("Couldn't move the selected items. Try again.");
       }
     } finally {
       setBulkApplying(false);
@@ -452,7 +452,7 @@ export default function CueSheetPage() {
     const ok = await resetSession(target.id);
     resetSessionConfirm.cancel();
     if (ok) toast.success(`Reset "${target.dayLabel} • ${target.sessionLabel}"`);
-    else toast.error("Couldn't reset the session — try again");
+    else toast.error("Couldn't reset the session. Try again.");
   }
 
   const sessionOptions = sessions.map((s) => ({ id: s.id, label: `${s.dayLabel} • ${s.sessionLabel}` }));
@@ -615,7 +615,7 @@ export default function CueSheetPage() {
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-line-soft">
         <div className="flex items-center justify-between gap-3 px-4 sm:px-6 h-14">
           {sessions.length === 0 ? (
-            <p className="text-console-sm text-muted-2 truncate">No sessions yet — add one to start building the cue sheet.</p>
+            <p className="text-console-sm text-muted-2 truncate">No sessions yet. Add one to start building the cue sheet.</p>
           ) : (
             <div className="flex items-center gap-1 min-w-0">
               <Select
@@ -863,7 +863,7 @@ export default function CueSheetPage() {
                 sessions.length === 0 ? (
                   <EmptyState
                     title="No sessions yet"
-                    body="A session is one block of your event — Friday Evening, Saturday Morning. Create one, or import a rundown and get its sessions for free."
+                    body="A session is one block of your event: Friday Evening, Saturday Morning. Create one, or import a rundown and get its sessions for free."
                     action={
                       <div className="flex items-center gap-2">
                         <Button variant="primary" size="sm" onClick={() => setPanel("create-session")}>
@@ -1069,7 +1069,7 @@ export default function CueSheetPage() {
       <ConfirmDialog
         open={resetSessionConfirm.isOpen}
         title={`Reset "${resetSessionConfirm.pending?.dayLabel} • ${resetSessionConfirm.pending?.sessionLabel}"?`}
-        description="Returns this session to not-started — clears its current position, and its Hold/Alert too if it's the one currently live. The cue sheet itself and every other session are untouched, and the timing record of what already actually happened is preserved, not erased."
+        description="Returns this session to not-started: clears its current position, and its Hold/Alert too if it's the one currently live. The cue sheet itself and every other session are untouched, and the timing record of what already actually happened is preserved, not erased."
         confirmLabel="Reset Session"
         tone="danger"
         onConfirm={handleResetSessionConfirmed}
@@ -1657,7 +1657,7 @@ function UploadPanel({
                   .filter((v) => v.replaces)
                   .map((v) => (
                     <li key={v.session.id}>
-                      &ldquo;{v.session.day_label} • {v.session.session_label}&rdquo; — its current items are deleted
+                      &ldquo;{v.session.day_label} • {v.session.session_label}&rdquo;, its current items are deleted
                       and replaced with {v.itemCount} from this file.
                     </li>
                   ))}

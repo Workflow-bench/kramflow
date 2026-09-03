@@ -10,11 +10,14 @@ import { getSessionById } from "@/lib/data/sessions";
 import type { Session, SessionProgress } from "@/lib/types";
 import { useAuth } from "@/components/auth/auth-context";
 import { useOperatorPresence } from "@/lib/use-operator-presence";
+import { useOperatorColumnLayout } from "@/lib/use-operator-column-layout";
 import { ProgramList } from "@/components/operator/program-list";
 import { SessionSwitcher } from "@/components/operator/session-switcher";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { LiveDetailsPanel, LiveNotes } from "@/components/operator/live-details-panel";
 import { ControlsPanel, ControlsSecondaryTools } from "@/components/operator/controls-panel";
+import { OperatorColumns } from "@/components/operator/operator-columns";
+import { OperatorLayoutMenu } from "@/components/operator/operator-layout-menu";
 import { ProgressFooter } from "@/components/ui/progress-footer";
 import { SectionLabel } from "@/components/ui/section-label";
 import { LinkButton } from "@/components/ui/button";
@@ -45,6 +48,14 @@ export default function OperatorPage() {
   // Neither strict order works in one column; 1024px has room for both to
   // be on screen at once, so this stops being a stacking-order tradeoff.
   const isTabletLayout = useMediaQuery("(min-width: 1024px)") && !isDesktopLayout;
+  // Called unconditionally (not just when isDesktopLayout) so the same
+  // instance backs both the header's Layout menu below and OperatorGrid's
+  // resizable columns further down — two separate hook calls would each
+  // keep their own in-memory state, so a Reset from the menu wouldn't
+  // actually move the columns already on screen. See the hook's own
+  // comment for why a callback ref makes this safe across every desktop
+  // <-> tablet/mobile remount.
+  const columnLayout = useOperatorColumnLayout();
 
   // A different connection just took an action — the same shape as the
   // "someone else is editing" toast in collaborative editors. Doesn't
@@ -73,7 +84,7 @@ export default function OperatorPage() {
             </span>
           )
         }
-        actions={
+        actions={[
           // Rehearsal Mode deliberately lives here, next to Lock, rather
           // than as a nav destination — it's an operating mode for the
           // live console, not a content screen (see
@@ -88,12 +99,16 @@ export default function OperatorPage() {
             size="sm"
             className="rounded-full"
             aria-label="Rehearsal Mode"
-            title="Rehearsal Mode — practice the sequence without touching the real live show"
+            title="Rehearsal Mode: practice the sequence without touching the real live show"
           >
             <FlaskConical className="h-3.5 w-3.5" strokeWidth={2} />
             <span className="hidden lg:inline">Rehearsal Mode</span>
-          </LinkButton>
-        }
+          </LinkButton>,
+          // Column widths only mean anything once the resizable desktop
+          // grid is actually on screen — tablet/mobile have their own
+          // fixed compositions with nothing here to adjust.
+          isDesktopLayout && <OperatorLayoutMenu key="layout" layout={columnLayout} />,
+        ]}
         belowNav={
           <div className="px-4 sm:px-6 xl:px-12 py-3 border-b border-line-soft">
             <SessionSwitcher />
@@ -121,6 +136,7 @@ export default function OperatorPage() {
           broadcastAction={broadcastAction}
           isDesktopLayout={isDesktopLayout}
           isTabletLayout={isTabletLayout}
+          columnLayout={columnLayout}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center px-4 sm:px-6 xl:px-12 py-16">
@@ -168,12 +184,14 @@ function OperatorGrid({
   broadcastAction,
   isDesktopLayout,
   isTabletLayout,
+  columnLayout,
 }: {
   session: Session;
   progress: SessionProgress | undefined;
   broadcastAction: (message: string) => void;
   isDesktopLayout: boolean;
   isTabletLayout: boolean;
+  columnLayout: ReturnType<typeof useOperatorColumnLayout>;
 }) {
   const program = (
     <div className="min-w-0 xl:min-h-0 xl:overflow-y-auto px-4 sm:px-6 xl:px-12 py-6 xl:py-8">
@@ -214,24 +232,16 @@ function OperatorGrid({
   );
 
   if (isDesktopLayout) {
-    return (
-      <div className="flex-1 xl:min-h-0 grid grid-cols-1 xl:grid-cols-[1fr_340px_280px] 2xl:grid-cols-[1fr_400px_320px] xl:grid-rows-[1fr]">
-        {program}
-        {/* liveDetails/controls each need to be a flex column here, not
-            just a min-h-0 grid item — xl:overflow-y-auto on a *plain
-            block* child doesn't make it inherit the wrapper's bounded
-            height (only a CSS Grid item stretches to its track by
-            default; a nested block child does not), so without xl:flex
-            the inner scroll div's own height just grows to its content
-            again, past the wrapper's real bottom edge — this exact gap
-            let the Controls column's Post Alert button render underneath
-            the session-progress footer, unclickable (Playwright caught
-            it as "footer subtree intercepts pointer events"; a person
-            would have just experienced a dead button). */}
-        <div className="xl:min-h-0 xl:flex xl:flex-col border-l border-line-soft">{liveDetails}</div>
-        <div className="xl:min-h-0 xl:flex xl:flex-col border-l border-line-soft">{controls}</div>
-      </div>
-    );
+    // Program/Live Now/Controls at user-adjustable widths (drag the
+    // dividers, or Layout in the header) instead of the old fixed
+    // grid-cols-[1fr_340px_280px] split. See
+    // lib/use-operator-column-layout.ts for the constraints/persistence
+    // and operator-columns.tsx for the grid itself — its column wrapper
+    // divs are what liveDetails/controls' own xl:flex-1/xl:overflow-y-auto
+    // stretch and scroll against (a flex-column parent, same requirement
+    // as before this existed, just satisfied by OperatorColumns' own
+    // markup now instead of a wrapper div here).
+    return <OperatorColumns program={program} liveNow={liveDetails} controls={controls} layout={columnLayout} />;
   }
 
   if (isTabletLayout) {

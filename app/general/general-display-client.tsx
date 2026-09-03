@@ -121,7 +121,7 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
                       branch below, which never happens while a session is
                       actually live. Corrected to match its own intent. */}
                   <p className="text-caption uppercase tracking-wide text-muted-2">
-                    Now In Session{sessionTitle ? ` — ${sessionTitle}` : ""}
+                    Now In Session{sessionTitle ? `: ${sessionTitle}` : ""}
                   </p>
                   <p className="text-hero text-primary mt-4" style={{ fontSize: "clamp(3.5rem, 6vw, 6rem)" }}>
                     {live.title}

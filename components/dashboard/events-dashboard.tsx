@@ -204,7 +204,7 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
       <ConfirmDialog
         open={deleteTarget !== null}
         title={`Delete "${deleteTarget?.name}"?`}
-        description="Every session, item, share link, and live state for this event — permanently destroyed. This can't be undone."
+        description="Every session, item, share link, and live state for this event, permanently destroyed. This can't be undone."
         confirmLabel="Delete Event"
         tone="danger-solid"
         loading={deleting}
@@ -277,7 +277,7 @@ function EventCard({ event, onRequestDelete }: { event: EventSummary; onRequestD
             <FileSpreadsheet className="h-3.5 w-3.5" strokeWidth={2} />
           </LinkButton>
         </Tooltip>
-        <Tooltip content="Remote — one-handed mobile control">
+        <Tooltip content="Remote: one-handed mobile control">
           <LinkButton href={`/e/${event.id}/remote`} variant="secondary" size="sm" square aria-label="Remote">
             <Smartphone className="h-3.5 w-3.5" strokeWidth={2} />
           </LinkButton>

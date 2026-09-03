@@ -97,7 +97,7 @@ export function ConnectionBadge({
           role="status"
         >
           <RefreshCw className="h-4 w-4" strokeWidth={2.5} />
-          Stale — last update {formatRelativeAge(ageMs)}
+          Stale: last update {formatRelativeAge(ageMs)}
         </div>
       );
     }
@@ -136,7 +136,7 @@ export function ConnectionBadge({
       title={
         status === "connected"
           ? "Live-synced with the server"
-          : "Lost the live connection to the backend — actions may not be reaching the server, and this screen may be showing stale data"
+          : "Lost the live connection to the backend. Actions may not be reaching the server, and this screen may be showing stale data."
       }
     >
       {status === "connected" && <Wifi className="h-3.5 w-3.5" strokeWidth={2} />}

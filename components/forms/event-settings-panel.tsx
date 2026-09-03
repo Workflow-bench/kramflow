@@ -161,7 +161,7 @@ export function EventSettingsPanel({
     } else if (data.emailSent) {
       toast.success(`Invite emailed to ${email}`);
     } else {
-      toast.success(`Invite created for ${email} — copy the link below to send it manually.`);
+      toast.success(`Invite created for ${email}. Copy the link below to send it manually.`);
     }
     const list = await fetch(`/api/events/${eventId}/collaborators`).then((r) => r.json());
     if (list?.ok) setCollaborators(list.collaborators ?? []);
@@ -323,7 +323,7 @@ export function EventSettingsPanel({
         <div>
           <SectionLabel>Event Details</SectionLabel>
           <p className="text-console-meta text-muted-2 mt-1">
-            Name, date, venue, and timezone — shown across the Dashboard, Console, and every display.
+            Name, date, venue, and timezone. Shown across the Dashboard, Console, and every display.
           </p>
         </div>
         {!isOwner && (
@@ -373,7 +373,7 @@ export function EventSettingsPanel({
         <div>
           <SectionLabel>Auditoriums</SectionLabel>
           <p className="text-console-meta text-muted-2 mt-1">
-            Drives the Add Item form&rsquo;s Production Requirements — an item&rsquo;s auditorium determines which of those fields apply.
+            Drives the Add Item form&rsquo;s Production Requirements. An item&rsquo;s auditorium determines which of those fields apply.
           </p>
         </div>
 
@@ -386,7 +386,7 @@ export function EventSettingsPanel({
             ))}
           </ul>
         ) : (
-          <EmptyState title="No auditoriums yet" body="Add one below — it becomes selectable from the Add Item form." className="max-w-lg" />
+          <EmptyState title="No auditoriums yet" body="Add one below. It becomes selectable from the Add Item form." className="max-w-lg" />
         )}
 
         {canAddAuditorium ? (
@@ -426,7 +426,7 @@ export function EventSettingsPanel({
         {collaboratorsError ? (
           <EmptyState
             title="Couldn't load collaborators"
-            body={`This isn't the same as having none — the list failed to load (${collaboratorsError}). Try reloading the page.`}
+            body={`This isn't the same as having none. The list failed to load (${collaboratorsError}). Try reloading the page.`}
           />
         ) : collaborators.length > 0 ? (
           <ul className="flex flex-col gap-2">
@@ -540,7 +540,7 @@ export function EventSettingsPanel({
           <div>
             <SectionLabel className="text-status-red">Danger Zone</SectionLabel>
             <p className="text-console-meta text-muted-2 mt-1">
-              Permanently destroys this event — every session, item, share link, collaborator, and display state.
+              Permanently destroys this event: every session, item, share link, collaborator, and display state.
             </p>
           </div>
           <div>
@@ -555,7 +555,7 @@ export function EventSettingsPanel({
       <ConfirmDialog
         open={deleteEventOpen}
         title={`Delete "${initialDetails.name || name}"?`}
-        description="Every session, item, share link, collaborator, and display state for this event — permanently destroyed. This can't be undone."
+        description="Every session, item, share link, collaborator, and display state for this event, permanently destroyed. This can't be undone."
         confirmLabel="Delete Event"
         tone="danger-solid"
         loading={deletingEvent}
