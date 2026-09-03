@@ -155,7 +155,16 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
           />
         </>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
+          {/* auto-fit, not fixed breakpoint column counts — a fixed column
+              count stretches to fill every track regardless of how many
+              events actually exist, so 1-2 events left ~75% of a wide
+              desktop viewport as dead space (2026-09 convergence sprint,
+              Workstream 7: measured directly). auto-fit collapses tracks
+              with no content to 0 width and grows the real cards to fill
+              what's freed (up to minmax's cap) instead of leaving them
+              narrow in a sea of empty gutter — one rule that self-adjusts
+              for any event count, not per-breakpoint tuning. */}
           {/* The "create" affordance is a peer of the events it creates, not
               a separate toolbar above them (uniform connectedness) — same
               first-grid-tile convention as Linear's/Notion's "new" tiles,
