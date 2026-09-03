@@ -32,14 +32,18 @@ import { cn } from "@/lib/utils";
  */
 export default function GreenRoomDisplayClient({ token, eventId }: { token?: string; eventId?: string }) {
   return (
-    <DisplayEngineProvider token={token} eventId={eventId}>
+    <DisplayEngineProvider token={token} eventId={eventId} displayType="green-room">
       <GreenRoomDisplayInner token={token} eventId={eventId} />
     </DisplayEngineProvider>
   );
 }
 
 function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({
+    token,
+    eventId,
+    displayType: "green-room",
+  });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine } = useDisplayEngine();
 

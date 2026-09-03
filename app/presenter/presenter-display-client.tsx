@@ -71,14 +71,18 @@ function holdPayload(preset: (typeof HOLD_PRESETS)[number]) {
 
 export default function PresenterDisplayClient({ token, eventId }: { token?: string; eventId?: string }) {
   return (
-    <DisplayEngineProvider token={token} eventId={eventId}>
+    <DisplayEngineProvider token={token} eventId={eventId} displayType="presenter">
       <PresenterDisplayInner token={token} eventId={eventId} />
     </DisplayEngineProvider>
   );
 }
 
 function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({
+    token,
+    eventId,
+    displayType: "presenter",
+  });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine, setTimerMode, setTimerSource, pauseTimer, resumeTimer, resetTimer, adjustTimer, activateHold, deactivateHold } =
     useDisplayEngine();

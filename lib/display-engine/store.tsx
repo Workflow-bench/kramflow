@@ -281,20 +281,65 @@ function getInstance(identity: DisplayEngineIdentity): EngineInstance {
 // set per instance (matching how the four display pages and the operator
 // pages each resolve their own identity), and every mutating route
 // resolves the real event_id server-side from this rather than trusting
-// anything else in the request.
+// anything else in the request. displayType rides along on every call
+// (harmless for registry/broadcast/speaker-ready routes, which don't look
+// at it) rather than needing a second "with type" variant — only the
+// timer/hold routes actually require it, to resolve which
+// display_type_state row a mutation applies to (2026-09 blocker
+// remediation).
 function identityBody(identity: DisplayEngineIdentity): Record<string, string> {
-  if (identity.token) return { token: identity.token };
-  if (identity.eventId) return { eventId: identity.eventId };
+  const type: Record<string, string> = identity.displayType ? { displayType: identity.displayType } : {};
+  if (identity.token) return { token: identity.token, ...type };
+  if (identity.eventId) return { eventId: identity.eventId, ...type };
   return {};
 }
 
 function identityQuery(identity: DisplayEngineIdentity): string {
-  return identity.eventId ? `?eventId=${encodeURIComponent(identity.eventId)}` : "";
+  if (!identity.eventId) return "";
+  const params = new URLSearchParams({ eventId: identity.eventId });
+  if (identity.displayType) params.set("displayType", identity.displayType);
+  return `?${params.toString()}`;
+}
+
+// Hold/Timer moved out of display_state into a new per-(event, display
+// type) table (2026-09 blocker remediation — see
+// supabase/migrations/0009_display_type_state.sql for the full why: the
+// old one-row-per-*event* shape meant Presenter's own local timer/hold
+// adjustments — the only display type that ever calls the mutating
+// functions — silently bled into AV's and Green Room's own shown
+// countdown and Hold overlay, reachable by any event-scoped share-link
+// token regardless of which screen it was actually minted for). Only
+// fetched when this instance declares a displayType (the four real
+// display clients always do; Console instances never call
+// engine.hold/engine.timer and correctly never fetch this at all).
+async function fetchDisplayTypeStateRow(
+  eventId: string,
+  displayType: Exclude<DisplayType, "custom"> | undefined
+): Promise<{ hold: HoldState; timer: TimerState } | null> {
+  if (!displayType) return null;
+  const client = supabaseBrowser();
+  const { data, error } = await client
+    .from("display_type_state")
+    .select("hold, timer")
+    .eq("event_id", eventId)
+    .eq("display_type", displayType)
+    .maybeSingle();
+  if (error) {
+    console.error("[display-engine] fetch display_type_state failed:", error);
+    return null;
+  }
+  // No row yet is a real, expected case (an event created before this
+  // migration's backfill ran, or the display_type_state row genuinely
+  // hasn't been created for this event/type combination) — falls back to
+  // the same defaults createInitialEngineState() already uses, rather
+  // than leaving the previous slice's stale value in place.
+  if (!data) return { hold: createInitialEngineState().hold, timer: createInitialEngineState().timer };
+  return data as { hold: HoldState; timer: TimerState };
 }
 
 async function fetchRemoteSliceViaSupabase(inst: EngineInstance, eventId: string) {
   const client = supabaseBrowser();
-  const [stateRes, registryRes, broadcastsRes] = await Promise.all([
+  const [stateRes, registryRes, broadcastsRes, typeStateRow] = await Promise.all([
     client.from("display_state").select("*").eq("event_id", eventId).single(),
     client.from("display_registry").select("*").eq("event_id", eventId),
     client
@@ -302,6 +347,7 @@ async function fetchRemoteSliceViaSupabase(inst: EngineInstance, eventId: string
       .select("*")
       .eq("event_id", eventId)
       .order("created_at", { ascending: false }),
+    fetchDisplayTypeStateRow(eventId, inst.identity.displayType),
   ]);
 
   // All three are checked, not just display_state — an error on the
@@ -313,15 +359,19 @@ async function fetchRemoteSliceViaSupabase(inst: EngineInstance, eventId: string
     console.error("[display-engine] fetch display-engine slice failed:", failed.error);
     return;
   }
-  applyRemoteRows(inst, stateRes.data as DisplayStateRow, (registryRes.data ?? []) as RegistryRow[], (broadcastsRes.data ?? []) as BroadcastRow[]);
+  const stateRow = stateRes.data as DisplayStateRow;
+  const merged: DisplayStateRow = typeStateRow
+    ? { ...stateRow, hold: typeStateRow.hold, timer: typeStateRow.timer }
+    : stateRow;
+  applyRemoteRows(inst, merged, (registryRes.data ?? []) as RegistryRow[], (broadcastsRes.data ?? []) as BroadcastRow[]);
 }
 
 // Scoped counterparts to fetchRemoteSliceViaSupabase, one per table, for
-// ensureRemoteConnected's three separate postgres_changes listeners below.
-// A Realtime change on any one of display_state/display_registry/
-// display_broadcasts used to re-fetch all three unconditionally — with
+// ensureRemoteConnected's postgres_changes listeners below. A Realtime
+// change on any one of display_state/display_type_state/display_registry/
+// display_broadcasts used to re-fetch everything unconditionally — with
 // every connected display's 15s heartbeat write being itself a
-// display_registry change, that meant O(displays) heartbeats x 3 queries
+// display_registry change, that meant O(displays) heartbeats x N queries
 // x every connected client every ~15s, mostly refreshing tables that
 // hadn't actually changed. Each of these only re-fetches the one table
 // its own listener fired for, merging into the existing remoteSlice.
@@ -332,8 +382,18 @@ async function fetchDisplayStateSlice(inst: EngineInstance, eventId: string) {
     console.error("[display-engine] fetch display_state failed:", error);
     return;
   }
+  // Only speaker_ready comes from display_state now — hold/timer live in
+  // display_type_state, refreshed by fetchDisplayTypeStateSlice below.
   const stateRow = data as DisplayStateRow;
-  inst.remoteSlice = { ...inst.remoteSlice, timer: stateRow.timer, hold: stateRow.hold, speakerReady: stateRow.speaker_ready };
+  inst.remoteSlice = { ...inst.remoteSlice, speakerReady: stateRow.speaker_ready };
+  rebuild(inst);
+  runSchedulerCheck(inst);
+}
+
+async function fetchDisplayTypeStateSlice(inst: EngineInstance, eventId: string) {
+  const row = await fetchDisplayTypeStateRow(eventId, inst.identity.displayType);
+  if (!row) return;
+  inst.remoteSlice = { ...inst.remoteSlice, timer: row.timer, hold: row.hold };
   rebuild(inst);
   runSchedulerCheck(inst);
 }
@@ -370,9 +430,15 @@ async function fetchBroadcastsSlice(inst: EngineInstance, eventId: string) {
 
 async function fetchRemoteSliceViaPoll(inst: EngineInstance) {
   try {
-    const qs = inst.identity.token
+    const base = inst.identity.token
       ? `token=${encodeURIComponent(inst.identity.token)}`
       : `eventId=${encodeURIComponent(inst.identity.eventId!)}`;
+    // displayType tells the server which display_type_state row to merge
+    // into the response's hold/timer fields — every real display client
+    // (anonymous token or an operator's own authenticated preview) sets
+    // it; a bare identity with neither is never actually reached here
+    // (Console instances always take the Realtime branch below instead).
+    const qs = inst.identity.displayType ? `${base}&displayType=${inst.identity.displayType}` : base;
     // Shared with lib/use-display-view.ts, which polls this exact same
     // endpoint on the same identity — every public display page renders
     // both hooks together, so this coalesces what would otherwise be two
@@ -411,7 +477,7 @@ function ensureRemoteConnected(inst: EngineInstance) {
 
   if (inst.identity.eventId) {
     const eventId = inst.identity.eventId;
-    supabaseBrowser()
+    const channel = supabaseBrowser()
       .channel(`display-engine-sync:${eventId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "display_state", filter: `event_id=eq.${eventId}` }, () =>
         fetchDisplayStateSlice(inst, eventId)
@@ -421,8 +487,19 @@ function ensureRemoteConnected(inst: EngineInstance) {
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "display_broadcasts", filter: `event_id=eq.${eventId}` }, () =>
         fetchBroadcastsSlice(inst, eventId)
-      )
-      .subscribe();
+      );
+    // Only subscribed when this instance actually has a display type —
+    // Console instances (Operator, Displays, Broadcast Center) never read
+    // engine.hold/engine.timer, so there's nothing for them to react to
+    // here (and no display_type row to filter to in the first place).
+    if (inst.identity.displayType) {
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "display_type_state", filter: `event_id=eq.${eventId}` },
+        () => fetchDisplayTypeStateSlice(inst, eventId)
+      );
+    }
+    channel.subscribe();
   } else if (inst.identity.token) {
     const poll = () => fetchRemoteSliceViaPoll(inst);
     poll();

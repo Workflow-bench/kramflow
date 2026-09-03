@@ -27,14 +27,18 @@ import { AlertBanner } from "@/components/ui/alert-banner";
  */
 export default function AvDisplayClient({ token, eventId }: { token?: string; eventId?: string }) {
   return (
-    <DisplayEngineProvider token={token} eventId={eventId}>
+    <DisplayEngineProvider token={token} eventId={eventId} displayType="av">
       <AvDisplayInner token={token} eventId={eventId} />
     </DisplayEngineProvider>
   );
 }
 
 function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({
+    token,
+    eventId,
+    displayType: "av",
+  });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine } = useDisplayEngine();
 

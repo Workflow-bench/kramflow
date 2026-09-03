@@ -86,8 +86,8 @@ export interface DisplayViewResult {
   lastUpdatedAt: number | null;
 }
 
-export function useDisplayView(params: { token?: string; eventId?: string }): DisplayViewResult {
-  const { token, eventId: requestedEventId } = params;
+export function useDisplayView(params: { token?: string; eventId?: string; displayType?: string }): DisplayViewResult {
+  const { token, eventId: requestedEventId, displayType } = params;
   const [sessions, setSessions] = useState<Session[]>([]);
   const [liveState, setLiveState] = useState<LiveState>(initialLiveState);
   const [resolvedEventId, setResolvedEventId] = useState<string | null>(null);
@@ -114,7 +114,16 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
 
     async function poll() {
       try {
-        const qs = token ? `token=${encodeURIComponent(token)}` : `eventId=${encodeURIComponent(requestedEventId!)}`;
+        const base = token ? `token=${encodeURIComponent(token)}` : `eventId=${encodeURIComponent(requestedEventId!)}`;
+        // This hook doesn't read displayState itself, so displayType makes
+        // no difference to what it returns — but lib/display-engine/
+        // store.tsx's own poll of this identical endpoint *does* need it
+        // (2026-09 blocker remediation), and lib/shared-display-view-poll.ts
+        // coalesces concurrent polls by exact query-string match. Passing
+        // it through here too keeps both hooks' query strings identical so
+        // the two keep sharing one real request per tick instead of
+        // silently doubling to two.
+        const qs = displayType ? `${base}&displayType=${encodeURIComponent(displayType)}` : base;
         const data = (await fetchDisplayViewPolled(qs)) as {
           ok: boolean;
           reason?: string;
@@ -160,7 +169,7 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
       cancelled = true;
       clearInterval(id);
     };
-  }, [token, requestedEventId]);
+  }, [token, requestedEventId, displayType]);
 
   return {
     sessions,

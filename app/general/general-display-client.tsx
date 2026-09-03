@@ -41,7 +41,7 @@ function parseTimeToday(label: string, nowMs: number): number | null {
 }
 export default function GeneralDisplayClient({ token, eventId }: { token?: string; eventId?: string }) {
   return (
-    <DisplayEngineProvider token={token} eventId={eventId}>
+    <DisplayEngineProvider token={token} eventId={eventId} displayType="general">
       <GeneralDisplayInner token={token} eventId={eventId} />
     </DisplayEngineProvider>
   );
@@ -51,6 +51,7 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
   const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName, eventVenue } = useDisplayView({
     token,
     eventId,
+    displayType: "general",
   });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine } = useDisplayEngine();
