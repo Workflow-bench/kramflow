@@ -152,7 +152,7 @@ export default function RemotePage() {
 
   if (!session) {
     return (
-      <main className="h-screen w-screen flex items-center justify-center bg-background px-6 text-center">
+      <main className="h-screen w-full max-w-md mx-auto flex items-center justify-center bg-background px-6 text-center">
         <p className="text-body text-muted">
           {sessions.length === 0 ? "No sessions yet — add one from the Operator dashboard." : "Select a session to get started."}
         </p>
@@ -161,7 +161,16 @@ export default function RemotePage() {
   }
 
   return (
-    <main className="h-screen w-screen overflow-hidden bg-background flex flex-col">
+    // w-full max-w-md mx-auto, not w-screen — Remote's giant one-handed
+    // touch targets are correct at the phone widths this page is actually
+    // designed for (a second, dedicated device — see docs/DESIGN.md), but
+    // stretched edge-to-edge at a desktop viewport they read as an
+    // unscaled phone UI rather than a considered surface (2026-09
+    // convergence sprint, Workstream 7). body already carries the same
+    // bg-background token, so capping main's width leaves a seamless,
+    // identically-colored margin outside it rather than needing a second
+    // wrapper — this page just never intentionally used the extra space.
+    <main className="h-screen w-full max-w-md mx-auto overflow-hidden bg-background flex flex-col">
       {/* Compact header — session context, not a full navigation bar */}
       <div className="shrink-0 px-6 pt-6 pb-3">
         <div className="flex items-center justify-between gap-3">
