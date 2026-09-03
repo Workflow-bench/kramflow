@@ -54,9 +54,19 @@ export function EventNav() {
             size="sm"
             className="rounded-full"
             aria-current={active === tab.id ? "page" : undefined}
+            // The visible label collapses to icon-only below sm: (hidden,
+            // not just visually shrunk), and CSS display:none content is
+            // excluded from accessible-name computation — confirmed live
+            // this exact link resolved to zero accessible name below 640px
+            // before this existed (2026-09 convergence sprint, Workstream
+            // 6). aria-label doesn't depend on what's visible, so it holds
+            // the name at every width instead of only above sm:.
+            aria-label={tab.label}
           >
             <tab.icon className="h-3.5 w-3.5" strokeWidth={2} />
-            <span className="hidden sm:inline">{tab.label}</span>
+            <span className="hidden sm:inline" aria-hidden="true">
+              {tab.label}
+            </span>
           </LinkButton>
         ))}
       </div>

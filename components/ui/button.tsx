@@ -27,8 +27,29 @@ function buttonClasses({
     "transition-[background-color,border-color,color,transform] duration-[110ms] ease-out active:scale-[0.98]",
     disabled && "opacity-40 cursor-not-allowed active:scale-100 pointer-events-none",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-    size === "sm" && (square ? "h-8 w-8 rounded-control" : "h-8 px-3 text-console-meta rounded-control"),
-    size === "md" && (square ? "h-9 w-9 rounded-control" : "h-9 px-3.5 text-console-sm rounded-control"),
+    // min-h/min-w, not a size bump — a real button on a touchscreen (not
+    // just a narrow viewport: [pointer:coarse] targets the input method,
+    // so a touch-capable laptop with a mouse attached is unaffected, and a
+    // narrow-viewport desktop browser window never triggers this either)
+    // grows to a genuine ~44px minimum instead of an invisible hit-area
+    // trick layered over the same small box. min-height/min-width only
+    // raise the floor — they never shrink a size that's already bigger
+    // (lg/xl stay untouched), and height-only growth can't cause the
+    // horizontal-overlap risk a same-direction hit-area expansion would
+    // for tightly-packed groups like EventNav's four nav pills (only
+    // width would risk that, and every sm/md button already clears 44px
+    // of width once its icon+label/padding are accounted for, except the
+    // icon-only `square` case, which is exactly why square gets the
+    // min-width too). 2026-09 convergence sprint, Workstream 6 — measured
+    // real controls at 32-38px tall before this existed.
+    size === "sm" &&
+      (square
+        ? "h-8 w-8 rounded-control [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+        : "h-8 px-3 text-console-meta rounded-control [@media(pointer:coarse)]:min-h-11"),
+    size === "md" &&
+      (square
+        ? "h-9 w-9 rounded-control [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+        : "h-9 px-3.5 text-console-sm rounded-control [@media(pointer:coarse)]:min-h-11"),
     size === "lg" && (square ? "h-14 w-14 rounded-card" : "h-14 px-6 text-lg rounded-card"),
     size === "xl" && (square ? "h-20 w-20 rounded-card" : "h-20 px-8 text-xl rounded-card"),
     variant === "primary" && "bg-primary text-background hover:bg-white",
