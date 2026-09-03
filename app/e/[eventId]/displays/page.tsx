@@ -19,7 +19,6 @@ import { type ConnectionBadgeStatus } from "@/components/ui/connection-badge";
 import { SectionLabel } from "@/components/ui/section-label";
 import { MaybeTooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ProfileEditor } from "@/components/display-engine/profile-editor";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { formatRelativeAge } from "@/lib/utils";
@@ -304,10 +303,8 @@ export default function DisplayManagerPage() {
                   now={now}
                   expanded={expandedId === display.id}
                   onToggleExpand={() => setExpandedId(expandedId === display.id ? null : display.id)}
-                  profiles={Object.values(engine.profiles)}
                   onRename={(name) => renameDisplay(display.id, name)}
                   onRoom={(room) => assignDisplay(display.id, { room })}
-                  onProfile={(profileId) => assignDisplay(display.id, { profileId })}
                   onRequestTypeChange={(type) =>
                     confirmAction.request({ kind: "reassign-type", id: display.id, name: display.name, type })
                   }
@@ -325,8 +322,6 @@ export default function DisplayManagerPage() {
             })}
           </div>
         )}
-
-        <ProfileEditor />
       </div>
 
       {previewing && (
@@ -413,10 +408,8 @@ function DisplayRow({
   now,
   expanded,
   onToggleExpand,
-  profiles,
   onRename,
   onRoom,
-  onProfile,
   onRequestTypeChange,
   onPreview,
   onScreenshot,
@@ -430,10 +423,8 @@ function DisplayRow({
   now: number;
   expanded: boolean;
   onToggleExpand: () => void;
-  profiles: { id: string; name: string }[];
   onRename: (name: string) => void;
   onRoom: (room: string | null) => void;
-  onProfile: (profileId: string | null) => void;
   onRequestTypeChange: (type: DisplayType) => void;
   onPreview: () => void;
   onScreenshot: () => void;
@@ -543,14 +534,19 @@ function DisplayRow({
                 className="w-40"
                 aria-label={`Room for ${display.name}`}
               />
-              <Select
-                value={display.profileId ?? ""}
-                onChange={(v) => onProfile(v || null)}
-                options={[{ value: "", label: "No profile" }, ...profiles.map((p) => ({ value: p.id, label: p.name }))]}
-                searchable={false}
-                className="w-auto min-w-[9rem]"
-                aria-label={`Profile for ${display.name}`}
-              />
+              {/* Display Profiles (font scale, layout, widget visibility,
+                  color overrides) removed from this surface — same "false
+                  confidence" failure mode as the offline-disabled commands
+                  below, but worse: profile *content* lives only in the
+                  editing browser's localStorage (lib/display-engine/store.tsx),
+                  never reaches app/api/display-view/route.ts's payload, and
+                  none of the four real display clients (Presenter/AV/Green
+                  Room/General) read a profile field at all — so assigning one
+                  here would look like it configures a display's real output
+                  and would silently do nothing. display.profileId itself
+                  (the assignment) is still persisted to display_registry —
+                  intact for whenever the read path is actually built. See
+                  2026-09 blocker-remediation pass, Display Profiles P2. */}
             </div>
           </div>
 
