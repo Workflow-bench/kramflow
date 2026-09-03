@@ -68,6 +68,15 @@ interface EventStoreInstance {
   hydrating: boolean;
   listeners: Set<() => void>;
   connectionListeners: Set<() => void>;
+  /** The HTTP status of the most recent sendAction() call, or null if it
+   *  hasn't run yet or the fetch itself failed (network error, no status
+   *  to report). Not reactive/rendered directly — a plain last-write field
+   *  a caller reads synchronously right after awaiting the action, via
+   *  getLastActionStatus() below, to pick an honest error message (e.g.
+   *  403 = a stale role, not "something went wrong") without widening
+   *  sendAction's own Promise<boolean> contract, which every existing
+   *  caller already depends on. */
+  lastActionStatus: number | null;
 }
 
 const instances = new Map<string, EventStoreInstance>();
@@ -83,10 +92,19 @@ function getInstance(eventId: string): EventStoreInstance {
       hydrating: false,
       listeners: new Set(),
       connectionListeners: new Set(),
+      lastActionStatus: null,
     };
     instances.set(eventId, inst);
   }
   return inst;
+}
+
+/** Read right after awaiting a sendAction()-backed call (start/next/...)
+ *  when its result was false, to distinguish "the server rejected this
+ *  with a specific reason" (403 — a stale/changed role) from any other
+ *  failure. See EventStoreInstance.lastActionStatus's own comment. */
+export function getLastActionStatus(eventId: string): number | null {
+  return instances.get(eventId)?.lastActionStatus ?? null;
 }
 
 function notify(inst: EventStoreInstance) {
@@ -194,6 +212,7 @@ async function sendAction(eventId: string, body: Record<string, unknown>, attemp
       body: JSON.stringify({ ...body, eventId }),
     });
     if (res.status === 409 && attempt < 2) return sendAction(eventId, body, attempt + 1);
+    getInstance(eventId).lastActionStatus = res.status;
     if (!res.ok) {
       console.error("[store] action failed:", body.action, res.status);
       return false;

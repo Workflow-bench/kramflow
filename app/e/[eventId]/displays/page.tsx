@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, ChevronDown, ChevronUp, Eye, Maximize, Megaphone, Presentation, RotateCw, Send, Trash2, Tv, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEventId } from "@/lib/event-context";
+import { useEventId, useIsOwner } from "@/lib/event-context";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
 import { getDisplayStatus, type DisplayHealth } from "@/lib/display-engine/use-register-display";
 import type { TransportStatus } from "@/lib/display-engine/transport";
@@ -68,8 +68,28 @@ type ConfirmAction =
   | { kind: "reload-all-offline"; ids: string[] }
   | { kind: "remove-all-offline"; ids: string[] };
 
+// P1 permission-truth fix (2026-09) — every mutating fleet action
+// (rename, type/room reassignment, the three diagnose commands, remove
+// single/all-offline) routes through app/api/display-engine/registry/
+// [id]/route.ts's PATCH or DELETE, both requireEventAccess(..., "owner")
+// uniformly — no per-action distinction there. Registering/heartbeating
+// (the display client's own background process, not an operator action)
+// and Preview/Capture Screen (read-only, no mutating call) are the only
+// things on this page that aren't owner-gated.
+const OWNER_ONLY_NOTE = "Only the event owner can manage the display fleet.";
+
+// Gating above should make a 403 unreachable in normal use — a stale role
+// (permission changed while this tab stayed open) or a bypassed disabled
+// control is the only way to still hit one, so say that plainly instead of
+// a generic failure that leaves the operator guessing why a click that
+// looked available just failed.
+function forbiddenAware(res: Response | null | undefined | void, genericMessage: string): string {
+  return res?.status === 403 ? "You no longer have permission to perform this action." : genericMessage;
+}
+
 export default function DisplayManagerPage() {
   const eventId = useEventId();
+  const isOwner = useIsOwner();
   const { state: engine, renameDisplay, assignDisplay, removeDisplay, sendCommand } = useDisplayEngine();
   const transportStatus = useTransportStatus();
   const toast = useToast();
@@ -137,25 +157,34 @@ export default function DisplayManagerPage() {
     // confirmed live that the identical race lets a state-only guard through
     // (5 rapid clicks -> 5 live broadcasts on Broadcast Center's Send Now).
     if (!action || confirmingRef.current === action) return;
+    // Visual gating (disabled + tooltip on every owner-only control below)
+    // is the primary fix — this is the defense-in-depth backstop, same
+    // pattern as Remote's run(), so a stale role or a bypassed control
+    // never depends on a round trip to say something true.
+    if (!isOwner) {
+      toast.error(OWNER_ONLY_NOTE);
+      confirmAction.cancel();
+      return;
+    }
     confirmingRef.current = action;
     setConfirming(true);
     try {
       switch (action.kind) {
         case "reassign-type": {
           const res = await assignDisplay(action.id, { type: action.type });
-          if (!res || !res.ok) toast.error(`Couldn't change ${action.name}'s type — try again`);
+          if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't change ${action.name}'s type — try again`));
           break;
         }
         case "reload": {
           const res = await sendCommand(action.id, { type: "reload", issuedAt: new Date().toISOString() });
           if (res && res.ok) toast.success(`Reload sent to ${action.name}`);
-          else toast.error(`Couldn't reload ${action.name} — try again`);
+          else toast.error(forbiddenAware(res, `Couldn't reload ${action.name} — try again`));
           break;
         }
         case "remove": {
           const res = await removeDisplay(action.id);
           if (res && res.ok) toast.success(`${action.name} removed`);
-          else toast.error(`Couldn't remove ${action.name} — try again`);
+          else toast.error(forbiddenAware(res, `Couldn't remove ${action.name} — try again`));
           break;
         }
         case "reload-all-offline": {
@@ -165,7 +194,7 @@ export default function DisplayManagerPage() {
           const failed = results.filter((res) => !res || !res.ok).length;
           const sent = action.ids.length - failed;
           if (sent > 0) toast.success(`Reload queued for ${sent} offline display${sent === 1 ? "" : "s"} — it'll apply once each reconnects`);
-          if (failed > 0) toast.error(`Couldn't queue reload for ${failed} of them — try again`);
+          if (failed > 0) toast.error(forbiddenAware(results.find((res) => !res || !res.ok), `Couldn't queue reload for ${failed} of them — try again`));
           break;
         }
         case "remove-all-offline": {
@@ -173,7 +202,7 @@ export default function DisplayManagerPage() {
           const failed = results.filter((res) => !res || !res.ok).length;
           const removed = action.ids.length - failed;
           if (removed > 0) toast.success(`Removed ${removed} offline display${removed === 1 ? "" : "s"}`);
-          if (failed > 0) toast.error(`Couldn't remove ${failed} of them — try again`);
+          if (failed > 0) toast.error(forbiddenAware(results.find((res) => !res || !res.ok), `Couldn't remove ${failed} of them — try again`));
           break;
         }
       }
@@ -243,22 +272,28 @@ export default function DisplayManagerPage() {
               finding: destructive cleanup outweighing recovery). */}
           {offlineDisplays.length > 0 && (
             <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => confirmAction.request({ kind: "reload-all-offline", ids: offlineDisplays.map((d) => d.id) })}
-              >
-                <RotateCw className="h-3.5 w-3.5" strokeWidth={2} />
-                Reload offline ({offlineDisplays.length})
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => confirmAction.request({ kind: "remove-all-offline", ids: offlineDisplays.map((d) => d.id) })}
-              >
-                <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                Remove all offline
-              </Button>
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!isOwner}
+                  onClick={() => confirmAction.request({ kind: "reload-all-offline", ids: offlineDisplays.map((d) => d.id) })}
+                >
+                  <RotateCw className="h-3.5 w-3.5" strokeWidth={2} />
+                  Reload offline ({offlineDisplays.length})
+                </Button>
+              </MaybeTooltip>
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!isOwner}
+                  onClick={() => confirmAction.request({ kind: "remove-all-offline", ids: offlineDisplays.map((d) => d.id) })}
+                >
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                  Remove all offline
+                </Button>
+              </MaybeTooltip>
             </div>
           )}
         </div>
@@ -301,10 +336,17 @@ export default function DisplayManagerPage() {
                   display={display}
                   status={status}
                   now={now}
+                  isOwner={isOwner}
                   expanded={expandedId === display.id}
                   onToggleExpand={() => setExpandedId(expandedId === display.id ? null : display.id)}
-                  onRename={(name) => renameDisplay(display.id, name)}
-                  onRoom={(room) => assignDisplay(display.id, { room })}
+                  onRename={async (name) => {
+                    const res = await renameDisplay(display.id, name);
+                    if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't rename ${display.name} — try again`));
+                  }}
+                  onRoom={async (room) => {
+                    const res = await assignDisplay(display.id, { room });
+                    if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't update ${display.name}'s room — try again`));
+                  }}
                   onRequestTypeChange={(type) =>
                     confirmAction.request({ kind: "reassign-type", id: display.id, name: display.name, type })
                   }
@@ -312,7 +354,7 @@ export default function DisplayManagerPage() {
                   onScreenshot={() => void takeScreenshot(display)}
                   onForceFullscreen={async () => {
                     const res = await sendCommand(display.id, { type: "force-fullscreen", issuedAt: new Date().toISOString() });
-                    if (!res || !res.ok) toast.error(`Couldn't force fullscreen on ${display.name} — try again`);
+                    if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't force fullscreen on ${display.name} — try again`));
                   }}
                   onOpenMessage={() => setMessagingId(display.id)}
                   onRequestReload={() => confirmAction.request({ kind: "reload", id: display.id, name: display.name })}
@@ -356,7 +398,7 @@ export default function DisplayManagerPage() {
           if (!id) return;
           const res = await sendCommand(id, { type: "test-message", text, issuedAt: new Date().toISOString() });
           if (res && res.ok) toast.success("Test message sent");
-          else toast.error("Couldn't send the test message — try again");
+          else toast.error(forbiddenAware(res, "Couldn't send the test message — try again"));
         }}
       />
 
@@ -406,6 +448,7 @@ function DisplayRow({
   display,
   status,
   now,
+  isOwner,
   expanded,
   onToggleExpand,
   onRename,
@@ -421,6 +464,7 @@ function DisplayRow({
   display: DisplayInstance;
   status: DisplayHealth;
   now: number;
+  isOwner: boolean;
   expanded: boolean;
   onToggleExpand: () => void;
   onRename: (name: string) => void;
@@ -454,6 +498,13 @@ function DisplayRow({
   }
 
   const disabledReason = "This display is offline — nothing is listening to respond.";
+  // Two independent reasons a diagnose command can be unavailable — not
+  // owner, or the display isn't listening — combined into one disabled
+  // state with whichever reason is actually true (owner takes priority:
+  // it's the more fundamental gate, and remains true regardless of the
+  // display's own online/offline status).
+  const diagnoseDisabled = !isOwner || status === "offline";
+  const diagnoseReason = !isOwner ? OWNER_ONLY_NOTE : disabledReason;
 
   return (
     // Named region, not just a visual card — every action button inside
@@ -506,34 +557,48 @@ function DisplayRow({
         <div className="px-5 pb-5 pt-1 border-t border-line-soft flex flex-col gap-5">
           <div>
             <SectionLabel>Configure</SectionLabel>
+            {/* Rename/type/room all route through app/api/display-engine/
+                registry/[id]/route.ts's PATCH, owner-gated uniformly — see
+                this file's own OWNER_ONLY_NOTE comment. Disabled + tooltip
+                for a non-owner rather than letting the field accept input
+                that will only 403 silently on blur. */}
             <div className="flex flex-wrap items-center gap-3 mt-3">
-              <Input
-                value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
-                onBlur={() => {
-                  if (nameDraft.trim() && nameDraft !== display.name) onRename(nameDraft.trim());
-                }}
-                aria-label="Display name"
-                className="w-48"
-              />
-              <Select
-                value={display.type}
-                onChange={(v) => onRequestTypeChange(v as DisplayType)}
-                options={DISPLAY_TYPES}
-                searchable={false}
-                className="w-auto min-w-[9rem]"
-                aria-label={`Display type for ${display.name}`}
-              />
-              <Input
-                value={roomDraft}
-                onChange={(e) => setRoomDraft(e.target.value)}
-                onBlur={() => {
-                  if (roomDraft !== (display.room ?? "")) onRoom(roomDraft || null);
-                }}
-                placeholder="Room (optional)"
-                className="w-40"
-                aria-label={`Room for ${display.name}`}
-              />
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <Input
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  onBlur={() => {
+                    if (nameDraft.trim() && nameDraft !== display.name) onRename(nameDraft.trim());
+                  }}
+                  disabled={!isOwner}
+                  aria-label="Display name"
+                  className="w-48"
+                />
+              </MaybeTooltip>
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <Select
+                  value={display.type}
+                  onChange={(v) => onRequestTypeChange(v as DisplayType)}
+                  options={DISPLAY_TYPES}
+                  searchable={false}
+                  disabled={!isOwner}
+                  className="w-auto min-w-[9rem]"
+                  aria-label={`Display type for ${display.name}`}
+                />
+              </MaybeTooltip>
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <Input
+                  value={roomDraft}
+                  onChange={(e) => setRoomDraft(e.target.value)}
+                  onBlur={() => {
+                    if (roomDraft !== (display.room ?? "")) onRoom(roomDraft || null);
+                  }}
+                  disabled={!isOwner}
+                  placeholder="Room (optional)"
+                  className="w-40"
+                  aria-label={`Room for ${display.name}`}
+                />
+              </MaybeTooltip>
               {/* Display Profiles (font scale, layout, widget visibility,
                   color overrides) removed from this surface — same "false
                   confidence" failure mode as the offline-disabled commands
@@ -585,24 +650,24 @@ function DisplayRow({
                   Capture Screen
                 </Button>
               </Tooltip>
-              <MaybeTooltip when={status === "offline"} content={disabledReason}>
+              <MaybeTooltip when={diagnoseDisabled} content={diagnoseReason}>
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={onForceFullscreen}
-                  disabled={status === "offline"}
+                  disabled={diagnoseDisabled}
                   aria-label={`Force fullscreen on ${display.name}`}
                 >
                   <Maximize className="h-3.5 w-3.5" strokeWidth={2} />
                   Force Fullscreen
                 </Button>
               </MaybeTooltip>
-              <MaybeTooltip when={status === "offline"} content={disabledReason}>
+              <MaybeTooltip when={diagnoseDisabled} content={diagnoseReason}>
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={onOpenMessage}
-                  disabled={status === "offline"}
+                  disabled={diagnoseDisabled}
                   aria-label={`Send test message to ${display.name}`}
                 >
                   <Send className="h-3.5 w-3.5" strokeWidth={2} />
@@ -613,20 +678,25 @@ function DisplayRow({
                   the one action that's actually *for* an unresponsive
                   display (queues a reload for whenever it comes back /
                   prompts a manual refresh), not a command that needs a
-                  live listener to mean anything. */}
-              <Button variant="secondary" size="sm" onClick={onRequestReload} aria-label={`Reload or reconnect ${display.name}`}>
-                <RotateCw className="h-3.5 w-3.5" strokeWidth={2} />
-                Reload / Reconnect
-              </Button>
+                  live listener to mean anything. Still owner-gated, same
+                  as every other fleet-mutation command. */}
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <Button variant="secondary" size="sm" onClick={onRequestReload} disabled={!isOwner} aria-label={`Reload or reconnect ${display.name}`}>
+                  <RotateCw className="h-3.5 w-3.5" strokeWidth={2} />
+                  Reload / Reconnect
+                </Button>
+              </MaybeTooltip>
             </div>
           </div>
 
           <div className="flex items-center justify-between gap-4 pt-4 border-t border-line-soft">
             <p className="text-console-meta text-muted-2">Registered {new Date(display.registeredAt).toLocaleDateString()}</p>
-            <Button variant="danger" size="sm" onClick={onRequestRemove} aria-label={`Remove ${display.name}`}>
-              <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-              Remove
-            </Button>
+            <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+              <Button variant="danger" size="sm" onClick={onRequestRemove} disabled={!isOwner} aria-label={`Remove ${display.name}`}>
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                Remove
+              </Button>
+            </MaybeTooltip>
           </div>
         </div>
       )}

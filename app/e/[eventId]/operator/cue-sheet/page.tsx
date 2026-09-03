@@ -21,7 +21,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useSessions } from "@/lib/use-sessions";
-import { useEventId, useEventRole } from "@/lib/event-context";
+import { useEventId, useCanEdit, useIsOwner } from "@/lib/event-context";
 import { useConnectionStatus, useEventStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -174,12 +174,15 @@ export default function CueSheetPage() {
   // server-side, in every mutating route's requireEventAccess(..., "editor")
   // check) so a viewer isn't clicking around discovering what's blocked one
   // failed request at a time.
-  const role = useEventRole();
-  const canEdit = role !== "viewer";
+  // 2026-09 permission-truth consolidation — canEdit/canResetSession now
+  // share the same useCanEdit()/useIsOwner() helpers (lib/event-context.tsx)
+  // as Remote/Displays/Broadcast/Operator/Settings, instead of an
+  // independently re-derived role comparison here.
+  const canEdit = useCanEdit();
   // Session-scoped un-start is a live-show control (app/api/live/route.ts
   // gates it "owner", the same tier every sequencing action requires), not
   // a content-edit — canEdit ("editor" or above) isn't sufficient here.
-  const canResetSession = role === "owner";
+  const canResetSession = useIsOwner();
   const { resetSession } = useEventStore();
   const sessions = useSessions();
   const toast = useToast();

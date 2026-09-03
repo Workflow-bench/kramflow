@@ -7,7 +7,7 @@ import { useDisplayEngine } from "@/lib/display-engine/store";
 import { useKeyboardShortcuts } from "@/lib/display-engine/use-keyboard-shortcuts";
 import { useControlLock } from "@/lib/use-control-lock";
 import { useControllerName } from "@/lib/use-controller-name";
-import { useEventRole, useEventId } from "@/lib/event-context";
+import { useEventRole, useEventId, useIsOwner } from "@/lib/event-context";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SectionLabel } from "@/components/ui/section-label";
@@ -57,7 +57,11 @@ export function ControlsPanel({
   // courtesy layer so that shows up as a clear, upfront "you can't do this"
   // instead of a click-and-fail loop.
   const role = useEventRole();
-  const readOnly = role !== "owner";
+  // 2026-09 permission-truth consolidation — same check Remote/Displays/
+  // Broadcast now all share via useIsOwner() (lib/event-context.tsx), so
+  // this and every other "is this owner-only" check stay in sync by
+  // construction instead of independently re-deriving role !== "owner".
+  const readOnly = !useIsOwner();
   const progress = state.progressBySession[state.activeSessionId];
   const currentOrder = progress?.currentOrder ?? null;
   const min = 1;

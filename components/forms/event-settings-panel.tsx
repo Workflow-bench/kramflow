@@ -13,7 +13,7 @@ import { SectionLabel } from "@/components/ui/section-label";
 import { Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useEventRole } from "@/lib/event-context";
+import { useIsOwner, useCanEdit } from "@/lib/event-context";
 import { useToast } from "@/components/ui/toast";
 
 interface Collaborator {
@@ -79,15 +79,16 @@ export function EventSettingsPanel({
   onEventDeleted: () => void;
 }) {
   const toast = useToast();
-  const role = useEventRole();
   // Report finding #26 — the actual boundary is server-side
   // (requireEventAccess in every one of this panel's routes); disabling
   // rather than hiding is a courtesy so an editor/viewer can still see
   // current values instead of wondering why a whole section vanished, and
-  // matches the pattern Broadcast Center and Displays already established
-  // for the same kind of boundary.
-  const isOwner = role === "owner";
-  const canAddAuditorium = role !== "viewer";
+  // matches the pattern Broadcast Center/Remote/Displays share via
+  // useIsOwner()/useCanEdit() (lib/event-context.tsx, 2026-09 permission-
+  // truth consolidation) rather than independently re-deriving role
+  // comparisons here.
+  const isOwner = useIsOwner();
+  const canAddAuditorium = useCanEdit();
 
   const [name, setName] = useState(initialName);
   const [eventDate, setEventDate] = useState("");
