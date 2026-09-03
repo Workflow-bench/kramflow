@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { AlertTriangle, Copy, Send, Star, Trash2, X } from "lucide-react";
-import { useEventRole } from "@/lib/event-context";
+import { useIsOwner } from "@/lib/event-context";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
 import { getDisplayStatus, type DisplayHealth } from "@/lib/display-engine/use-register-display";
@@ -95,7 +95,9 @@ export default function BroadcastCenterPage() {
   // 403. Draft/template save (local-only, no server call) stay available
   // to everyone; only the actions that actually hit that route are gated
   // here, as a courtesy on top of the real server-side boundary.
-  const readOnly = useEventRole() !== "owner";
+  // 2026-09 permission-truth consolidation — same useIsOwner() helper
+  // (lib/event-context.tsx) Remote/Displays/Operator/Settings now share.
+  const readOnly = !useIsOwner();
   const {
     state: engine,
     sendBroadcast,
