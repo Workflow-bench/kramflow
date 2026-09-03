@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { OperationalStatus } from "@/components/ui/operational-status";
 import { type ConnectionBadgeStatus } from "@/components/ui/connection-badge";
 import { SectionLabel } from "@/components/ui/section-label";
-import { MaybeTooltip } from "@/components/ui/tooltip";
+import { MaybeTooltip, Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
@@ -557,25 +557,34 @@ function DisplayRow({
                 Last seen {formatRelativeAge(now - Date.parse(display.lastSeenAt))}
               </span>
             </div>
-            {/* Screenshot/Force Fullscreen/Test Message all send a command
-                to *this specific* connected client — with none listening,
-                they previously looked identical to a working command, just
-                one that silently did nothing (2026-09-01 UI/UX audit
-                finding #12: "false confidence from no-op commands").
-                Disabled with a reason instead of quietly eating the click. */}
+            {/* Force Fullscreen/Test Message send a real command to *this
+                specific* connected client — with none listening, they
+                previously looked identical to a working command, just one
+                that silently did nothing (2026-09-01 UI/UX audit finding
+                #12: "false confidence from no-op commands"). Disabled with
+                a reason instead of quietly eating the click.
+                "Screenshot" (still Capture Screen below) was never actually
+                one of these — it never called sendCommand at all. It opens
+                the *operator's own* browser's native getDisplayMedia()
+                picker (see takeScreenshot() above), so it can only ever
+                capture whatever screen/window/tab the operator selects on
+                their own machine — unrelated to display.name unless the
+                operator happens to be looking at that device's real output
+                right now (e.g. via Preview in another window). Labeling it
+                "Screenshot {display.name}" claimed a remote-capture
+                capability that doesn't exist — same false-confidence shape
+                as the other three, just not fixable by an offline-disable
+                since it was never actually reaching the display in the
+                first place. Relabeled instead, with a tooltip stating
+                plainly what it does, and no longer gated on display
+                status — that status was never actually relevant to it. */}
             <div className="flex flex-wrap items-center gap-2 mt-3">
-              <MaybeTooltip when={status === "offline"} content={disabledReason}>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={onScreenshot}
-                  disabled={status === "offline"}
-                  aria-label={`Screenshot ${display.name}`}
-                >
+              <Tooltip content="Opens your own screen-share picker — not a remote capture of this display">
+                <Button variant="secondary" size="sm" onClick={onScreenshot} aria-label={`Capture your own screen (manual, not remote to ${display.name})`}>
                   <Camera className="h-3.5 w-3.5" strokeWidth={2} />
-                  Screenshot
+                  Capture Screen
                 </Button>
-              </MaybeTooltip>
+              </Tooltip>
               <MaybeTooltip when={status === "offline"} content={disabledReason}>
                 <Button
                   variant="secondary"
