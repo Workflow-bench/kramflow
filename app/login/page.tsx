@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Panel } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 
 // proxy.ts sets `next` to the pathname a signed-out operator was redirected
@@ -96,12 +97,22 @@ function LoginForm() {
             landed here by accident or a stray bookmark — there was
             previously no way back to the public site short of editing the
             URL (2026-09-01 UI/UX audit finding #17). */}
-        <Link href="/" className="text-console-lg text-primary hover:opacity-80 transition-opacity">
+        <Link href="/" className="text-console-md font-semibold text-primary hover:opacity-80 transition-opacity">
           KramFlow
         </Link>
         <p className="text-console-sm text-muted mt-2">Log in to your account</p>
 
-        <form onSubmit={handleSubmit} className="w-full mt-10 flex flex-col gap-4">
+        {/* A Panel surface, not the bare background the rest of this form
+            floated on — every other authenticated route in the product now
+            renders its content inside a bg-card/bordered surface, and a
+            visitor's very first screen looking visually disconnected from
+            the product it leads into was a real, if easy to overlook, gap
+            (2026-09 convergence sprint, Workstream 7). The field anatomy
+            inside (label/Input/aria-describedby wiring) is untouched on
+            purpose — that's a deliberate a11y implementation, not
+            something to "consistency"-migrate into a different pattern. */}
+        <Panel className="w-full mt-8 p-6">
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="email" className="text-console-meta text-muted-2">
               Email
@@ -173,6 +184,7 @@ function LoginForm() {
             Log In
           </Button>
         </form>
+        </Panel>
 
         <p className="text-console-meta text-muted-2 mt-6">
           Don&apos;t have an account?{" "}

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button, LinkButton } from "@/components/ui/button";
+import { Panel } from "@/components/ui/card";
 
 function SignupForm() {
   const searchParams = useSearchParams();
@@ -65,7 +66,7 @@ function SignupForm() {
   if (confirmationSent) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
-        <div className="flex flex-col items-center w-full max-w-sm text-center">
+        <Panel className="w-full max-w-sm text-center p-6">
           <h1 className="text-console-lg text-primary">Check your email</h1>
           <p className="text-console-sm text-muted mt-3">
             We sent a confirmation link to <span className="text-primary">{email}</span>. Click it to activate your
@@ -74,7 +75,7 @@ function SignupForm() {
           <LinkButton href={`/login?next=${encodeURIComponent(next)}`} className="mt-8" variant="secondary" size="lg">
             Back to Log In
           </LinkButton>
-        </div>
+        </Panel>
       </div>
     );
   }
@@ -82,12 +83,15 @@ function SignupForm() {
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
       <div className="flex flex-col items-center w-full max-w-sm">
-        <Link href="/" className="text-console-lg text-primary hover:opacity-80 transition-opacity">
+        <Link href="/" className="text-console-md font-semibold text-primary hover:opacity-80 transition-opacity">
           KramFlow
         </Link>
         <p className="text-console-sm text-muted mt-2">Create your operator account</p>
 
-        <form onSubmit={handleSubmit} className="w-full mt-10 flex flex-col gap-4">
+        {/* Matches app/login/page.tsx's own Panel treatment — see that
+            file's comment for why. Field anatomy untouched. */}
+        <Panel className="w-full mt-8 p-6">
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="name" className="text-console-meta text-muted-2">
               Name
@@ -160,6 +164,7 @@ function SignupForm() {
             Sign Up
           </Button>
         </form>
+        </Panel>
 
         <p className="text-console-meta text-muted-2 mt-6">
           Already have an account?{" "}
