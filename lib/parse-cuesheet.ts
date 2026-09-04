@@ -342,14 +342,14 @@ export function parseCueSheet(buffer: Buffer | ArrayBuffer): ParsedCueSheet {
   const wb = XLSX.read(buffer, { type: "buffer" });
 
   if (wb.SheetNames.length > MAX_SHEETS) {
-    throw new Error(`Too many sheets (${wb.SheetNames.length}) — the limit is ${MAX_SHEETS}.`);
+    throw new Error(`Too many sheets (${wb.SheetNames.length}). The limit is ${MAX_SHEETS}.`);
   }
   wb.SheetNames.forEach((name) => {
     const ref = wb.Sheets[name]["!ref"];
     const range = ref ? XLSX.utils.decode_range(ref) : null;
     const rowCount = range ? range.e.r - range.s.r + 1 : 0;
     if (rowCount > MAX_ROWS_PER_SHEET) {
-      throw new Error(`Sheet "${name}" has too many rows (${rowCount}) — the limit is ${MAX_ROWS_PER_SHEET}.`);
+      throw new Error(`Sheet "${name}" has too many rows (${rowCount}). The limit is ${MAX_ROWS_PER_SHEET}.`);
     }
   });
 

@@ -2,23 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Bell, CheckCircle2, Info, MessageSquare } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useDisplayEngine, targetMatchesDisplay } from "@/lib/display-engine/store";
-import type { BroadcastMessage, BroadcastType, DisplayType } from "@/lib/display-engine/types";
+import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
+import type { BroadcastMessage, DisplayType } from "@/lib/display-engine/types";
 import { cn } from "@/lib/utils";
 
 // Container stays fully opaque (bg-card/95 + blur, the same floating-chrome
 // convention used by the Presenter Display's own control bar) so a banner
 // never lets page content bleed through and collide with its text — only
-// the icon chip carries the type's accent tint.
-const TYPE_STYLES: Record<BroadcastType, { accent: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }> = {
-  info: { accent: "bg-status-blue/15 text-status-blue", icon: Info },
-  reminder: { accent: "bg-status-blue/15 text-status-blue", icon: Bell },
-  warning: { accent: "bg-status-orange/15 text-status-orange", icon: AlertTriangle },
-  success: { accent: "bg-status-green/15 text-status-green", icon: CheckCircle2 },
-  emergency: { accent: "bg-status-red text-white", icon: AlertTriangle },
-  custom: { accent: "bg-white/10 text-primary", icon: MessageSquare },
-};
+// the icon chip carries the type's accent tint. This is the authoritative
+// on-display rendering — Broadcast Center's compose-time preview mirrors
+// this exact styling (via the same BROADCAST_TYPE_META) rather than a
+// separately-invented mockup.
 
 function effectiveExpiry(message: BroadcastMessage): number | null {
   if (message.durationSeconds !== null) return Date.parse(message.createdAt) + message.durationSeconds * 1000;
@@ -91,8 +87,8 @@ export function BroadcastOverlay({
         <div className="fixed bottom-0 left-0 right-0 z-30 flex flex-col gap-3 p-6">
           <AnimatePresence>
             {banners.slice(0, size === "large" ? 1 : 3).map((message) => {
-              const style = TYPE_STYLES[message.type];
-              const Icon = style.icon;
+              const style = BROADCAST_TYPE_META[message.type];
+              const Icon = style.Icon;
               return (
                 <motion.div
                   key={message.id}
@@ -109,7 +105,7 @@ export function BroadcastOverlay({
                     className={cn(
                       "flex items-center justify-center rounded-full shrink-0",
                       size === "large" ? "h-16 w-16" : "h-10 w-10",
-                      style.accent
+                      style.accentClass
                     )}
                   >
                     <Icon className={size === "large" ? "h-9 w-9" : "h-5 w-5"} strokeWidth={2} />

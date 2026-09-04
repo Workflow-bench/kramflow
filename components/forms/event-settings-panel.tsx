@@ -1,18 +1,31 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, X, Copy, RefreshCw, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { useEventRole } from "@/lib/event-context";
+import { Badge } from "@/components/ui/badge";
+import { Panel } from "@/components/ui/card";
+import { FormField } from "@/components/ui/form-field";
+import { SectionLabel } from "@/components/ui/section-label";
+import { Tooltip } from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useIsOwner, useCanEdit } from "@/lib/event-context";
 import { useToast } from "@/components/ui/toast";
 
 interface Collaborator {
-  user_id: string;
+  id: string;
+  user_id: string | null;
   role: "editor" | "viewer";
   invited_email: string;
+  status: "pending" | "accepted";
+  invite_token: string | null;
 }
+
+const PERMISSION_NOTE = "Only the event owner can change this.";
 
 // Real IANA identifiers, generated at runtime rather than hand-maintained —
 // Intl.supportedValuesOf is supported everywhere this app already targets
@@ -43,27 +56,40 @@ function timezoneOptions(): { value: string; label: string }[] {
   ].map((z) => ({ value: z, label: z.replace(/_/g, " ") }));
 }
 
-// Event name + Auditorium management — folded into the same one-click
-// modal-layer anatomy as the Add Item panel and Share Link panel (Phase 2
-// §2 of the UX rethink: "Event settings and Auditorium management don't
-// currently live in a single consistent modal layer... should join this
-// layer rather than getting bespoke pages"). Auditorium management had no
-// UI at all before this — the API route existed, nothing called it except
-// the Add Item form's read-only dropdown.
+// Four real, distinct configuration domains — Event Details, Auditoriums,
+// Collaborators, and (owner-only) the one destructive action the product
+// has at the event level. Each is its own Panel with its own heading and
+// one-line "what this configures" description, not three <section>s of
+// identical weight inside one box shaped like the modal this used to be
+// (2026-09-01 UI/UX audit: "Event, Auditoriums and Collaborators visually
+// undifferentiated"). Auditorium management had no UI at all before an
+// earlier pass — the API route existed, nothing called it except the Add
+// Item form's read-only dropdown.
 export function EventSettingsPanel({
   eventId,
   initialName,
   auditoriums,
   onAuditoriumsChanged,
-  onCancel,
+  onEventDeleted,
 }: {
   eventId: string;
   initialName: string;
   auditoriums: { id: string; name: string }[];
   onAuditoriumsChanged: () => void;
-  onCancel: () => void;
+  onEventDeleted: () => void;
 }) {
   const toast = useToast();
+  // Report finding #26 — the actual boundary is server-side
+  // (requireEventAccess in every one of this panel's routes); disabling
+  // rather than hiding is a courtesy so an editor/viewer can still see
+  // current values instead of wondering why a whole section vanished, and
+  // matches the pattern Broadcast Center/Remote/Displays share via
+  // useIsOwner()/useCanEdit() (lib/event-context.tsx, 2026-09 permission-
+  // truth consolidation) rather than independently re-deriving role
+  // comparisons here.
+  const isOwner = useIsOwner();
+  const canAddAuditorium = useCanEdit();
+
   const [name, setName] = useState(initialName);
   const [eventDate, setEventDate] = useState("");
   const [venue, setVenue] = useState("");
@@ -73,62 +99,115 @@ export function EventSettingsPanel({
   const [newAuditorium, setNewAuditorium] = useState("");
   const [addingAuditorium, setAddingAuditorium] = useState(false);
   const tzOptions = useMemo(() => timezoneOptions(), []);
-  const role = useEventRole();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  // Distinct from "loaded, zero rows" — a fetch failure was previously
+  // swallowed here (a bare .catch(() => {})), which left `collaborators`
+  // at its empty initial value and rendered indistinguishably from a
+  // genuinely empty roster. Confirmed live that this is exactly what's
+  // happening right now: the collaborators GET 500s (a live-database
+  // schema gap — event_collaborators is missing invited_by/
+  // invite_expires_at/accepted_at, columns supabase/schema.sql already
+  // documents and this route's own POST already writes to), so every
+  // event's collaborator list has been silently rendering as "No
+  // collaborators yet" regardless of who's actually on it. This can't be
+  // fixed from application code — it needs the missing columns added to
+  // the live database — so at minimum the UI should say so instead of
+  // lying.
+  const [collaboratorsError, setCollaboratorsError] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
   const [inviting, setInviting] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const removeConfirm = useConfirmDialog<Collaborator>();
+  const [deleteEventOpen, setDeleteEventOpen] = useState(false);
+  const [deletingEvent, setDeletingEvent] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/events/${eventId}/collaborators`)
       .then((res) => res.json())
       .then((data) => {
-        if (!cancelled && data?.ok) setCollaborators(data.collaborators ?? []);
+        if (cancelled) return;
+        if (data?.ok) {
+          setCollaborators(data.collaborators ?? []);
+          setCollaboratorsError(null);
+        } else {
+          setCollaboratorsError(data?.error ?? "Couldn't load collaborators");
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setCollaboratorsError("Couldn't load collaborators");
+      });
     return () => {
       cancelled = true;
     };
   }, [eventId]);
+
+  async function sendInvite(email: string, role: "editor" | "viewer") {
+    const res = await fetch(`/api/events/${eventId}/collaborators`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, role }),
+    });
+    const data: { ok: boolean; error?: string; status?: "accepted" | "pending"; emailSent?: boolean } =
+      await res.json();
+    if (!res.ok || !data.ok) {
+      toast.error(data.error ?? "Couldn't add collaborator");
+      return false;
+    }
+    if (data.status === "accepted") {
+      toast.success(`Added as ${role}`);
+    } else if (data.emailSent) {
+      toast.success(`Invite emailed to ${email}`);
+    } else {
+      toast.success(`Invite created for ${email}. Copy the link below to send it manually.`);
+    }
+    const list = await fetch(`/api/events/${eventId}/collaborators`).then((r) => r.json());
+    if (list?.ok) setCollaborators(list.collaborators ?? []);
+    return true;
+  }
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     if (!inviteEmail.trim()) return;
     setInviting(true);
     try {
-      const res = await fetch(`/api/events/${eventId}/collaborators`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error ?? "Couldn't add collaborator");
-        return;
-      }
-      setInviteEmail("");
-      toast.success(`Added as ${inviteRole}`);
-      const list = await fetch(`/api/events/${eventId}/collaborators`).then((r) => r.json());
-      if (list?.ok) setCollaborators(list.collaborators ?? []);
+      if (await sendInvite(inviteEmail.trim(), inviteRole)) setInviteEmail("");
     } finally {
       setInviting(false);
     }
   }
 
-  async function handleRemoveCollaborator(userId: string) {
-    setRemovingId(userId);
+  async function handleResendInvite(c: Collaborator) {
+    setRemovingId(c.id);
     try {
-      const res = await fetch(`/api/events/${eventId}/collaborators?userId=${encodeURIComponent(userId)}`, {
-        method: "DELETE",
-      });
+      await sendInvite(c.invited_email, c.role);
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  function handleCopyInviteLink(token: string) {
+    const url = `${window.location.origin}/invite/${token}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Invite link copied.");
+  }
+
+  async function handleRemoveCollaborator() {
+    const c = removeConfirm.pending;
+    if (!c) return;
+    setRemovingId(c.id);
+    try {
+      const query = c.status === "pending" ? `inviteId=${encodeURIComponent(c.id)}` : `userId=${encodeURIComponent(c.user_id!)}`;
+      const res = await fetch(`/api/events/${eventId}/collaborators?${query}`, { method: "DELETE" });
       if (!res.ok) {
-        toast.error("Couldn't remove collaborator");
+        toast.error(c.status === "pending" ? "Couldn't revoke invite" : "Couldn't remove collaborator");
         return;
       }
-      setCollaborators((prev) => prev.filter((c) => c.user_id !== userId));
-      toast.success("Removed");
+      setCollaborators((prev) => prev.filter((x) => x.id !== c.id));
+      toast.success(c.status === "pending" ? "Invite revoked" : "Removed");
+      removeConfirm.cancel();
     } finally {
       setRemovingId(null);
     }
@@ -176,7 +255,7 @@ export function EventSettingsPanel({
 
   async function handleSaveDetails(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !detailsDirty) return;
+    if (!name.trim() || !detailsDirty || !isOwner) return;
     setSavingDetails(true);
     try {
       const res = await fetch(`/api/events/${eventId}`, {
@@ -202,7 +281,7 @@ export function EventSettingsPanel({
 
   async function handleAddAuditorium(e: React.FormEvent) {
     e.preventDefault();
-    if (!newAuditorium.trim()) return;
+    if (!newAuditorium.trim() || !canAddAuditorium) return;
     setAddingAuditorium(true);
     try {
       const res = await fetch("/api/auditoriums", {
@@ -222,60 +301,84 @@ export function EventSettingsPanel({
     }
   }
 
+  async function handleDeleteEvent() {
+    setDeletingEvent(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}`, { method: "DELETE" });
+      if (!res.ok) {
+        toast.error("Couldn't delete the event");
+        return;
+      }
+      router.prefetch?.("/dashboard");
+      onEventDeleted();
+    } finally {
+      setDeletingEvent(false);
+      setDeleteEventOpen(false);
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-8">
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <h3 className="text-console-label text-muted-2 shrink-0">Event</h3>
-          <span aria-hidden="true" className="flex-1 h-px bg-line-soft" />
+    <div className="flex flex-col gap-6">
+      <Panel className="p-6 flex flex-col gap-4">
+        <div>
+          <SectionLabel>Event Details</SectionLabel>
+          <p className="text-console-meta text-muted-2 mt-1">
+            Name, date, venue, and timezone. Shown across the Dashboard, Console, and every display.
+          </p>
         </div>
-        <form onSubmit={handleSaveDetails} className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1.5 min-w-0">
-            <span className="text-console-meta text-muted-2">Event name</span>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
+        {!isOwner && (
+          <p className="text-console-meta text-status-orange">{PERMISSION_NOTE}</p>
+        )}
+        <form onSubmit={handleSaveDetails} className="flex flex-col gap-3 max-w-lg">
+          <FormField label="Event name">
+            <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!isOwner} />
+          </FormField>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1.5 min-w-0">
-              <span className="text-console-meta text-muted-2">Date (optional)</span>
-              <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-1.5 min-w-0">
-              <span className="text-console-meta text-muted-2">Timezone (optional)</span>
+            <FormField label="Date (optional)">
+              <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} disabled={!isOwner} />
+            </FormField>
+            <FormField label="Timezone (optional)">
               <Select
                 value={timezone}
                 onChange={setTimezone}
                 options={tzOptions}
                 placeholder="Select timezone…"
                 aria-label="Timezone"
+                disabled={!isOwner}
               />
-            </label>
+            </FormField>
           </div>
 
-          <label className="flex flex-col gap-1.5 min-w-0">
-            <span className="text-console-meta text-muted-2">Venue (optional)</span>
-            <Input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="e.g. Main Ballroom, 123 Main St" />
-          </label>
+          <FormField label="Venue (optional)">
+            <Input
+              value={venue}
+              onChange={(e) => setVenue(e.target.value)}
+              placeholder="e.g. Main Ballroom, 123 Main St"
+              disabled={!isOwner}
+            />
+          </FormField>
 
-          <div>
-            <Button type="submit" variant="secondary" size="sm" loading={savingDetails} disabled={!name.trim() || !detailsDirty}>
-              Save
-            </Button>
-          </div>
+          {isOwner && (
+            <div>
+              <Button type="submit" variant="secondary" size="sm" loading={savingDetails} disabled={!name.trim() || !detailsDirty}>
+                Save
+              </Button>
+            </div>
+          )}
         </form>
-      </section>
+      </Panel>
 
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <h3 className="text-console-label text-muted-2 shrink-0">Auditoriums</h3>
-          <span aria-hidden="true" className="flex-1 h-px bg-line-soft" />
+      <Panel className="p-6 flex flex-col gap-4">
+        <div>
+          <SectionLabel>Auditoriums</SectionLabel>
+          <p className="text-console-meta text-muted-2 mt-1">
+            Drives the Add Item form&rsquo;s Production Requirements. An item&rsquo;s auditorium determines which of those fields apply.
+          </p>
         </div>
-        <p className="text-console-meta text-muted-2">
-          Drives the Add Item form&rsquo;s Production Requirements — an item&rsquo;s auditorium determines which of those fields apply.
-        </p>
 
         {auditoriums.length > 0 ? (
-          <ul className="flex flex-col gap-1.5">
+          <ul className="flex flex-col gap-1.5 max-w-lg">
             {auditoriums.map((a) => (
               <li key={a.id} className="rounded-control bg-raised border border-line px-3 py-2 text-console-sm text-primary">
                 {a.name}
@@ -283,24 +386,27 @@ export function EventSettingsPanel({
             ))}
           </ul>
         ) : (
-          <p className="text-console-sm text-muted-2">No auditoriums yet.</p>
+          <EmptyState title="No auditoriums yet" body="Add one below. It becomes selectable from the Add Item form." className="max-w-lg" />
         )}
 
-        <form onSubmit={handleAddAuditorium} className="flex items-end gap-2">
-          <label className="flex-1 flex flex-col gap-1.5 min-w-0">
-            <span className="text-console-meta text-muted-2">New auditorium</span>
-            <Input
-              value={newAuditorium}
-              onChange={(e) => setNewAuditorium(e.target.value)}
-              placeholder="e.g. Main Hall"
-            />
-          </label>
-          <Button type="submit" variant="secondary" size="sm" loading={addingAuditorium} disabled={!newAuditorium.trim()}>
-            <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-            Add
-          </Button>
-        </form>
-      </section>
+        {canAddAuditorium ? (
+          <form onSubmit={handleAddAuditorium} className="flex items-end gap-2 max-w-lg">
+            <FormField label="New auditorium" className="flex-1">
+              <Input
+                value={newAuditorium}
+                onChange={(e) => setNewAuditorium(e.target.value)}
+                placeholder="e.g. Main Hall"
+              />
+            </FormField>
+            <Button type="submit" variant="secondary" size="sm" loading={addingAuditorium} disabled={!newAuditorium.trim()}>
+              <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+              Add
+            </Button>
+          </form>
+        ) : (
+          <p className="text-console-meta text-status-orange">{PERMISSION_NOTE}</p>
+        )}
+      </Panel>
 
       {/* Report finding #26 — minimum-viable role-based permissions.
           "editor" can edit the cue sheet but not run the live show or touch
@@ -309,84 +415,173 @@ export function EventSettingsPanel({
           collaborators/route.ts's requireEventAccess(..., "owner")), so a
           collaborator sees the list but not the invite form or remove
           buttons. */}
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <h3 className="text-console-label text-muted-2 shrink-0">Collaborators</h3>
-          <span aria-hidden="true" className="flex-1 h-px bg-line-soft" />
+      <Panel className="p-6 flex flex-col gap-4">
+        <div>
+          <SectionLabel>Collaborators</SectionLabel>
+          <p className="text-console-meta text-muted-2 mt-1">
+            Editors can edit the cue sheet but can&rsquo;t run the live show. Viewers can only look.
+          </p>
         </div>
-        <p className="text-console-meta text-muted-2">
-          Editors can edit the cue sheet but can&rsquo;t run the live show. Viewers can only look.
-        </p>
 
-        {collaborators.length > 0 ? (
-          <ul className="flex flex-col gap-1.5">
+        {collaboratorsError ? (
+          <EmptyState
+            title="Couldn't load collaborators"
+            body={`This isn't the same as having none. The list failed to load (${collaboratorsError}). Try reloading the page.`}
+          />
+        ) : collaborators.length > 0 ? (
+          <ul className="flex flex-col gap-2">
             {collaborators.map((c) => (
-              <li
-                key={c.user_id}
-                className="flex items-center justify-between gap-2 rounded-control bg-raised border border-line px-3 py-2 text-console-sm text-primary"
-              >
-                <span className="truncate">{c.invited_email}</span>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-console-meta text-muted-2 uppercase tracking-wide">{c.role}</span>
-                  {role === "owner" && (
-                    <button
-                      type="button"
-                      aria-label={`Remove ${c.invited_email}`}
-                      onClick={() => handleRemoveCollaborator(c.user_id)}
-                      disabled={removingId === c.user_id}
-                      className="text-muted-2 hover:text-status-red cursor-pointer disabled:opacity-40"
-                    >
-                      <X className="h-3.5 w-3.5" strokeWidth={2} />
-                    </button>
-                  )}
+              <li key={c.id} className="rounded-control bg-raised border border-line px-3 py-2.5">
+                {/* Identity / Role / Status / Actions — four distinct facts,
+                    not one generic badge doing double duty (2026-09-01
+                    audit). Role and status are separate Badge families:
+                    role is a stable fact about permission tier, status is
+                    the invite's own lifecycle — collapsing them would lose
+                    which is which. */}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-console-sm text-primary truncate min-w-0">{c.invited_email}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge tone="muted" className="capitalize">
+                      {c.role}
+                    </Badge>
+                    <Badge tone={c.status === "pending" ? "orange" : "green"} dot>
+                      {c.status === "pending" ? "Pending" : "Accepted"}
+                    </Badge>
+                    {isOwner && (
+                      <Tooltip content={c.status === "pending" ? "Revoke invite" : "Remove collaborator"}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          square
+                          aria-label={c.status === "pending" ? `Revoke invite to ${c.invited_email}` : `Remove ${c.invited_email}`}
+                          onClick={() => removeConfirm.request(c)}
+                          disabled={removingId === c.id}
+                        >
+                          <X className="h-3.5 w-3.5" strokeWidth={2} />
+                        </Button>
+                      </Tooltip>
+                    )}
+                  </div>
                 </div>
+                {c.status === "pending" && isOwner && c.invite_token && (
+                  <div className="flex items-center gap-1 pt-1.5 -ml-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopyInviteLink(c.invite_token!)}
+                    >
+                      <Copy className="h-3 w-3" strokeWidth={2} />
+                      Copy invite link
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleResendInvite(c)}
+                      disabled={removingId === c.id}
+                    >
+                      <RefreshCw className="h-3 w-3" strokeWidth={2} />
+                      Resend
+                    </Button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-console-sm text-muted-2">No collaborators yet.</p>
+          <EmptyState
+            title="No collaborators yet"
+            body={isOwner ? "Invite someone below to give them access to this event." : "Only you and the event owner have access right now."}
+          />
         )}
 
-        {role === "owner" && (
-          <form onSubmit={handleInvite} className="flex items-end gap-2 flex-wrap">
-            <label className="flex-1 min-w-[10rem] flex flex-col gap-1.5">
-              <span className="text-console-meta text-muted-2">Add by email</span>
-              <Input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="name@example.com"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 w-32">
-              <span className="text-console-meta text-muted-2">Role</span>
-              <Select
-                value={inviteRole}
-                onChange={(v) => setInviteRole(v as "editor" | "viewer")}
-                options={[
-                  { value: "editor", label: "Editor" },
-                  { value: "viewer", label: "Viewer" },
-                ]}
-              />
-            </label>
-            <Button type="submit" variant="secondary" size="sm" loading={inviting} disabled={!inviteEmail.trim()}>
-              <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-              Add
+        {isOwner && (
+          <>
+            <form onSubmit={handleInvite} className="flex items-end gap-2 flex-wrap">
+              <FormField label="Add by email" className="flex-1 min-w-[10rem]">
+                <Input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="name@example.com"
+                />
+              </FormField>
+              <FormField label="Role" className="w-32">
+                <Select
+                  value={inviteRole}
+                  onChange={(v) => setInviteRole(v as "editor" | "viewer")}
+                  options={[
+                    { value: "editor", label: "Editor" },
+                    { value: "viewer", label: "Viewer" },
+                  ]}
+                />
+              </FormField>
+              <Button type="submit" variant="secondary" size="sm" loading={inviting} disabled={!inviteEmail.trim()}>
+                <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                Add
+              </Button>
+            </form>
+            <p className="text-console-meta text-muted-2">
+              If they don&rsquo;t have a Kramflow account yet, we&rsquo;ll email them an invite to create one and join
+              this event.
+            </p>
+          </>
+        )}
+      </Panel>
+
+      {/* Guardrail tier 4 (docs/DESIGN.md) — the same weight and typed-
+          confirmation pattern the Dashboard's own Delete Event uses,
+          exposed here too since Settings is where an owner configuring an
+          event would actually look for it. Owner-only and hidden (not
+          merely disabled) for anyone else — there is no legitimate reason
+          for a non-owner to see a control this consequential for an event
+          they don't own. */}
+      {isOwner && (
+        <Panel className="p-6 flex flex-col gap-4 border-status-red/30">
+          <div>
+            <SectionLabel className="text-status-red">Danger Zone</SectionLabel>
+            <p className="text-console-meta text-muted-2 mt-1">
+              Permanently destroys this event: every session, item, share link, collaborator, and display state.
+            </p>
+          </div>
+          <div>
+            <Button variant="danger" size="sm" onClick={() => setDeleteEventOpen(true)}>
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+              Delete Event
             </Button>
-          </form>
-        )}
-        {role === "owner" && (
-          <p className="text-console-meta text-muted-2">
-            They need an existing Kramflow account with this exact email — this doesn&rsquo;t send an invitation yet.
-          </p>
-        )}
-      </section>
+          </div>
+        </Panel>
+      )}
 
-      <div className="sticky bottom-0 -mx-6 -mb-6 mt-1 flex items-center gap-2 border-t border-line-soft bg-card/95 backdrop-blur-sm px-6 py-3">
-        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          Close
-        </Button>
-      </div>
+      <ConfirmDialog
+        open={deleteEventOpen}
+        title={`Delete "${initialDetails.name || name}"?`}
+        description="Every session, item, share link, collaborator, and display state for this event, permanently destroyed. This can't be undone."
+        confirmLabel="Delete Event"
+        tone="danger-solid"
+        loading={deletingEvent}
+        requireTypedConfirmation={{ value: initialDetails.name || name, label: `Type "${initialDetails.name || name}" to confirm` }}
+        onConfirm={handleDeleteEvent}
+        onCancel={() => setDeleteEventOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={removeConfirm.isOpen}
+        title={
+          removeConfirm.pending?.status === "pending"
+            ? `Revoke invite to ${removeConfirm.pending.invited_email}?`
+            : `Remove ${removeConfirm.pending?.invited_email}?`
+        }
+        description={
+          removeConfirm.pending?.status === "pending"
+            ? "Their invite link stops working immediately. You can re-invite them at any time."
+            : "They lose access to this event immediately. You can re-invite them at any time."
+        }
+        confirmLabel={removeConfirm.pending?.status === "pending" ? "Revoke Invite" : "Remove"}
+        tone="danger"
+        loading={removingId === removeConfirm.pending?.id}
+        onConfirm={handleRemoveCollaborator}
+        onCancel={removeConfirm.cancel}
+      />
     </div>
   );
 }

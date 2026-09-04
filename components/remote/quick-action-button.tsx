@@ -9,6 +9,7 @@ export function QuickActionButton({
   icon: Icon,
   label,
   active,
+  disabled,
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -19,9 +20,11 @@ export function QuickActionButton({
     <button
       type="button"
       aria-pressed={active}
+      disabled={disabled}
       className={cn(
-        "flex-1 flex flex-col items-center justify-center gap-2 rounded-card py-4 cursor-pointer transition-colors active:scale-[0.98]",
+        "flex-1 flex flex-col items-center justify-center gap-2 rounded-card py-4 transition-colors active:scale-[0.98]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
         active ? "bg-card text-primary" : "bg-card/50 text-muted"
       )}
       {...props}

@@ -1,3 +1,8 @@
+// Session progress bar — day/session label + item count + a fill bar.
+// Moved from components/tv/ (Stage-scale, text-caption) to components/ui/
+// (Console-scale, text-console-meta): despite living under tv/, this was
+// never actually used by a Stage display — only the Operator Console
+// footer. Console/Stage boundary closure, not a new component.
 export function ProgressFooter({
   dayLabel,
   sessionLabel,
@@ -13,7 +18,7 @@ export function ProgressFooter({
 
   return (
     <div>
-      <div className="flex items-center justify-between text-caption text-muted-2 tabular-nums mb-3">
+      <div className="flex items-center justify-between text-console-meta text-muted-2 tabular-nums mb-3">
         <span>
           {dayLabel} • {sessionLabel}
         </span>

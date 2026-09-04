@@ -19,20 +19,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const supabase = supabaseAdmin();
-  const { data: row, error: fetchError } = await supabase
-    .from("display_broadcasts")
-    .select("acknowledged_by")
-    .eq("id", id)
-    .single();
-  if (fetchError) return NextResponse.json({ ok: false, error: fetchError.message }, { status: 500 });
-
-  const acknowledgedBy = row.acknowledged_by as string[];
-  if (acknowledgedBy.includes(displayId)) return NextResponse.json({ ok: true, noop: true });
-
-  const { error } = await supabase
-    .from("display_broadcasts")
-    .update({ acknowledged_by: [...acknowledgedBy, displayId] })
-    .eq("id", id);
+  // acknowledge_broadcast (supabase/schema.sql) does the read-check-write
+  // in one atomic UPDATE — two displays acknowledging within the same
+  // round trip can no longer race a plain SELECT-then-UPDATE from here and
+  // silently drop one of them. Idempotent either way (already-acknowledged
+  // is a harmless no-op inside the function), so there's nothing left for
+  // the route itself to branch on.
+  const { error } = await supabase.rpc("acknowledge_broadcast", { p_id: id, p_display_id: displayId });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

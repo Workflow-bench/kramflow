@@ -47,7 +47,18 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-export function ShareLinkPanel({ eventId }: { eventId: string }) {
+export function ShareLinkPanel({
+  eventId,
+  compact = false,
+}: {
+  eventId: string;
+  /** Skip the standalone Panel/heading/description trigger and render just
+   *  the button — for embedding inside another card (the Dashboard's event
+   *  grid) that already carries the event's own identity and doesn't need
+   *  a second nested card explaining what a share link is. The Modal this
+   *  opens is unchanged either way. */
+  compact?: boolean;
+}) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [links, setLinks] = useState<ShareLink[] | null>(null);
@@ -110,7 +121,7 @@ export function ShareLinkPanel({ eventId }: { eventId: string }) {
       }
       setLinks((prev) => prev?.map((l) => (l.id === revokeTarget.id ? data.link! : l)) ?? null);
       setNow(Date.now());
-      toast.success("Link revoked — it will no longer open for anyone.");
+      toast.success("Link revoked. It will no longer open for anyone.");
       setRevokeTarget(null);
     } catch {
       toast.error("Couldn't reach the server.");
@@ -138,25 +149,32 @@ export function ShareLinkPanel({ eventId }: { eventId: string }) {
           Output Links, which is a modal rather than living permanently
           inline on the room's main view. See
           senior-ux-layout-standards's inline-vs-modal reasoning. */}
-      <Panel className="p-5 flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-console-md text-primary">Share Display Link</h2>
-          <p className="text-console-meta text-muted-2 mt-1">
-            Generate a no-login link + QR code for a TV or tablet — picks a screen (General, AV, Green Room,
-            Presenter) and shows a live, read-only view.
-          </p>
-        </div>
-        <Button variant="secondary" onClick={() => setOpen(true)} className="shrink-0">
-          <Link2 className="h-4 w-4" strokeWidth={2} />
-          Manage Links{links && links.length > 0 ? ` (${links.length})` : ""}
+      {compact ? (
+        <Button variant="secondary" size="sm" onClick={() => setOpen(true)} className="w-full">
+          <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
+          Share Display Link{links && links.length > 0 ? ` (${links.length})` : ""}
         </Button>
-      </Panel>
+      ) : (
+        <Panel className="p-5 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-console-md text-primary">Share Display Link</h2>
+            <p className="text-console-meta text-muted-2 mt-1">
+              Generate a no-login link + QR code for a TV or tablet. Picks a screen (General, AV, Green Room,
+              Presenter) and shows a live, read-only view.
+            </p>
+          </div>
+          <Button variant="secondary" onClick={() => setOpen(true)} className="shrink-0">
+            <Link2 className="h-4 w-4" strokeWidth={2} />
+            Manage Links{links && links.length > 0 ? ` (${links.length})` : ""}
+          </Button>
+        </Panel>
+      )}
 
       <Modal open={open} onClose={() => setOpen(false)} title="Share Display Link" size="lg">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <p className="text-console-meta text-muted-2 flex-1 min-w-[16rem]">
           Anyone who opens the link picks a screen (General, AV, Green Room, Presenter) and sees a live, read-only
-          view — no account needed.
+          view. No account needed.
         </p>
         <div className="flex items-center gap-2 shrink-0">
           <Select value={expiryDays} onChange={setExpiryDays} options={EXPIRY_OPTIONS} className="w-28" aria-label="Link expiry" />

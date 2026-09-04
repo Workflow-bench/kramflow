@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { logActivityAs } from "@/lib/server/activity-log";
 import { programInputSchema, toProgramRow } from "@/lib/validation/program";
 import { mapProgramRow, mapPartitionRow } from "@/lib/data/sessions";
 import { computeScheduledTimes } from "@/lib/schedule";
@@ -109,5 +110,7 @@ export async function POST(request: Request) {
     p_time_is_computed: row.time_is_computed ?? false,
   });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, program: Array.isArray(data) ? data[0] : data });
+  const program = Array.isArray(data) ? data[0] : data;
+  await logActivityAs(supabase, auth.eventId, auth.userId, "programCreate", `Added "${row.name}" to the cue sheet`);
+  return NextResponse.json({ ok: true, program });
 }

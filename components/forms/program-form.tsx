@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ColorTagPicker } from "@/components/ui/color-tag-picker";
 import { Select } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FormField } from "@/components/ui/form-field";
 import type { ProgramInput } from "@/lib/validation/program";
 import type { Partition } from "@/lib/types";
 import { DEFAULT_CONFIG, ALWAYS_REQUIRED_KEYS, resolveVisibility, type FormFieldConfig } from "@/lib/form-config";
@@ -201,7 +203,7 @@ export function ProgramForm({
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 409) {
-          setErrors({ form: [data.error ?? "This item was changed by someone else — reload the cue sheet and try again"] });
+          setErrors({ form: [data.error ?? "This item was changed by someone else. Reload the cue sheet and try again."] });
         } else {
           setErrors(data.errors?.fieldErrors ?? {});
         }
@@ -286,7 +288,7 @@ export function ProgramForm({
                       strokeWidth={2}
                     />
                     Production Requirements
-                    {!auditoriumSet && <span className="text-console-meta italic">— select an auditorium to configure</span>}
+                    {!auditoriumSet && <span className="text-console-meta italic">: select an auditorium to configure</span>}
                   </button>
                   {auditoriumSet && productionOpen && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 px-4 pb-4 pt-1 border-t border-line-soft">
@@ -344,6 +346,18 @@ export function ProgramForm({
         </p>
       )}
 
+      {/* Reserves clearance for the sticky footer below — without it, the
+          footer's own translucent background (bg-card/95, deliberately
+          see-through so it never looks like a hard-opaque bar) let the last
+          field's content show through behind the buttons once scrolled
+          near the bottom, on any event with enough dynamic Production
+          fields to make the form taller than the viewport (2026-09-01
+          UI/UX audit, P1 finding #9 — reproduced on mobile at 390×844).
+          `sticky` only ever "sticks" relative to *its own* container's
+          scroll range; nothing about it reserves the space a fixed footer
+          would, so the space has to be added explicitly. */}
+      <div aria-hidden="true" className="h-16 -mb-8" />
+
       {/* Sticky footer — a config-driven form can run long enough that the
           save control scrolls out of reach, and this one is reached from a
           list you were mid-task in. */}
@@ -389,15 +403,15 @@ function FieldRenderer({
 
   if (field.type === "color-swatch") {
     return (
-      <Field label={field.label} error={error} className="sm:col-span-2">
+      <FormField label={field.label} error={error} className="sm:col-span-2">
         <ColorTagPicker value={(value as string | null) ?? null} onChange={onChange} aria-label={field.label} />
-      </Field>
+      </FormField>
     );
   }
 
   if (field.type === "select") {
     return (
-      <Field label={field.label} error={error}>
+      <FormField label={field.label} error={error}>
         <Select
           value={(value as string | null) ?? ""}
           // The "none" option in an optional select carries "" as its
@@ -411,13 +425,13 @@ function FieldRenderer({
           placeholder={`Choose ${field.label.toLowerCase()}…`}
           aria-label={field.label}
         />
-      </Field>
+      </FormField>
     );
   }
 
   if (field.type === "duration") {
     return (
-      <Field label={field.label} error={error} className="sm:col-span-2">
+      <FormField label={field.label} error={error} className="sm:col-span-2">
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
           <Input
             type="number"
@@ -433,20 +447,20 @@ function FieldRenderer({
             onChange={onToggleComputed}
           />
         </div>
-      </Field>
+      </FormField>
     );
   }
 
   if (field.type === "textarea") {
     return (
-      <Field label={field.label} error={error} className="sm:col-span-2">
+      <FormField label={field.label} error={error} className="sm:col-span-2">
         <Textarea
           value={(value as string | null) ?? ""}
           onChange={(e) => onChange(e.target.value || null)}
           rows={3}
           className="min-h-[4.5rem]"
         />
-      </Field>
+      </FormField>
     );
   }
 
@@ -454,7 +468,7 @@ function FieldRenderer({
   // on, same as before (they're derived, editing them would be discarded).
   const isTimeField = field.key === "startTime" || field.key === "endTime";
   return (
-    <Field label={field.label} error={error} className={wide ? "sm:col-span-2" : undefined}>
+    <FormField label={field.label} error={error} className={wide ? "sm:col-span-2" : undefined}>
       <Input
         type={field.type === "number" ? "number" : "text"}
         value={(value as string | number | null) ?? ""}
@@ -462,44 +476,6 @@ function FieldRenderer({
         required={requiredMark && field.key === "name"}
         disabled={isTimeField && timeIsComputed}
       />
-    </Field>
-  );
-}
-
-function Field({
-  label,
-  error,
-  className,
-  children,
-}: {
-  label: string;
-  error?: string[];
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className={cn("flex flex-col gap-1.5 min-w-0", className)}>
-      <span className="text-console-meta text-muted-2">{label}</span>
-      {children}
-      {error && error.length > 0 && (
-        <span role="alert" className="text-console-meta text-status-red">
-          {error.join(", ")}
-        </span>
-      )}
-    </label>
-  );
-}
-
-function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <label className="flex items-center gap-2 cursor-pointer select-none">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 shrink-0 rounded-control border-line bg-background accent-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-card"
-      />
-      <span className="text-console-meta text-muted">{label}</span>
-    </label>
+    </FormField>
   );
 }

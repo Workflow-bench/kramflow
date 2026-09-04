@@ -36,7 +36,10 @@ export const DISPLAY_TYPES: { value: DisplayType; label: string; route: string }
   { value: "custom", label: "Custom", route: "/presenter" },
 ];
 
-export type DisplayStatus = "online" | "offline";
+// "stale" (one missed heartbeat, still short of the hard offline
+// threshold) sits between the two — see lib/display-engine/
+// use-register-display.ts's STALE_AFTER_MS/OFFLINE_AFTER_MS.
+export type DisplayStatus = "online" | "stale" | "offline";
 
 export interface DisplayInstance {
   id: string;

@@ -37,6 +37,7 @@ interface LiveStateRow {
   notes_overrides: LiveState["notesOverrides"];
   controller_id: string | null;
   controller_claimed_at: string | null;
+  item_actuals: LiveState["itemActuals"];
 }
 
 function mapLiveState(row: LiveStateRow): LiveState {
@@ -48,6 +49,7 @@ function mapLiveState(row: LiveStateRow): LiveState {
     notesOverrides: row.notes_overrides ?? {},
     controllerId: row.controller_id ?? null,
     controllerClaimedAt: row.controller_claimed_at ?? null,
+    itemActuals: row.item_actuals ?? {},
   };
 }
 
@@ -59,25 +61,42 @@ const initialLiveState: LiveState = {
   notesOverrides: {},
   controllerId: null,
   controllerClaimedAt: null,
+  itemActuals: {},
 };
 
 export interface DisplayViewResult {
   sessions: Session[];
   liveState: LiveState;
   eventId: string | null;
+  // The account-level event name — distinct from a session's own optional
+  // "Display title" field (session.eventName), which is per-session and
+  // frequently unset. This is what answers "what event is this?" on a
+  // public display; the per-session title layers on top when present.
+  eventName: string | null;
+  eventVenue: string | null;
   loading: boolean;
   error: string | null;
   connectionStatus: DisplayConnectionStatus;
+  // When the last successful poll landed — connectionStatus alone only ever
+  // says "the last poll succeeded or didn't," not "how old is what's on
+  // screen right now." "Live and synced" claimed the latter while only
+  // knowing the former (2026-09-01 audit, KF-001) — this is what lets
+  // ConnectionBadge's stage variant show a real, quantified age instead of
+  // an unconditional claim.
+  lastUpdatedAt: number | null;
 }
 
-export function useDisplayView(params: { token?: string; eventId?: string }): DisplayViewResult {
-  const { token, eventId: requestedEventId } = params;
+export function useDisplayView(params: { token?: string; eventId?: string; displayType?: string }): DisplayViewResult {
+  const { token, eventId: requestedEventId, displayType } = params;
   const [sessions, setSessions] = useState<Session[]>([]);
   const [liveState, setLiveState] = useState<LiveState>(initialLiveState);
   const [resolvedEventId, setResolvedEventId] = useState<string | null>(null);
+  const [eventName, setEventName] = useState<string | null>(null);
+  const [eventVenue, setEventVenue] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<DisplayConnectionStatus>("connected");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const consecutiveFailures = useRef(0);
 
   useEffect(() => {
@@ -95,7 +114,16 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
 
     async function poll() {
       try {
-        const qs = token ? `token=${encodeURIComponent(token)}` : `eventId=${encodeURIComponent(requestedEventId!)}`;
+        const base = token ? `token=${encodeURIComponent(token)}` : `eventId=${encodeURIComponent(requestedEventId!)}`;
+        // This hook doesn't read displayState itself, so displayType makes
+        // no difference to what it returns — but lib/display-engine/
+        // store.tsx's own poll of this identical endpoint *does* need it
+        // (2026-09 blocker remediation), and lib/shared-display-view-poll.ts
+        // coalesces concurrent polls by exact query-string match. Passing
+        // it through here too keeps both hooks' query strings identical so
+        // the two keep sharing one real request per tick instead of
+        // silently doubling to two.
+        const qs = displayType ? `${base}&displayType=${encodeURIComponent(displayType)}` : base;
         const data = (await fetchDisplayViewPolled(qs)) as {
           ok: boolean;
           reason?: string;
@@ -103,6 +131,8 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
           sessions?: Session[];
           liveState: LiveStateRow;
           eventId: string;
+          eventName?: string | null;
+          eventVenue?: string | null;
         };
         if (cancelled) return;
         if (!data.ok) {
@@ -119,8 +149,11 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
         setSessions(data.sessions ?? []);
         setLiveState(mapLiveState(data.liveState));
         setResolvedEventId(data.eventId);
+        setEventName(data.eventName ?? null);
+        setEventVenue(data.eventVenue ?? null);
         setError(null);
         setLoading(false);
+        setLastUpdatedAt(Date.now());
         recordSuccess();
       } catch {
         if (!cancelled) {
@@ -136,7 +169,17 @@ export function useDisplayView(params: { token?: string; eventId?: string }): Di
       cancelled = true;
       clearInterval(id);
     };
-  }, [token, requestedEventId]);
+  }, [token, requestedEventId, displayType]);
 
-  return { sessions, liveState, eventId: resolvedEventId, loading, error, connectionStatus };
+  return {
+    sessions,
+    liveState,
+    eventId: resolvedEventId,
+    eventName,
+    eventVenue,
+    loading,
+    error,
+    connectionStatus,
+    lastUpdatedAt,
+  };
 }

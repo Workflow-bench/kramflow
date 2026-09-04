@@ -7,18 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
-import { SectionLabel } from "@/components/tv/section-label";
+import { SectionLabel } from "@/components/ui/section-label";
+import { MaybeTooltip } from "@/components/ui/tooltip";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { EMERGENCY_PRESETS, type BroadcastType } from "@/lib/display-engine/types";
-import { useEventId } from "@/lib/event-context";
+import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
+import { useEventId, useEventRole } from "@/lib/event-context";
 import { cn } from "@/lib/utils";
 
-const QUICK_TYPES: { value: BroadcastType; label: string; tone: string }[] = [
-  { value: "info", label: "Info", tone: "bg-status-blue/15 text-status-blue" },
-  { value: "reminder", label: "Reminder", tone: "bg-status-blue/15 text-status-blue" },
-  { value: "warning", label: "Warning", tone: "bg-status-orange/15 text-status-orange" },
-  { value: "success", label: "Success", tone: "bg-status-green/15 text-status-green" },
-];
+// The routine quick-send types only — emergency has its own dedicated
+// presets below, and "custom" doesn't make sense as a one-tap quick type.
+// Colors come from BROADCAST_TYPE_META, the same mapping Broadcast Center
+// and the display-side rendering both use, rather than a fourth locally
+// hand-tinted copy.
+const QUICK_TYPES: BroadcastType[] = ["info", "reminder", "warning", "success"];
 
 /**
  * Quick-send broadcast controls embedded directly in the Operator
@@ -30,7 +32,14 @@ const QUICK_TYPES: { value: BroadcastType; label: string; tone: string }[] = [
  */
 export function OperatorBroadcastPanel() {
   const eventId = useEventId();
-  const { sendBroadcast } = useDisplayEngine();
+  // Broadcasts are owner-gated server-side (requireEventAccess(eventId,
+  // "owner") in api/display-engine/broadcasts/route.ts) — an editor could
+  // fill this whole panel out and only discover it 403s on Send. Disabling
+  // up front is a courtesy on top of that real boundary, matching the
+  // pattern controls-panel.tsx already uses for the transport controls.
+  const readOnly = useEventRole() !== "owner";
+  const { sendBroadcast, state: engine } = useDisplayEngine();
+  const registeredCount = Object.keys(engine.registry).length;
   const toast = useToast();
   const [expanded, setExpanded] = useState(false);
   const [type, setType] = useState<BroadcastType>("info");
@@ -41,14 +50,17 @@ export function OperatorBroadcastPanel() {
   // Ref, not just `emergencySending` — ConfirmDialog's confirm button has no
   // disabled-while-submitting state of its own, so a rapid multi-click
   // burst fires onConfirm several times before React commits the `loading`
-  // prop's disabled attribute. Reproduced live here (3
+  // prop's disabled attribute. QA_REPORT.md BUG-3: reproduced live here (3
   // clicks -> 3 duplicate live emergency broadcasts) before this guard
   // existed; see the identical pattern in components/operator/jump-control.tsx.
   const emergencySendingRef = useRef(false);
 
-  function send() {
-    if (!title.trim()) return;
-    sendBroadcast({
+  const [sending, setSending] = useState(false);
+
+  async function send() {
+    if (!title.trim() || sending) return;
+    setSending(true);
+    const res = await sendBroadcast({
       type,
       title: title.trim(),
       message: message.trim(),
@@ -61,13 +73,18 @@ export function OperatorBroadcastPanel() {
       persistent: false,
       scheduledFor: null,
     });
-    setTitle("");
-    setMessage("");
-    toast.success("Broadcast sent");
+    setSending(false);
+    if (res && res.ok) {
+      setTitle("");
+      setMessage("");
+      toast.success("Broadcast sent");
+    } else {
+      toast.error("Couldn't send the broadcast. Try again.");
+    }
   }
 
   return (
-    <div className="border-t border-white/5 pt-8">
+    <div className="border-t border-line-soft pt-8">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -86,18 +103,18 @@ export function OperatorBroadcastPanel() {
           <div className="flex flex-wrap gap-2">
             {QUICK_TYPES.map((t) => (
               <button
-                key={t.value}
+                key={t}
                 type="button"
-                onClick={() => setType(t.value)}
-                aria-pressed={type === t.value}
+                onClick={() => setType(t)}
+                aria-pressed={type === t}
                 className={cn(
-                  "rounded-full px-3 py-1.5 text-caption font-semibold uppercase tracking-wide transition-opacity cursor-pointer whitespace-nowrap",
+                  "rounded-full px-3 py-1.5 text-console-meta font-semibold uppercase tracking-wide transition-opacity cursor-pointer whitespace-nowrap",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                  t.tone,
-                  type !== t.value && "opacity-40"
+                  BROADCAST_TYPE_META[t].accentClass,
+                  type !== t && "opacity-40"
                 )}
               >
-                {t.label}
+                {BROADCAST_TYPE_META[t].label}
               </button>
             ))}
           </div>
@@ -110,40 +127,53 @@ export function OperatorBroadcastPanel() {
             aria-label="Broadcast message"
           />
 
-          <Button variant="primary" size="sm" className="w-full" disabled={!title.trim()} onClick={send}>
-            <Send className="h-4 w-4" strokeWidth={2} />
-            Send to All Displays
-          </Button>
+          <MaybeTooltip when={readOnly} content="Only the event owner can send broadcasts">
+            <Button
+              variant="primary"
+              size="sm"
+              className="w-full"
+              disabled={!title.trim() || sending || readOnly}
+              loading={sending}
+              onClick={send}
+            >
+              <Send className="h-4 w-4" strokeWidth={2} />
+              Send to All Displays
+            </Button>
+          </MaybeTooltip>
 
           <Link
             href={`/e/${eventId}/broadcast`}
-            className="text-caption text-muted-2 hover:text-primary text-center underline-offset-2 hover:underline"
+            className="text-console-meta text-muted-2 hover:text-primary text-center underline-offset-2 hover:underline"
           >
-            More options — schedule, templates, target one display →
+            More options: schedule, templates, target one display →
           </Link>
 
-          <div className="border-t border-white/5 pt-3 mt-1">
+          <div className="border-t border-line-soft pt-3 mt-1">
             <div className="flex flex-wrap gap-2">
               {EMERGENCY_PRESETS.map((preset) => (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => emergencyConfirm.request(preset)}
-                  className="flex items-center gap-1.5 rounded-full bg-status-red/15 text-status-red px-3 py-1.5 text-caption font-semibold cursor-pointer hover:bg-status-red/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                >
-                  <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
-                  {preset.label}
-                </button>
+                <MaybeTooltip key={preset.label} when={readOnly} content="Only the event owner can send broadcasts">
+                  <button
+                    type="button"
+                    onClick={() => emergencyConfirm.request(preset)}
+                    disabled={readOnly}
+                    className="flex items-center gap-1.5 rounded-full bg-status-red/15 text-status-red px-3 py-1.5 text-console-meta font-semibold cursor-pointer hover:bg-status-red/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-status-red/15"
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
+                    {preset.label}
+                  </button>
+                </MaybeTooltip>
               ))}
             </div>
           </div>
         </div>
       )}
 
+      {/* Exact broadcast body + a real target count — see broadcast/page.tsx's
+          identical fix for why (KF-031). */}
       <ConfirmDialog
         open={emergencyConfirm.isOpen}
         title={`Send "${emergencyConfirm.pending?.title}" to every display?`}
-        description="This takes over every connected screen immediately."
+        description={`"${emergencyConfirm.pending?.message}": takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately. Send an update or Clear afterward if needed.`}
         confirmLabel="Send Emergency"
         tone="danger"
         loading={emergencySending}
@@ -169,7 +199,7 @@ export function OperatorBroadcastPanel() {
           setEmergencySending(false);
           emergencyConfirm.cancel();
           if (res && res.ok) toast.success("Emergency broadcast sent");
-          else toast.error("Couldn't send the emergency broadcast — try again immediately");
+          else toast.error("Couldn't send the emergency broadcast. Try again immediately.");
         }}
         onCancel={emergencyConfirm.cancel}
       />

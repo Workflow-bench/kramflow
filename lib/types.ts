@@ -1,3 +1,5 @@
+import { parseTimeLabel } from "@/lib/schedule";
+
 export type ProgramItemType = "item" | "break";
 
 export type ProgramStatus = "confirmed" | "draft" | "cut" | "tbd";
@@ -121,10 +123,37 @@ export interface LiveState {
    *  the server's staleness window is treated as abandoned (crashed tab,
    *  closed browser) and can be reclaimed by anyone without forcing. */
   controllerClaimedAt: string | null;
+  /** programId -> real actual start/end timestamps, written server-side
+   *  (app/api/live/route.ts) as the show progresses — see that file's
+   *  item_actuals comment for the exact overwrite/clear semantics. Keyed
+   *  by program id (stable across reorders), not order. Column added by
+   *  supabase/migrations/0007_pilot_readiness_v2.sql — same shape this
+   *  branch and main's converged on independently. */
+  itemActuals: Record<string, { actualStart: string | null; actualEnd: string | null }>;
 }
 
 export function effectiveNotes(state: LiveState, program: Program): string {
   return state.notesOverrides[program.id] ?? program.notes ?? "";
+}
+
+/** Minutes the live item's real start ran after (positive) or before
+ *  (negative) its scheduled start — null when either side of the
+ *  comparison doesn't exist (no schedule set, or the item hasn't actually
+ *  gone live yet, e.g. rehearsal never writes actuals). Deliberately just
+ *  this one comparison, not a cascading whole-rundown projection — "make
+ *  sure actual timing really means actual timing," not a scheduling
+ *  engine. */
+export function driftMinutes(program: Program, state: LiveState): number | null {
+  const scheduled = parseTimeLabel(program.scheduledStart);
+  const actualStart = state.itemActuals[program.id]?.actualStart;
+  if (scheduled === null || !actualStart) return null;
+  const actual = new Date(actualStart);
+  let diff = actual.getHours() * 60 + actual.getMinutes() - scheduled;
+  // A show that happens to cross midnight shouldn't read as ~23 hours
+  // off — clamp the wrap to the nearer half-day.
+  if (diff > 720) diff -= 1440;
+  if (diff < -720) diff += 1440;
+  return diff;
 }
 
 function activeProgress(state: LiveState): SessionProgress {

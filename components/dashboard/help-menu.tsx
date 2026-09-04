@@ -1,12 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { HelpCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { HelpCircle, Rocket, Keyboard, BookOpen } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { OverflowMenu, type OverflowMenuItem } from "@/components/ui/overflow-menu";
 import { reopenGettingStarted } from "./getting-started-checklist";
-import { cn } from "@/lib/utils";
-import { useDismissOnOutsideOrEscape } from "@/lib/use-dismiss-on-outside-or-escape";
 
 // The one help entry point in the app. Previously a single "Getting
 // started" item that just reopened the onboarding checklist — a dead end
@@ -14,64 +12,24 @@ import { useDismissOnOutsideOrEscape } from "@/lib/use-dismiss-on-outside-or-esc
 // wants a shortcut reference mid-show. Still a single-purpose popover, not
 // a full account menu (nothing else needs one yet) — just with two more
 // real, static destinations instead of one repeated one.
+//
+// Was its own hand-rolled dropdown shell — OverflowMenu's own doc comment
+// named this exact file as the thing it was meant to replace once it grew
+// callback-item support (for Cue Sheet's session actions), but the
+// migration itself was never done until this design-system cleanup pass.
 export function HelpMenu() {
-  const [open, setOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
 
-  useDismissOnOutsideOrEscape(rootRef, open, () => setOpen(false));
-
-  function handleReopen() {
-    reopenGettingStarted();
-    setOpen(false);
-  }
+  const items: OverflowMenuItem[] = [
+    { label: "Getting started", icon: Rocket, onClick: reopenGettingStarted },
+    { label: "Keyboard shortcuts", icon: Keyboard, onClick: () => setShortcutsOpen(true) },
+    { label: "Glossary", icon: BookOpen, onClick: () => setGlossaryOpen(true) },
+  ];
 
   return (
-    <div ref={rootRef} className="relative">
-      <Button variant="ghost" size="md" square onClick={() => setOpen((v) => !v)} aria-label="Help">
-        <HelpCircle className="h-4.5 w-4.5" strokeWidth={2} />
-      </Button>
-      {open && (
-        <div
-          role="menu"
-          className={cn(
-            "absolute right-0 z-30 mt-1.5 min-w-[13rem] rounded-panel bg-card border border-line shadow-float py-1",
-            "motion-safe:animate-rise"
-          )}
-        >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleReopen}
-            className="w-full text-left px-3 py-2 text-console-sm text-primary hover:bg-card-hover transition-colors cursor-pointer"
-          >
-            Getting started
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setShortcutsOpen(true);
-              setOpen(false);
-            }}
-            className="w-full text-left px-3 py-2 text-console-sm text-primary hover:bg-card-hover transition-colors cursor-pointer"
-          >
-            Keyboard shortcuts
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setGlossaryOpen(true);
-              setOpen(false);
-            }}
-            className="w-full text-left px-3 py-2 text-console-sm text-primary hover:bg-card-hover transition-colors cursor-pointer"
-          >
-            Glossary
-          </button>
-        </div>
-      )}
+    <>
+      <OverflowMenu items={items} label="Help" iconOnly triggerIcon={HelpCircle} />
 
       <Modal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title="Keyboard Shortcuts" size="sm">
         <ShortcutsContent />
@@ -80,7 +38,7 @@ export function HelpMenu() {
       <Modal open={glossaryOpen} onClose={() => setGlossaryOpen(false)} title="Glossary" size="md">
         <GlossaryContent />
       </Modal>
-    </div>
+    </>
   );
 }
 
@@ -153,17 +111,17 @@ function GlossaryTerm({ term, definition }: { term: string; definition: string }
 // same word — worth explaining rather than renaming everywhere at once.
 function GlossaryContent() {
   const terms = [
-    { term: "Session", definition: "A block of the day within an event — e.g. \"Saturday Evening.\" Holds an ordered list of items, not a single agenda entry." },
-    { term: "Item", definition: "One row on the cue sheet — a single segment, speech, or piece of the running order within a session." },
+    { term: "Session", definition: "A block of the day within an event (e.g. \"Saturday Evening\"). Holds an ordered list of items, not a single agenda entry." },
+    { term: "Item", definition: "One row on the cue sheet: a single segment, speech, or piece of the running order within a session." },
     { term: "Auditorium", definition: "A physical room or venue space you can assign to an item. Assigning one unlocks that item's Production Requirements fields." },
-    { term: "Production Requirements", definition: "The AV/technical needs for an item — lighting, curtains, sidescreen, and similar — visible once that item has an Auditorium." },
+    { term: "Production Requirements", definition: "The AV/technical needs for an item (lighting, curtains, sidescreen, and similar), visible once that item has an Auditorium." },
     { term: "Color tag", definition: "A status marker on an item: Ready, VIP, Needs Confirmation, or Urgent. Meant to be scanned at a glance during a live show." },
     { term: "Hold", definition: "Pauses the live show without ending it. Displays reflect Hold differently depending on audience (General) vs. crew (Presenter, Green Room, AV) screens." },
-    { term: "On deck", definition: "The item after \"Next\" — the AV display shows Live / Next / On Deck as a three-deep lookahead." },
-    { term: "Broadcast", definition: "A message sent to some or all of your display screens — includes separate, visually distinct Emergency presets for urgent alerts." },
-    { term: "Display Manager", definition: "Where every screen currently connected to your event is registered and controlled — reload, test message, force fullscreen, and similar." },
+    { term: "On deck", definition: "The item after \"Next\": the AV display shows Live / Next / On Deck as a three-deep lookahead." },
+    { term: "Broadcast", definition: "A message sent to some or all of your display screens. Includes separate, visually distinct Emergency presets for urgent alerts." },
+    { term: "Display Manager", definition: "Where every screen currently connected to your event is registered and controlled: reload, test message, force fullscreen, and similar." },
     { term: "Share Link", definition: "A URL (with a scannable QR code) that lets a screen connect to one of your event's displays without logging in." },
-    { term: "Operator Console", definition: "The screen you run the live show from — Start, Next, Previous, Hold, and alerts. Distinct from your account's dashboard." },
+    { term: "Operator Console", definition: "The screen you run the live show from: Start, Next, Previous, Hold, and alerts. Distinct from your account's dashboard." },
   ];
   return (
     <dl className="flex flex-col gap-3">

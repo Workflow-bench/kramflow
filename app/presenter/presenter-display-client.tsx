@@ -18,7 +18,7 @@ import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
 import { useDisplayTimer, useDisplayClock, formatClock } from "@/lib/display-engine/use-display-timer";
 import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
-import { deriveProgress, deriveAutoTimerInput } from "@/lib/display-engine/live-progress";
+import { deriveProgress, deriveAutoTimerInput, deriveStageStatus } from "@/lib/display-engine/live-progress";
 import { useTimeSync } from "@/lib/display-engine/use-time-sync";
 import { useFullscreen } from "@/lib/display-engine/use-fullscreen";
 import { useKeyboardShortcuts } from "@/lib/display-engine/use-keyboard-shortcuts";
@@ -36,6 +36,22 @@ import { StageStatusPill } from "@/components/display-engine/stage-status-pill";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
+
+// A fixed vw fraction alone doesn't account for string length — a short
+// "05:30" and a long overrun "21:06:34" (or a multi-digit-hour overrun,
+// which real cue data can produce) got an identical font size, so the
+// longer string clipped at the screen edges at real hardware widths below
+// ~1920px (reproduced live at 1600x900 against actual overrun demo data:
+// the digits ran off both sides with no scrollbar, since Stage surfaces
+// intentionally lock scroll). baseVw is the fraction tuned for the
+// reference 5-character case ("05:30"); longer strings scale it down
+// proportionally so every realistic duration stays legible and uncut at
+// any viewport, not just the one it happened to be tuned against.
+function countdownFontSize(text: string, minRem: number, maxRem: number, baseVw: number): string {
+  const chars = Math.max(text.length, 5);
+  const vw = Math.min(baseVw, Math.round(((baseVw * 5) / chars) * 10) / 10);
+  return `clamp(${minRem}rem, ${vw}vw, ${maxRem}rem)`;
+}
 
 const MODES: { mode: TimerMode; label: string }[] = [
   { mode: "program", label: "Program" },
@@ -55,14 +71,18 @@ function holdPayload(preset: (typeof HOLD_PRESETS)[number]) {
 
 export default function PresenterDisplayClient({ token, eventId }: { token?: string; eventId?: string }) {
   return (
-    <DisplayEngineProvider token={token} eventId={eventId}>
+    <DisplayEngineProvider token={token} eventId={eventId} displayType="presenter">
       <PresenterDisplayInner token={token} eventId={eventId} />
     </DisplayEngineProvider>
   );
 }
 
 function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({
+    token,
+    eventId,
+    displayType: "presenter",
+  });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine, setTimerMode, setTimerSource, pauseTimer, resumeTimer, resetTimer, adjustTimer, activateHold, deactivateHold } =
     useDisplayEngine();
@@ -97,7 +117,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
 
   const autoInput = deriveAutoTimerInput(live, progress, appState.pausedAt);
 
-  const timer = useDisplayTimer(engine.timer.source === "auto" ? autoInput : null);
+  const timer = useDisplayTimer(engine.timer.source === "auto" ? autoInput : null, offsetMs);
   const clockLabel = useDisplayClock(offsetMs);
 
   useKeyboardShortcuts({
@@ -109,8 +129,8 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
     R: () => setConfirmReset(true),
     f: () => fullscreen.toggle(),
     F: () => fullscreen.toggle(),
-    h: () => (engine.hold.active ? deactivateHold() : activateHold(holdPayload(HOLD_PRESETS[0]))),
-    H: () => (engine.hold.active ? deactivateHold() : activateHold(holdPayload(HOLD_PRESETS[0]))),
+    h: () => (engine.hold.active ? deactivateHold() : activateHold(holdPayload(HOLD_PRESETS[holdPresetIndex]))),
+    H: () => (engine.hold.active ? deactivateHold() : activateHold(holdPayload(HOLD_PRESETS[holdPresetIndex]))),
     Escape: () => {
       if (fullscreen.isFullscreen) void fullscreen.exit();
     },
@@ -118,10 +138,10 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
 
   const mode = engine.timer.mode;
   const color = TIMER_COLORS[timer.colorState];
-  const stageStatus = engine.hold.active ? "ON HOLD" : appState.pausedAt ? "PAUSED" : live ? "LIVE" : "STANDBY";
+  const stageStatus = deriveStageStatus(live, appState.pausedAt, engine.hold.active);
 
   return (
-    <DisplayShell connectionStatus={connectionStatus}>
+    <DisplayShell connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>
       <HoldScreen hold={engine.hold} />
       {display && <BroadcastOverlay displayId={display.id} displayType="presenter" size="large" />}
       <TestMessageOverlay message={testMessage} />
@@ -139,9 +159,11 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
           {/* Ambient info — top row, only in information-dense modes */}
           {(mode === "program" || mode === "countdown" || mode === "count-up" || mode === "session") && (
             <div className="flex items-start justify-between flex-wrap gap-y-3">
-              <div>
-                <p className="text-caption uppercase tracking-wide text-muted-2">
-                  {session ? `${session.dayLabel} • ${session.sessionLabel}` : "KramFlow"}
+              <div className="min-w-0">
+                <p className="text-caption uppercase tracking-wide text-muted-2 truncate">
+                  {eventName ?? "Kramflow"}
+                  {session && ` · ${session.dayLabel} • ${session.sessionLabel}`}
+                  {display?.room && ` · ${display.room}`}
                 </p>
                 {live?.kicker && <p className="text-subtitle text-muted mt-1">{live.kicker}</p>}
               </div>
@@ -167,7 +189,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
             {mode === "minimal" && (
               <p
                 className="tabular-nums font-semibold leading-none"
-                style={{ fontSize: "clamp(8rem, 22vw, 20rem)", color }}
+                style={{ fontSize: countdownFontSize(timer.label, 8, 20, 22), color }}
               >
                 {timer.label}
               </p>
@@ -192,7 +214,15 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
                   <>
                     <p
                       className="tabular-nums font-bold leading-none"
-                      style={{ fontSize: "clamp(9rem, 28vw, 24rem)", color }}
+                      style={{
+                        fontSize: countdownFontSize(
+                          mode === "countdown" || mode === "program" ? timer.label : formatClock(timer.elapsedSeconds),
+                          9,
+                          24,
+                          28
+                        ),
+                        color,
+                      }}
                     >
                       {mode === "countdown" || mode === "program" ? timer.label : formatClock(timer.elapsedSeconds)}
                     </p>
@@ -268,23 +298,37 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
           controlsVisible ? "opacity-100" : "opacity-0"
         )}
       >
+        {/* Every control below gets tabIndex={-1} while faded, on top of
+            the existing opacity fade — pointer/touch reachability while
+            fading is deliberately unchanged (see the comment above this
+            block), but a keyboard user tabbing through the page has no way
+            to see *where* focus is once these are invisible, and could
+            trigger a live Hold/timer mutation blind (2026-09-01 audit,
+            KF-003 / P0 finding #3). tabIndex alone doesn't affect pointer
+            events, so the "still tappable mid-fade" behavior survives
+            untouched — only Tab-reachability changes. */}
         <div className="flex items-center gap-2 rounded-full bg-card/95 backdrop-blur px-4 py-3 shadow-lg">
-          <ControlButton onClick={() => adjustTimer(-60)} label="-1:00">
+          <ControlButton onClick={() => adjustTimer(-60)} label="-1:00" tabIndex={controlsVisible ? undefined : -1}>
             <Minus className="h-4 w-4" strokeWidth={2} />
           </ControlButton>
-          <ControlButton onClick={() => adjustTimer(-30)} label="-0:30">
+          <ControlButton onClick={() => adjustTimer(-30)} label="-0:30" tabIndex={controlsVisible ? undefined : -1}>
             <Minus className="h-3.5 w-3.5" strokeWidth={2} />
           </ControlButton>
-          <ControlButton onClick={() => (timer.isPaused ? resumeTimer() : pauseTimer())} label={timer.isPaused ? "Resume" : "Pause"} primary>
+          <ControlButton
+            onClick={() => (timer.isPaused ? resumeTimer() : pauseTimer())}
+            label={timer.isPaused ? "Resume" : "Pause"}
+            primary
+            tabIndex={controlsVisible ? undefined : -1}
+          >
             {timer.isPaused ? <Play className="h-5 w-5" strokeWidth={2} /> : <Pause className="h-5 w-5" strokeWidth={2} />}
           </ControlButton>
-          <ControlButton onClick={() => adjustTimer(30)} label="+0:30">
+          <ControlButton onClick={() => adjustTimer(30)} label="+0:30" tabIndex={controlsVisible ? undefined : -1}>
             <Plus className="h-3.5 w-3.5" strokeWidth={2} />
           </ControlButton>
-          <ControlButton onClick={() => adjustTimer(60)} label="+1:00">
+          <ControlButton onClick={() => adjustTimer(60)} label="+1:00" tabIndex={controlsVisible ? undefined : -1}>
             <Plus className="h-4 w-4" strokeWidth={2} />
           </ControlButton>
-          <ControlButton onClick={() => setConfirmReset(true)} label="Reset">
+          <ControlButton onClick={() => setConfirmReset(true)} label="Reset" tabIndex={controlsVisible ? undefined : -1}>
             <RotateCcw className="h-4 w-4" strokeWidth={2} />
           </ControlButton>
 
@@ -296,6 +340,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
             size="sm"
             onClick={() => setTimerSource(engine.timer.source === "auto" ? "manual" : "auto")}
             className="rounded-full bg-white/5 hover:bg-white/10"
+            tabIndex={controlsVisible ? undefined : -1}
           >
             {engine.timer.source === "auto" ? "Auto-follow" : "Manual"}
           </Button>
@@ -307,6 +352,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
             searchable={false}
             aria-label="Display mode"
             className="w-auto min-w-[7rem]"
+            tabIndex={controlsVisible ? undefined : -1}
           />
 
           <span className="w-px h-6 bg-white/10 mx-1" />
@@ -319,6 +365,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
             }
             label="Hold"
             active={engine.hold.active}
+            tabIndex={controlsVisible ? undefined : -1}
           >
             <Radio className="h-4 w-4" strokeWidth={2} />
           </ControlButton>
@@ -329,9 +376,14 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
             searchable={false}
             aria-label="Hold message preset"
             className="w-auto min-w-[9rem]"
+            tabIndex={controlsVisible ? undefined : -1}
           />
 
-          <ControlButton onClick={fullscreen.toggle} label={fullscreen.isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+          <ControlButton
+            onClick={fullscreen.toggle}
+            label={fullscreen.isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            tabIndex={controlsVisible ? undefined : -1}
+          >
             {fullscreen.isFullscreen ? <Minimize className="h-4 w-4" strokeWidth={2} /> : <Maximize className="h-4 w-4" strokeWidth={2} />}
           </ControlButton>
 
@@ -346,7 +398,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
       <ConfirmDialog
         open={confirmReset}
         title="Reset the timer?"
-        description="This zeroes the current progress — it can't be undone."
+        description="This zeroes the current progress. It can't be undone."
         confirmLabel="Reset"
         tone="danger"
         onConfirm={() => {
@@ -365,17 +417,20 @@ function ControlButton({
   label,
   primary,
   active,
+  tabIndex,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   label: string;
   primary?: boolean;
   active?: boolean;
+  tabIndex?: number;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      tabIndex={tabIndex}
       aria-label={label}
       title={label}
       className={cn(

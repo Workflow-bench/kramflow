@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { logActivityAs } from "@/lib/server/activity-log";
 
 // Arbitrary-position reorder for the Cue Sheet editor's drag-and-drop — see
 // supabase/schema.sql's move_program for why this needs to be a single
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
 
   const { data: ownedProgram, error: ownedError } = await supabase
     .from("programs")
-    .select("id")
+    .select("id, name")
     .eq("id", id)
     .eq("event_id", auth.eventId)
     .maybeSingle();
@@ -61,5 +62,6 @@ export async function POST(request: Request) {
     p_partition_id: partitionId ?? null,
   });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  await logActivityAs(supabase, auth.eventId, auth.userId, "programMove", `Reordered "${ownedProgram.name}" in the cue sheet`);
   return NextResponse.json({ ok: true });
 }

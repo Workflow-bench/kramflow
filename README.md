@@ -227,6 +227,8 @@ CI/CD, automated tests, database-backed rate limiting ✓
   ↓
 Real brand identity — logo, favicons, PWA icons
   ↓
+Generic cue sheet import — any file, not just one event
+  ↓
 Phone companion for performers · volunteer check-in · QR join
   ↓
 Automatic cue timing · analytics

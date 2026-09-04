@@ -90,11 +90,25 @@ function colorFor(remainingSeconds: number, thresholds: TimerThresholds): TimerC
  * rest of the app already uses — no duplicate schedule data). In "manual"
  * mode it runs the Display Engine's own independent TimerState, set from
  * the Presenter Display's controls.
+ *
+ * `offsetMs` — from useTimeSync(), same as useDisplayClock's own param
+ * below — corrects for this device's own clock being wrong relative to the
+ * server. Without it, a kiosk with system-clock drift computes elapsed
+ * time from its own skewed `now` against the server-issued `startedAt`,
+ * visibly diverging from every correctly-clocked display in the room.
  */
-export function useDisplayTimer(autoProgram: AutoProgramInput | null): DisplayTimerResult {
+export function useDisplayTimer(autoProgram: AutoProgramInput | null, offsetMs = 0): DisplayTimerResult {
   const { state } = useDisplayEngine();
   const { timer } = state;
-  const now = useClockTick();
+  // useClockTick() is the shared, offset-free singleton tick (one interval
+  // for every display-timer/clock consumer, not one each — see the file's
+  // own comment above). offsetMs is applied here at the point of use
+  // instead, same as useDisplayClock(offsetMs) below — a kiosk with system-
+  // clock drift would otherwise compute elapsed time from its own skewed
+  // `now` against the server-issued `startedAt`, visibly diverging from
+  // every correctly-clocked display in the room.
+  const rawNow = useClockTick();
+  const now = rawNow === null ? null : rawNow + offsetMs;
 
   const useAuto = timer.source === "auto" && autoProgram !== null;
   const totalSeconds = useAuto

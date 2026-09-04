@@ -43,7 +43,14 @@ export function ActionBarClear({ onClick, label = "Clear selection" }: { onClick
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="grid h-7 w-7 place-items-center rounded-full text-muted-2 cursor-pointer transition-colors duration-[110ms] ease-out hover:bg-card-hover hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      // 44×44 hit area via negative margin, not a visually bigger button —
+      // this pill sits shoulder-to-shoulder with ActionBarCount/
+      // ActionBarButton, all sized to the toolbar's own compact rhythm, so
+      // inflating just this one circle would look oversized next to its
+      // siblings. The negative margin extends the real tap target into the
+      // pill's own padding/gap instead, closing the 28×28 gap (2026-09-01
+      // UI/UX audit finding #15) without changing the toolbar's layout.
+      className="grid h-11 w-11 -m-2 place-items-center rounded-full text-muted-2 cursor-pointer transition-colors duration-[110ms] ease-out hover:bg-card-hover hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <X className="h-3.5 w-3.5" strokeWidth={2} />
     </button>

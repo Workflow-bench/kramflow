@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
   Pause,
@@ -16,7 +16,7 @@ import {
   CheckCircle2,
   Circle,
 } from "lucide-react";
-import { useEventStore } from "@/lib/store";
+import { useEventStore, getLastActionStatus } from "@/lib/store";
 import { useSessions } from "@/lib/use-sessions";
 import { getSessionById } from "@/lib/data/sessions";
 import { effectiveNotes, getLive, getNext } from "@/lib/types";
@@ -26,16 +26,32 @@ import { useAuth } from "@/components/auth/auth-context";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { EMERGENCY_PRESETS } from "@/lib/display-engine/types";
 import { useControlLock } from "@/lib/use-control-lock";
-import { ProgressBar } from "@/components/tv/progress-bar";
-import { HoldBadge } from "@/components/tv/hold-badge";
+import { useControllerName } from "@/lib/use-controller-name";
+import { useEventId, useIsOwner } from "@/lib/event-context";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { OperationalStatus } from "@/components/ui/operational-status";
 import { BigActionButton } from "@/components/remote/big-action-button";
 import { QuickActionButton } from "@/components/remote/quick-action-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { MaybeTooltip } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+
+// P1 permission-truth fix (2026-09) — every action on this page routes
+// through either app/api/live/route.ts (start/next/previous/hold/finish/
+// jump/session-switch/alert/notes — all gated requireEventAccess(...,
+// "owner"), no per-action distinction there) or app/api/display-engine/
+// broadcasts/route.ts (send/emergency — also "owner"). The one exception
+// is Speaker Ready (app/api/display-engine/speaker-ready/route.ts), which
+// deliberately has no role check at all — see that route's own comment.
+// Before this fix, none of that was reflected here: every control
+// rendered fully clickable for every role, and a non-owner only found out
+// it was owner-only after pressing it and getting a generic "That didn't
+// work" toast for what the server had already correctly rejected as a 403.
+const OWNER_ONLY_NOTE = "Only the event owner can control the show from here. You can still watch and mark the speaker ready.";
 
 type Panel = "none" | "jump" | "alert" | "notes" | "broadcast";
 type ConfirmKind = "start" | "finish" | { session: string; label: string } | { jump: number } | null;
@@ -45,17 +61,40 @@ export default function RemotePage() {
     useEventStore();
   const { lock } = useAuth();
   const { sendBroadcast, state: engineState, setSpeakerReady } = useDisplayEngine();
+  const registeredCount = Object.keys(engineState.registry).length;
   const sessions = useSessions();
   const session = getSessionById(sessions, state.activeSessionId);
   const [panel, setPanel] = useState<Panel>("none");
   const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
-  const [pending, setPending] = useState<"next" | "previous" | "hold" | "start" | "finish" | null>(null);
+  const [pending, setPending] = useState<"next" | "previous" | "hold" | "start" | "finish" | "jump" | null>(null);
   const runningRef = useRef(false);
   const emergencyConfirm = useConfirmDialog<(typeof EMERGENCY_PRESETS)[number]>();
-  const emergencySendingRef = useRef(false);
   const [emergencySending, setEmergencySending] = useState(false);
+  // Ref, not just `emergencySending` — ConfirmDialog's confirm button has no
+  // disabled-while-submitting state unless `loading` is passed to it, and a
+  // rapid multi-click burst (easy to do on the touch-oriented Remote quick
+  // panel) can fire onConfirm several times before React commits state.
+  // Same guard as the Broadcast Center's identical emergency-send handler
+  // (app/e/[eventId]/broadcast/page.tsx), added there after a confirmed
+  // live 5-clicks-to-5-duplicate-broadcasts repro.
+  const emergencySendingRef = useRef(false);
   const toast = useToast();
+  const isOwner = useIsOwner();
   const { lockedByOther } = useControlLock(state);
+  const eventId = useEventId();
+  const controllerName = useControllerName(eventId, lockedByOther ? state.controllerId : null);
+  const lockedMessage = controllerName ? `Locked by ${controllerName}` : "Locked by the operator dashboard";
+  // run() is async and needs the *current* lock state when a request comes
+  // back, not the value closed over when it fired — see the identical fix
+  // in components/operator/controls-panel.tsx for why (confirmed live
+  // during the multi-operator stress test: a stale pre-check read is a
+  // real, reachable race, not just theoretical).
+  const lockedByOtherRef = useRef(lockedByOther);
+  const lockedMessageRef = useRef(lockedMessage);
+  useEffect(() => {
+    lockedByOtherRef.current = lockedByOther;
+    lockedMessageRef.current = lockedMessage;
+  }, [lockedByOther, lockedMessage]);
 
   const progress = session ? state.progressBySession[state.activeSessionId] : undefined;
   const currentOrder = progress?.currentOrder ?? null;
@@ -69,9 +108,18 @@ export default function RemotePage() {
   const isLastItem = currentOrder === max;
   const currentSessionHasProgress = currentOrder !== null;
 
-  const SEQUENCING_KINDS = new Set(["next", "previous", "hold", "start", "finish"]);
+  const SEQUENCING_KINDS = new Set(["next", "previous", "hold", "start", "finish", "jump"]);
 
   async function run(kind: NonNullable<typeof pending>, action: () => Promise<unknown> | unknown) {
+    // Visual gating (disabled + tooltip on every owner-only control below)
+    // is the primary fix — this is the defense-in-depth backstop for
+    // anything that reaches run() anyway (a race where the role changes
+    // mid-session, or a control this pass missed), so it never depends on
+    // a round trip to say something true.
+    if (!isOwner && SEQUENCING_KINDS.has(kind)) {
+      toast.error(OWNER_ONLY_NOTE);
+      return;
+    }
     // Same lock this surface's actions are gated by server-side
     // (app/api/live/route.ts) — see components/operator/controls-panel.tsx
     // for the full Take Control/Release/Take Over UI, which lives on
@@ -79,7 +127,7 @@ export default function RemotePage() {
     // controller, so it gets a toast with the same "Take Over" escape
     // hatch rather than its own persistent lock-status affordance.
     if (lockedByOther && SEQUENCING_KINDS.has(kind)) {
-      toast.error("Locked by the operator dashboard", {
+      toast.error(lockedMessage, {
         label: "Take Over",
         onClick: () => claimControl(true),
       });
@@ -91,7 +139,17 @@ export default function RemotePage() {
     try {
       const result = await action();
       if (result === false) {
-        toast.error("That didn't work — try again");
+        if (SEQUENCING_KINDS.has(kind) && lockedByOtherRef.current) {
+          toast.error(lockedMessageRef.current, { label: "Take Over", onClick: () => claimControl(true) });
+        } else if (getLastActionStatus(eventId) === 403) {
+          // Gating above should make this unreachable in normal use — a
+          // stale/changed role (or a bypassed disabled control) is the
+          // only way to still hit it, so say that plainly rather than a
+          // generic failure that leaves the operator guessing.
+          toast.error("You no longer have permission to perform this action.");
+        } else {
+          toast.error("That didn't work. Try again.");
+        }
       }
     } finally {
       runningRef.current = false;
@@ -104,13 +162,29 @@ export default function RemotePage() {
   // exactly the kind of clobber the lock exists to prevent — same toast +
   // Take Over escape hatch as the sequencing buttons in run(), just not
   // routed through run() itself since this one has its own confirm-dialog
-  // branching before the actual call.
-  function trySelectSession(sessionId: string) {
-    if (lockedByOther) {
-      toast.error("Locked by the operator dashboard", { label: "Take Over", onClick: () => claimControl(true) });
+  // branching before the actual call. Previously never checked
+  // selectSession's own result at all — a rejected switch (owner-only,
+  // same as every other live-state action) showed nothing whatsoever, not
+  // even a generic toast; the tab just silently appeared to do nothing.
+  async function trySelectSession(sessionId: string) {
+    if (!isOwner) {
+      toast.error(OWNER_ONLY_NOTE);
       return;
     }
-    selectSession(sessionId);
+    if (lockedByOther) {
+      toast.error(lockedMessage, { label: "Take Over", onClick: () => claimControl(true) });
+      return;
+    }
+    const ok = await selectSession(sessionId);
+    if (!ok) {
+      if (lockedByOtherRef.current) {
+        toast.error(lockedMessageRef.current, { label: "Take Over", onClick: () => claimControl(true) });
+      } else if (getLastActionStatus(eventId) === 403) {
+        toast.error("You no longer have permission to perform this action.");
+      } else {
+        toast.error("Couldn't switch session. Try again.");
+      }
+    }
   }
 
   function handleSessionClick(sessionId: string, label: string) {
@@ -124,16 +198,25 @@ export default function RemotePage() {
 
   if (!session) {
     return (
-      <main className="h-screen w-screen flex items-center justify-center bg-background px-6 text-center">
+      <main className="h-screen w-full max-w-md mx-auto flex items-center justify-center bg-background px-6 text-center">
         <p className="text-body text-muted">
-          {sessions.length === 0 ? "No sessions yet — add one from the Operator dashboard." : "Select a session to get started."}
+          {sessions.length === 0 ? "No sessions yet. Add one from the Operator dashboard." : "Select a session to get started."}
         </p>
       </main>
     );
   }
 
   return (
-    <main className="h-screen w-screen overflow-hidden bg-background flex flex-col">
+    // w-full max-w-md mx-auto, not w-screen — Remote's giant one-handed
+    // touch targets are correct at the phone widths this page is actually
+    // designed for (a second, dedicated device — see docs/DESIGN.md), but
+    // stretched edge-to-edge at a desktop viewport they read as an
+    // unscaled phone UI rather than a considered surface (2026-09
+    // convergence sprint, Workstream 7). body already carries the same
+    // bg-background token, so capping main's width leaves a seamless,
+    // identically-colored margin outside it rather than needing a second
+    // wrapper — this page just never intentionally used the extra space.
+    <main className="h-screen w-full max-w-md mx-auto overflow-hidden bg-background flex flex-col">
       {/* Compact header — session context, not a full navigation bar */}
       <div className="shrink-0 px-6 pt-6 pb-3">
         <div className="flex items-center justify-between gap-3">
@@ -144,31 +227,45 @@ export default function RemotePage() {
             <p className="text-caption text-muted-2 tabular-nums">
               {Math.min(currentOrder ?? 0, max)} / {max}
             </p>
-            <Button type="button" variant="ghost" size="sm" square onClick={lock} aria-label="Lock" className="h-6 w-6">
+            {/* 44×44 minimum touch target, not the 24×24 this used to be
+                shrunk to for the compact header row — Remote is the app's
+                one designated one-handed/thumb surface (see docs/DESIGN_
+                SYSTEM.md), so an undersized target here specifically
+                contradicts the surface's own reason to exist (2026-09-01
+                UI/UX audit finding #15). Negative margin keeps the visual
+                footprint from widening the header row now that the hit
+                area is bigger than the icon it wraps. */}
+            <Button type="button" variant="ghost" size="sm" square onClick={lock} aria-label="Lock" className="h-11 w-11 -mr-1.5 -my-1.5">
               <Lock className="h-4 w-4" strokeWidth={2} />
             </Button>
           </div>
         </div>
         <div className="flex gap-1.5 overflow-x-auto mt-3 pb-1 -mx-1 px-1">
-          {sessions.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => handleSessionClick(s.id, `${s.dayLabel} ${s.sessionLabel}`)}
-              aria-current={s.id === state.activeSessionId ? "true" : undefined}
-              aria-label={`${s.dayLabel} ${s.sessionLabel}`}
-              className={cn(
-                "shrink-0 rounded-panel px-3 py-1.5 text-left cursor-pointer transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                s.id === state.activeSessionId ? "bg-card text-primary" : "text-muted-2"
-              )}
-            >
-              <p className="text-caption font-medium">{s.dayLabel}</p>
-              <p className={cn("text-caption", s.id === state.activeSessionId ? "text-muted" : "text-muted-2")}>
-                {s.sessionLabel}
-              </p>
-            </button>
-          ))}
+          {sessions.map((s) => {
+            const switchDisabled = !isOwner && s.id !== state.activeSessionId;
+            return (
+              <MaybeTooltip key={s.id} when={switchDisabled} content={OWNER_ONLY_NOTE}>
+                <button
+                  type="button"
+                  onClick={() => handleSessionClick(s.id, `${s.dayLabel} ${s.sessionLabel}`)}
+                  disabled={switchDisabled}
+                  aria-current={s.id === state.activeSessionId ? "true" : undefined}
+                  aria-label={`${s.dayLabel} ${s.sessionLabel}`}
+                  className={cn(
+                    "shrink-0 rounded-panel px-3 py-1.5 text-left transition-colors",
+                    switchDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    s.id === state.activeSessionId ? "bg-card text-primary" : "text-muted-2"
+                  )}
+                >
+                  <p className="text-caption font-medium">{s.dayLabel}</p>
+                  <p className={cn("text-caption", s.id === state.activeSessionId ? "text-muted" : "text-muted-2")}>
+                    {s.sessionLabel}
+                  </p>
+                </button>
+              </MaybeTooltip>
+            );
+          })}
         </div>
       </div>
 
@@ -193,7 +290,7 @@ export default function RemotePage() {
           <>
             <div className="flex items-center gap-2">
               <p className="text-caption uppercase tracking-wide text-muted-2">Now</p>
-              {state.pausedAt && <HoldBadge />}
+              {state.pausedAt && <OperationalStatus kind="hold" />}
             </div>
             <p className="text-title text-primary mt-2 leading-tight">{live?.title}</p>
             {live?.presenter && <p className="text-body text-muted mt-1">{live.presenter}</p>}
@@ -252,12 +349,21 @@ export default function RemotePage() {
               setAlert({ message, severity });
               setPanel("none");
             }}
-            onSaveNotes={(text) => {
-              if (live) setNotes(live.id, text);
+            onSaveNotes={async (text) => {
               setPanel("none");
+              if (!live) return;
+              const ok = await setNotes(live.id, text);
+              if (!ok) {
+                toast.error(
+                  getLastActionStatus(eventId) === 403
+                    ? "You no longer have permission to perform this action."
+                    : "Couldn't save notes. Try again."
+                );
+              }
             }}
-            onBroadcast={(title, message) => {
-              sendBroadcast({
+            onBroadcast={async (title, message) => {
+              setPanel("none");
+              const res = await sendBroadcast({
                 type: "info",
                 title,
                 message,
@@ -270,7 +376,13 @@ export default function RemotePage() {
                 persistent: false,
                 scheduledFor: null,
               });
-              setPanel("none");
+              if (!res || !res.ok) {
+                toast.error(
+                  res?.status === 403
+                    ? "You no longer have permission to perform this action."
+                    : "Couldn't send the broadcast. Try again."
+                );
+              }
             }}
             onRequestEmergency={(preset) => {
               emergencyConfirm.request(preset);
@@ -280,78 +392,100 @@ export default function RemotePage() {
         )}
 
         {currentOrder === null ? (
-          <BigActionButton onClick={() => setConfirmKind("start")} className="h-24" disabled={pending !== null}>
-            <Play className="h-7 w-7" strokeWidth={2} />
-            Start
-          </BigActionButton>
+          <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+            <BigActionButton onClick={() => setConfirmKind("start")} className="h-24" disabled={!isOwner || pending !== null}>
+              <Play className="h-7 w-7" strokeWidth={2} />
+              Start
+            </BigActionButton>
+          </MaybeTooltip>
         ) : isFinished ? null : (
           <>
-            <BigActionButton
-              onClick={() => run("next", () => next(max))}
-              className="h-28"
-              disabled={isLastItem || pending !== null}
-            >
-              Next
-            </BigActionButton>
+            <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+              <BigActionButton
+                onClick={() => run("next", () => next(max))}
+                className="h-28"
+                disabled={!isOwner || isLastItem || pending !== null}
+              >
+                Next
+              </BigActionButton>
+            </MaybeTooltip>
 
             {isLastItem && (
-              <BigActionButton
-                variant="danger"
-                className="h-16 mt-3"
-                onClick={() => setConfirmKind("finish")}
-                disabled={pending !== null}
-              >
-                <Square className="h-5 w-5" strokeWidth={2} />
-                Finish Session
-              </BigActionButton>
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <BigActionButton
+                  variant="danger"
+                  className="h-16 mt-3"
+                  onClick={() => setConfirmKind("finish")}
+                  disabled={!isOwner || pending !== null}
+                >
+                  <Square className="h-5 w-5" strokeWidth={2} />
+                  Finish Session
+                </BigActionButton>
+              </MaybeTooltip>
             )}
 
             <div className="flex gap-3 mt-3">
-              <BigActionButton
-                variant="secondary"
-                className="h-16 text-base"
-                onClick={() => run("previous", () => previous(min))}
-                disabled={currentOrder === min || pending !== null}
-              >
-                <ChevronLeft className="h-5 w-5" strokeWidth={2} />
-                Previous
-              </BigActionButton>
-              <BigActionButton
-                variant={state.pausedAt ? "warning" : "secondary"}
-                className="h-16 text-base"
-                onClick={() => run("hold", togglePause)}
-                disabled={pending !== null}
-              >
-                {state.pausedAt ? <Play className="h-5 w-5" strokeWidth={2} /> : <Pause className="h-5 w-5" strokeWidth={2} />}
-                {state.pausedAt ? "Resume" : "Hold"}
-              </BigActionButton>
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <BigActionButton
+                  variant="secondary"
+                  className="h-16 text-base"
+                  onClick={() => run("previous", () => previous(min))}
+                  disabled={!isOwner || currentOrder === min || pending !== null}
+                >
+                  <ChevronLeft className="h-5 w-5" strokeWidth={2} />
+                  Previous
+                </BigActionButton>
+              </MaybeTooltip>
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <BigActionButton
+                  variant={state.pausedAt ? "warning" : "secondary"}
+                  className="h-16 text-base"
+                  onClick={() => run("hold", togglePause)}
+                  disabled={!isOwner || pending !== null}
+                >
+                  {state.pausedAt ? <Play className="h-5 w-5" strokeWidth={2} /> : <Pause className="h-5 w-5" strokeWidth={2} />}
+                  {state.pausedAt ? "Resume" : "Hold"}
+                </BigActionButton>
+              </MaybeTooltip>
             </div>
 
             <div className="flex gap-3 mt-3">
-              <QuickActionButton
-                icon={Hash}
-                label="Jump"
-                active={panel === "jump"}
-                onClick={() => setPanel(panel === "jump" ? "none" : "jump")}
-              />
-              <QuickActionButton
-                icon={AlertTriangle}
-                label="Alert"
-                active={panel === "alert"}
-                onClick={() => setPanel(panel === "alert" ? "none" : "alert")}
-              />
-              <QuickActionButton
-                icon={NotebookPen}
-                label="Notes"
-                active={panel === "notes"}
-                onClick={() => setPanel(panel === "notes" ? "none" : "notes")}
-              />
-              <QuickActionButton
-                icon={Megaphone}
-                label="Broadcast"
-                active={panel === "broadcast"}
-                onClick={() => setPanel(panel === "broadcast" ? "none" : "broadcast")}
-              />
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <QuickActionButton
+                  icon={Hash}
+                  label="Jump"
+                  active={panel === "jump"}
+                  disabled={!isOwner}
+                  onClick={() => setPanel(panel === "jump" ? "none" : "jump")}
+                />
+              </MaybeTooltip>
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <QuickActionButton
+                  icon={AlertTriangle}
+                  label="Alert"
+                  active={panel === "alert"}
+                  disabled={!isOwner}
+                  onClick={() => setPanel(panel === "alert" ? "none" : "alert")}
+                />
+              </MaybeTooltip>
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <QuickActionButton
+                  icon={NotebookPen}
+                  label="Notes"
+                  active={panel === "notes"}
+                  disabled={!isOwner}
+                  onClick={() => setPanel(panel === "notes" ? "none" : "notes")}
+                />
+              </MaybeTooltip>
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <QuickActionButton
+                  icon={Megaphone}
+                  label="Broadcast"
+                  active={panel === "broadcast"}
+                  disabled={!isOwner}
+                  onClick={() => setPanel(panel === "broadcast" ? "none" : "broadcast")}
+                />
+              </MaybeTooltip>
             </div>
           </>
         )}
@@ -403,8 +537,14 @@ export default function RemotePage() {
         description="This changes what's live on every connected display right now."
         confirmLabel="Jump Here"
         onConfirm={() => {
+          // Previously called jumpTo() directly with its result never
+          // checked — same silently-swallowed-rejection gap trySelectSession
+          // had (jumpTo is owner-gated too, via the same /api/live route).
+          // Routed through run() like every other sequencing action so a
+          // rejection surfaces a real toast instead of nothing.
           if (typeof confirmKind === "object" && confirmKind && "jump" in confirmKind) {
-            jumpTo(confirmKind.jump, max);
+            const order = confirmKind.jump;
+            run("jump", () => jumpTo(order, max));
           }
           setConfirmKind(null);
         }}
@@ -414,7 +554,7 @@ export default function RemotePage() {
       <ConfirmDialog
         open={emergencyConfirm.isOpen}
         title={`Send "${emergencyConfirm.pending?.title}" to every display?`}
-        description="This takes over every connected screen immediately."
+        description={`"${emergencyConfirm.pending?.message}": takes over ${registeredCount} registered display${registeredCount === 1 ? "" : "s"} immediately. Send an update or Clear afterward if needed.`}
         confirmLabel="Send Emergency"
         tone="danger"
         loading={emergencySending}
@@ -438,7 +578,9 @@ export default function RemotePage() {
               scheduledFor: null,
             });
             emergencyConfirm.cancel();
-            if (!res || !res.ok) toast.error("Couldn't send the emergency broadcast — try again immediately");
+            if (res && res.ok) toast.success("Emergency broadcast sent");
+            else if (res?.status === 403) toast.error("You no longer have permission to perform this action.");
+            else toast.error("Couldn't send the emergency broadcast. Try again immediately.");
           } finally {
             emergencySendingRef.current = false;
             setEmergencySending(false);

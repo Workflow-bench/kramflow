@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeAge } from "@/lib/utils";
 
 export type ConnectionBadgeStatus = "connected" | "reconnecting" | "disconnected";
 
@@ -23,17 +24,45 @@ const COPY: Record<ConnectionBadgeStatus, string> = {
 // `variant="stage"` — fixed to the display's safe-area corner, TV scale
 // (5-15ft viewing distance): a quiet dot when connected, escalating to a
 // labeled badge only once there's something worth noticing.
+// Above this, "connected" (the last poll succeeded) stops being a good
+// enough proxy for "the content on screen is current" — the badge escalates
+// out of the quiet dot even though connectionStatus itself never flipped,
+// because a technically-successful-but-ancient poll is exactly the "frozen
+// display that still looks healthy" case the 2026-09-01 audit named
+// directly (KF-015: "never show live when run state is unbound").
+const STALE_AFTER_MS = 15_000;
+
 export function ConnectionBadge({
   status,
   variant = "console",
   className,
+  lastUpdatedAt,
 }: {
   status: ConnectionBadgeStatus;
   variant?: "console" | "stage";
   className?: string;
+  /** Epoch ms of the last successful sync — stage variant only. Powers a
+   *  real "synced Xs ago" instead of an unconditional "Live and synced"
+   *  claim (2026-09-01 audit, KF-001/KF-015). Omit for callers with no
+   *  poll-based freshness signal (Operator Console's Realtime subscription
+   *  has no equivalent "last poll" moment to report). */
+  lastUpdatedAt?: number | null;
 }) {
+  // Ticks once a second only while connected with a known lastUpdatedAt —
+  // no interval at all for the console variant or a disconnected stage
+  // badge, since neither renders an age.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (variant !== "stage" || status !== "connected" || lastUpdatedAt == null) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [variant, status, lastUpdatedAt]);
+
+  const ageMs = lastUpdatedAt != null ? now - lastUpdatedAt : null;
+  const isStale = ageMs !== null && ageMs > STALE_AFTER_MS;
+
   const tone =
-    status === "connected" ? "green" : status === "reconnecting" ? "orange" : "red";
+    status === "connected" && !isStale ? "green" : status === "disconnected" ? "red" : "orange";
 
   if (variant === "stage") {
     // Top-center, not a corner — every display route (General/AV/Green
@@ -43,15 +72,32 @@ export function ConnectionBadge({
     // where real per-screen content already lives. Top-center is the one
     // band no screen puts anything else, confirmed by reading all four —
     // it's not a guess.
-    if (status === "connected") {
+    if (status === "connected" && !isStale) {
+      const ageLabel = ageMs !== null ? `Synced ${formatRelativeAge(ageMs)}` : "Live and synced";
       return (
         <div
           className={cn("fixed z-40 left-1/2 -translate-x-1/2 flex items-center", className)}
           style={{ top: "clamp(10px, 1.5vw, 18px)" }}
-          title="Live and synced"
+          title={ageLabel}
         >
           <span className="h-2.5 w-2.5 rounded-full bg-status-green shadow-[0_0_8px_rgba(43,182,115,0.7)]" aria-hidden="true" />
-          <span className="sr-only">Live and synced</span>
+          <span className="sr-only">{ageLabel}</span>
+        </div>
+      );
+    }
+    if (isStale && status === "connected") {
+      return (
+        <div
+          className={cn(
+            "fixed z-40 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full px-4 py-2 text-caption font-semibold uppercase tracking-wide",
+            "shadow-float bg-status-orange text-background",
+            className
+          )}
+          style={{ top: "clamp(10px, 1.5vw, 18px)" }}
+          role="status"
+        >
+          <RefreshCw className="h-4 w-4" strokeWidth={2.5} />
+          Stale: last update {formatRelativeAge(ageMs)}
         </div>
       );
     }
@@ -90,7 +136,7 @@ export function ConnectionBadge({
       title={
         status === "connected"
           ? "Live-synced with the server"
-          : "Lost the live connection to the backend — actions may not be reaching the server, and this screen may be showing stale data"
+          : "Lost the live connection to the backend. Actions may not be reaching the server, and this screen may be showing stale data."
       }
     >
       {status === "connected" && <Wifi className="h-3.5 w-3.5" strokeWidth={2} />}

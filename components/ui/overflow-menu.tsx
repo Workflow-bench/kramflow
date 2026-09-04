@@ -9,9 +9,19 @@ import { useDismissOnOutsideOrEscape } from "@/lib/use-dismiss-on-outside-or-esc
 
 export interface OverflowMenuItem {
   label: string;
-  href: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  /** Navigation item — provide exactly one of href or onClick. */
+  href?: string;
   target?: string;
+  /** Callback item — provide exactly one of href or onClick. Originally
+   *  this menu was link-only (see components/dashboard/help-menu.tsx and
+   *  Dashboard's own deferred note on that gap); Cue Sheet's session
+   *  actions — Edit/Delete/New session — are the first real callback-item
+   *  need, so this closes that gap rather than adding a fourth hand-rolled
+   *  popover-menu shell alongside HelpMenu's. */
+  onClick?: () => void;
+  /** Renders in the danger hue — e.g. a destructive "Delete" entry. */
+  tone?: "default" | "danger";
 }
 
 // A generic low-frequency-actions menu — same shell/interaction pattern as
@@ -22,7 +32,23 @@ export interface OverflowMenuItem {
 // you actually want, every time you glance at the row — reserved for
 // genuinely low-frequency destinations, not a place to hide things that
 // are just inconvenient to lay out.
-export function OverflowMenu({ items, label = "More" }: { items: OverflowMenuItem[]; label?: string }) {
+export function OverflowMenu({
+  items,
+  label = "More",
+  iconOnly = false,
+  triggerIcon: TriggerIcon = MoreHorizontal,
+}: {
+  items: OverflowMenuItem[];
+  label?: string;
+  /** Icon-only trigger (no visible "More" text) for tight command rows —
+   *  the accessible name still carries `label`. */
+  iconOnly?: boolean;
+  /** Override the trigger's icon — the "more actions" `MoreHorizontal`
+   *  glyph is right for an overflow-actions menu, wrong for a menu that's
+   *  itself the primary entry point (e.g. Help). Defaults to
+   *  `MoreHorizontal` so every other call site is unaffected. */
+  triggerIcon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+}) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -30,9 +56,9 @@ export function OverflowMenu({ items, label = "More" }: { items: OverflowMenuIte
 
   return (
     <div ref={rootRef} className="relative">
-      <Button variant="ghost" size="sm" onClick={() => setOpen((v) => !v)}>
-        <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
-        {label}
+      <Button variant="ghost" size="sm" square={iconOnly} aria-label={iconOnly ? label : undefined} onClick={() => setOpen((v) => !v)}>
+        <TriggerIcon className="h-4 w-4" strokeWidth={2} />
+        {!iconOnly && label}
       </Button>
       {open && (
         <div
@@ -42,20 +68,39 @@ export function OverflowMenu({ items, label = "More" }: { items: OverflowMenuIte
             "motion-safe:animate-rise"
           )}
         >
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              target={item.target}
-              rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-3 py-2 text-console-sm text-primary hover:bg-card-hover transition-colors"
-            >
-              <item.icon className="h-4 w-4 shrink-0 text-muted-2" strokeWidth={2} />
-              {item.label}
-            </Link>
-          ))}
+          {items.map((item) =>
+            item.href ? (
+              <Link
+                key={item.label}
+                href={item.href}
+                target={item.target}
+                rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-2 text-console-sm text-primary hover:bg-card-hover transition-colors"
+              >
+                <item.icon className="h-4 w-4 shrink-0 text-muted-2" strokeWidth={2} />
+                {item.label}
+              </Link>
+            ) : (
+              <button
+                key={item.label}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  item.onClick?.();
+                }}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2 text-console-sm text-left cursor-pointer hover:bg-card-hover transition-colors",
+                  item.tone === "danger" ? "text-status-red" : "text-primary"
+                )}
+              >
+                <item.icon className={cn("h-4 w-4 shrink-0", item.tone === "danger" ? "text-status-red" : "text-muted-2")} strokeWidth={2} />
+                {item.label}
+              </button>
+            )
+          )}
         </div>
       )}
     </div>

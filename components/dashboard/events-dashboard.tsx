@@ -2,22 +2,21 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { LayoutDashboard, Smartphone, ListChecks, MonitorPlay, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { LayoutDashboard, Smartphone, FileSpreadsheet, MonitorPlay, Plus, Trash2 } from "lucide-react";
 import { Panel } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { OperationalStatus } from "@/components/ui/operational-status";
+import { Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ShareLinkPanel } from "./share-link-panel";
 import { GettingStartedChecklist } from "./getting-started-checklist";
-import { DISPLAY_TYPES } from "@/lib/display-engine/types";
+import { cn } from "@/lib/utils";
 
-// The dashboard's preview links skip "custom" — it has no dedicated route
-// of its own (falls back to /presenter), so it'd just duplicate the
-// Presenter link here.
-const PREVIEW_DISPLAY_TYPES = DISPLAY_TYPES.filter((t) => t.value !== "custom");
+export type EventRole = "owner" | "editor" | "viewer";
 
 export interface EventSummary {
   id: string;
@@ -26,25 +25,44 @@ export interface EventSummary {
   event_date?: string | null;
   venue?: string | null;
   timezone?: string | null;
+  /** Which relationship this operator has to the event — owned, or an
+   *  accepted collaboration. Gates owner-only actions (Delete, Share
+   *  Links) client-side as a courtesy; every one of those routes already
+   *  enforces the same boundary server-side regardless (requireEventAccess
+   *  in each API route). */
+  role?: EventRole;
+  /** Readiness, not analytics — real counts of what already exists, no
+   *  invented metrics. Undefined (not 0) when the caller didn't compute
+   *  them, so a freshly-created event in local state doesn't briefly
+   *  render "0 sessions" before it's ever been fetched with real data. */
+  sessionCount?: number;
+  itemCount?: number;
+  isLive?: boolean;
 }
 
-// The operator's own event list — each operator can create and manage
-// multiple events (see the approved multi-tenant plan's "one operator,
-// many events"), and every event here is already scoped to the signed-in
-// user by the GET /api/events route's owner_id filter plus RLS underneath
-// it. Nothing here needs its own ownership check — an operator simply
-// never receives another operator's event in this list to begin with.
+// Every event this operator can actually open — owned, plus accepted
+// collaborations (GET /api/events, and this page's own server component,
+// both merge the two). role on each row is what the client uses to decide
+// which actions to offer; RLS and every mutating route's own
+// requireEventAccess() call are the real boundary regardless of what this
+// list shows.
 export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary[] }) {
   const toast = useToast();
   const router = useRouter();
   const [events, setEvents] = useState<EventSummary[]>(initialEvents);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
-  const [expandedId, setExpandedId] = useState<string | null>(events[0]?.id ?? null);
   const [deleteTarget, setDeleteTarget] = useState<EventSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   async function handleCreate() {
+    // Re-entrancy guard: the Input's onKeyDown below calls this directly
+    // (not gated by `creating` the way the Button's `disabled` prop is), so
+    // a fast double Enter — or Enter immediately followed by a click before
+    // React re-renders the disabled button — could otherwise fire two
+    // concurrent creates from one submission.
+    if (creating) return;
+
     // Captured before the request, not after — by the time the response
     // comes back, `events` already has the new row appended, so checking
     // post-create would never see "this was the first one."
@@ -71,8 +89,7 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
         router.push(`/e/${data.event.id}/operator/cue-sheet`);
         return;
       }
-      setEvents((prev) => [data.event!, ...prev]);
-      setExpandedId(data.event.id);
+      setEvents((prev) => [{ ...data.event!, role: "owner", sessionCount: 0, itemCount: 0, isLive: false }, ...prev]);
     } catch {
       toast.error("Couldn't reach the server.");
     } finally {
@@ -100,120 +117,83 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
     }
   }
 
+  // Live events surface first — the one thing on this whole page that
+  // genuinely needs attention right now outranks recency (Von Restorff:
+  // an exceptional state should be first to catch the eye, not buried at
+  // whatever position creation order happened to leave it). A stable sort
+  // (no comparator ties reordering same-liveness events against each
+  // other) preserves the server's own recency ordering within each group.
+  const sortedEvents = [...events].sort((a, b) => Number(b.isLive) - Number(a.isLive));
+
   return (
     <div className="flex flex-col gap-6">
       <GettingStartedChecklist events={events} />
 
-      <Panel className="p-5">
-        <div className="flex items-center gap-3 flex-wrap">
-          <Input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Event name (e.g. Satsang Shibir 2027)"
-            aria-label="New event name"
-            className="flex-1 min-w-[16rem]"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleCreate();
-            }}
-          />
-          <Button variant="primary" onClick={handleCreate} loading={creating}>
-            <Plus className="h-4 w-4" strokeWidth={2} />
-            Create Event
-          </Button>
-        </div>
-      </Panel>
-
-      {events.length === 0 && (
-        <EmptyState
-          title="No events yet"
-          body="Create your first event to start building a cue sheet and running a show."
-        />
-      )}
-
-      {events.map((event) => {
-        const expanded = expandedId === event.id;
-        return (
-          <Panel key={event.id} className="p-0 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setExpandedId(expanded ? null : event.id)}
-              className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left cursor-pointer"
-            >
-              <div className="min-w-0">
-                <h2 className="text-console-lg text-primary truncate">{event.name}</h2>
-                <p className="text-console-sm text-muted mt-1 truncate">
-                  {event.event_date
-                    ? // Parsed as a plain calendar date (not a UTC instant) so
-                      // the displayed date can't shift a day depending on the
-                      // viewer's own timezone offset from midnight UTC.
-                      new Date(`${event.event_date}T00:00:00`).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                    : `Created ${new Date(event.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`}
-                  {event.venue ? ` · ${event.venue}` : ""}
-                </p>
-              </div>
-              {expanded ? <ChevronUp className="h-5 w-5 text-muted-2 shrink-0" /> : <ChevronDown className="h-5 w-5 text-muted-2 shrink-0" />}
-            </button>
-
-            {expanded && (
-              <div className="px-6 pb-6 flex flex-col gap-6 border-t border-line-soft pt-6">
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
-                    <DashboardLink
-                      href={`/e/${event.id}/operator`}
-                      icon={LayoutDashboard}
-                      title="Operator Console"
-                      desc="Run the show — start, next, hold, alerts."
-                    />
-                    <DashboardLink href={`/e/${event.id}/remote`} icon={Smartphone} title="Remote" desc="One-handed mobile control." />
-                    <DashboardLink
-                      href={`/e/${event.id}/operator/cue-sheet`}
-                      icon={ListChecks}
-                      title="Cue Sheet"
-                      desc="Edit the queue, upload a rundown."
-                    />
-                  </section>
-                </div>
-
-                <ShareLinkPanel eventId={event.id} />
-
-                <Panel className="p-5">
-                  <div className="flex items-center gap-2">
-                    <MonitorPlay className="h-4 w-4 text-muted-2" strokeWidth={2} />
-                    <h3 className="text-console-md text-primary">Preview a display</h3>
-                  </div>
-                  <p className="text-console-meta text-muted-2 mt-1">
-                    You&apos;re logged in, so these open directly — no link or QR code needed.
-                  </p>
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {PREVIEW_DISPLAY_TYPES.map((d) => (
-                      <Link
-                        key={d.value}
-                        href={`${d.route}?eventId=${event.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-control bg-raised border border-line px-3.5 py-2 text-console-sm text-primary hover:bg-card-hover hover:border-white/20 transition-colors"
-                      >
-                        {d.label}
-                      </Link>
-                    ))}
-                  </div>
-                </Panel>
-
-                <div>
-                  <Button variant="danger" size="sm" onClick={() => setDeleteTarget(event)}>
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                    Delete Event
-                  </Button>
-                </div>
-              </div>
-            )}
+      {events.length === 0 ? (
+        <>
+          <Panel className="p-5">
+            <div className="flex items-center gap-3 flex-wrap">
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Event name (e.g. Satsang Shibir 2027)"
+                aria-label="New event name"
+                className="flex-1 min-w-[16rem]"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreate();
+                }}
+              />
+              <Button variant="primary" onClick={handleCreate} loading={creating}>
+                <Plus className="h-4 w-4" strokeWidth={2} />
+                Create Event
+              </Button>
+            </div>
           </Panel>
-        );
-      })}
+          <EmptyState
+            title="No events yet"
+            body="Create your first event to start building a cue sheet and running a show."
+          />
+        </>
+      ) : (
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
+          {/* auto-fit, not fixed breakpoint column counts — a fixed column
+              count stretches to fill every track regardless of how many
+              events actually exist, so 1-2 events left ~75% of a wide
+              desktop viewport as dead space (2026-09 convergence sprint,
+              Workstream 7: measured directly). auto-fit collapses tracks
+              with no content to 0 width and grows the real cards to fill
+              what's freed (up to minmax's cap) instead of leaving them
+              narrow in a sea of empty gutter — one rule that self-adjusts
+              for any event count, not per-breakpoint tuning. */}
+          {/* The "create" affordance is a peer of the events it creates, not
+              a separate toolbar above them (uniform connectedness) — same
+              first-grid-tile convention as Linear's/Notion's "new" tiles,
+              a familiar pattern rather than an invented one (Jakob's Law).
+              The input stays visible rather than hidden behind its own
+              "+" click — one fewer gate in front of the single most
+              common first action on this page. */}
+          <div className="rounded-panel border border-dashed border-line p-5 flex flex-col gap-3 justify-center">
+            <p className="text-console-meta text-muted-2 uppercase tracking-wide">New event</p>
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. Satsang Shibir 2027"
+              aria-label="New event name"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreate();
+              }}
+            />
+            <Button variant="primary" size="sm" onClick={handleCreate} loading={creating}>
+              <Plus className="h-4 w-4" strokeWidth={2} />
+              Create Event
+            </Button>
+          </div>
+
+          {sortedEvents.map((event) => (
+            <EventCard key={event.id} event={event} onRequestDelete={() => setDeleteTarget(event)} />
+          ))}
+        </div>
+      )}
 
       {/* Tier 4 — the one action in the product that outweighs everything
           else on the guardrail-tier table (docs/DESIGN.md): it cascades
@@ -224,7 +204,7 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
       <ConfirmDialog
         open={deleteTarget !== null}
         title={`Delete "${deleteTarget?.name}"?`}
-        description="Every session, item, share link, and live state for this event — permanently destroyed. This can't be undone."
+        description="Every session, item, share link, and live state for this event, permanently destroyed. This can't be undone."
         confirmLabel="Delete Event"
         tone="danger-solid"
         loading={deleting}
@@ -236,25 +216,98 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
   );
 }
 
-function DashboardLink({
-  href,
-  icon: Icon,
-  title,
-  desc,
-}: {
-  href: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  title: string;
-  desc: string;
-}) {
+// Everything meaningful about an event visible in one glance — identity,
+// readiness counts, and the primary action (Open Console, sized and
+// weighted above its siblings: Pareto — running the live show is the
+// overwhelmingly common reason to open an event, so it gets the biggest
+// target, not equal billing with Cue Sheet/Remote/Displays). Previously
+// this whole card lived behind a click-to-expand row, which meant scanning
+// N events for "which one needs me" cost N clicks before any of this was
+// visible — Hick's Law says that gate should only exist if the content
+// behind it is genuinely secondary, and none of this is.
+function EventCard({ event, onRequestDelete }: { event: EventSummary; onRequestDelete: () => void }) {
+  const isOwner = (event.role ?? "owner") === "owner";
+
   return (
-    <Link
-      href={href}
-      className="rounded-panel bg-card border border-line-soft p-5 hover:bg-card-hover hover:border-white/10 transition-colors flex flex-col gap-2"
+    <Panel
+      className={cn(
+        "p-5 flex flex-col gap-4",
+        // A live event's card gets a visible accent, not just an inline
+        // badge easy to miss while scanning a grid of otherwise-identical
+        // cards (Von Restorff) — routine events stay visually calm so this
+        // keeps its power.
+        event.isLive && "border-status-green/40 bg-status-green/[0.03]"
+      )}
     >
-      <Icon className="h-5 w-5 text-accent" strokeWidth={2} />
-      <span className="text-console-sm font-medium text-primary">{title}</span>
-      <span className="text-console-meta text-muted-2">{desc}</span>
-    </Link>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <h2 className="text-console-md font-semibold text-primary truncate">{event.name}</h2>
+          {event.isLive && <OperationalStatus kind="live" />}
+          {!isOwner && (
+            <Badge tone="muted" className="capitalize">
+              {event.role}
+            </Badge>
+          )}
+        </div>
+        <p className="text-console-meta text-muted-2 mt-1 truncate">
+          {event.event_date
+            ? // Parsed as a plain calendar date (not a UTC instant) so the
+              // displayed date can't shift a day depending on the viewer's
+              // own timezone offset from midnight UTC.
+              new Date(`${event.event_date}T00:00:00`).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            : `Created ${new Date(event.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`}
+          {event.venue ? ` · ${event.venue}` : ""}
+          {event.sessionCount !== undefined &&
+            ` · ${event.sessionCount} session${event.sessionCount === 1 ? "" : "s"} · ${event.itemCount ?? 0} item${event.itemCount === 1 ? "" : "s"}`}
+        </p>
+      </div>
+
+      <LinkButton href={`/e/${event.id}/operator`} variant="primary" size="sm">
+        <LayoutDashboard className="h-3.5 w-3.5" strokeWidth={2} />
+        Open Console
+      </LinkButton>
+
+      <div className="flex items-center gap-1.5">
+        <Tooltip content="Cue Sheet">
+          <LinkButton href={`/e/${event.id}/operator/cue-sheet`} variant="secondary" size="sm" square aria-label="Cue Sheet">
+            <FileSpreadsheet className="h-3.5 w-3.5" strokeWidth={2} />
+          </LinkButton>
+        </Tooltip>
+        <Tooltip content="Remote: one-handed mobile control">
+          <LinkButton href={`/e/${event.id}/remote`} variant="secondary" size="sm" square aria-label="Remote">
+            <Smartphone className="h-3.5 w-3.5" strokeWidth={2} />
+          </LinkButton>
+        </Tooltip>
+        <Tooltip content="Displays">
+          <LinkButton href={`/e/${event.id}/displays`} variant="secondary" size="sm" square aria-label="Displays">
+            <MonitorPlay className="h-3.5 w-3.5" strokeWidth={2} />
+          </LinkButton>
+        </Tooltip>
+      </div>
+
+      {/* Share links and Delete are owner-only server-side
+          (requireEventAccess(eventId, "owner") in both routes) — hidden
+          here too so a collaborator never sees an action that would just
+          403, not because the client is what's actually stopping them. */}
+      {isOwner && (
+        <div className="flex items-center gap-2 pt-1 border-t border-line-soft -mx-5 px-5 mt-1">
+          <div className="flex-1 pt-3">
+            <ShareLinkPanel eventId={event.id} compact />
+          </div>
+          <button
+            type="button"
+            onClick={onRequestDelete}
+            aria-label={`Delete ${event.name}`}
+            className="shrink-0 mt-3 text-muted-2 hover:text-status-red transition-colors cursor-pointer p-1.5 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+        </div>
+      )}
+    </Panel>
   );
 }

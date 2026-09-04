@@ -47,3 +47,28 @@ export function EventRoleProvider({ role, children }: { role: EventRole; childre
 export function useEventRole(): EventRole {
   return useContext(EventRoleContext);
 }
+
+// 2026-09 permission-truth pass — the same two checks (role === "owner",
+// role !== "viewer") were independently re-derived in
+// app/e/[eventId]/broadcast/page.tsx, components/operator/controls-panel.tsx,
+// components/forms/event-settings-panel.tsx, and
+// app/e/[eventId]/operator/cue-sheet/page.tsx before this existed — not
+// wrong anywhere it appeared, but four independent copies of "is this
+// person allowed to do the owner-only/editor-plus thing" is exactly the
+// kind of duplication that lets UI and API rules quietly drift apart over
+// time. One canonical place, matching CAPABILITY -> SERVER REQUIREMENT
+// mapping in docs/BLOCKER_REMEDIATION_RUNBOOK.md's permission section:
+// every "owner"-gated API route (requireEventAccess(eventId, "owner")) —
+// live-state control, broadcasts, fleet management, collaborator
+// management — corresponds to useIsOwner() here; every "editor"-gated
+// route (cue-sheet/session writes, auditoriums) corresponds to
+// useCanEdit(). This is still only a UI courtesy, same as useEventRole()
+// itself — the actual enforcement is server-side in every route's own
+// requireEventAccess() call.
+export function useIsOwner(): boolean {
+  return useEventRole() === "owner";
+}
+
+export function useCanEdit(): boolean {
+  return useEventRole() !== "viewer";
+}

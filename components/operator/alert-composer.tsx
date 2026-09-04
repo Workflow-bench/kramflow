@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEventStore } from "@/lib/store";
 import type { AlertSeverity } from "@/lib/types";
-import { SectionLabel } from "@/components/tv/section-label";
+import { SectionLabel } from "@/components/ui/section-label";
 import { useToast } from "@/components/ui/toast";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { cn } from "@/lib/utils";
@@ -39,7 +39,7 @@ export function AlertComposer() {
     if (ok) {
       setMessage("");
     } else {
-      toast.error("Couldn't post the alert — try again");
+      toast.error("Couldn't post the alert. Try again.");
     }
   }
 
@@ -74,7 +74,7 @@ export function AlertComposer() {
               onClick={() => setSeverity(s.value)}
               aria-pressed={severity === s.value}
               className={cn(
-                "rounded-full px-3 py-1.5 text-caption font-semibold uppercase tracking-wide transition-opacity cursor-pointer whitespace-nowrap",
+                "rounded-full px-3 py-1.5 text-console-meta font-semibold uppercase tracking-wide transition-opacity cursor-pointer whitespace-nowrap",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 s.tone,
                 severity !== s.value && "opacity-40"

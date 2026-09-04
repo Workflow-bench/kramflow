@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { logActivityAs } from "@/lib/server/activity-log";
 import { programUpdateSchema, toProgramRow } from "@/lib/validation/program";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -75,10 +76,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   if (!data || data.length === 0) {
     return NextResponse.json(
-      { ok: false, error: "This item was changed by someone else — reload the cue sheet and try again" },
+      { ok: false, error: "This item was changed by someone else. Reload the cue sheet and try again." },
       { status: 409 }
     );
   }
+  await logActivityAs(supabase, auth.eventId, auth.userId, "programUpdate", `Updated "${data[0].name}"`);
   return NextResponse.json({ ok: true, program: data[0] });
 }
 
@@ -100,7 +102,12 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   // its own definition (migration delete_program_add_event_scoping) for
   // the full reasoning.
   const supabase = supabaseAdmin();
+  // Captured before delete_program runs — the row (and its name) is gone
+  // afterward, and the activity entry should say what was removed, not
+  // just that something was.
+  const { data: existing } = await supabase.from("programs").select("name").eq("id", id).eq("event_id", auth.eventId).maybeSingle();
   const { error } = await supabase.rpc("delete_program", { p_id: id, p_event_id: auth.eventId });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  await logActivityAs(supabase, auth.eventId, auth.userId, "programDelete", `Removed "${existing?.name ?? "an item"}" from the cue sheet`);
   return NextResponse.json({ ok: true });
 }

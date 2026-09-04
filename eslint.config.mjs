@@ -2,6 +2,60 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
+// Console/Stage boundary guardrail (DESIGN.md's "Operational vocabulary" +
+// "Console vs. Stage" sections) — the 2026-09-01 design-system audit found
+// this violated across authenticated routes with no mechanism catching it.
+// Two real regressions already happened this way: Stage components
+// (components/tv/*, since deleted — nothing legitimate used it) got
+// imported into Console files just because nothing stopped it, and raw
+// Stage-scale type tokens (text-title/subtitle/body/caption at Stage
+// sizes, rounded-card) got hand-typed into Console className strings.
+// This is deliberately narrow — a fixed, known-bad token list, not a
+// general "no raw Tailwind" rule — so it can't false-positive on
+// legitimate class names that happen to contain other substrings.
+//
+// Remote (app/e/[eventId]/remote/**) is excluded on purpose: it keeps
+// Stage-scale type by design (arm's-length, one-handed, not desk-scanned)
+// — see DESIGN.md's explicit exception. Stage/display routes themselves
+// are excluded because Stage tokens are exactly correct there.
+// `*` stands in for the literal `[eventId]` route-group directory name
+// below, not a real wildcard segment — `[...]` is glob character-class
+// syntax, so a pattern with the literal brackets (as this array shipped
+// originally) never matches the actual on-disk path and silently
+// enforces nothing. Confirmed empirically: every app/e/[eventId]/** entry
+// was a no-op, which is how the Displays page's Stage-token leaks
+// (text-title/text-subtitle/text-body) shipped in the first place.
+const CONSOLE_SURFACE_GLOBS = [
+  "app/(operator)/**/*.{ts,tsx}",
+  "app/e/*/operator/**/*.{ts,tsx}",
+  "app/e/*/broadcast/**/*.{ts,tsx}",
+  "app/e/*/displays/**/*.{ts,tsx}",
+  "app/e/*/settings/**/*.{ts,tsx}",
+  "app/e/*/rehearsal/**/*.{ts,tsx}",
+  "app/login/**/*.{ts,tsx}",
+  "app/signup/**/*.{ts,tsx}",
+  "app/invite/**/*.{ts,tsx}",
+  "components/operator/**/*.{ts,tsx}",
+  "components/dashboard/**/*.{ts,tsx}",
+  "components/forms/**/*.{ts,tsx}",
+  // components/display-engine/** is otherwise Stage-only (the four display
+  // clients' shared chrome — DisplayShell, HoldScreen, BroadcastOverlay,
+  // etc. — legitimately use Stage-scale tokens and are excluded on
+  // purpose), but these three files render exclusively inside Console
+  // routes (Operator Console's broadcast panel, Display Manager's profile
+  // editor and target-health summary) — found with real Stage-token leaks
+  // during the 2026-09 design-system cleanup because the directory-level
+  // exclusion above covered them by accident. Listed individually rather
+  // than widening the directory glob, which would incorrectly flag the
+  // genuinely Stage-only files in the same directory.
+  "components/display-engine/operator-broadcast-panel.tsx",
+  "components/display-engine/profile-editor.tsx",
+  "components/display-engine/target-health-summary.tsx",
+];
+
+const STAGE_TOKEN_PATTERN =
+  "/(^|\\s)(text-title|text-subtitle|text-hero|text-caption|text-body|rounded-card)(\\s|$)/";
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -13,6 +67,36 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    files: CONSOLE_SURFACE_GLOBS,
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/components/tv/*", "@/components/tv"],
+              message:
+                "components/tv/* is the Stage-only namespace (DESIGN.md's Console/Stage boundary) — use the components/ui/* Console equivalent instead.",
+            },
+          ],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: `Literal[value=${STAGE_TOKEN_PATTERN}]`,
+          message:
+            "Stage-scale type token in a Console surface — see DESIGN.md's Console/Stage boundary. Use the text-console-* equivalent (or, on app/e/[eventId]/remote, this rule doesn't apply — that surface keeps Stage-scale type on purpose).",
+        },
+        {
+          selector: `TemplateElement[value.raw=${STAGE_TOKEN_PATTERN}]`,
+          message:
+            "Stage-scale type token in a Console surface — see DESIGN.md's Console/Stage boundary. Use the text-console-* equivalent.",
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

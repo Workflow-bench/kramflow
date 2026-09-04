@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FileSpreadsheet, LayoutDashboard, MonitorPlay, Settings as SettingsIcon, Smartphone } from "lucide-react";
 import { useEventId } from "@/lib/event-context";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 
 type Destination = "console" | "cue-sheet" | "displays" | "settings";
 
@@ -48,20 +47,41 @@ export function EventNav() {
         aria-label="Navigate"
       >
         {TABS.map((tab) => (
-          <Link key={tab.id} href={`/e/${eventId}${tab.path}`}>
-            <Button variant={active === tab.id ? "primary" : "ghost"} size="sm" className="rounded-full">
-              <tab.icon className="h-3.5 w-3.5" strokeWidth={2} />
-              <span className="hidden sm:inline">{tab.label}</span>
-            </Button>
-          </Link>
+          <LinkButton
+            key={tab.id}
+            href={`/e/${eventId}${tab.path}`}
+            variant={active === tab.id ? "primary" : "ghost"}
+            size="sm"
+            className="rounded-full"
+            aria-current={active === tab.id ? "page" : undefined}
+            // The visible label collapses to icon-only below sm: (hidden,
+            // not just visually shrunk), and CSS display:none content is
+            // excluded from accessible-name computation — confirmed live
+            // this exact link resolved to zero accessible name below 640px
+            // before this existed (2026-09 convergence sprint, Workstream
+            // 6). aria-label doesn't depend on what's visible, so it holds
+            // the name at every width instead of only above sm:.
+            aria-label={tab.label}
+          >
+            <tab.icon className="h-3.5 w-3.5" strokeWidth={2} />
+            <span className="hidden sm:inline" aria-hidden="true">
+              {tab.label}
+            </span>
+          </LinkButton>
         ))}
       </div>
-      <Link href={`/e/${eventId}/remote`} target="_blank" rel="noopener noreferrer">
-        <Button variant="ghost" size="sm" aria-label="Remote" title="Remote — one-handed mobile control">
-          <Smartphone className="h-3.5 w-3.5" strokeWidth={2} />
-          <span className="hidden lg:inline">Remote</span>
-        </Button>
-      </Link>
+      <LinkButton
+        href={`/e/${eventId}/remote`}
+        target="_blank"
+        rel="noopener noreferrer"
+        variant="ghost"
+        size="sm"
+        aria-label="Remote"
+        title="Remote: one-handed mobile control"
+      >
+        <Smartphone className="h-3.5 w-3.5" strokeWidth={2} />
+        <span className="hidden lg:inline">Remote</span>
+      </LinkButton>
     </div>
   );
 }

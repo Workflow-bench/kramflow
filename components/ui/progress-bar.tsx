@@ -3,6 +3,11 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
+// Moved from components/tv/ (Stage-only namespace) to components/ui/ —
+// despite the old location, every real consumer is a Console surface
+// (Live Details, Remote); no display route ever imported this. Type-scale
+// neutral on its own (no text at all), so the move is a Console/Stage
+// boundary closure, not a behavior change.
 export function ProgressBar({
   fraction,
   tone = "green",

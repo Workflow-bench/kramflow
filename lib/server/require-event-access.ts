@@ -58,7 +58,7 @@ export async function requireEventAccess(
 
   if (ROLE_RANK[role] < ROLE_RANK[minRole]) {
     return NextResponse.json(
-      { ok: false, error: `This requires ${minRole} access — you have ${role} access to this event.` },
+      { ok: false, error: `This requires ${minRole} access. You have ${role} access to this event.` },
       { status: 403 }
     );
   }

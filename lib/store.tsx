@@ -3,7 +3,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 import type { RealtimePostgresChangesPayload, REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import type { Alert, LiveState } from "./types";
-import { supabaseBrowser } from "./supabase/client";
+import { supabaseBrowser, realtimeReady } from "./supabase/client";
 import { getClientId } from "./client-id";
 import { useEventId } from "./event-context";
 
@@ -31,6 +31,7 @@ const initialState: LiveState = {
   notesOverrides: {},
   controllerId: null,
   controllerClaimedAt: null,
+  itemActuals: {},
 };
 
 export type ConnectionStatus = "connected" | "reconnecting" | "disconnected";
@@ -43,6 +44,7 @@ interface LiveStateRow {
   notes_overrides: LiveState["notesOverrides"];
   controller_id: string | null;
   controller_claimed_at: string | null;
+  item_actuals: LiveState["itemActuals"];
 }
 
 function mapRow(row: LiveStateRow): LiveState {
@@ -54,6 +56,7 @@ function mapRow(row: LiveStateRow): LiveState {
     notesOverrides: row.notes_overrides ?? {},
     controllerId: row.controller_id ?? null,
     controllerClaimedAt: row.controller_claimed_at ?? null,
+    itemActuals: row.item_actuals ?? {},
   };
 }
 
@@ -65,6 +68,15 @@ interface EventStoreInstance {
   hydrating: boolean;
   listeners: Set<() => void>;
   connectionListeners: Set<() => void>;
+  /** The HTTP status of the most recent sendAction() call, or null if it
+   *  hasn't run yet or the fetch itself failed (network error, no status
+   *  to report). Not reactive/rendered directly — a plain last-write field
+   *  a caller reads synchronously right after awaiting the action, via
+   *  getLastActionStatus() below, to pick an honest error message (e.g.
+   *  403 = a stale role, not "something went wrong") without widening
+   *  sendAction's own Promise<boolean> contract, which every existing
+   *  caller already depends on. */
+  lastActionStatus: number | null;
 }
 
 const instances = new Map<string, EventStoreInstance>();
@@ -80,10 +92,19 @@ function getInstance(eventId: string): EventStoreInstance {
       hydrating: false,
       listeners: new Set(),
       connectionListeners: new Set(),
+      lastActionStatus: null,
     };
     instances.set(eventId, inst);
   }
   return inst;
+}
+
+/** Read right after awaiting a sendAction()-backed call (start/next/...)
+ *  when its result was false, to distinguish "the server rejected this
+ *  with a specific reason" (403 — a stale/changed role) from any other
+ *  failure. See EventStoreInstance.lastActionStatus's own comment. */
+export function getLastActionStatus(eventId: string): number | null {
+  return instances.get(eventId)?.lastActionStatus ?? null;
 }
 
 function notify(inst: EventStoreInstance) {
@@ -115,7 +136,13 @@ async function hydrate(inst: EventStoreInstance) {
   }
 }
 
-function openLiveStateChannel(inst: EventStoreInstance) {
+async function openLiveStateChannel(inst: EventStoreInstance) {
+  // Must resolve before the first .subscribe() — a channel's initial join
+  // fires immediately and does not wait for the realtime accessToken
+  // callback, so subscribing before the signed-in session is attached
+  // joins (silently) as anon and never self-corrects. See
+  // lib/supabase/client.ts's realtimeReady() doc comment.
+  await realtimeReady();
   let wasEverConnected = false;
   supabaseBrowser()
     .channel(`live-state-sync:${inst.eventId}`)
@@ -159,6 +186,24 @@ function ensureBrowserListeners(inst: EventStoreInstance) {
 // optimistic-concurrency check finds live_state changed between its read
 // and write. The route always recomputes from a fresh read, so resending
 // the same action succeeds once the other write has landed.
+//
+// Same-tab acknowledgement (2026-09 blocker remediation): the route's
+// write was always atomic and correctly version-checked — the gap was
+// that its response carried nothing but a boolean, so the initiating tab
+// had to wait for its own Realtime echo of the write it had just made
+// before its own screen reflected it (a real Doherty-threshold problem:
+// press Next, watch nothing happen for a beat). The route now returns the
+// full updated row; applied here, synchronously, before this function
+// resolves, using the exact same mapRow() the Realtime handler already
+// uses for every other client's eventual update. This is deliberately
+// NOT naive optimistic UI — nothing is applied until the server has
+// already committed the write and confirmed it in its response; a
+// rejected/conflicted/failed request (409 exhausted, 423 locked, network
+// failure) applies nothing and falls through to the existing `false`
+// return, which every caller already treats as a real failure (a toast,
+// not a silently-reverted optimistic state). The Realtime echo still
+// arrives afterward and re-applies the identical state — a harmless
+// no-op, not a second source of truth.
 async function sendAction(eventId: string, body: Record<string, unknown>, attempt = 0): Promise<boolean> {
   try {
     const res = await fetch("/api/live", {
@@ -167,9 +212,16 @@ async function sendAction(eventId: string, body: Record<string, unknown>, attemp
       body: JSON.stringify({ ...body, eventId }),
     });
     if (res.status === 409 && attempt < 2) return sendAction(eventId, body, attempt + 1);
+    getInstance(eventId).lastActionStatus = res.status;
     if (!res.ok) {
       console.error("[store] action failed:", body.action, res.status);
       return false;
+    }
+    const data = (await res.json()) as { ok: boolean; noop?: boolean; state?: LiveStateRow };
+    if (data.state) {
+      const inst = getInstance(eventId);
+      inst.cachedState = mapRow(data.state);
+      notify(inst);
     }
     return true;
   } catch (err) {
@@ -217,6 +269,8 @@ export function useEventStore() {
     dismissAlert: () => sendAction(eventId, { action: "dismissAlert" }),
     setNotes: (programId: string, notes: string) => sendAction(eventId, { action: "setNotes", programId, notes }),
     reset: () => sendAction(eventId, { action: "reset" }),
+    resetSession: (sessionId: string) =>
+      sendAction(eventId, { action: "resetSession", sessionId, clientId: getClientId() }),
     // Sequencing control lock — opt-in. `force` is only for an explicit
     // "Take Over" confirmation the UI shows when someone else already
     // holds it.

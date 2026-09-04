@@ -170,7 +170,7 @@ The Green Room Display's "speaker ready" indicator has no equivalent in the exis
 
 ## General Display — pragmatic scoping
 
-"Sponsor Slides" and "Directional Information" are scoped down to a static text section rather than a full slide/asset-management CMS, which would be a project of its own. "Countdown to Next Event" and "Daily Schedule" are real and live.
+Originally scoped down to a static "Sponsor Slides"/"Directional Information" text section rather than a full slide/asset-management CMS, which would be a project of its own — that static section was later found to be entirely hardcoded copy unrelated to any real event ("Restrooms are near the main hall entrance" on every event, regardless of actual venue) and was removed during the Public Displays redesign pass in favor of the event's real `venue` field (shown only when the operator has actually set one). "Countdown to Next Event" is real and live (see `parseTimeToday()` below); a "Daily Schedule" widget was never actually built — On Deck (N+2 lookahead) is the closest equivalent that shipped.
 
 ### `scheduledStart` is a display string, not a timestamp — a real bug found and fixed
 
@@ -192,5 +192,5 @@ Hold/Timer/Speaker-Ready/Registry/Broadcasts rehydrate from Supabase on load (a 
 
 ## Known constraints
 
-- **Framer Motion over `styled-jsx`** — `AGENTS.md` warns this Next.js version has unverified/changed APIs; the TimerRing's blink and the HoldScreen's fade both use Framer Motion (already a project dependency) rather than risk `styled-jsx`.
+- **Framer Motion over `styled-jsx`** — `AGENTS.md` warns this Next.js version has unverified/changed APIs; HoldScreen's fade uses Framer Motion (already a project dependency) rather than risk `styled-jsx`.
 - **No new runtime dependencies** — the WS relay is hand-rolled specifically to avoid adding `ws` to `package.json` for what is now genuinely optional infrastructure (only relevant to the local-only Profiles/Groups slice, if ever needed cross-device).

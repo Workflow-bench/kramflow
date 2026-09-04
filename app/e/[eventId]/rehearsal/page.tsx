@@ -1,14 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { FlaskConical, ArrowLeft, Play, Pause, ChevronLeft, ChevronRight, Square } from "lucide-react";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventId } from "@/lib/event-context";
 import { getLive, getNext, getOnDeck, type LiveState, type Alert as AlertType, type AlertSeverity } from "@/lib/types";
-import { Button } from "@/components/ui/button";
+import { useCountdown } from "@/lib/use-countdown";
+import { formatClock } from "@/lib/display-engine/use-display-timer";
+import { Button, LinkButton } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { FormField } from "@/components/ui/form-field";
 import { Select } from "@/components/ui/select";
 import { AlertBanner } from "@/components/ui/alert-banner";
+import { SectionLabel } from "@/components/ui/section-label";
+import { OperationalStatus } from "@/components/ui/operational-status";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { RunPosition } from "@/components/operator/run-position";
 import { cn } from "@/lib/utils";
 
 const REHEARSAL_INITIAL: LiveState = {
@@ -19,6 +26,7 @@ const REHEARSAL_INITIAL: LiveState = {
   notesOverrides: {},
   controllerId: null,
   controllerClaimedAt: null,
+  itemActuals: {},
 };
 
 // Report finding #14 — a mode to run Start/Next/Hold/Alert without any
@@ -61,6 +69,16 @@ export default function RehearsalPage() {
   const live = session && !isFinished ? getLive(session, { ...state, activeSessionId }) : null;
   const next = session ? getNext(session, { ...state, activeSessionId }) : null;
   const onDeck = session ? getOnDeck(session, { ...state, activeSessionId }) : null;
+  // Same countdown Console runs on the real show (lib/use-countdown.ts) —
+  // reading progress.startedAt/pausedAt from this page's own local state
+  // instead of the real live_state row, but otherwise identical, so
+  // rehearsing means actually practicing against the one element that
+  // dominates the real Console's screen (the redesign brief's "timing
+  // visibility" + "muscle-memory relationship to Operator"). Previously
+  // this page had no timer at all — the single most important thing to
+  // rehearse (reading the countdown, reacting before it runs out) wasn't
+  // rehearsable.
+  const countdown = useCountdown(progress?.startedAt ?? null, live?.durationMinutes ?? 0, state.pausedAt);
 
   function setProgress(order: number | null) {
     setState((s) => ({
@@ -101,7 +119,7 @@ export default function RehearsalPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background flex flex-col">
       {/* Unmistakable by design — solid amber, diagonal hazard stripe,
           sticky across the whole page, worded to say explicitly what it
           does NOT do. This is the one visual element in this feature that
@@ -117,90 +135,112 @@ export default function RehearsalPage() {
         <div className="flex items-center gap-2.5 text-background font-semibold">
           <FlaskConical className="h-4.5 w-4.5 shrink-0" strokeWidth={2.5} />
           <span className="text-console-sm uppercase tracking-wide bg-background/90 text-status-orange px-2.5 py-1 rounded-chip">
-            Rehearsal Mode — not live
+            Rehearsal Mode: Not Live
           </span>
           <span className="hidden sm:inline text-console-meta text-background/80">
             Nothing here reaches a real display, share link, or the real Operator Console.
           </span>
         </div>
-        <Link href={`/e/${eventId}/operator`}>
-          <Button variant="secondary" size="sm">
-            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-            Exit Rehearsal
-          </Button>
-        </Link>
+        <LinkButton href={`/e/${eventId}/operator`} variant="secondary" size="sm">
+          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+          Exit Rehearsal
+        </LinkButton>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-8">
-        {sessions.length > 1 && (
-          <label className="flex flex-col gap-1.5 max-w-sm">
-            <span className="text-console-meta text-muted-2">Session to rehearse</span>
-            <Select
-              value={activeSessionId}
-              onChange={(id) => {
+      {!session ? (
+        <div className="px-6 py-8">
+          {sessions.length > 1 && (
+            <SessionSelect sessions={sessions} activeSessionId={activeSessionId} onChange={(id) => {
+              setSessionId(id);
+              setState({ ...REHEARSAL_INITIAL, activeSessionId: id });
+            }} />
+          )}
+          <p className="text-console-sm text-muted-2 mt-4">No session to rehearse yet. Add one in the Cue Sheet first.</p>
+        </div>
+      ) : (
+        // Same rundown-beside-live-state relationship as the real Console's
+        // tablet/desktop composition (app/e/[eventId]/operator/page.tsx) —
+        // deliberately reused rather than re-invented, so the muscle memory
+        // ("the list is on the left, what's happening is on the right")
+        // carries over at lg+. Below lg, order-* flips the visual sequence
+        // (not the DOM, so screen-reader/tab order still follows the list
+        // first) to match Operator's own mobile priority — current/next,
+        // countdown, and transport controls before the cue list, the same
+        // fix the 2026-09 convergence sprint applied to Operator itself.
+        // Rehearsing with the list first, controls second — the reverse of
+        // Operator's real mobile order — would teach the wrong scan
+        // pattern, defeating this page's whole purpose as a safe practice
+        // run for live muscle memory.
+        <div className="flex-1 lg:grid lg:grid-cols-[1fr_380px] flex flex-col">
+          <div className="order-2 lg:order-1 min-w-0 px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
+            {sessions.length > 1 && (
+              <SessionSelect sessions={sessions} activeSessionId={activeSessionId} onChange={(id) => {
                 setSessionId(id);
                 setState({ ...REHEARSAL_INITIAL, activeSessionId: id });
-              }}
-              options={sessions.map((s) => ({ value: s.id, label: `${s.dayLabel} • ${s.sessionLabel}` }))}
-            />
-          </label>
-        )}
+              }} />
+            )}
+            <SectionLabel className={sessions.length > 1 ? "mt-6" : undefined}>
+              {session.dayLabel} • {session.sessionLabel}
+            </SectionLabel>
+            <ul className="mt-3 flex flex-col rounded-panel border border-line-soft overflow-hidden">
+              {session.items.map((item) => {
+                const isLive = live?.id === item.id;
+                const isDone = currentOrder !== null && item.order < currentOrder;
+                return (
+                  <li
+                    key={item.id}
+                    className={cn(
+                      "flex items-center justify-between gap-3 px-4 py-2.5 border-b border-line-soft last:border-b-0",
+                      isLive && "bg-status-orange/15"
+                    )}
+                  >
+                    <span className={cn("text-console-row", isDone ? "text-muted-2 line-through" : "text-primary")}>
+                      {item.order}. {item.title}
+                    </span>
+                    {isLive && <OperationalStatus kind="rehearsal" label="Rehearsing" />}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
 
-        {!session ? (
-          <p className="text-console-sm text-muted-2">No session to rehearse yet — add one in the Cue Sheet first.</p>
-        ) : (
-          <>
+          <div className="order-1 lg:order-2 lg:border-l border-line-soft min-w-0 px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex flex-col gap-8">
             {state.alert && <AlertBanner alert={state.alert} />}
 
-            <section className="flex flex-col gap-3">
-              <h2 className="text-console-label text-muted-2 uppercase tracking-wide">
-                {session.dayLabel} • {session.sessionLabel}
-              </h2>
-              <ul className="flex flex-col rounded-panel border border-line-soft overflow-hidden">
-                {session.items.map((item) => {
-                  const isLive = live?.id === item.id;
-                  const isDone = currentOrder !== null && item.order < currentOrder;
-                  return (
-                    <li
-                      key={item.id}
-                      className={cn(
-                        "flex items-center justify-between gap-3 px-4 py-2.5 border-b border-line-soft last:border-b-0",
-                        isLive && "bg-status-orange/15"
-                      )}
-                    >
-                      <span className={cn("text-console-row", isDone ? "text-muted-2 line-through" : "text-primary")}>
-                        {item.order}. {item.title}
-                      </span>
-                      {isLive && (
-                        <span className="text-console-meta font-semibold uppercase tracking-wide text-status-orange bg-status-orange/20 px-2 py-0.5 rounded-chip">
-                          Rehearsing
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-
             <section className="flex flex-col gap-2">
-              <h2 className="text-console-label text-muted-2 uppercase tracking-wide">
-                {isFinished ? "Finished" : live ? "Rehearsing now" : "Not started"}
-              </h2>
-              <p className="text-subtitle text-primary">{isFinished ? "Rehearsal complete" : live ? live.title : "—"}</p>
-              {live?.presenter && <p className="text-console-sm text-muted">{live.presenter}</p>}
-              {state.pausedAt && (
-                <span className="self-start text-console-meta font-semibold uppercase tracking-wide text-status-orange bg-status-orange/15 px-2.5 py-1 rounded-full">
-                  On Hold
-                </span>
-              )}
-              <div className="mt-1 flex gap-6 text-console-sm text-muted-2">
-                <span>Next: {next?.title ?? "—"}</span>
-                <span>On deck: {onDeck?.title ?? "—"}</span>
+              <div className="flex items-center gap-2">
+                <SectionLabel>{isFinished ? "Finished" : live ? "Rehearsing now" : "Not started"}</SectionLabel>
+                {state.pausedAt && <OperationalStatus kind="hold" />}
               </div>
+              <p className="text-console-lg text-primary mt-1">{isFinished ? "Rehearsal complete" : live ? live.title : "—"}</p>
+              {live?.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
+
+              {live && live.type === "item" && live.durationMinutes > 0 && (
+                <div className="mt-6">
+                  <p
+                    className={cn(
+                      "text-console-headline tabular-nums",
+                      countdown.isOverrun ? "text-status-red" : "text-primary"
+                    )}
+                  >
+                    {countdown.isOverrun ? "+" : ""}
+                    {formatClock(countdown.remainingSeconds)}
+                  </p>
+                  <div className="mt-3">
+                    <ProgressBar
+                      fraction={countdown.fraction}
+                      tone={state.pausedAt ? "orange" : countdown.isOverrun ? "red" : "green"}
+                    />
+                  </div>
+                  <p className="text-console-meta text-muted mt-2">{countdown.isOverrun ? "over" : "remaining"}</p>
+                </div>
+              )}
+
+              <RunPosition next={next} onDeck={onDeck} />
             </section>
 
             <section className="flex flex-col gap-3">
-              <h2 className="text-console-label text-muted-2 uppercase tracking-wide">Controls</h2>
+              <SectionLabel>Controls</SectionLabel>
               <div className="flex flex-col gap-3">
                 {currentOrder === null ? (
                   <Button variant="primary" size="lg" onClick={start}>
@@ -236,13 +276,13 @@ export default function RehearsalPage() {
             </section>
 
             <section className="flex flex-col gap-3">
-              <h2 className="text-console-label text-muted-2 uppercase tracking-wide">Raise Alert (rehearsal only)</h2>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
+              <SectionLabel>Raise Alert (rehearsal only)</SectionLabel>
+              <div className="flex flex-col gap-2">
+                <Input
                   value={alertDraft}
                   onChange={(e) => setAlertDraft(e.target.value)}
                   placeholder="e.g. Drama Team, please report Stage Left"
-                  className="flex-1 h-9 px-3 rounded-control bg-background border border-line text-primary text-console-sm outline-none focus:border-accent"
+                  aria-label="Alert message"
                 />
                 <div className="flex gap-2">
                   {(["info", "warning", "critical"] as AlertSeverity[]).map((sev) => (
@@ -259,7 +299,7 @@ export default function RehearsalPage() {
                     </button>
                   ))}
                 </div>
-                <Button variant="secondary" onClick={postAlert}>
+                <Button variant="secondary" onClick={postAlert} className="self-start">
                   Post
                 </Button>
               </div>
@@ -269,9 +309,29 @@ export default function RehearsalPage() {
                 </Button>
               )}
             </section>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </main>
+  );
+}
+
+function SessionSelect({
+  sessions,
+  activeSessionId,
+  onChange,
+}: {
+  sessions: { id: string; dayLabel: string; sessionLabel: string }[];
+  activeSessionId: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <FormField label="Session to rehearse" className="max-w-sm">
+      <Select
+        value={activeSessionId}
+        onChange={onChange}
+        options={sessions.map((s) => ({ value: s.id, label: `${s.dayLabel} • ${s.sessionLabel}` }))}
+      />
+    </FormField>
   );
 }

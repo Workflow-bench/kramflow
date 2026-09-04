@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp, recordFailure, recordSuccess } from "@/lib/server/rate-limit";
+import { MAX_EMAIL_LENGTH } from "@/lib/validation/email";
 
 export async function POST(request: Request) {
   const ip = getClientIp(request);
@@ -22,7 +23,16 @@ export async function POST(request: Request) {
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body.password === "string" ? body.password : "";
 
-  if (!email || !password) {
+  // No format validation here — this route deliberately forwards straight
+  // to Supabase and returns one generic error for wrong-password/
+  // unconfirmed/nonexistent alike (anti-enumeration, see below). The
+  // length cap is the one check worth doing before that call regardless:
+  // same MAX_EMAIL_LENGTH signup/resend use (RFC 5321's actual limit, not
+  // a number invented for this route), so a pathologically long value
+  // never reaches signInWithPassword at all. Folded into the same generic
+  // message rather than a distinct one — the limit itself isn't something
+  // a caller needs to know.
+  if (!email || !password || email.length > MAX_EMAIL_LENGTH) {
     return NextResponse.json({ ok: false, error: "Enter your email and password." }, { status: 400 });
   }
 
@@ -31,13 +41,22 @@ export async function POST(request: Request) {
 
   if (error) {
     await recordFailure("login", ip);
-    // Deliberately the same message whether the email doesn't exist or the
-    // password is wrong — distinguishing them would let an attacker
-    // enumerate valid operator emails.
+    // Older GoTrue versions returned a distinct "Email not confirmed" for
+    // an unconfirmed account, which this used to special-case into its own
+    // message. Verified directly against this project's Auth API (bypassing
+    // this route entirely) that it no longer does — a wrong password, an
+    // unconfirmed account, and an email that was never registered all now
+    // return the identical generic error, deliberately, as anti-enumeration
+    // hardening. The "Email not confirmed" branch is kept in case an older
+    // GoTrue version ever returns it, but the generic message below can no
+    // longer claim the password itself is what's wrong — the login page's
+    // "resend confirmation email" link (app/login/page.tsx) is what
+    // actually recovers an operator from the unconfirmed case now, since
+    // this response alone can't tell them apart.
     const message =
       error.message === "Email not confirmed"
-        ? "Please confirm your email before logging in — check your inbox for the confirmation link."
-        : "Incorrect email or password.";
+        ? "Please confirm your email before logging in. Check your inbox for the confirmation link."
+        : "Incorrect email or password, or your account hasn't been confirmed yet.";
     return NextResponse.json({ ok: false, error: message }, { status: 401 });
   }
 

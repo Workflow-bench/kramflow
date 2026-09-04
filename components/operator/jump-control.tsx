@@ -6,7 +6,7 @@ import { useEventStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { SectionLabel } from "@/components/tv/section-label";
+import { SectionLabel } from "@/components/ui/section-label";
 import { useToast } from "@/components/ui/toast";
 
 export function JumpControl({ max }: { max: number }) {
@@ -68,7 +68,7 @@ export function JumpControl({ max }: { max: number }) {
           if (ok) {
             setValue("");
           } else {
-            toast.error("Couldn't jump to that item — try again");
+            toast.error("Couldn't jump to that item. Try again.");
           }
         }}
         onCancel={() => setConfirmOpen(false)}

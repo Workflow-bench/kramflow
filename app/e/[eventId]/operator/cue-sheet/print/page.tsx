@@ -1,11 +1,10 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
-import Link from "next/link";
 import { ChevronLeft, Printer } from "lucide-react";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventId } from "@/lib/event-context";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 
 // Report finding #28 — a printable/PDF export path for the cue sheet. This
 // is a standalone light-on-white page rather than reusing the operator
@@ -30,12 +29,10 @@ export default function CueSheetPrintPage() {
   return (
     <main className="min-h-screen bg-white text-black">
       <div className="print:hidden sticky top-0 flex items-center justify-between gap-3 border-b border-neutral-200 bg-white px-6 h-14">
-        <Link href={`/e/${eventId}/operator/cue-sheet`}>
-          <Button variant="ghost" size="sm">
-            <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-            Back
-          </Button>
-        </Link>
+        <LinkButton href={`/e/${eventId}/operator/cue-sheet`} variant="ghost" size="sm">
+          <ChevronLeft className="h-4 w-4" strokeWidth={2} />
+          Back
+        </LinkButton>
         <Button variant="primary" size="sm" onClick={() => window.print()}>
           <Printer className="h-4 w-4" strokeWidth={2} />
           Print / Save as PDF

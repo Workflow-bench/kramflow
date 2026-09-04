@@ -8,7 +8,7 @@
 > by [DESIGN.md](DESIGN.md).
 >
 > The two were previously one system, and the rules below — "No tables",
-> "No tiny text", "Cards should breathe", a 20px body and 84px hero — are
+> "No tiny text", "Cards should breathe", a 23px body and 92px hero — are
 > correct for a TV read across a room and wrong for a 244-row cue sheet
 > operated at 18–24in. Applying them to the console is what made it feel
 > bloated. Do not re-merge them.
@@ -57,21 +57,23 @@ simultaneously (background + card + one accent).
 
 | Token | Value | Use |
 |---|---|---|
-| `background` | `#0F1115` | App background |
-| `card` | `#171A21` | Card surfaces |
-| `primary` | `#FFFFFF` | Primary text |
-| `muted` | `#9CA3AF` | Secondary text, labels |
-| `muted-2` | `#828A9C` | Tertiary text — captions, timestamps, dividing labels |
-| `green` | `#22C55E` | Ready / go / live |
-| `blue` | `#3B82F6` | Informational / next |
-| `orange` | `#F59E0B` | Warning / prepare |
-| `red` | `#EF4444` | Alert / not ready |
+| `background` | `#0c0b09` | App background |
+| `card` | `#17140f` | Card surfaces |
+| `primary` | `#f4efe5` | Primary text |
+| `muted` | `#a79d8b` | Secondary text, labels |
+| `muted-2` | `#8a8070` | Tertiary text — captions, timestamps, dividing labels |
+| `green` | `#2bb673` | Ready / go / live |
+| `blue` | `#4b8fe3` | Informational / next |
+| `orange` | `#e8a33d` | Warning / prepare |
+| `red` | `#e5484d` | Alert / not ready |
 
 Every text color is checked against both `background` and `card` for WCAG AA
-(4.5:1 for body text). `muted-2` was originally `#6B7280` (3.91:1 — failed);
-if you ever adjust these tokens, re-verify contrast rather than eyeballing
-it — see the script in this repo's history (`git log -S muted-2`) for the
-exact method.
+(4.5:1 for body text) — the exact ratio is inlined as a comment next to each
+token in `app/globals.css`. This table's values previously drifted from the
+actual tokens (a warm near-black/cream palette replaced an earlier cool
+dark-slate one at some point without this doc being updated) — if you ever
+adjust these tokens, re-verify contrast and update both places together
+rather than letting them diverge again.
 
 ## Border radius
 
@@ -142,11 +144,11 @@ Sized for the surface, not one scale stretched across four devices.
 
 | Name | Size | Use |
 |---|---|---|
-| Hero | 84px | Live Now title (TV), the countdown number (Remote) |
-| Title | 36px | Section titles, current-item title (Operator/Remote) |
-| Subtitle | 28px | Program titles, Next item, presenter names |
-| Body | 20px | Secondary text — notes, requirement values, list rows |
-| Caption | 15px | Eyebrow labels only (`LIVE NOW`, footer) — never body copy |
+| Hero | 92px | Live Now title (TV), the countdown number (Remote) |
+| Title | 42px | Section titles, current-item title (Operator/Remote) |
+| Subtitle | 30px | Program titles, Next item, presenter names |
+| Body | 23px | Secondary text — notes, requirement values, list rows |
+| Caption | 17px | Eyebrow labels only (`LIVE NOW`, footer) — never body copy |
 
 Font: system sans (SF Pro-equivalent) — `-apple-system`/Inter fallback stack,
 tabular numerals for countdowns and item counts.

@@ -5,6 +5,7 @@ import type { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import { supabaseBrowser } from "./supabase/client";
 import { getClientId } from "./client-id";
 import { useEventId } from "./event-context";
+import { resolveDisplayName } from "./shared/display-name";
 
 // Two /operator tabs can drive the same show
 // with zero indication to either person that someone else is connected —
@@ -32,9 +33,14 @@ export interface OperatorActionEvent {
   at: number;
 }
 
+export interface ConnectedOperator {
+  clientId: string;
+  name: string;
+}
+
 export function useOperatorPresence(enabled: boolean) {
   const eventId = useEventId();
-  const [count, setCount] = useState(1);
+  const [operators, setOperators] = useState<ConnectedOperator[]>([]);
   const [lastAction, setLastAction] = useState<OperatorActionEvent | null>(null);
   const channelRef = useRef<ReturnType<ReturnType<typeof supabaseBrowser>["channel"]> | null>(null);
   const clientIdRef = useRef<string>(getClientId());
@@ -49,8 +55,13 @@ export function useOperatorPresence(enabled: boolean) {
 
     channel
       .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
-        setCount(Math.max(1, Object.keys(state).length));
+        const state = channel.presenceState() as Record<string, Array<{ name?: string }>>;
+        setOperators(
+          Object.entries(state).map(([clientId, entries]) => ({
+            clientId,
+            name: entries[0]?.name || "An operator",
+          }))
+        );
       })
       .on("broadcast", { event: "operator-action" }, ({ payload }: { payload: { clientId: string; message: string } }) => {
         if (payload && payload.clientId !== clientIdRef.current) {
@@ -59,16 +70,26 @@ export function useOperatorPresence(enabled: boolean) {
       })
       .subscribe(async (status: `${REALTIME_SUBSCRIBE_STATES}`) => {
         if (status === "SUBSCRIBED") {
-          await channel.track({ online_at: new Date().toISOString() });
+          // Presence is ephemeral (nothing written to Postgres), so naming
+          // it with the signed-in user's own display name carries none of
+          // live_state's "public/anonymous readers" concern — this channel
+          // is only ever joined by authenticated operators (`enabled` is
+          // status === "unlocked").
+          const {
+            data: { user },
+          } = await supabaseBrowser().auth.getUser();
+          await channel.track({ online_at: new Date().toISOString(), name: resolveDisplayName(user) });
         }
       });
 
     return () => {
       supabaseBrowser().removeChannel(channel);
       channelRef.current = null;
-      setCount(1);
+      setOperators([]);
     };
   }, [enabled, eventId]);
+
+  const count = Math.max(1, operators.length);
 
   function broadcastAction(message: string) {
     channelRef.current?.send({
@@ -78,5 +99,5 @@ export function useOperatorPresence(enabled: boolean) {
     });
   }
 
-  return { count, lastAction, broadcastAction };
+  return { count, operators, lastAction, broadcastAction };
 }

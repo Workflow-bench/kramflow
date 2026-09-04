@@ -8,6 +8,7 @@ import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
 import { useDisplayClock, formatClock } from "@/lib/display-engine/use-display-timer";
 import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
+import { deriveStageStatus } from "@/lib/display-engine/live-progress";
 import { useTimeSync, syncedNow } from "@/lib/display-engine/use-time-sync";
 import { useFullscreen } from "@/lib/display-engine/use-fullscreen";
 import { DisplayShell } from "@/components/display-engine/display-shell";
@@ -15,15 +16,13 @@ import { HoldScreen } from "@/components/display-engine/hold-screen";
 import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay";
 import { TestMessageOverlay } from "@/components/display-engine/test-message-overlay";
 import { FullscreenPrompt } from "@/components/display-engine/fullscreen-prompt";
+import { DisplayHeader } from "@/components/display-engine/display-header";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { parseTimeLabel } from "@/lib/schedule";
 
 /**
  * General Display — public, audience-facing, no operator controls. The
- * generic, no-department-specific screen (formerly "Lobby"). "Sponsor
- * Slides" / "Directional Information" are intentionally scoped down to a
- * static content section rather than a full slide-management system — see
- * docs/DISPLAY_ENGINE.md for the documented simplification.
+ * generic, no-department-specific screen (formerly "Lobby").
  */
 
 /**
@@ -42,14 +41,18 @@ function parseTimeToday(label: string, nowMs: number): number | null {
 }
 export default function GeneralDisplayClient({ token, eventId }: { token?: string; eventId?: string }) {
   return (
-    <DisplayEngineProvider token={token} eventId={eventId}>
+    <DisplayEngineProvider token={token} eventId={eventId} displayType="general">
       <GeneralDisplayInner token={token} eventId={eventId} />
     </DisplayEngineProvider>
   );
 }
 
 function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus } = useDisplayView({ token, eventId });
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName, eventVenue } = useDisplayView({
+    token,
+    eventId,
+    displayType: "general",
+  });
   const session = getSessionById(sessions, appState.activeSessionId);
   const { state: engine } = useDisplayEngine();
 
@@ -59,11 +62,12 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
   const live = session ? getLive(session, appState) : null;
   const next = session ? getNext(session, appState) : null;
   const onDeck = session ? getOnDeck(session, appState) : null;
+  const stageStatus = deriveStageStatus(live, appState.pausedAt);
   // session.eventName is the operator-set "Display title (optional)" field
-  // (SessionForm) — a per-session headline for this specific display, not
-  // the account-level event name. Optional, so it's fine to omit rather
-  // than show a blank line.
-  const eventName = session?.eventName?.trim() || null;
+  // (SessionForm) — a per-session headline for this specific session, not
+  // the account-level event name (now sourced separately, above). Optional,
+  // so it's fine to omit rather than show a blank line.
+  const sessionTitle = session?.eventName?.trim() || null;
 
   const { display, testMessage, fullscreenPrompt, dismissFullscreenPrompt } = useDisplayCommands(
     "General Display",
@@ -82,7 +86,7 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
     nextTargetMs !== null ? Math.max(0, Math.round((nextTargetMs - syncedNow(offsetMs)) / 1000)) : null;
 
   return (
-    <DisplayShell wakeLockEnabled connectionStatus={connectionStatus}>
+    <DisplayShell wakeLockEnabled connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>
       <HoldScreen hold={engine.hold} />
       {display && <BroadcastOverlay displayId={display.id} displayType="general" />}
       <TestMessageOverlay message={testMessage} />
@@ -97,17 +101,13 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
 
       {!engine.hold.active && (
         <>
-          <div className="flex items-start justify-between flex-wrap gap-y-3">
-            <div>
-              <p className="text-caption uppercase tracking-wide text-muted-2">
-                {session ? `${session.dayLabel} • ${session.sessionLabel}` : "KramFlow"}
-              </p>
-              {eventName && <p className="text-title text-primary mt-1">{eventName}</p>}
-            </div>
-            <span className="text-hero tabular-nums text-muted" style={{ fontSize: "clamp(2rem, 3vw, 3rem)" }}>
-              {clockLabel}
-            </span>
-          </div>
+          <DisplayHeader
+            eventName={eventName}
+            room={display?.room}
+            session={session}
+            clockLabel={clockLabel}
+            stageStatus={stageStatus}
+          />
 
           {appState.alert && <AlertBanner alert={appState.alert} className="mt-6" />}
 
@@ -115,7 +115,14 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
             <div className="flex flex-col justify-center text-center">
               {live ? (
                 <>
-                  <p className="text-caption uppercase tracking-wide text-muted-2">Now In Session</p>
+                  {/* sessionTitle is documented (SessionForm) as showing
+                      "while this session is live" — the previous version
+                      here instead only ever showed it in the empty/Welcome
+                      branch below, which never happens while a session is
+                      actually live. Corrected to match its own intent. */}
+                  <p className="text-caption uppercase tracking-wide text-muted-2">
+                    Now In Session{sessionTitle ? `: ${sessionTitle}` : ""}
+                  </p>
                   <p className="text-hero text-primary mt-4" style={{ fontSize: "clamp(3.5rem, 6vw, 6rem)" }}>
                     {live.title}
                   </p>
@@ -151,13 +158,18 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
                 </div>
               )}
 
-              <div className="rounded-card bg-card/50 px-6 py-5">
-                <p className="text-caption uppercase tracking-wide text-muted-2">Directions</p>
-                <p className="text-body text-muted mt-2">
-                  Restrooms and refreshments are located near the main hall entrance. Please silence phones during
-                  sessions.
-                </p>
-              </div>
+              {/* Was a hardcoded "Restrooms are near the main hall entrance"
+                  string with no connection to any real event data — every
+                  event showed identical directions regardless of actual
+                  venue. Real venue field when the operator has set one;
+                  omitted entirely rather than showing a fabricated
+                  confidence indicator the architecture can't back up. */}
+              {eventVenue && (
+                <div className="rounded-card bg-card/50 px-6 py-5">
+                  <p className="text-caption uppercase tracking-wide text-muted-2">Venue</p>
+                  <p className="text-body text-muted mt-2">{eventVenue}</p>
+                </div>
+              )}
             </div>
           </div>
         </>

@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp, recordFailure, recordSuccess } from "@/lib/server/rate-limit";
+import { isValidEmail } from "@/lib/validation/email";
 
 // Real per-operator accounts, replacing the single shared PIN (see
 // docs/DEPLOYMENT.md's own "Hardening authentication" section, which named
 // Supabase Auth as the upgrade path). Password hashing, session tokens, and
 // expiry are all handled by Supabase's GoTrue service — this route is a
 // thin wrapper that validates input and forwards to it.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
 // Supabase/GoTrue's own error messages are written for logs, not for an
@@ -18,16 +18,16 @@ const MIN_PASSWORD_LENGTH = 8;
 function friendlySignupError(message: string): string {
   const lower = message.toLowerCase();
   if (lower.includes("already registered") || lower.includes("already exists")) {
-    return "An account with that email already exists — try logging in instead.";
+    return "An account with that email already exists. Try logging in instead.";
   }
   if (lower.includes("rate limit")) {
-    return "Too many signup attempts right now — please wait a few minutes and try again.";
+    return "Too many signup attempts right now. Please wait a few minutes and try again.";
   }
   if (lower.includes("password")) {
-    return "That password doesn't meet the requirements — use at least 8 characters.";
+    return "That password doesn't meet the requirements. Use at least 8 characters.";
   }
   if (lower.includes("email")) {
-    return "That email address couldn't be used — check it and try again.";
+    return "That email address couldn't be used. Check it and try again.";
   }
   return "Something went wrong creating your account. Please try again.";
 }
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   const password = typeof body.password === "string" ? body.password : "";
   const name = typeof body.name === "string" ? body.name.trim() : "";
 
-  if (!EMAIL_RE.test(email)) {
+  if (!isValidEmail(email)) {
     return NextResponse.json({ ok: false, error: "Enter a valid email address." }, { status: 400 });
   }
   if (password.length < MIN_PASSWORD_LENGTH) {

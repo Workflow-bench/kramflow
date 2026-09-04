@@ -25,6 +25,12 @@ interface SelectProps {
   size?: "md" | "lg";
   className?: string;
   "aria-label"?: string;
+  /** Pass -1 to pull the trigger out of Tab order — e.g. a control bar
+   *  that's faded to opacity-0 but stays pointer-reachable (see
+   *  app/presenter/presenter-display-client.tsx) still shouldn't be
+   *  keyboard-focusable while invisible. */
+  tabIndex?: number;
+  disabled?: boolean;
 }
 
 // A single accessible combobox — no Select/Combobox primitive existed in
@@ -38,6 +44,8 @@ export function Select({
   searchable = true,
   size = "md",
   className,
+  tabIndex,
+  disabled = false,
   ...aria
 }: SelectProps) {
   const [open, setOpen] = useState(false);
@@ -63,6 +71,7 @@ export function Select({
   useDismissOnOutsideOrEscape(rootRef, open, () => setOpen(false));
 
   function handleToggle() {
+    if (disabled) return;
     if (open) {
       setOpen(false);
       return;
@@ -82,6 +91,8 @@ export function Select({
       <button
         type="button"
         onClick={handleToggle}
+        tabIndex={tabIndex}
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={aria["aria-label"]}
@@ -90,6 +101,7 @@ export function Select({
           "transition-[background-color,border-color] duration-[110ms] ease-out",
           "hover:bg-card-hover hover:border-white/20",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-raised disabled:hover:border-line",
           open && "border-accent",
           size === "md" && "h-9 px-3 text-console-sm",
           size === "lg" && "h-11 px-3.5 text-console-md"
@@ -130,7 +142,10 @@ export function Select({
                 }}
                 placeholder="Search…"
                 aria-label="Filter options"
-                className="w-full bg-transparent text-console-sm text-primary placeholder:text-muted-2 outline-none"
+                // text-base below sm: — same iOS zoom-on-focus fix as
+                // Input; this is the one real text field inside Select
+                // (the trigger itself is a button, which doesn't zoom).
+                className="w-full bg-transparent text-base sm:text-console-sm text-primary placeholder:text-muted-2 outline-none"
               />
             </div>
           )}
