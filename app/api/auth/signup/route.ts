@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp, recordFailure, recordSuccess } from "@/lib/server/rate-limit";
+import { isValidEmail } from "@/lib/validation/email";
 
 // Real per-operator accounts, replacing the single shared PIN (see
 // docs/DEPLOYMENT.md's own "Hardening authentication" section, which named
 // Supabase Auth as the upgrade path). Password hashing, session tokens, and
 // expiry are all handled by Supabase's GoTrue service — this route is a
 // thin wrapper that validates input and forwards to it.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
 // Supabase/GoTrue's own error messages are written for logs, not for an
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   const password = typeof body.password === "string" ? body.password : "";
   const name = typeof body.name === "string" ? body.name.trim() : "";
 
-  if (!EMAIL_RE.test(email)) {
+  if (!isValidEmail(email)) {
     return NextResponse.json({ ok: false, error: "Enter a valid email address." }, { status: 400 });
   }
   if (password.length < MIN_PASSWORD_LENGTH) {

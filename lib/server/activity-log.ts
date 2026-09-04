@@ -20,7 +20,16 @@ export async function logActivity(
   const { error } = await supabase
     .from("activity_log")
     .insert({ event_id: eventId, action, detail, actor_user_id: actor.userId, actor_name: actor.name });
-  if (error) console.error(`[activity-log] insert failed (${action}):`, error);
+  // `action` originates from request-driven call sites (route handlers
+  // pass through values derived from the request) — interpolating it into
+  // the template string itself, as this used to, meant Node's
+  // console.error would parse the *result* for %s/%d/%o-style format
+  // specifiers if `action` ever happened to contain one, substituting
+  // `error` into an unintended position instead of appending it (CodeQL
+  // js/log-injection). Keeping the format string a constant literal and
+  // passing `action` as a plain %s argument means its content is only
+  // ever substituted as a value, never re-parsed as format syntax.
+  if (error) console.error("[activity-log] insert failed (%s):", action, error);
 }
 
 // Most call sites only have a userId (from requireEventAccess), not the

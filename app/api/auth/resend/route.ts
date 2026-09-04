@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp, recordFailure, recordSuccess } from "@/lib/server/rate-limit";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isValidEmail } from "@/lib/validation/email";
 
 // Resends the signup confirmation email. Exists because login/route.ts can
 // no longer reliably tell an operator *why* signInWithPassword failed:
@@ -37,7 +36,7 @@ export async function POST(request: Request) {
   }
 
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  if (!EMAIL_RE.test(email)) {
+  if (!isValidEmail(email)) {
     return NextResponse.json({ ok: false, error: "Enter a valid email address." }, { status: 400 });
   }
 
