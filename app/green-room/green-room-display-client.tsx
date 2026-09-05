@@ -1,6 +1,5 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
 import { useDisplayView } from "@/lib/use-display-view";
 import { getSessionById } from "@/lib/data/sessions";
 import { effectiveNotes, getLive, getNext, getOnDeck } from "@/lib/types";
@@ -18,8 +17,9 @@ import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay"
 import { TestMessageOverlay } from "@/components/display-engine/test-message-overlay";
 import { FullscreenPrompt } from "@/components/display-engine/fullscreen-prompt";
 import { DisplayHeader } from "@/components/display-engine/display-header";
+import { StageInfoCard } from "@/components/display-engine/stage-info-card";
+import { StageNextCard } from "@/components/display-engine/stage-next-card";
 import { AlertBanner } from "@/components/ui/alert-banner";
-import { cn } from "@/lib/utils";
 
 /**
  * Green Room Display — new Display Engine route, distinct from and not
@@ -143,62 +143,39 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
             </div>
 
             <div className="flex flex-col gap-6 justify-center">
+              {/* The one cue Green Room's audience cares about most (P2 §4)
+                  gets the display family's one environmental-color
+                  treatment — a status hue escalated from a badge to
+                  background wash, not just here for decoration. General
+                  and AV keep status confined to badges/dots throughout;
+                  this is the single deliberate exception, reserved for an
+                  actual next speaker — a break needs no readiness wash, so
+                  it stays on the neutral card treatment instead. A break
+                  also needs no speaker prep — "Please Prepare" framing on a
+                  breakfast break instructed a green-room coordinator to
+                  prep someone who isn't presenting — handled inside
+                  StageNextCard. */}
               {next && (
-                // The one cue Green Room's audience cares about most (P2
-                // §4) gets the display family's one environmental-color
-                // treatment — a status hue escalated from a badge to
-                // background wash, not just here for decoration. General
-                // and AV keep status confined to badges/dots throughout;
-                // this is the single deliberate exception, reserved for an
-                // actual next speaker — a break needs no readiness wash, so
-                // it stays on the neutral card treatment instead.
-                <div className={cn("rounded-card p-8", next.type === "item" ? "bg-status-orange/8" : "bg-card/50")}>
-                  <div className="flex items-center justify-between">
-                    {/* A break needs no speaker prep — "Please Prepare"
-                        framing on a breakfast break instructed a green-room
-                        coordinator to prep someone who isn't presenting. */}
-                    <p className="text-caption uppercase tracking-wide text-muted-2">
-                      {next.type === "item" ? "Next: Please Prepare" : "Next"}
-                    </p>
-                    {next.scheduledStart && (
-                      <span className="text-caption text-muted-2 tabular-nums">{next.scheduledStart}</span>
-                    )}
-                  </div>
-                  <p className="text-subtitle text-primary mt-3">{next.title}</p>
-                  {next.presenter && (
-                    <p className="text-body text-muted mt-2">
-                      {next.presenter}
-                      {next.presenterContact && <span className="text-muted-2"> · {next.presenterContact}</span>}
-                    </p>
-                  )}
-
-                  {nextReady && (
-                    <div
-                      className={cn(
-                        "mt-6 w-full flex items-center justify-center gap-3 rounded-full px-6 py-4 text-body font-semibold",
-                        "bg-status-green/15 text-status-green"
-                      )}
-                    >
-                      <CheckCircle2 className="h-5 w-5" strokeWidth={2} />
-                      Speaker Ready
-                    </div>
-                  )}
-                </div>
+                <StageNextCard
+                  item={next}
+                  emphasize={next.type === "item"}
+                  ready={nextReady}
+                  loosePadding
+                  showPresenterContact
+                />
               )}
 
               {next?.props && (
-                <div className="rounded-card bg-card/50 p-6">
-                  <p className="text-caption uppercase tracking-wide text-muted-2">Props: {next.title}</p>
+                <StageInfoCard label={`Props: ${next.title}`}>
                   <p className="text-body text-primary mt-2">{next.props}</p>
-                </div>
+                </StageInfoCard>
               )}
 
               {onDeck && (
-                <div className="rounded-card bg-card/50 p-6">
-                  <p className="text-caption uppercase tracking-wide text-muted-2">On Deck</p>
+                <StageInfoCard label="On Deck">
                   <p className="text-body text-muted mt-2">{onDeck.title}</p>
                   {onDeck.presenter && <p className="text-caption text-muted-2 mt-1">{onDeck.presenter}</p>}
-                </div>
+                </StageInfoCard>
               )}
             </div>
           </div>

@@ -16,7 +16,6 @@ import type {
   DisplayEngineState,
   DisplayGroup,
   DisplayInstance,
-  DisplayProfile,
   DisplayType,
   EngineMessage,
   HoldState,
@@ -35,7 +34,7 @@ import type {
 //   eventId or share-link token, mirroring lib/store.tsx's per-eventId
 //   instance map). Identity comes from <DisplayEngineProvider> (see
 //   ./context.tsx) rather than a hook parameter, since many nested
-//   consumers (BroadcastOverlay, ProfileEditor, OperatorBroadcastPanel,
+//   consumers (BroadcastOverlay, OperatorBroadcastPanel,
 //   use-display-timer.ts) call useDisplayEngine() directly and would
 //   otherwise need eventId/token prop-drilled through every layer.
 //   An authenticated operator's own instance (eventId known) reads via
@@ -44,9 +43,9 @@ import type {
 //   session — so that instance polls GET /api/display-view instead,
 //   the same route lib/use-display-view.ts already established for
 //   live_state/sessions.
-// - Profiles/Groups/Broadcast templates/favorites/drafts stay local —
-//   operator UI configuration, not live show state, out of scope for the
-//   Supabase migration (see docs/DISPLAY_ENGINE.md). Same localStorage +
+// - Groups/Broadcast templates/favorites/drafts stay local — operator UI
+//   configuration, not live show state, out of scope for the Supabase
+//   migration (see docs/DISPLAY_ENGINE.md). Same localStorage +
 //   BroadcastChannel sync as before, a single global slice shared across
 //   every open instance in this browser (not event-scoped — it's this
 //   browser's own preferences, never sent anywhere).
@@ -78,13 +77,12 @@ export function newId(prefix: string): string {
 const clientId = typeof window !== "undefined" ? readClientId() : "server";
 
 // ---------------------------------------------------------------------------
-// Local slice — groups, profiles, broadcast templates/favorites/drafts.
-// Global, not per-instance (see comment above).
+// Local slice — groups, broadcast templates/favorites/drafts. Global, not
+// per-instance (see comment above).
 // ---------------------------------------------------------------------------
 
 interface LocalSlice {
   groups: Record<string, DisplayGroup>;
-  profiles: Record<string, DisplayProfile>;
   templates: BroadcastTemplate[];
   favorites: string[];
   drafts: BroadcastDraft[];
@@ -94,7 +92,6 @@ function initialLocalSlice(): LocalSlice {
   const initial = createInitialEngineState();
   return {
     groups: initial.groups,
-    profiles: initial.profiles,
     templates: initial.broadcasts.templates,
     favorites: initial.broadcasts.favorites,
     drafts: initial.broadcasts.drafts,
@@ -521,7 +518,6 @@ function rebuild(inst: EngineInstance) {
   inst.cachedState = {
     registry: inst.remoteSlice.registry,
     groups: localSlice.groups,
-    profiles: localSlice.profiles,
     timer: inst.remoteSlice.timer,
     hold: inst.remoteSlice.hold,
     broadcasts: {
@@ -837,22 +833,6 @@ function setSpeakerReady(identity: DisplayEngineIdentity, programId: string, rea
 }
 
 // ---------------------------------------------------------------------------
-// Profiles — local only
-// ---------------------------------------------------------------------------
-
-function saveProfile(profile: DisplayProfile) {
-  commitLocal({ ...localSlice, profiles: { ...localSlice.profiles, [profile.id]: profile } });
-}
-
-function deleteProfile(id: string) {
-  const target = localSlice.profiles[id];
-  if (!target || target.builtIn) return;
-  const next = { ...localSlice.profiles };
-  delete next[id];
-  commitLocal({ ...localSlice, profiles: next });
-}
-
-// ---------------------------------------------------------------------------
 // Public hooks
 // ---------------------------------------------------------------------------
 
@@ -909,8 +889,6 @@ export function useDisplayEngine() {
     toggleFavoriteTemplate,
     saveDraft,
     deleteDraft,
-    saveProfile,
-    deleteProfile,
     setSpeakerReady: (programId: string, ready: boolean) => setSpeakerReady(identity, programId, ready),
   };
 }
