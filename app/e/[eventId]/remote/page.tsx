@@ -310,23 +310,18 @@ export default function RemotePage() {
               </div>
             )}
 
+            {/* Read-only context — the actual Speaker Ready control lives in
+                the fixed thumb zone below (Kramflow/Stagetimer competitive
+                audit, 2026-09: at 390×844 this section's own scroll height
+                could put the toggle below the fold with no indication it
+                needed a scroll to reach, on a page whose entire premise is
+                single-screen thumb reach). Glanceable info can live in the
+                scrollable area; a primary action can't depend on scroll
+                position to even be visible, let alone reachable. */}
             {next_ && (
               <div className="mt-10 pt-6 border-t border-white/5 w-full max-w-xs">
                 <p className="text-caption uppercase tracking-wide text-muted-2">Next</p>
                 <p className="text-body text-primary mt-1.5">{next_.title}</p>
-
-                <button
-                  type="button"
-                  onClick={() => setSpeakerReady(next_.id, !nextReady)}
-                  className={cn(
-                    "mt-4 w-full flex items-center justify-center gap-2.5 rounded-full px-5 py-3 text-body font-semibold cursor-pointer transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                    nextReady ? "bg-status-green/15 text-status-green" : "bg-white/5 text-muted hover:text-primary"
-                  )}
-                >
-                  {nextReady ? <CheckCircle2 className="h-4 w-4" strokeWidth={2} /> : <Circle className="h-4 w-4" strokeWidth={2} />}
-                  {nextReady ? "Speaker Ready" : "Mark Speaker Ready"}
-                </button>
               </div>
             )}
           </>
@@ -400,6 +395,29 @@ export default function RemotePage() {
           </MaybeTooltip>
         ) : isFinished ? null : (
           <>
+            {/* Pinned in the thumb zone, not the scrollable info area above
+                — a control an operator needs *right now* can't depend on
+                scroll position to be reachable (competitive-audit P1, see
+                the "Next" info block's own comment). Visually distinct from
+                Next (pill-shaped, secondary weight, its own row) so there's
+                no ambiguity about which is the transport action and which
+                is the readiness toggle — Fitts's Law still reads Next as
+                the dominant target. */}
+            {next_ && (
+              <button
+                type="button"
+                onClick={() => setSpeakerReady(next_.id, !nextReady)}
+                className={cn(
+                  "mb-3 w-full min-h-11 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-console-sm font-medium cursor-pointer transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  nextReady ? "bg-status-green/15 text-status-green" : "bg-white/5 text-muted hover:text-primary"
+                )}
+              >
+                {nextReady ? <CheckCircle2 className="h-4 w-4" strokeWidth={2} /> : <Circle className="h-4 w-4" strokeWidth={2} />}
+                {nextReady ? "Speaker Ready" : "Mark Speaker Ready"}
+              </button>
+            )}
+
             <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
               <BigActionButton
                 onClick={() => run("next", () => next(max))}

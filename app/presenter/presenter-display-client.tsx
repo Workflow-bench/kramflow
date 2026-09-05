@@ -47,6 +47,19 @@ import { cn } from "@/lib/utils";
 // reference 5-character case ("05:30"); longer strings scale it down
 // proportionally so every realistic duration stays legible and uncut at
 // any viewport, not just the one it happened to be tuned against.
+//
+// minRem needs the same treatment at the *narrow* end — it's a hard
+// floor with no viewport awareness of its own, so on a phone-width screen
+// where baseVw's own computed value would already be well under minRem,
+// clamp() still enforces the floor and the digits clip at the screen
+// edge instead of shrinking further (Kramflow/Stagetimer competitive
+// audit, 2026-09: reproduced at 390×844 — confirmed via screenshot, and
+// unrelated to any Tailwind class-merging issue, since every call site
+// here sets fontSize as an inline style, not a class). Each caller's
+// minRem below is chosen to comfortably fit its longest realistic string
+// at 390px, the narrowest width Kramflow supports — baseVw and maxRem
+// (which govern medium/large screens, already verified working) are
+// unchanged.
 function countdownFontSize(text: string, minRem: number, maxRem: number, baseVw: number): string {
   const chars = Math.max(text.length, 5);
   const vw = Math.min(baseVw, Math.round(((baseVw * 5) / chars) * 10) / 10);
@@ -181,7 +194,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
               not a ring the eye has to trace to interpret. */}
           <div className="flex-1 flex flex-col items-center justify-center text-center">
             {mode === "clock" && (
-              <p className="text-hero text-primary tabular-nums" style={{ fontSize: "clamp(6rem, 14vw, 13rem)" }}>
+              <p className="text-hero text-primary tabular-nums" style={{ fontSize: "clamp(3.5rem, 14vw, 13rem)" }}>
                 {clockLabel}
               </p>
             )}
@@ -189,7 +202,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
             {mode === "minimal" && (
               <p
                 className="tabular-nums font-semibold leading-none"
-                style={{ fontSize: countdownFontSize(timer.label, 8, 20, 22), color }}
+                style={{ fontSize: countdownFontSize(timer.label, 4.5, 20, 22), color }}
               >
                 {timer.label}
               </p>
@@ -217,7 +230,7 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
                       style={{
                         fontSize: countdownFontSize(
                           mode === "countdown" || mode === "program" ? timer.label : formatClock(timer.elapsedSeconds),
-                          9,
+                          6,
                           24,
                           28
                         ),
@@ -307,7 +320,19 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
             KF-003 / P0 finding #3). tabIndex alone doesn't affect pointer
             events, so the "still tappable mid-fade" behavior survives
             untouched — only Tab-reachability changes. */}
-        <div className="flex items-center gap-2 rounded-full bg-card/95 backdrop-blur px-4 py-3 shadow-lg">
+        {/* max-w plus overflow-x-auto, not flex-wrap — a dozen controls
+            (transport, mode/hold selects, fullscreen) don't fit this pill
+            in one row below ~700px wide, and wrapping would turn a single
+            rounded-full dock into an uneven multi-row block. Bounding the
+            pill to the viewport and letting it scroll horizontally keeps
+            every control reachable via a swipe instead of rendering past
+            the screen edge with no way back (Kramflow/Stagetimer
+            competitive audit, 2026-09: reproduced at 390×844 — Fullscreen
+            measured off-screen to the right, dock's own left edge
+            off-screen to the left, both entirely untappable). Unchanged
+            above ~700px, where everything already fits in one row and
+            this never engages. */}
+        <div className="flex items-center gap-2 rounded-full bg-card/95 backdrop-blur px-4 py-3 shadow-lg max-w-[calc(100vw-3rem)] overflow-x-auto">
           <ControlButton onClick={() => adjustTimer(-60)} label="-1:00" tabIndex={controlsVisible ? undefined : -1}>
             <Minus className="h-4 w-4" strokeWidth={2} />
           </ControlButton>
