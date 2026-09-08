@@ -12,6 +12,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { OperationalStatus } from "@/components/ui/operational-status";
 import { SectionLabel } from "@/components/ui/section-label";
 import { RunPosition } from "./run-position";
+import { TimeCorrectionControl } from "./time-correction-control";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
@@ -86,6 +87,9 @@ export function LiveDetailsPanel({
           <p className="text-console-meta text-muted mt-2">
             {countdown.isOverrun ? "over" : "remaining"}
           </p>
+          <div className="mt-4">
+            <TimeCorrectionControl />
+          </div>
         </div>
       )}
 

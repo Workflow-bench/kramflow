@@ -45,7 +45,20 @@ const LOCKED_ACTIONS = new Set([
   "selectSession",
   "reset",
   "resetSession",
+  "correctTimer",
 ]);
+
+// "+30" reads as "give the live item 30 more seconds" — signed seconds
+// formatted the same way the product already writes durations everywhere
+// else (mm:ss), not raw "30s"/"-30s". Local to this route since nothing
+// else needs to format a signed correction.
+function formatSignedDuration(deltaSeconds: number): string {
+  const sign = deltaSeconds < 0 ? "-" : "+";
+  const abs = Math.abs(deltaSeconds);
+  const m = Math.floor(abs / 60);
+  const s = abs % 60;
+  return `${sign}${m}:${String(s).padStart(2, "0")}`;
+}
 
 // A claim older than this is treated as abandoned — the controlling tab
 // crashed, lost network, or was just closed without releasing — so it
@@ -316,6 +329,44 @@ export async function PATCH(request: Request) {
         patch = { paused_at: new Date().toISOString() };
         detail = "Hold started";
       }
+      break;
+    }
+    case "correctTimer": {
+      const deltaSeconds = body.deltaSeconds;
+      if (
+        typeof deltaSeconds !== "number" ||
+        !Number.isFinite(deltaSeconds) ||
+        !Number.isInteger(deltaSeconds) ||
+        deltaSeconds === 0
+      ) {
+        return NextResponse.json({ ok: false, error: "deltaSeconds must be a non-zero whole number of seconds" }, { status: 400 });
+      }
+      const progress = activeProgress();
+      if (progress.currentOrder === null || !progress.startedAt) {
+        // Nothing live to correct — same shape as next/previous's own
+        // no-op past a boundary, not an error (the control that reaches
+        // here should already be hidden, but a stale client shouldn't 500).
+        return NextResponse.json({ ok: true, noop: true });
+      }
+      // Same math as togglePause's own resume path above, just moving
+      // startedAt by an operator-chosen amount instead of the pause
+      // duration: a later startedAt means less elapsed, i.e. more time
+      // remaining ("+"); an earlier startedAt means more elapsed, less
+      // remaining ("-"). Clamped so the correction can never push
+      // startedAt past "now" (or pausedAt while on Hold) — elapsed already
+      // reads as max(0, ...) everywhere it's consumed (lib/use-countdown.ts,
+      // lib/timing.ts), so an uncapped future startedAt would just sit
+      // unused until real time caught up to it, which reads as "the
+      // correction did nothing" rather than what actually happened.
+      const referenceMs = current.paused_at ? Date.parse(current.paused_at) : Date.now();
+      const correctedMs = Math.min(Date.parse(progress.startedAt) + deltaSeconds * 1000, referenceMs);
+      patch = {
+        progress_by_session: {
+          ...current.progress_by_session,
+          [current.active_session_id ?? ""]: { ...progress, startedAt: new Date(correctedMs).toISOString() },
+        },
+      };
+      detail = `Corrected timer ${formatSignedDuration(deltaSeconds)}`;
       break;
     }
     case "setAlert": {

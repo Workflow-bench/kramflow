@@ -33,6 +33,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { OperationalStatus } from "@/components/ui/operational-status";
 import { BigActionButton } from "@/components/remote/big-action-button";
 import { QuickActionButton } from "@/components/remote/quick-action-button";
+import { TimeCorrectionControl } from "@/components/operator/time-correction-control";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -316,6 +317,9 @@ export default function RemotePage() {
                     fraction={countdown.fraction}
                     tone={state.pausedAt ? "orange" : countdown.isOverrun ? "red" : "green"}
                   />
+                </div>
+                <div className="mt-5">
+                  <TimeCorrectionControl compact />
                 </div>
               </div>
             )}
