@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
+import type { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import { getTransport, type TransportStatus } from "./transport";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fetchDisplayViewPolled } from "@/lib/shared-display-view-poll";
@@ -489,14 +490,47 @@ function ensureRemoteConnected(inst: EngineInstance) {
     // Console instances (Operator, Displays, Broadcast Center) never read
     // engine.hold/engine.timer, so there's nothing for them to react to
     // here (and no display_type row to filter to in the first place).
-    if (inst.identity.displayType) {
+    const displayType = inst.identity.displayType;
+    if (displayType) {
       channel.on(
         "postgres_changes",
         { event: "*", schema: "public", table: "display_type_state", filter: `event_id=eq.${eventId}` },
         () => fetchDisplayTypeStateSlice(inst, eventId)
       );
     }
-    channel.subscribe();
+    // Re-fetch every slice on (re)connect, not just rely on the next
+    // change event — mirrors lib/store.tsx's identical fix for the same
+    // gap. Realtime doesn't replay missed events across a genuine
+    // disconnect, so without this, a mutation that lands anywhere in this
+    // channel's tables (Hold/Timer/Registry/Broadcasts/speaker-ready)
+    // while an authenticated instance (Console/Remote/an operator's own
+    // display preview) is disconnected is never seen until something else
+    // happens to change one of these rows again. Confirmed live (headed
+    // Chromium + a real network partition, instrumented at the WebSocket
+    // level): an eventId-identity Green Room instance left a stale
+    // "not ready" state on screen indefinitely after speaker_ready was
+    // toggled elsewhere while it was disconnected, until this SUBSCRIBED
+    // handler re-fetched on reconnect. Note the precondition — the
+    // underlying socket has to actually be detected as dropped first
+    // (observed taking ~14-18s of real network loss before the client's
+    // own retry logic surfaced a close/error event); a shorter blip that
+    // never surfaces a disconnect at the WebSocket layer won't trigger
+    // this path, same as it wouldn't reconnect at all. The token-identity
+    // poll path (fetchRemoteSliceViaPoll, below) has no such floor — it
+    // picked up the same change within one 2.5s poll cycle regardless of
+    // blip length.
+    let wasEverConnected = false;
+    channel.subscribe((status: `${REALTIME_SUBSCRIBE_STATES}`) => {
+      if (status === "SUBSCRIBED") {
+        if (wasEverConnected) {
+          fetchDisplayStateSlice(inst, eventId);
+          fetchRegistrySlice(inst, eventId);
+          fetchBroadcastsSlice(inst, eventId);
+          if (displayType) fetchDisplayTypeStateSlice(inst, eventId);
+        }
+        wasEverConnected = true;
+      }
+    });
   } else if (inst.identity.token) {
     const poll = () => fetchRemoteSliceViaPoll(inst);
     poll();

@@ -16,7 +16,8 @@ import {
   CheckCircle2,
   Circle,
 } from "lucide-react";
-import { useEventStore, getLastActionStatus } from "@/lib/store";
+import { useEventStore, getLastActionStatus, useConnectionStatus } from "@/lib/store";
+import { ConnectionBadge } from "@/components/ui/connection-badge";
 import { useSessions } from "@/lib/use-sessions";
 import { getSessionById } from "@/lib/data/sessions";
 import { effectiveNotes, getLive, getNext } from "@/lib/types";
@@ -80,6 +81,7 @@ export default function RemotePage() {
   const emergencySendingRef = useRef(false);
   const toast = useToast();
   const isOwner = useIsOwner();
+  const connectionStatus = useConnectionStatus();
   const { lockedByOther } = useControlLock(state);
   const eventId = useEventId();
   const controllerName = useControllerName(eventId, lockedByOther ? state.controllerId : null);
@@ -224,6 +226,14 @@ export default function RemotePage() {
             {session.dayLabel} • {session.sessionLabel}
           </p>
           <div className="flex items-center gap-3 shrink-0">
+            {/* Report finding #34 (connection-badge.tsx's own comment) fixed
+                the Operator Console and every display screen — Remote was
+                the one surface still missing it (confirmed live: buttons
+                just started failing with no proactive signal during a
+                network partition). Console variant, same as Operator's
+                EventShellHeader, reusing the identical useConnectionStatus()
+                this page's own live_state already depends on. */}
+            <ConnectionBadge status={connectionStatus} />
             <p className="text-caption text-muted-2 tabular-nums">
               {Math.min(currentOrder ?? 0, max)} / {max}
             </p>
