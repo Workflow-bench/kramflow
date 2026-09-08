@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useDisplayEngine } from "./store";
+import { useDisplayEngineIdentity } from "./context";
 import { useTimeSync } from "./use-time-sync";
 import type { DisplayCommand, DisplayInstance, DisplayType } from "./types";
 
@@ -39,6 +40,24 @@ export function useRegisterDisplay(
 ) {
   const { state, clientId, registerDisplay, heartbeatDisplay, clearCommand } = useDisplayEngine();
   const { latencyMs, resync } = useTimeSync();
+  // A display route opened with an operator's own authenticated session
+  // (eventId, no token) is the "Preview" surface — the fleet page's own
+  // per-row iframe and its "Preview a display" links, both explicitly
+  // labeled as a temporary glance, not a real output. Confirmed live this
+  // was NOT actually ephemeral: the iframe shares this browser tab's own
+  // sessionStorage, so its useRegisterDisplay call permanently upserted a
+  // real display_registry row indistinguishable from a genuine device —
+  // 32 of the demo event's 36 registry rows turned out to be exactly this,
+  // accumulated from ordinary preview/testing use with no cleanup path.
+  // A real provisioned output is always opened via a share-link token
+  // (Displays' Copy Link/QR) — this is the one existing signal that
+  // already separates "an operator glancing at their own session" from
+  // "a real screen," the same axis lib/display-engine/store.tsx's own
+  // ensureRemoteConnected() already branches on. Skipping registration
+  // (and the heartbeat that would otherwise re-create it) for the
+  // token-less case is the fix at the actual lifecycle boundary, not a
+  // cleanup pass after the fact.
+  const isPreview = !useDisplayEngineIdentity().token;
 
   const onCommandRef = useRef(onCommand);
   const latencyRef = useRef(latencyMs);
@@ -80,13 +99,17 @@ export function useRegisterDisplay(
   const handledIssuedAtRef = useRef<string | null>(null);
 
   useEffect(() => {
-    registerDisplayRef.current({ id: clientId, name, type, room });
+    // Clock sync is harmless and still useful for a preview's own
+    // countdown — only the durable registry write (register + its
+    // recurring heartbeat, both of which upsert the same row) is skipped.
     resyncRef.current();
+    if (isPreview) return;
+    registerDisplayRef.current({ id: clientId, name, type, room });
     const interval = setInterval(() => {
       heartbeatDisplayRef.current(clientId, latencyRef.current);
     }, HEARTBEAT_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [clientId, name, type, room]);
+  }, [clientId, name, type, room, isPreview]);
 
   useEffect(() => {
     const command = state.registry[clientId]?.pendingCommand;
