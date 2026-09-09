@@ -54,7 +54,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
     if (error.code === "23505") {
       return NextResponse.json({ ok: false, error: "You're already a collaborator on this event." }, { status: 409 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, eventId: event.id, eventName: event.name });

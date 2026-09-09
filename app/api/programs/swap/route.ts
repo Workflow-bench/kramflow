@@ -31,13 +31,19 @@ export async function POST(request: Request) {
     .select("id, name")
     .eq("event_id", auth.eventId)
     .in("id", uniqueIds);
-  if (ownedError) return NextResponse.json({ ok: false, error: ownedError.message }, { status: 500 });
+  if (ownedError) {
+    console.error(ownedError);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   if (!owned || owned.length !== uniqueIds.length) {
     return NextResponse.json({ ok: false, error: "One or both items don't belong to this event" }, { status: 403 });
   }
 
   const { error } = await supabase.rpc("swap_program_order", { p_id_a: idA, p_id_b: idB });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   const nameA = owned.find((p) => p.id === idA)?.name ?? "an item";
   const nameB = owned.find((p) => p.id === idB)?.name ?? "an item";
   await logActivityAs(supabase, auth.eventId, auth.userId, "programSwap", `Swapped order of "${nameA}" and "${nameB}"`);

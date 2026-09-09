@@ -56,7 +56,10 @@ export async function PATCH(request: Request) {
       .update({ hold })
       .eq("event_id", access.eventId)
       .eq("display_type", displayType);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) {
+      console.error(error);
+      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+    }
   } else {
     const { data: current, error: fetchError } = await supabase
       .from("display_type_state")
@@ -64,13 +67,19 @@ export async function PATCH(request: Request) {
       .eq("event_id", access.eventId)
       .eq("display_type", displayType)
       .single();
-    if (fetchError) return NextResponse.json({ ok: false, error: fetchError.message }, { status: 500 });
+    if (fetchError) {
+      console.error(fetchError);
+      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+    }
     const { error } = await supabase
       .from("display_type_state")
       .update({ hold: { ...current.hold, active: false, activatedAt: null } })
       .eq("event_id", access.eventId)
       .eq("display_type", displayType);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) {
+      console.error(error);
+      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true });

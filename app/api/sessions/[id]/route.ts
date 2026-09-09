@@ -29,7 +29,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const supabase = supabaseAdmin();
   const { error } = await supabase.from("sessions").update(patch).eq("event_id", auth.eventId).eq("id", id);
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }
 
@@ -54,21 +57,28 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     .eq("event_id", auth.eventId)
     .single();
   if (liveStateReadError) {
-    return NextResponse.json({ ok: false, error: liveStateReadError.message }, { status: 500 });
+    console.error(liveStateReadError);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
   }
   if (liveState?.active_session_id === id) {
     const { error: clearError } = await supabase
       .from("live_state")
       .update({ active_session_id: null })
       .eq("event_id", auth.eventId);
-    if (clearError) return NextResponse.json({ ok: false, error: clearError.message }, { status: 500 });
+    if (clearError) {
+      console.error(clearError);
+      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+    }
   }
 
   // programs.session_id / partitions.session_id both cascade (see
   // supabase/schema.sql) — deleting the session removes every item and
   // partition in it too.
   const { error } = await supabase.from("sessions").delete().eq("event_id", auth.eventId).eq("id", id);
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }

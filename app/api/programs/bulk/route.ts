@@ -49,7 +49,10 @@ export async function PATCH(request: Request) {
     .select("id")
     .eq("event_id", auth.eventId)
     .in("id", uniqueIds);
-  if (ownedError) return NextResponse.json({ ok: false, error: ownedError.message }, { status: 500 });
+  if (ownedError) {
+    console.error(ownedError);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   if (!owned || owned.length !== uniqueIds.length) {
     return NextResponse.json({ ok: false, error: "One or more items don't belong to this event" }, { status: 403 });
   }
@@ -66,7 +69,10 @@ export async function PATCH(request: Request) {
       );
     }
     const { data, error } = await supabase.rpc("bulk_update_programs", { p_ids: uniqueIds, p_field: field, p_value: value });
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) {
+      console.error(error);
+      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+    }
     await logActivityAs(
       supabase,
       auth.eventId,
@@ -82,7 +88,10 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ ok: false, error: "partitionId must be a string or null" }, { status: 400 });
     }
     const { error } = await supabase.rpc("bulk_move_programs_to_partition", { p_ids: uniqueIds, p_partition_id: partitionId });
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) {
+      console.error(error);
+      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+    }
     await logActivityAs(
       supabase,
       auth.eventId,

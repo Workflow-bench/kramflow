@@ -17,7 +17,10 @@ export async function GET(request: Request) {
   let query = supabase.from("programs").select("*").eq("event_id", auth.eventId).order("sort_order", { ascending: true });
   if (sessionId) query = query.eq("session_id", sessionId);
   const { data, error } = await query;
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
 
   // Same cascade the read-only display surfaces get via lib/data/sessions.ts's
   // fetchSessions — applied here too so the cue sheet editor itself (which
@@ -26,7 +29,10 @@ export async function GET(request: Request) {
   let partitionQuery = supabase.from("partitions").select("*").eq("event_id", auth.eventId);
   if (sessionId) partitionQuery = partitionQuery.eq("session_id", sessionId);
   const { data: partitionRows, error: partitionsError } = await partitionQuery;
-  if (partitionsError) return NextResponse.json({ ok: false, error: partitionsError.message }, { status: 500 });
+  if (partitionsError) {
+    console.error(partitionsError);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
 
   const rows = data ?? [];
   const partitions = (partitionRows ?? []).map(mapPartitionRow);
@@ -109,7 +115,10 @@ export async function POST(request: Request) {
     p_auditorium_id: row.auditorium_id ?? null,
     p_time_is_computed: row.time_is_computed ?? false,
   });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   const program = Array.isArray(data) ? data[0] : data;
   await logActivityAs(supabase, auth.eventId, auth.userId, "programCreate", `Added "${row.name}" to the cue sheet`);
   return NextResponse.json({ ok: true, program });

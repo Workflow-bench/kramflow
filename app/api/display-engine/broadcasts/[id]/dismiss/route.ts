@@ -14,6 +14,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     .from("display_broadcasts")
     .update({ dismissed_at: new Date().toISOString() })
     .eq("id", id);
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

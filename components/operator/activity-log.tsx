@@ -87,7 +87,7 @@ export function ActivityLog() {
               {/* Pre-migration rows (and renewControl heartbeats, which never
                   log at all) have no actor — shown plain rather than with a
                   misleading "Unknown" label. */}
-              {row.actor_name && <span className="text-muted-2"> — {row.actor_name}</span>}
+              {row.actor_name && <span className="text-muted-2"> · {row.actor_name}</span>}
             </span>
           </li>
         ))}

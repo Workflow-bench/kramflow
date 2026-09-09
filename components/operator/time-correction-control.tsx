@@ -170,7 +170,7 @@ export function TimeCorrectionControl({ compact = false }: { compact?: boolean }
 
       {lockedByOther && (
         <p className="text-console-meta text-status-orange">
-          {controllerName ? `${controllerName} has control` : "Locked by another operator"} — corrections won&apos;t apply until you take over.
+          {controllerName ? `${controllerName} has control.` : "Locked by another operator."} Corrections won&apos;t apply until you take over.
         </p>
       )}
 

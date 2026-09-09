@@ -246,7 +246,7 @@ function ProjectedFinishLine({ session, state }: { session: Session; state: Live
     // "not-started" has nothing to extrapolate from yet — both render
     // nothing here rather than an empty/confusing line.
     if (projection.finish.reason !== "replaying-earlier-item") return null;
-    return <p className="text-console-meta text-muted-2 mt-1">Replaying an earlier item — projection paused</p>;
+    return <p className="text-console-meta text-muted-2 mt-1">Replaying an earlier item, projection paused</p>;
   }
 
   const label = projection.finish.kind === "planned" ? "Planned finish" : "Projected finish";

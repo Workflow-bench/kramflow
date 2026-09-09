@@ -52,6 +52,9 @@ export async function POST(request: Request) {
 
   const supabase = supabaseAdmin();
   const { data, error } = await supabase.from("display_broadcasts").insert(row).select().single();
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, broadcast: data });
 }
