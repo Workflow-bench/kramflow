@@ -14,8 +14,8 @@ const STORAGE_KEY = "kramflow.operator.console-layout.v1";
 //   Controls — full-width transport buttons plus icon+label without
 //              wrapping or icon/label collision.
 export const PROGRAM_MIN = 480;
-export const LIVE_NOW_MIN = 300;
-export const LIVE_NOW_MAX = 560;
+export const LIVE_NOW_MIN = 340;
+export const LIVE_NOW_MAX = 620;
 export const CONTROLS_MIN = 280;
 export const CONTROLS_MAX = 420;
 
@@ -29,7 +29,14 @@ const BIG_STEP_PX = 64;
 // the practical desktop range: at 1440px this lands within a few px of the
 // old 340/280 split, and at 1920px+ it tracks the old 400/320 step without
 // needing a second hardcoded breakpoint — the fraction just scales.
-const DEFAULT_LIVE_NOW_FRACTION = 0.24;
+// Bumped from 0.24 — the live item is the single most important object on
+// this screen during a show (Kramflow UI 2.0's "current program must
+// dominate visual hierarchy" requirement) and previously landed at the
+// *same* width as Controls at common desktop sizes, with Program left as
+// the widest column by default. 0.30 gives Live Now real visual weight
+// while Program (the flexible remainder) still comfortably clears its own
+// 480px floor at the 1280px xl breakpoint this layout requires.
+const DEFAULT_LIVE_NOW_FRACTION = 0.3;
 const DEFAULT_CONTROLS_FRACTION = 0.2;
 
 export type ColumnPreset = "balanced" | "rundown" | "controls";

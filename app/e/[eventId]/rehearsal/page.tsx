@@ -6,6 +6,7 @@ import { useSessions } from "@/lib/use-sessions";
 import { useEventId } from "@/lib/event-context";
 import { getLive, getNext, getOnDeck, type LiveState, type Alert as AlertType, type AlertSeverity } from "@/lib/types";
 import { useCountdown } from "@/lib/use-countdown";
+import { countdownSeverity } from "@/lib/timing";
 import { formatClock } from "@/lib/display-engine/use-display-timer";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -207,34 +208,39 @@ export default function RehearsalPage() {
           <div className="order-1 lg:order-2 lg:border-l border-line-soft min-w-0 px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex flex-col gap-8">
             {state.alert && <AlertBanner alert={state.alert} />}
 
-            <section className="flex flex-col gap-2">
+            <section className="flex flex-col gap-2 rounded-panel border border-line-soft bg-card/40 p-4">
               <div className="flex items-center gap-2">
                 <SectionLabel>{isFinished ? "Finished" : live ? "Rehearsing now" : "Not started"}</SectionLabel>
                 {state.pausedAt && <OperationalStatus kind="hold" />}
               </div>
-              <p className="text-console-lg text-primary mt-1">{isFinished ? "Rehearsal complete" : live ? live.title : "—"}</p>
+              <p className="text-console-lg font-semibold text-primary mt-1">
+                {isFinished ? "Rehearsal complete" : live ? live.title : "—"}
+              </p>
               {live?.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
 
-              {live && live.type === "item" && live.durationMinutes > 0 && (
-                <div className="mt-6">
-                  <p
-                    className={cn(
-                      "text-console-headline tabular-nums",
-                      countdown.isOverrun ? "text-status-red" : "text-primary"
-                    )}
-                  >
-                    {countdown.isOverrun ? "+" : ""}
-                    {formatClock(countdown.remainingSeconds)}
-                  </p>
-                  <div className="mt-3">
-                    <ProgressBar
-                      fraction={countdown.fraction}
-                      tone={state.pausedAt ? "orange" : countdown.isOverrun ? "red" : "green"}
-                    />
+              {live && live.type === "item" && live.durationMinutes > 0 && (() => {
+                const severity = countdownSeverity(countdown.remainingSeconds, countdown.isOverrun);
+                return (
+                  <div className="mt-6">
+                    <p
+                      className={cn(
+                        "text-console-headline tabular-nums transition-colors duration-200",
+                        severity === "overrun" ? "text-status-red" : severity === "approaching" ? "text-status-orange" : "text-primary"
+                      )}
+                    >
+                      {countdown.isOverrun ? "+" : ""}
+                      {formatClock(countdown.remainingSeconds)}
+                    </p>
+                    <div className="mt-3">
+                      <ProgressBar
+                        fraction={countdown.fraction}
+                        tone={state.pausedAt ? "orange" : severity === "overrun" ? "red" : severity === "approaching" ? "orange" : "green"}
+                      />
+                    </div>
+                    <p className="text-console-meta text-muted mt-2">{countdown.isOverrun ? "over" : "remaining"}</p>
                   </div>
-                  <p className="text-console-meta text-muted mt-2">{countdown.isOverrun ? "over" : "remaining"}</p>
-                </div>
-              )}
+                );
+              })()}
 
               <RunPosition next={next} onDeck={onDeck} />
             </section>

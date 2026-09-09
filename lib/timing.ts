@@ -152,6 +152,26 @@ export function driftSeverity(minutes: number): DriftSeverity {
   return "significant";
 }
 
+export type CountdownSeverity = "ok" | "approaching" | "overrun";
+
+/** The Console countdown's own tier, deliberately distinct from
+ *  driftSeverity above despite sharing its threshold value. Presenter's
+ *  confidence-monitor timer earns a full 5-step ramp with its own yellow
+ *  hex (lib/display-engine/colors.ts) — documented there as the one
+ *  deliberate exception to Kramflow's "no second palette" rule, because a
+ *  confidence monitor genuinely needs that much granularity. Console does
+ *  not get a second exception: it stays inside its existing green/orange/
+ *  red vocabulary, reusing only the *threshold value* Presenter and
+ *  driftSeverity already established (5 minutes / 300 seconds = "worth the
+ *  operator's attention now"), not Presenter's color. Overrun is its own
+ *  tier (not "further past the threshold") since crossing zero — not
+ *  distance from it — is the meaningful boundary for a countdown. */
+export function countdownSeverity(remainingSeconds: number, isOverrun: boolean): CountdownSeverity {
+  if (isOverrun) return "overrun";
+  if (remainingSeconds <= 5 * 60) return "approaching";
+  return "ok";
+}
+
 /** The exact formula lib/use-countdown.ts's useCountdown() uses, extracted
  *  as a pure function so this module and that hook can never silently
  *  diverge. `now`/`pausedAt`/`startedAt` are all epoch milliseconds (or

@@ -20,6 +20,7 @@ import { OperatorColumns } from "@/components/operator/operator-columns";
 import { OperatorLayoutMenu } from "@/components/operator/operator-layout-menu";
 import { ProgressFooter } from "@/components/ui/progress-footer";
 import { SectionLabel } from "@/components/ui/section-label";
+import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
@@ -75,12 +76,11 @@ export default function OperatorPage() {
         connectionStatus={connectionStatus}
         badges={
           operatorCount > 1 && (
-            <span
-              className="flex items-center gap-1.5 text-console-meta font-semibold uppercase tracking-wide text-status-orange bg-status-orange/15 px-2.5 py-1 rounded-full shrink-0"
-              title={`Connected: ${operators.map((o) => o.name).join(", ")}`}
-            >
-              <Users className="h-3.5 w-3.5" strokeWidth={2} />
-              {operatorCount} operators
+            <span title={`Connected: ${operators.map((o) => o.name).join(", ")}`} className="shrink-0">
+              <Badge tone="orange" className="gap-1.5">
+                <Users className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                {operatorCount} operators
+              </Badge>
             </span>
           )
         }
