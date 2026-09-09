@@ -50,7 +50,10 @@ test.describe("auth golden path", () => {
     await page.getByRole("button", { name: "Log In" }).click();
 
     await page.waitForURL("/dashboard");
-    await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
+    // The operator's identity moved from a "Signed in as X" line in the
+    // page header into the Dashboard's own instrument strip (Kramflow UI
+    // System 2.0) — just the bare email now, no "Signed in as" prefix.
+    await expect(page.getByText(email!, { exact: true })).toBeVisible();
 
     const eventName = `E2E Test Event ${Date.now()}`;
     await page.getByLabel("New event name").fill(eventName);
