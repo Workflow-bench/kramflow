@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { logActivityAs } from "@/lib/server/activity-log";
+import { logActivity, logActivityAs } from "@/lib/server/activity-log";
 import type { Alert } from "@/lib/types";
 
 // Single PATCH endpoint for every live-state mutation (start/next/previous/
@@ -29,6 +29,15 @@ interface LiveStateRow {
   controller_claimed_at: string | null;
 }
 
+/** A verified caller of the canonical live mutation handler. HTTP callers
+ * are authenticated below; trusted adapters may supply this only after they
+ * have verified their own credential. */
+export interface LiveActionActor {
+  eventId: string;
+  userId: string | null;
+  actorName?: string;
+}
+
 // Sequencing actions are the ones that silently clobber another operator's
 // state (Next clearing a Hold someone else just set). Alert/Notes stay
 // unlocked and collaborative on purpose — they
@@ -45,7 +54,20 @@ const LOCKED_ACTIONS = new Set([
   "selectSession",
   "reset",
   "resetSession",
+  "correctTimer",
 ]);
+
+// "+30" reads as "give the live item 30 more seconds" — signed seconds
+// formatted the same way the product already writes durations everywhere
+// else (mm:ss), not raw "30s"/"-30s". Local to this route since nothing
+// else needs to format a signed correction.
+function formatSignedDuration(deltaSeconds: number): string {
+  const sign = deltaSeconds < 0 ? "-" : "+";
+  const abs = Math.abs(deltaSeconds);
+  const m = Math.floor(abs / 60);
+  const s = abs % 60;
+  return `${sign}${m}:${String(s).padStart(2, "0")}`;
+}
 
 // A claim older than this is treated as abandoned — the controlling tab
 // crashed, lost network, or was just closed without releasing — so it
@@ -105,7 +127,7 @@ function withDeparture(
   return { ...itemActuals, [programId]: { actualStart: existing?.actualStart ?? now, actualEnd: now } };
 }
 
-export async function PATCH(request: Request) {
+export async function runLiveAction(request: Request, trustedActor?: LiveActionActor) {
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -119,8 +141,12 @@ export async function PATCH(request: Request) {
   }
 
   const eventId = body.eventId;
-  const auth = await requireEventAccess(typeof eventId === "string" ? eventId : null, "owner");
+  const auth =
+    trustedActor ?? (await requireEventAccess(typeof eventId === "string" ? eventId : null, "owner"));
   if (auth instanceof NextResponse) return auth;
+  // A trusted adapter must not be able to reuse its authentication for a
+  // different event by changing only the request body.
+  if (auth.eventId !== eventId) return NextResponse.json({ ok: false, error: "Event not found" }, { status: 404 });
 
   const supabase = supabaseAdmin();
   const { data: row, error: fetchError } = await supabase
@@ -318,6 +344,44 @@ export async function PATCH(request: Request) {
       }
       break;
     }
+    case "correctTimer": {
+      const deltaSeconds = body.deltaSeconds;
+      if (
+        typeof deltaSeconds !== "number" ||
+        !Number.isFinite(deltaSeconds) ||
+        !Number.isInteger(deltaSeconds) ||
+        deltaSeconds === 0
+      ) {
+        return NextResponse.json({ ok: false, error: "deltaSeconds must be a non-zero whole number of seconds" }, { status: 400 });
+      }
+      const progress = activeProgress();
+      if (progress.currentOrder === null || !progress.startedAt) {
+        // Nothing live to correct — same shape as next/previous's own
+        // no-op past a boundary, not an error (the control that reaches
+        // here should already be hidden, but a stale client shouldn't 500).
+        return NextResponse.json({ ok: true, noop: true });
+      }
+      // Same math as togglePause's own resume path above, just moving
+      // startedAt by an operator-chosen amount instead of the pause
+      // duration: a later startedAt means less elapsed, i.e. more time
+      // remaining ("+"); an earlier startedAt means more elapsed, less
+      // remaining ("-"). Clamped so the correction can never push
+      // startedAt past "now" (or pausedAt while on Hold) — elapsed already
+      // reads as max(0, ...) everywhere it's consumed (lib/use-countdown.ts,
+      // lib/timing.ts), so an uncapped future startedAt would just sit
+      // unused until real time caught up to it, which reads as "the
+      // correction did nothing" rather than what actually happened.
+      const referenceMs = current.paused_at ? Date.parse(current.paused_at) : Date.now();
+      const correctedMs = Math.min(Date.parse(progress.startedAt) + deltaSeconds * 1000, referenceMs);
+      patch = {
+        progress_by_session: {
+          ...current.progress_by_session,
+          [current.active_session_id ?? ""]: { ...progress, startedAt: new Date(correctedMs).toISOString() },
+        },
+      };
+      detail = `Corrected timer ${formatSignedDuration(deltaSeconds)}`;
+      break;
+    }
     case "setAlert": {
       const alert = body.alert as Alert | undefined;
       if (!alert || typeof alert.message !== "string") return NextResponse.json({ ok: false }, { status: 400 });
@@ -438,7 +502,20 @@ export async function PATCH(request: Request) {
   // meaningful audit event; logging it would spam the Activity feed
   // operators actually read with noise unrelated to the show itself.
   if (detail) {
-    await logActivityAs(supabase, auth.eventId, auth.userId, action, detail);
+    if (auth.userId) {
+      await logActivityAs(supabase, auth.eventId, auth.userId, action, detail);
+    } else {
+      await logActivity(supabase, auth.eventId, action, detail, {
+        userId: null,
+        name: ("actorName" in auth ? auth.actorName : undefined) ?? "Integration API",
+      });
+    }
   }
   return NextResponse.json({ ok: true, state: updated[0] });
+}
+
+// Keep the public Route Handler signature conventional. API adapters call
+// runLiveAction() only after authenticating their machine credential.
+export async function PATCH(request: Request) {
+  return runLiveAction(request);
 }

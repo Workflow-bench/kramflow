@@ -265,6 +265,12 @@ export function useEventStore() {
       sendAction(eventId, { action: "jumpTo", order, maxOrder, clientId: getClientId() }),
     finish: (maxOrder: number) => sendAction(eventId, { action: "finish", maxOrder, clientId: getClientId() }),
     togglePause: () => sendAction(eventId, { action: "togglePause", clientId: getClientId() }),
+    // Signed whole seconds — positive gives the live item more time
+    // remaining, negative takes time away. See app/api/live/route.ts's
+    // "correctTimer" case for the exact startedAt-shift semantics; this is
+    // a sequencing-lock-gated action like next/previous, not a separate
+    // timer state.
+    correctTimer: (deltaSeconds: number) => sendAction(eventId, { action: "correctTimer", deltaSeconds, clientId: getClientId() }),
     setAlert: (alert: Alert) => sendAction(eventId, { action: "setAlert", alert }),
     dismissAlert: () => sendAction(eventId, { action: "dismissAlert" }),
     setNotes: (programId: string, notes: string) => sendAction(eventId, { action: "setNotes", programId, notes }),

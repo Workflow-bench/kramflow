@@ -20,7 +20,7 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useSessions } from "@/lib/use-sessions";
+import { useSessions, refetchSessions } from "@/lib/use-sessions";
 import { useEventId, useCanEdit, useIsOwner } from "@/lib/event-context";
 import { useConnectionStatus, useEventStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -440,6 +440,7 @@ export default function CueSheetPage() {
     await fetch(`/api/sessions/${target.id}?eventId=${encodeURIComponent(eventId)}`, { method: "DELETE" });
     toast.success("Session deleted");
     deleteSessionConfirm.cancel();
+    refetchSessions(eventId);
     if (activeSessionId === target.id) {
       setSelectedSessionId(null);
       setRows(null);
@@ -673,6 +674,11 @@ export default function CueSheetPage() {
             onSaved={() => {
               setPanel("none");
               toast.success("Session added");
+              // Don't rely solely on this store's own Realtime subscription
+              // — a real race right after this page first mounts (channel
+              // not yet subscribed) otherwise leaves the list stuck showing
+              // no sessions indefinitely. See use-sessions.ts's own comment.
+              refetchSessions(eventId);
             }}
             onCancel={() => setPanel("none")}
           />
@@ -686,6 +692,7 @@ export default function CueSheetPage() {
             onSaved={() => {
               setPanel("none");
               toast.success("Session updated");
+              refetchSessions(eventId);
             }}
             onCancel={() => setPanel("none")}
           />
@@ -698,6 +705,10 @@ export default function CueSheetPage() {
             onDone={() => {
               setPanel("none");
               toast.success("Cue sheet imported");
+              // An import can create new sessions, not just items in an
+              // existing one — same refetch-race reasoning as session
+              // creation above.
+              refetchSessions(eventId);
               if (activeSessionId) loadRows(activeSessionId);
             }}
             onCancel={() => setPanel("none")}

@@ -3,6 +3,7 @@ import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
 import { LockButton } from "@/components/dashboard/lock-button";
 import { HelpMenu } from "@/components/dashboard/help-menu";
 import { EventsDashboard } from "@/components/dashboard/events-dashboard";
+import { DashboardInstrumentStrip } from "@/components/dashboard/dashboard-instrument-strip";
 import { PageHeader } from "@/components/ui/page-header";
 
 // The post-login landing point — proxy.ts sends every authenticated
@@ -81,26 +82,25 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <main className="min-h-screen bg-background px-6 py-10 sm:px-10">
-      <div className="max-w-7xl mx-auto flex flex-col gap-8">
-        <PageHeader
-          eyebrow="Operator Dashboard"
-          title="Your Events"
-          meta={
-            <>
-              Signed in as {user?.email ?? "unknown"} · {events.length} event{events.length === 1 ? "" : "s"}
-            </>
-          }
-          actions={
-            <>
-              <HelpMenu />
-              <LockButton />
-            </>
-          }
-        />
+    <div className="min-h-screen bg-background">
+      <DashboardInstrumentStrip email={user?.email ?? "unknown"} />
+      <main className="px-6 py-10 sm:px-10">
+        <div className="max-w-7xl mx-auto flex flex-col gap-8">
+          <PageHeader
+            eyebrow="Operator Dashboard"
+            title="Your Events"
+            meta={<>{events.length} event{events.length === 1 ? "" : "s"}</>}
+            actions={
+              <>
+                <HelpMenu />
+                <LockButton />
+              </>
+            }
+          />
 
-        <EventsDashboard initialEvents={eventsWithReadiness} />
-      </div>
-    </main>
+          <EventsDashboard initialEvents={eventsWithReadiness} />
+        </div>
+      </main>
+    </div>
   );
 }

@@ -64,7 +64,10 @@ export async function PATCH(request: Request) {
     .eq("event_id", access.eventId)
     .eq("display_type", displayType)
     .single();
-  if (fetchError) return NextResponse.json({ ok: false, error: fetchError.message }, { status: 500 });
+  if (fetchError) {
+    console.error(fetchError);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   const timer = row.timer as TimerState;
   const timerVersion = row.timer_version as number;
 
@@ -119,7 +122,10 @@ export async function PATCH(request: Request) {
     .eq("display_type", displayType)
     .eq("timer_version", timerVersion)
     .select("timer_version");
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   if (!updated || updated.length === 0) {
     return NextResponse.json({ ok: false, error: "The timer changed. Try again." }, { status: 409 });
   }

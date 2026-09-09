@@ -30,7 +30,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .eq("id", id)
     .eq("event_id", auth.eventId)
     .select("id");
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   // .eq(id).eq(event_id) matching zero rows (stale id, a race with a
   // concurrent delete) isn't itself a Supabase error — without checking
   // this, the caller can't tell "saved" from "silently did nothing."

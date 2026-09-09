@@ -17,6 +17,8 @@ import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay"
 import { TestMessageOverlay } from "@/components/display-engine/test-message-overlay";
 import { FullscreenPrompt } from "@/components/display-engine/fullscreen-prompt";
 import { DisplayHeader } from "@/components/display-engine/display-header";
+import { StageInfoCard } from "@/components/display-engine/stage-info-card";
+import { StageNextCard } from "@/components/display-engine/stage-next-card";
 import { AlertBanner } from "@/components/ui/alert-banner";
 
 /**
@@ -136,30 +138,16 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
             </div>
 
             <div className="min-h-0 flex flex-col justify-center gap-6">
-              {next && (
-                <div className="rounded-card bg-card/50 px-6 py-5">
-                  <div className="flex items-center justify-between">
-                    {/* A break needs no AV prep — "Please Prepare" framing on
-                        a breakfast break read as a false instruction to the
-                        crew. Neutral "Next" for a break, the real prep
-                        prompt only for an actual item. */}
-                    <p className="text-caption uppercase tracking-wide text-muted-2">
-                      {next.type === "item" ? "Next: Please Prepare" : "Next"}
-                    </p>
-                    {next.scheduledStart && (
-                      <span className="text-caption text-muted-2 tabular-nums">{next.scheduledStart}</span>
-                    )}
-                  </div>
-                  <p className="text-subtitle text-primary mt-3">{next.title}</p>
-                  {next.presenter && <p className="text-body text-muted mt-2">{next.presenter}</p>}
-                </div>
-              )}
+              {/* A break needs no AV prep — "Please Prepare" framing on a
+                  breakfast break read as a false instruction to the crew.
+                  Neutral "Next" for a break, the real prep prompt only for
+                  an actual item — handled inside StageNextCard. */}
+              {next && <StageNextCard item={next} />}
 
               {onDeck && (
-                <div className="rounded-card bg-card/50 px-6 py-5">
-                  <p className="text-caption uppercase tracking-wide text-muted-2">On Deck</p>
+                <StageInfoCard label="On Deck">
                   <p className="text-body text-muted mt-2">{onDeck.title}</p>
-                </div>
+                </StageInfoCard>
               )}
             </div>
           </div>

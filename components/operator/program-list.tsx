@@ -2,7 +2,6 @@
 
 import { useEventStore } from "@/lib/store";
 import { effectiveNotes, type Session, type Program } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { colorTagLabel, colorTagTone } from "@/lib/color-tags";
 import { cn } from "@/lib/utils";
@@ -79,12 +78,6 @@ export function ProgramList({ session }: { session: Session }) {
   );
 }
 
-function StatusBadge({ status }: { status: RowStatus }) {
-  if (status === "live") return <Badge tone="green">Live</Badge>;
-  if (status === "done") return <Badge tone="muted">Done</Badge>;
-  return null;
-}
-
 function BreakRow({
   program,
   status,
@@ -114,7 +107,6 @@ function BreakRow({
       {/* Breaks read as a gap in the run, not an item in it — dimmer and
           set in italic so the eye skips them when scanning for cues. */}
       <p className="text-console-meta text-muted-2 italic flex-1 min-w-0 truncate">{program.title}</p>
-      <StatusBadge status={status} />
     </button>
   );
 }
@@ -208,10 +200,6 @@ function ItemRow({
       >
         {program.durationMinutes > 0 ? `${program.durationMinutes}m` : "—"}
       </span>
-
-      <div className="w-auto sm:w-16 flex justify-end shrink-0">
-        <StatusBadge status={status} />
-      </div>
     </button>
   );
 }

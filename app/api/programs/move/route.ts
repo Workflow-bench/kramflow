@@ -42,7 +42,10 @@ export async function POST(request: Request) {
     .eq("id", id)
     .eq("event_id", auth.eventId)
     .maybeSingle();
-  if (ownedError) return NextResponse.json({ ok: false, error: ownedError.message }, { status: 500 });
+  if (ownedError) {
+    console.error(ownedError);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   if (!ownedProgram) return NextResponse.json({ ok: false, error: "Program not found" }, { status: 404 });
 
   if (partitionId) {
@@ -52,7 +55,10 @@ export async function POST(request: Request) {
       .eq("id", partitionId)
       .eq("event_id", auth.eventId)
       .maybeSingle();
-    if (partitionError) return NextResponse.json({ ok: false, error: partitionError.message }, { status: 500 });
+    if (partitionError) {
+      console.error(partitionError);
+      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+    }
     if (!ownedPartition) return NextResponse.json({ ok: false, error: "Partition not found" }, { status: 404 });
   }
 
@@ -61,7 +67,10 @@ export async function POST(request: Request) {
     p_after_id: afterId ?? null,
     p_partition_id: partitionId ?? null,
   });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   await logActivityAs(supabase, auth.eventId, auth.userId, "programMove", `Reordered "${ownedProgram.name}" in the cue sheet`);
   return NextResponse.json({ ok: true });
 }

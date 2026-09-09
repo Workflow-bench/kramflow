@@ -25,7 +25,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ eve
     .select("id, user_id, role, invited_email, status, invite_token, invite_expires_at, created_at")
     .eq("event_id", eventId)
     .order("created_at", { ascending: true });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
 
   // invite_token is only ever useful to the person managing the roster
   // (this route already requires "viewer" to list, but the token is a real
@@ -64,7 +67,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
   // listUsers page comfortably covers it; would need real pagination
   // past a few thousand accounts.
   const { data: usersPage, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (listError) return NextResponse.json({ ok: false, error: listError.message }, { status: 500 });
+  if (listError) {
+    console.error(listError);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   const match = usersPage.users.find((u) => u.email?.toLowerCase() === email);
   if (match?.id === auth.userId) {
     return NextResponse.json({ ok: false, error: "You already own this event." }, { status: 400 });
@@ -82,7 +88,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
         { event_id: eventId, user_id: match.id, role, invited_email: email, status: "accepted", accepted_at: new Date().toISOString() },
         { onConflict: "event_id,user_id" }
       );
-    if (insertError) return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });
+    if (insertError) {
+      console.error(insertError);
+      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+    }
     await logActivityAs(admin, eventId, auth.userId, "collaboratorAdd", `Added ${email} as ${role}`);
     return NextResponse.json({ ok: true, status: "accepted" });
   }
@@ -116,7 +125,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
   const { error: inviteError } = existingPending
     ? await admin.from("event_collaborators").update(pendingFields).eq("id", existingPending.id)
     : await admin.from("event_collaborators").insert({ event_id: eventId, user_id: null, ...pendingFields });
-  if (inviteError) return NextResponse.json({ ok: false, error: inviteError.message }, { status: 500 });
+  if (inviteError) {
+    console.error(inviteError);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   await logActivityAs(admin, eventId, auth.userId, "collaboratorInvite", `Invited ${email} as ${role}`);
 
   const acceptUrl = `${new URL(request.url).origin}/invite/${token}`;
@@ -155,7 +167,10 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ e
 
   const query = admin.from("event_collaborators").delete().eq("event_id", eventId);
   const { error } = userId ? await query.eq("user_id", userId) : await query.eq("id", inviteId!);
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   const label = existing ? `${existing.invited_email} (${existing.role})` : "a collaborator";
   const action = existing?.status === "pending" ? "Revoked invite for" : "Removed";
   await logActivityAs(admin, eventId, auth.userId, "collaboratorRemove", `${action} ${label}`);

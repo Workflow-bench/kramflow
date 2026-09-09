@@ -17,6 +17,7 @@ import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay"
 import { TestMessageOverlay } from "@/components/display-engine/test-message-overlay";
 import { FullscreenPrompt } from "@/components/display-engine/fullscreen-prompt";
 import { DisplayHeader } from "@/components/display-engine/display-header";
+import { StageInfoCard } from "@/components/display-engine/stage-info-card";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { parseTimeLabel } from "@/lib/schedule";
 
@@ -152,10 +153,9 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
 
             <div className="min-h-0 flex flex-col justify-center gap-6">
               {onDeck && (
-                <div className="rounded-card bg-card/50 px-6 py-5">
-                  <p className="text-caption uppercase tracking-wide text-muted-2">On Deck</p>
+                <StageInfoCard label="On Deck">
                   <p className="text-body text-muted mt-2">{onDeck.title}</p>
-                </div>
+                </StageInfoCard>
               )}
 
               {/* Was a hardcoded "Restrooms are near the main hall entrance"
@@ -165,10 +165,9 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
                   omitted entirely rather than showing a fabricated
                   confidence indicator the architecture can't back up. */}
               {eventVenue && (
-                <div className="rounded-card bg-card/50 px-6 py-5">
-                  <p className="text-caption uppercase tracking-wide text-muted-2">Venue</p>
+                <StageInfoCard label="Venue">
                   <p className="text-body text-muted mt-2">{eventVenue}</p>
-                </div>
+                </StageInfoCard>
               )}
             </div>
           </div>

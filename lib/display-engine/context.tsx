@@ -5,7 +5,7 @@ import type { DisplayType } from "./types";
 
 // Display Engine state is now per-event (display_state/display_registry/
 // display_broadcasts all carry event_id), but useDisplayEngine() is called
-// directly by many nested components (BroadcastOverlay, ProfileEditor,
+// directly by many nested components (BroadcastOverlay,
 // OperatorBroadcastPanel, use-display-timer.ts, ...) that have no natural
 // way to receive an eventId/token prop without threading it through every
 // intermediate component. A context — set once per page, at the same

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Link2, Plus, Trash2 } from "lucide-react";
+import { Link2, Plus, QrCode as QrCodeIcon, Trash2 } from "lucide-react";
 import { Panel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { DISPLAY_TYPES } from "@/lib/display-engine/types";
 import { QrCode } from "./qr-code";
 
 interface ShareLink {
@@ -50,17 +51,31 @@ function formatDate(iso: string): string {
 export function ShareLinkPanel({
   eventId,
   compact = false,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   eventId: string;
   /** Skip the standalone Panel/heading/description trigger and render just
    *  the button — for embedding inside another card (the Dashboard's event
    *  grid) that already carries the event's own identity and doesn't need
    *  a second nested card explaining what a share link is. The Modal this
-   *  opens is unchanged either way. */
+   *  opens is unchanged either way. Ignored when `open`/`onOpenChange` are
+   *  provided (see below). */
   compact?: boolean;
+  /** Externally-controlled open state, paired with `onOpenChange` — when
+   *  provided, this component renders no trigger of its own at all (the
+   *  caller owns the trigger, e.g. an OverflowMenu item on the Dashboard's
+   *  event card) and just drives the Modal/ConfirmDialog off the
+   *  controlled value. Omit both to keep the default self-contained
+   *  trigger + internal state. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const toast = useToast();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (onOpenChange ?? (() => {})) : setInternalOpen;
   const [links, setLinks] = useState<ShareLink[] | null>(null);
   // Captured once per data load (mount + after create/revoke), not read
   // live during render — see linkStatus()'s comment on why Date.now()
@@ -71,6 +86,10 @@ export function ShareLinkPanel({
   const [revokeTarget, setRevokeTarget] = useState<ShareLink | null>(null);
   const [revoking, setRevoking] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Which direct-screen route (if any) has its QR revealed inline. Reset
+  // whenever the containing link collapses, since only one link is expanded
+  // at a time (see expandedId toggle below).
+  const [directQrRoute, setDirectQrRoute] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/share-links?eventId=${encodeURIComponent(eventId)}`)
@@ -149,26 +168,27 @@ export function ShareLinkPanel({
           Output Links, which is a modal rather than living permanently
           inline on the room's main view. See
           senior-ux-layout-standards's inline-vs-modal reasoning. */}
-      {compact ? (
-        <Button variant="secondary" size="sm" onClick={() => setOpen(true)} className="w-full">
-          <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
-          Share Display Link{links && links.length > 0 ? ` (${links.length})` : ""}
-        </Button>
-      ) : (
-        <Panel className="p-5 flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h2 className="text-console-md text-primary">Share Display Link</h2>
-            <p className="text-console-meta text-muted-2 mt-1">
-              Generate a no-login link + QR code for a TV or tablet. Picks a screen (General, AV, Green Room,
-              Presenter) and shows a live, read-only view.
-            </p>
-          </div>
-          <Button variant="secondary" onClick={() => setOpen(true)} className="shrink-0">
-            <Link2 className="h-4 w-4" strokeWidth={2} />
-            Manage Links{links && links.length > 0 ? ` (${links.length})` : ""}
+      {!isControlled &&
+        (compact ? (
+          <Button variant="secondary" size="sm" onClick={() => setOpen(true)} className="w-full">
+            <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
+            Share Display Link{links && links.length > 0 ? ` (${links.length})` : ""}
           </Button>
-        </Panel>
-      )}
+        ) : (
+          <Panel className="p-5 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-console-md text-primary">Share Display Link</h2>
+              <p className="text-console-meta text-muted-2 mt-1">
+                Generate a no-login link + QR code for a TV or tablet. Picks a screen (General, AV, Green Room,
+                Presenter) and shows a live, read-only view.
+              </p>
+            </div>
+            <Button variant="secondary" onClick={() => setOpen(true)} className="shrink-0">
+              <Link2 className="h-4 w-4" strokeWidth={2} />
+              Manage Links{links && links.length > 0 ? ` (${links.length})` : ""}
+            </Button>
+          </Panel>
+        ))}
 
       <Modal open={open} onClose={() => setOpen(false)} title="Share Display Link" size="lg">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -203,7 +223,10 @@ export function ShareLinkPanel({
             <div key={link.id} className="rounded-control border border-line-soft bg-raised/40">
               <button
                 type="button"
-                onClick={() => setExpandedId(expanded ? null : link.id)}
+                onClick={() => {
+                  setExpandedId(expanded ? null : link.id);
+                  setDirectQrRoute(null);
+                }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <Link2 className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
@@ -248,6 +271,49 @@ export function ShareLinkPanel({
                             <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
                             Revoke
                           </Button>
+                        </div>
+
+                        {/* Skips app/screens's in-page picker for a device that
+                            should always land on one specific screen — same
+                            token, same public/no-login route each display
+                            client already accepts (?token=), not a separate or
+                            weaker link. */}
+                        <div className="pt-3 mt-1 border-t border-line-soft">
+                          <p className="text-console-meta text-muted-2">Or open a specific screen directly</p>
+                          <div className="mt-2 flex flex-col gap-1.5">
+                            {DISPLAY_TYPES.filter((t) => t.value !== "custom").map((t) => {
+                              const directUrl = `${origin}${t.route}?token=${link.token}`;
+                              const showQr = directQrRoute === t.route;
+                              return (
+                                <div key={t.value} className="flex flex-col gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-console-meta text-primary w-24 shrink-0">{t.label}</span>
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(directUrl);
+                                        toast.success(`${t.label} link copied.`);
+                                      }}
+                                    >
+                                      Copy
+                                    </Button>
+                                    <Button
+                                      variant={showQr ? "primary" : "secondary"}
+                                      size="sm"
+                                      aria-expanded={showQr}
+                                      aria-label={`${showQr ? "Hide" : "Show"} QR code for ${t.label}`}
+                                      onClick={() => setDirectQrRoute(showQr ? null : t.route)}
+                                    >
+                                      <QrCodeIcon className="h-3.5 w-3.5" strokeWidth={2} />
+                                      QR
+                                    </Button>
+                                  </div>
+                                  {showQr && <QrCode value={directUrl} size={120} />}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                     </>

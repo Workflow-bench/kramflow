@@ -9,6 +9,7 @@ import { ColorTagPicker } from "@/components/ui/color-tag-picker";
 import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
+import { SectionLabel } from "@/components/ui/section-label";
 import type { ProgramInput } from "@/lib/validation/program";
 import type { Partition } from "@/lib/types";
 import { DEFAULT_CONFIG, ALWAYS_REQUIRED_KEYS, resolveVisibility, type FormFieldConfig } from "@/lib/form-config";
@@ -250,7 +251,7 @@ export function ProgramForm({
           return (
             <section key={group} className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
-                <h3 className="text-console-label text-muted-2 shrink-0">{group}</h3>
+                <SectionLabel className="shrink-0">{group}</SectionLabel>
                 <span aria-hidden="true" className="flex-1 h-px bg-line-soft" />
               </div>
 
@@ -290,22 +291,48 @@ export function ProgramForm({
                     Production Requirements
                     {!auditoriumSet && <span className="text-console-meta italic">: select an auditorium to configure</span>}
                   </button>
-                  {auditoriumSet && productionOpen && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 px-4 pb-4 pt-1 border-t border-line-soft">
-                      {restFields.map((field) => (
-                        <FieldRenderer
-                          key={field.key}
-                          field={field}
-                          value={valuesAsRecord[field.key]}
-                          options={optionsFor(field)}
-                          error={errors[field.key]}
-                          onChange={(v) => set(field.key, v)}
-                          timeIsComputed={values.timeIsComputed}
-                          onToggleComputed={(v) => set("timeIsComputed", v)}
-                        />
-                      ))}
+                  {/* Kept mounted (not conditionally unmounted) so the close
+                      transition is as real as the open one, not an instant
+                      snap. grid-template-rows 0fr->1fr animates a "height:
+                      auto" target CSS alone can't transition directly; the
+                      inner overflow-hidden clips the fields while collapsed.
+                      Blur+opacity cross-fade (not just opacity) masks the
+                      reveal so newly-appearing rows don't read as a layout
+                      pop — see the design-eng skill's "use blur to mask
+                      imperfect transitions" note. `inert` while collapsed
+                      keeps these fields out of both tab order and the
+                      accessibility tree — without it a screen reader or
+                      keyboard user could reach fields that are visually
+                      clipped to zero height. */}
+                  <div
+                    className={cn(
+                      "grid transition-[grid-template-rows] duration-200 ease-out",
+                      auditoriumSet && productionOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    )}
+                  >
+                    <div className="overflow-hidden" inert={!(auditoriumSet && productionOpen)}>
+                      <div
+                        className={cn(
+                          "grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 px-4 pb-4 pt-1 border-t border-line-soft",
+                          "transition-[filter,opacity] duration-200 ease-out",
+                          auditoriumSet && productionOpen ? "opacity-100 blur-none" : "opacity-0 blur-[2px]"
+                        )}
+                      >
+                        {restFields.map((field) => (
+                          <FieldRenderer
+                            key={field.key}
+                            field={field}
+                            value={valuesAsRecord[field.key]}
+                            options={optionsFor(field)}
+                            error={errors[field.key]}
+                            onChange={(v) => set(field.key, v)}
+                            timeIsComputed={values.timeIsComputed}
+                            onToggleComputed={(v) => set("timeIsComputed", v)}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
             </section>
@@ -319,7 +346,7 @@ export function ProgramForm({
           // stack three surfaces deep for no gain.
           <section key={group} className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
-              <h3 className="text-console-label text-muted-2 shrink-0">{group}</h3>
+              <SectionLabel className="shrink-0">{group}</SectionLabel>
               <span aria-hidden="true" className="flex-1 h-px bg-line-soft" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">

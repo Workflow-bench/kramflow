@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LayoutDashboard, Smartphone, FileSpreadsheet, MonitorPlay, Plus, Trash2 } from "lucide-react";
+import { LayoutDashboard, Smartphone, FileSpreadsheet, MonitorPlay, Plus, Trash2, Link2 } from "lucide-react";
 import { Panel } from "@/components/ui/card";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { OperationalStatus } from "@/components/ui/operational-status";
 import { Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { OverflowMenu } from "@/components/ui/overflow-menu";
 import { useToast } from "@/components/ui/toast";
 import { ShareLinkPanel } from "./share-link-panel";
 import { GettingStartedChecklist } from "./getting-started-checklist";
@@ -227,6 +228,7 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
 // behind it is genuinely secondary, and none of this is.
 function EventCard({ event, onRequestDelete }: { event: EventSummary; onRequestDelete: () => void }) {
   const isOwner = (event.role ?? "owner") === "owner";
+  const [shareOpen, setShareOpen] = useState(false);
 
   return (
     <Panel
@@ -287,27 +289,25 @@ function EventCard({ event, onRequestDelete }: { event: EventSummary; onRequestD
             <MonitorPlay className="h-3.5 w-3.5" strokeWidth={2} />
           </LinkButton>
         </Tooltip>
+        {/* Share Link and Delete are owner-only server-side
+            (requireEventAccess(eventId, "owner") in both routes) — hidden
+            here too so a collaborator never sees an action that would just
+            403. Folded into one overflow trigger rather than a separate
+            bordered footer row: unlike Cue Sheet/Remote/Displays (clicked
+            constantly), these two are genuinely low-frequency — exactly
+            what OverflowMenu's own doc comment reserves it for. */}
+        {isOwner && (
+          <OverflowMenu
+            iconOnly
+            label="More actions"
+            items={[
+              { label: "Share Display Link", icon: Link2, onClick: () => setShareOpen(true) },
+              { label: "Delete Event", icon: Trash2, onClick: onRequestDelete, tone: "danger" },
+            ]}
+          />
+        )}
       </div>
-
-      {/* Share links and Delete are owner-only server-side
-          (requireEventAccess(eventId, "owner") in both routes) — hidden
-          here too so a collaborator never sees an action that would just
-          403, not because the client is what's actually stopping them. */}
-      {isOwner && (
-        <div className="flex items-center gap-2 pt-1 border-t border-line-soft -mx-5 px-5 mt-1">
-          <div className="flex-1 pt-3">
-            <ShareLinkPanel eventId={event.id} compact />
-          </div>
-          <button
-            type="button"
-            onClick={onRequestDelete}
-            aria-label={`Delete ${event.name}`}
-            className="shrink-0 mt-3 text-muted-2 hover:text-status-red transition-colors cursor-pointer p-1.5 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
-        </div>
-      )}
+      {isOwner && <ShareLinkPanel eventId={event.id} open={shareOpen} onOpenChange={setShareOpen} />}
     </Panel>
   );
 }

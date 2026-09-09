@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { effectiveNotes, getLive, getNext, getOnDeck, driftMinutes, type LiveState, type Program, type Session } from "@/lib/types";
-import { computeRundownProjection, computeSessionTimingReport, driftSeverity, formatClockTime, formatMinutes } from "@/lib/timing";
+import {
+  computeRundownProjection,
+  computeSessionTimingReport,
+  countdownSeverity,
+  driftSeverity,
+  formatClockTime,
+  formatMinutes,
+} from "@/lib/timing";
 import { useEventStore } from "@/lib/store";
 import { useEventId } from "@/lib/event-context";
 import { useCountdown } from "@/lib/use-countdown";
@@ -12,6 +19,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { OperationalStatus } from "@/components/ui/operational-status";
 import { SectionLabel } from "@/components/ui/section-label";
 import { RunPosition } from "./run-position";
+import { TimeCorrectionControl } from "./time-correction-control";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
@@ -53,41 +61,53 @@ export function LiveDetailsPanel({
     );
   }
 
+  const severity = countdownSeverity(countdown.remainingSeconds, countdown.isOverrun);
+
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2">
-        <SectionLabel>Live Now</SectionLabel>
-        {state.pausedAt && <OperationalStatus kind="hold" />}
-      </div>
-
-      {live.kicker && <p className="text-console-meta text-muted-2 mt-3">{live.kicker}</p>}
-      <p className="text-console-lg text-primary mt-1">{live.title}</p>
-      {live.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
-      <DriftLine program={live} state={state} />
-      <ProjectedFinishLine session={session} state={state} />
-
-      {live.type === "item" && live.durationMinutes > 0 && (
-        <div className="mt-8">
-          <p
-            className={cn(
-              "text-console-headline tabular-nums",
-              countdown.isOverrun ? "text-status-red" : "text-primary"
-            )}
-          >
-            {countdown.isOverrun ? "+" : ""}
-            {formatClock(countdown.remainingSeconds)}
-          </p>
-          <div className="mt-3">
-            <ProgressBar
-              fraction={countdown.fraction}
-              tone={state.pausedAt ? "orange" : countdown.isOverrun ? "red" : "green"}
-            />
-          </div>
-          <p className="text-console-meta text-muted mt-2">
-            {countdown.isOverrun ? "over" : "remaining"}
-          </p>
+      {/* The live item is the single most important object on this screen
+          during a show — a grouped instrument (same pattern as Controls'
+          own bordered surface below it), not text loosely floating at the
+          same weight as the page around it. Still flat: no shadow, one
+          hairline border, the existing card background ramp. */}
+      <div className="rounded-panel border border-line-soft bg-card/40 p-4">
+        <div className="flex items-center gap-2">
+          <SectionLabel>Live Now</SectionLabel>
+          {state.pausedAt && <OperationalStatus kind="hold" />}
         </div>
-      )}
+
+        {live.kicker && <p className="text-console-meta text-muted-2 mt-3">{live.kicker}</p>}
+        <p className="text-console-lg font-semibold text-primary mt-1">{live.title}</p>
+        {live.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
+        <DriftLine program={live} state={state} />
+        <ProjectedFinishLine session={session} state={state} />
+
+        {live.type === "item" && live.durationMinutes > 0 && (
+          <div className="mt-8">
+            <p
+              className={cn(
+                "text-console-headline tabular-nums transition-colors duration-200",
+                severity === "overrun" ? "text-status-red" : severity === "approaching" ? "text-status-orange" : "text-primary"
+              )}
+            >
+              {countdown.isOverrun ? "+" : ""}
+              {formatClock(countdown.remainingSeconds)}
+            </p>
+            <div className="mt-3">
+              <ProgressBar
+                fraction={countdown.fraction}
+                tone={state.pausedAt ? "orange" : severity === "overrun" ? "red" : severity === "approaching" ? "orange" : "green"}
+              />
+            </div>
+            <p className="text-console-meta text-muted mt-2">
+              {countdown.isOverrun ? "over" : "remaining"}
+            </p>
+            <div className="mt-4">
+              <TimeCorrectionControl />
+            </div>
+          </div>
+        )}
+      </div>
 
       <RunPosition next={next} onDeck={onDeck} currentDriftMinutes={currentDriftMinutes} />
 
@@ -242,7 +262,7 @@ function ProjectedFinishLine({ session, state }: { session: Session; state: Live
     // "not-started" has nothing to extrapolate from yet — both render
     // nothing here rather than an empty/confusing line.
     if (projection.finish.reason !== "replaying-earlier-item") return null;
-    return <p className="text-console-meta text-muted-2 mt-1">Replaying an earlier item — projection paused</p>;
+    return <p className="text-console-meta text-muted-2 mt-1">Replaying an earlier item, projection paused</p>;
   }
 
   const label = projection.finish.kind === "planned" ? "Planned finish" : "Projected finish";

@@ -36,7 +36,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${plexMono.variable} dark h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-background text-primary">
+      {/* overflow-x-hidden: tooltips (components/ui/tooltip.tsx) stay mounted
+          at opacity-0 rather than unmounted, centered on their trigger via
+          left-1/2 -translate-x-1/2 with whitespace-nowrap — one anchored
+          near a viewport edge inflates document scrollWidth even while
+          fully invisible. This only clips the outer page; elements with
+          their own overflow-x-auto (e.g. the session switcher) still scroll. */}
+      <body className="min-h-full flex flex-col overflow-x-hidden bg-background text-primary">
         <MotionPreferences>
           <ToastProvider>{children}</ToastProvider>
         </MotionPreferences>

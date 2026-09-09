@@ -22,7 +22,10 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     .select("id, event_id")
     .eq("id", id)
     .maybeSingle();
-  if (lookupError) return NextResponse.json({ ok: false, error: lookupError.message }, { status: 500 });
+  if (lookupError) {
+    console.error(lookupError);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   // Same "not found" for a missing link as for one that exists but isn't
   // this operator's — an id-guessing attempt learns nothing either way.
   if (!link) return NextResponse.json({ ok: false, error: "Link not found" }, { status: 404 });
@@ -38,7 +41,10 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     .select("*")
     .maybeSingle();
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   if (!data) return NextResponse.json({ ok: false, error: "Link not found or already revoked." }, { status: 404 });
   return NextResponse.json({ ok: true, link: data });
 }

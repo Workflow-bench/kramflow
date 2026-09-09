@@ -48,9 +48,23 @@ export function ControlLeaseStatus({
   onTakeOver: () => void;
   className?: string;
 }) {
+  // Reused here (React's `key`, not just a className) so every real
+  // transition between these four mutually-exclusive states remounts the
+  // block instead of just re-rendering it in place — a CSS animation class
+  // already present on an element doesn't retrigger on its own, and these
+  // four states differ enough in shape/height that a plain color
+  // transition couldn't cover all of them anyway. `animate-rise` is the
+  // existing arrival keyframe (app/globals.css) already used for
+  // popovers/panels — reused, not a new motion token, for this "occasional,
+  // meaningful state change" per Emil's frequency framework.
+  const stateKey = role !== "owner" ? "readonly" : iHaveControl ? "mine" : lockedByOther ? "other" : "unclaimed";
+
   if (role !== "owner") {
     return (
-      <div className={cn("flex items-center gap-2.5 rounded-control border border-line-soft px-3 py-2.5", className)}>
+      <div
+        key={stateKey}
+        className={cn("flex items-center gap-2.5 rounded-control border border-line-soft px-3 py-2.5 animate-rise", className)}
+      >
         <Lock className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
         <p className="text-console-sm text-muted-2">
           You have {role} access. Only the event owner can run the live show.
@@ -62,8 +76,9 @@ export function ControlLeaseStatus({
   if (iHaveControl) {
     return (
       <div
+        key={stateKey}
         className={cn(
-          "flex items-center gap-2.5 rounded-control border border-status-green/25 bg-status-green/6 px-3 py-2.5",
+          "flex items-center gap-2.5 rounded-control border border-status-green/25 bg-status-green/6 px-3 py-2.5 animate-rise",
           className
         )}
       >
@@ -94,8 +109,9 @@ export function ControlLeaseStatus({
     // into an unreadable single column.
     return (
       <div
+        key={stateKey}
         className={cn(
-          "flex flex-col gap-2.5 rounded-control border border-status-orange/30 bg-status-orange/10 px-3 py-3",
+          "flex flex-col gap-2.5 rounded-control border border-status-orange/30 bg-status-orange/10 px-3 py-3 animate-rise",
           className
         )}
       >
@@ -127,8 +143,9 @@ export function ControlLeaseStatus({
   // overriding yours mid-show, so that's what the subtext says.
   return (
     <div
+      key={stateKey}
       className={cn(
-        "flex flex-col gap-2.5 rounded-control border border-line bg-raised/60 px-3 py-3",
+        "flex flex-col gap-2.5 rounded-control border border-line bg-raised/60 px-3 py-3 animate-rise",
         className
       )}
     >

@@ -61,40 +61,6 @@ export type DisplayCommand =
   | { type: "reload"; issuedAt: string };
 
 // ---------------------------------------------------------------------------
-// Display profiles — reusable presentation presets
-// ---------------------------------------------------------------------------
-
-export interface DisplayProfile {
-  id: string;
-  name: string;
-  builtIn: boolean;
-  layout: {
-    fontScale: number; // multiplier applied to the base type scale, e.g. 1 = default
-    showProgressRing: boolean;
-    showClock: boolean;
-    orientation: "landscape" | "portrait";
-  };
-  visibleWidgets: DisplayWidget[];
-  colorOverrides: Partial<Record<TimerColorState, string>>;
-  refreshMs: number; // heartbeat / re-render cadence for slow-changing widgets
-}
-
-export type DisplayWidget =
-  | "timer"
-  | "clock"
-  | "program-title"
-  | "program-subtitle"
-  | "next-program"
-  | "progress-ring"
-  | "speaker"
-  | "room"
-  | "messages"
-  | "stage-status"
-  | "alerts"
-  | "running-order"
-  | "session-name";
-
-// ---------------------------------------------------------------------------
 // Timer engine
 // ---------------------------------------------------------------------------
 
@@ -267,7 +233,6 @@ export interface DisplayGroup {
 export interface DisplayEngineState {
   registry: Record<string, DisplayInstance>;
   groups: Record<string, DisplayGroup>;
-  profiles: Record<string, DisplayProfile>;
   timer: TimerState;
   hold: HoldState;
   broadcasts: {

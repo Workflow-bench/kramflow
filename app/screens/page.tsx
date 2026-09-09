@@ -1,20 +1,21 @@
 import Link from "next/link";
-import { Tv, Sliders, Sparkles, Presentation } from "lucide-react";
 import { verifyDisplayAccess } from "@/lib/server/verify-display-access";
 import { LinkInvalid } from "@/components/auth/link-invalid";
+import { DISPLAY_TYPES, type DisplayType } from "@/lib/display-engine/types";
+import { DISPLAY_TYPE_META } from "@/lib/display-engine/display-meta";
 
 // The no-login screen-selection page a Share Display Link/QR code actually
 // opens: no auth, nothing but the token in the URL. This is the deliberate
 // departure from StageTimer's model (confirmed in the KramFlow research
 // pass) — StageTimer hands out one separate signed link per output/role
 // with no in-page picker; KramFlow hands out one link and lets whoever
-// opens it choose the screen here.
-const SCREENS = [
-  { href: "/general", label: "General", desc: "Public / lobby display", icon: Tv },
-  { href: "/av", label: "AV", desc: "Technical requirements TV", icon: Sliders },
-  { href: "/green-room", label: "Green Room", desc: "Performer display", icon: Sparkles },
-  { href: "/presenter", label: "Presenter", desc: "Confidence monitor", icon: Presentation },
-];
+// opens it choose the screen here. Sourced from DISPLAY_TYPES/
+// DISPLAY_TYPE_META, the same single source of truth the Displays fleet
+// page's preview/provisioning rows use, instead of a hand-duplicated copy.
+const SCREENS = DISPLAY_TYPES.filter((t) => t.value !== "custom").map((t) => {
+  const meta = DISPLAY_TYPE_META[t.value as Exclude<DisplayType, "custom">];
+  return { href: t.route, label: t.label, desc: meta.desc, icon: meta.Icon };
+});
 
 export default async function ScreensPage({
   searchParams,

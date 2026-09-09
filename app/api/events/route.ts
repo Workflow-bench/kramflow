@@ -31,8 +31,14 @@ export async function GET() {
       .eq("user_id", user.id)
       .eq("status", "accepted"),
   ]);
-  if (ownedResult.error) return NextResponse.json({ ok: false, error: ownedResult.error.message }, { status: 500 });
-  if (collabResult.error) return NextResponse.json({ ok: false, error: collabResult.error.message }, { status: 500 });
+  if (ownedResult.error) {
+    console.error(ownedResult.error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
+  if (collabResult.error) {
+    console.error(collabResult.error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
 
   const owned = (ownedResult.data ?? []).map((e) => ({ ...e, role: "owner" as const }));
   const collaborating = (collabResult.data ?? [])
@@ -77,7 +83,8 @@ export async function POST(request: Request) {
     .select("*", { count: "exact", head: true })
     .eq("owner_id", user.id);
   if (countError) {
-    return NextResponse.json({ ok: false, error: countError.message }, { status: 500 });
+    console.error(countError);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
   }
   if ((count ?? 0) >= limit) {
     return NextResponse.json(

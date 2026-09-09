@@ -30,13 +30,19 @@ export async function PATCH(request: Request) {
     .select("speaker_ready")
     .eq("event_id", access.eventId)
     .single();
-  if (fetchError) return NextResponse.json({ ok: false, error: fetchError.message }, { status: 500 });
+  if (fetchError) {
+    console.error(fetchError);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
 
   const speakerReady = { ...(row.speaker_ready as Record<string, boolean>), [programId]: body.ready };
   const { error } = await supabase
     .from("display_state")
     .update({ speaker_ready: speakerReady })
     .eq("event_id", access.eventId);
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

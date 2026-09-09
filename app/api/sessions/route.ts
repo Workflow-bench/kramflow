@@ -13,7 +13,10 @@ export async function GET(request: Request) {
     .select("*")
     .eq("event_id", auth.eventId)
     .order("sort_order", { ascending: true });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, sessions: data });
 }
 
@@ -43,6 +46,9 @@ export async function POST(request: Request) {
     session_label,
     sort_order: typeof sort_order === "number" ? sort_order : 0,
   });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

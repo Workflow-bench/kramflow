@@ -73,7 +73,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .eq("event_id", auth.eventId)
     .eq("version", clientVersion)
     .select();
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   if (!data || data.length === 0) {
     return NextResponse.json(
       { ok: false, error: "This item was changed by someone else. Reload the cue sheet and try again." },
@@ -107,7 +110,10 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   // just that something was.
   const { data: existing } = await supabase.from("programs").select("name").eq("id", id).eq("event_id", auth.eventId).maybeSingle();
   const { error } = await supabase.rpc("delete_program", { p_id: id, p_event_id: auth.eventId });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   await logActivityAs(supabase, auth.eventId, auth.userId, "programDelete", `Removed "${existing?.name ?? "an item"}" from the cue sheet`);
   return NextResponse.json({ ok: true });
 }

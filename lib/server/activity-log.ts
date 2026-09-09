@@ -15,7 +15,7 @@ export async function logActivity(
   eventId: string,
   action: string,
   detail: string,
-  actor: { userId: string; name: string }
+  actor: { userId: string | null; name: string }
 ): Promise<void> {
   const { error } = await supabase
     .from("activity_log")

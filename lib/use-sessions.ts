@@ -87,6 +87,22 @@ function ensureBrowserListeners(inst: SessionsInstance) {
     .subscribe();
 }
 
+// For a caller that just created/edited a session itself and needs the
+// list to reflect that immediately, rather than waiting on this store's
+// own Realtime subscription. That subscription is usually fast enough,
+// but has a real race window right after a fresh event's cue-sheet page
+// first mounts: creating a session before this store's channel has
+// finished subscribing means the INSERT's postgres_changes event is
+// never delivered (Realtime doesn't replay missed events), and nothing
+// else ever calls hydrate() again — the page stays on stale/empty
+// sessions indefinitely, confirmed live. Item creation's own onSaved
+// already avoids this by calling loadRows() directly; session creation
+// was missing the equivalent call. Safe to call for any reason, not just
+// this race — a plain refetch, not a second source of truth.
+export function refetchSessions(eventId: string): Promise<void> {
+  return hydrate(getInstance(eventId));
+}
+
 export function useSessions(): Session[] {
   const eventId = useEventId();
   const inst = getInstance(eventId);

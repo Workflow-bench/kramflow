@@ -13,7 +13,10 @@ export async function GET(request: Request) {
     .select("*")
     .eq("event_id", auth.eventId)
     .order("name", { ascending: true });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, auditoriums: data });
 }
 
@@ -39,6 +42,9 @@ export async function POST(request: Request) {
     .insert({ name: name.trim(), event_id: auth.eventId })
     .select()
     .single();
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, auditorium: data });
 }

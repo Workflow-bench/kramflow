@@ -16,6 +16,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     .update({ status: "sent" })
     .eq("id", id)
     .eq("status", "scheduled");
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

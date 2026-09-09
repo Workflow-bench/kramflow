@@ -57,7 +57,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ev
   }
 
   const { data, error } = await supabaseAdmin().from("events").update(patch).eq("id", eventId).select("*").single();
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, event: data });
 }
 
@@ -70,6 +73,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (auth instanceof NextResponse) return auth;
 
   const { error } = await supabaseAdmin().from("events").delete().eq("id", eventId);
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

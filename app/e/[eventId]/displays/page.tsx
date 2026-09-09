@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, ChevronDown, ChevronUp, Eye, Maximize, Megaphone, Presentation, RotateCw, Send, Trash2, Tv, X } from "lucide-react";
+import { Camera, ChevronDown, ChevronUp, Eye, Maximize, Megaphone, RotateCw, Send, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEventId, useIsOwner } from "@/lib/event-context";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
 import { getDisplayStatus, type DisplayHealth } from "@/lib/display-engine/use-register-display";
 import type { TransportStatus } from "@/lib/display-engine/transport";
 import { DISPLAY_TYPES, type DisplayInstance, type DisplayType } from "@/lib/display-engine/types";
+import { DISPLAY_TYPE_META } from "@/lib/display-engine/display-meta";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
+import { ShareLinkPanel } from "@/components/dashboard/share-link-panel";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -26,13 +28,14 @@ import { formatRelativeAge } from "@/lib/utils";
 // Everything about outputs in one place — previews, the connected-display
 // registry, and Broadcast Center — rather than previews sitting as flat
 // top-level tabs while the registry and broadcast lived one click further
-// away in an overflow menu. See kramflow_nav_layout_ground_up.md.
-const PREVIEW_LINKS: { path: string; label: string; icon: typeof Tv }[] = [
-  { path: "/general", label: "General", icon: Tv },
-  { path: "/av", label: "AV", icon: Tv },
-  { path: "/green-room", label: "Green Room", icon: Tv },
-  { path: "/presenter", label: "Presenter", icon: Presentation },
-];
+// away in an overflow menu. See kramflow_nav_layout_ground_up.md. Sourced
+// from DISPLAY_TYPES/DISPLAY_TYPE_META (same as app/screens's picker)
+// instead of a hand-duplicated array.
+const PREVIEW_LINKS = DISPLAY_TYPES.filter((t) => t.value !== "custom").map((t) => ({
+  path: t.route,
+  label: t.label,
+  icon: DISPLAY_TYPE_META[t.value as Exclude<DisplayType, "custom">].Icon,
+}));
 
 function routeFor(type: DisplayType): string {
   return DISPLAY_TYPES.find((t) => t.value === type)?.route ?? "/presenter";
@@ -233,6 +236,10 @@ export default function DisplayManagerPage() {
               {label}
             </LinkButton>
           ))}
+        </div>
+
+        <div className="mt-6">
+          <ShareLinkPanel eventId={eventId} />
         </div>
 
         <Panel className="flex items-center justify-between gap-4 flex-wrap p-5 mt-6">

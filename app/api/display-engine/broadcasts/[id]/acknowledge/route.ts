@@ -26,6 +26,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // is a harmless no-op inside the function), so there's nothing left for
   // the route itself to branch on.
   const { error } = await supabase.rpc("acknowledge_broadcast", { p_id: id, p_display_id: displayId });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

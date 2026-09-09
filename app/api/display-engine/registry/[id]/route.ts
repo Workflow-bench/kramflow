@@ -28,7 +28,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const supabase = supabaseAdmin();
   const { error } = await supabase.from("display_registry").update(patch).eq("id", id).eq("event_id", auth.eventId);
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
 
   // Only deliberate operator actions are worth an activity entry — not
   // every field this route can touch. pendingCommand: null is the display
@@ -62,7 +65,10 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const supabase = supabaseAdmin();
   const { data: existing } = await supabase.from("display_registry").select("name").eq("id", id).eq("event_id", auth.eventId).maybeSingle();
   const { error } = await supabase.from("display_registry").delete().eq("id", id).eq("event_id", auth.eventId);
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error(error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   await logActivityAs(supabase, auth.eventId, auth.userId, "displayRemove", `Removed display "${existing?.name ?? "unknown"}"`);
   return NextResponse.json({ ok: true });
 }
