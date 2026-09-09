@@ -6,6 +6,7 @@ import { useEventId } from "@/lib/event-context";
 import { useConnectionStatus } from "@/lib/store";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { EventSettingsPanel } from "@/components/forms/event-settings-panel";
+import { IntegrationCredentialsPanel } from "@/components/forms/integration-credentials-panel";
 
 // Promoted out of the gear icon that used to live inside Cue Sheet's own
 // header — collaborators/auditoriums/event details are properties of the
@@ -57,6 +58,7 @@ export default function EventSettingsPage() {
           onAuditoriumsChanged={loadAuditoriums}
           onEventDeleted={() => router.push("/dashboard")}
         />
+        <IntegrationCredentialsPanel eventId={eventId} />
       </div>
     </main>
   );

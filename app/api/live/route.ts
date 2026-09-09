@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { logActivityAs } from "@/lib/server/activity-log";
+import { logActivity, logActivityAs } from "@/lib/server/activity-log";
 import type { Alert } from "@/lib/types";
 
 // Single PATCH endpoint for every live-state mutation (start/next/previous/
@@ -27,6 +27,15 @@ interface LiveStateRow {
   version: number;
   controller_id: string | null;
   controller_claimed_at: string | null;
+}
+
+/** A verified caller of the canonical live mutation handler. HTTP callers
+ * are authenticated below; trusted adapters may supply this only after they
+ * have verified their own credential. */
+export interface LiveActionActor {
+  eventId: string;
+  userId: string | null;
+  actorName?: string;
 }
 
 // Sequencing actions are the ones that silently clobber another operator's
@@ -118,7 +127,7 @@ function withDeparture(
   return { ...itemActuals, [programId]: { actualStart: existing?.actualStart ?? now, actualEnd: now } };
 }
 
-export async function PATCH(request: Request) {
+export async function runLiveAction(request: Request, trustedActor?: LiveActionActor) {
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -132,8 +141,12 @@ export async function PATCH(request: Request) {
   }
 
   const eventId = body.eventId;
-  const auth = await requireEventAccess(typeof eventId === "string" ? eventId : null, "owner");
+  const auth =
+    trustedActor ?? (await requireEventAccess(typeof eventId === "string" ? eventId : null, "owner"));
   if (auth instanceof NextResponse) return auth;
+  // A trusted adapter must not be able to reuse its authentication for a
+  // different event by changing only the request body.
+  if (auth.eventId !== eventId) return NextResponse.json({ ok: false, error: "Event not found" }, { status: 404 });
 
   const supabase = supabaseAdmin();
   const { data: row, error: fetchError } = await supabase
@@ -489,7 +502,20 @@ export async function PATCH(request: Request) {
   // meaningful audit event; logging it would spam the Activity feed
   // operators actually read with noise unrelated to the show itself.
   if (detail) {
-    await logActivityAs(supabase, auth.eventId, auth.userId, action, detail);
+    if (auth.userId) {
+      await logActivityAs(supabase, auth.eventId, auth.userId, action, detail);
+    } else {
+      await logActivity(supabase, auth.eventId, action, detail, {
+        userId: null,
+        name: ("actorName" in auth ? auth.actorName : undefined) ?? "Integration API",
+      });
+    }
   }
   return NextResponse.json({ ok: true, state: updated[0] });
+}
+
+// Keep the public Route Handler signature conventional. API adapters call
+// runLiveAction() only after authenticating their machine credential.
+export async function PATCH(request: Request) {
+  return runLiveAction(request);
 }
