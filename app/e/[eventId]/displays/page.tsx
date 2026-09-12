@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, ChevronDown, ChevronUp, Eye, Maximize, Megaphone, RotateCw, Send, Trash2, X } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { Camera, ChevronDown, ChevronUp, Eye, Link2, Maximize, Megaphone, RotateCw, Send, Trash2, X } from "lucide-react";
 import { useEventId, useIsOwner } from "@/lib/event-context";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
 import { getDisplayStatus, type DisplayHealth } from "@/lib/display-engine/use-register-display";
@@ -14,7 +13,7 @@ import { ShareLinkPanel } from "@/components/dashboard/share-link-panel";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Panel } from "@/components/ui/card";
+import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
 import { OperationalStatus } from "@/components/ui/operational-status";
 import { type ConnectionBadgeStatus } from "@/components/ui/connection-badge";
@@ -22,8 +21,10 @@ import { SectionLabel } from "@/components/ui/section-label";
 import { MaybeTooltip, Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { isTopmostOverlay, popOverlay, pushOverlay } from "@/components/ui/overlay-stack";
+import { useDialogFocus } from "@/components/ui/use-dialog-focus";
 import { useToast } from "@/components/ui/toast";
-import { formatRelativeAge } from "@/lib/utils";
+import { cn, formatRelativeAge } from "@/lib/utils";
 
 // Everything about outputs in one place — previews, the connected-display
 // registry, and Broadcast Center — rather than previews sitting as flat
@@ -101,14 +102,38 @@ export default function DisplayManagerPage() {
   const [messagingId, setMessagingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | DisplayHealth>("all");
+  const [shareLinkOpen, setShareLinkOpen] = useState(false);
   const confirmAction = useConfirmDialog<ConfirmAction>();
   const confirmingRef = useRef<ConfirmAction | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // Preview lightbox: not a Modal (its fixed max-w-5xl/aspect-video shell
+  // doesn't fit Modal's sm/md/lg/xl sizes), but a real overlay all the
+  // same — it gets the same Escape/overlay-stack/focus-trap wiring Modal
+  // and ConfirmDialog share (components/ui/overlay-stack.ts,
+  // use-dialog-focus.ts) rather than inventing a third, thinner standard.
+  const [previewOverlayId] = useState(() => Symbol("preview"));
+  const previewDialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(previewing !== null, previewDialogRef);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 5000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (!previewing) return;
+    pushOverlay(previewOverlayId);
+    return () => popOverlay(previewOverlayId);
+  }, [previewing, previewOverlayId]);
+
+  useEffect(() => {
+    if (!previewing) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && isTopmostOverlay(previewOverlayId)) setPreviewing(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [previewing, previewOverlayId]);
 
   const displays = Object.values(engine.registry).sort((a, b) => Date.parse(b.registeredAt) - Date.parse(a.registeredAt));
   const counts = displays.reduce(
@@ -238,22 +263,41 @@ export default function DisplayManagerPage() {
           ))}
         </div>
 
-        <div className="mt-6">
-          <ShareLinkPanel eventId={eventId} />
-        </div>
-
-        <Panel className="flex items-center justify-between gap-4 flex-wrap p-5 mt-6">
-          <div className="flex items-center gap-3 min-w-0">
-            <Megaphone className="h-5 w-5 text-muted-2 shrink-0" strokeWidth={2} />
-            <div className="min-w-0">
-              <p className="text-console-sm text-primary font-medium">Broadcast Center</p>
-              <p className="text-console-meta text-muted-2">Push alerts, reminders, and emergency overrides to every display.</p>
+        {/* Phase 7d: Share Display Link and Broadcast Center were each their
+            own bordered Panel, stacked above the fleet — two entry-point
+            "cards" competing with the fleet itself for the first thing an
+            operator's eye lands on. Same unboxed row treatment now, driven
+            by the same field/row grammar as the rest of the redesigned
+            product; ShareLinkPanel's own Modal/ConfirmDialog (unchanged) is
+            just externally triggered instead of wrapped in a second card. */}
+        <div className="mt-6 flex flex-col">
+          <div className="flex items-center justify-between gap-4 flex-wrap py-3 border-b border-line-soft">
+            <div className="flex items-center gap-3 min-w-0">
+              <Link2 className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
+              <div className="min-w-0">
+                <p className="text-console-sm text-primary">Share Display Link</p>
+                <p className="text-console-meta text-muted-2">No-login link + QR for a TV or tablet to pick a screen.</p>
+              </div>
             </div>
+            <Button variant="secondary" size="sm" className="shrink-0" onClick={() => setShareLinkOpen(true)}>
+              <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
+              Manage Links
+            </Button>
           </div>
-          <LinkButton href={`/e/${eventId}/broadcast`} className="shrink-0" variant="secondary" size="sm">
-            Open Broadcast Center
-          </LinkButton>
-        </Panel>
+          <div className="flex items-center justify-between gap-4 flex-wrap py-3 border-b border-line-soft">
+            <div className="flex items-center gap-3 min-w-0">
+              <Megaphone className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
+              <div className="min-w-0">
+                <p className="text-console-sm text-primary">Broadcast Center</p>
+                <p className="text-console-meta text-muted-2">Push alerts, reminders, and emergency overrides to every display.</p>
+              </div>
+            </div>
+            <LinkButton href={`/e/${eventId}/broadcast`} className="shrink-0" variant="secondary" size="sm">
+              Open Broadcast Center
+            </LinkButton>
+          </div>
+        </div>
+        <ShareLinkPanel eventId={eventId} open={shareLinkOpen} onOpenChange={setShareLinkOpen} />
 
         {/* Fleet summary — triage before configuration. Real counts derived
             from each display's own heartbeat age, not a separate invented
@@ -334,7 +378,7 @@ export default function DisplayManagerPage() {
         ) : visibleDisplays.length === 0 ? (
           <p className="text-console-sm text-muted-2 mt-6">No displays are currently {filter}.</p>
         ) : (
-          <div className="mt-5 flex flex-col gap-3">
+          <div className="mt-5 flex flex-col border-t border-line-soft">
             {visibleDisplays.map((display) => {
               const status = getDisplayStatus(display, now);
               return (
@@ -374,8 +418,21 @@ export default function DisplayManagerPage() {
       </div>
 
       {previewing && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8">
-          <div className="w-full max-w-5xl">
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPreviewing(null);
+          }}
+        >
+          <div
+            ref={previewDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${previewing.name}: live preview`}
+            tabIndex={-1}
+            className="w-full max-w-5xl outline-none"
+          >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2.5">
                 <p className="text-console-md text-primary font-medium">{previewing.name}: live preview</p>
@@ -512,34 +569,51 @@ function DisplayRow({
   // display's own online/offline status).
   const diagnoseDisabled = !isOwner || status === "offline";
   const diagnoseReason = !isOwner ? OWNER_ONLY_NOTE : disabledReason;
+  // Reused from the same canonical per-type vocabulary the Preview links
+  // above and app/screens's picker already use — not a second display-icon
+  // set invented for this row (custom type has no entry in DISPLAY_TYPE_META
+  // and isn't reachable from a real display client, so it has no icon here).
+  const TypeIcon = display.type === "custom" ? null : DISPLAY_TYPE_META[display.type].Icon;
 
   return (
-    // Named region, not just a visual card — every action button inside
-    // still carries its own device-specific aria-label too (below), but a
-    // screen-reader user landing on this group via rotor/landmark
-    // navigation gets "AV Waiting Room" immediately rather than needing to
-    // read every button label first to figure out which display they're in.
-    <div className="rounded-panel bg-card border border-line-soft" role="group" aria-label={display.name}>
+    // Phase 7d: was its own rounded-panel/bg-card/border box per display —
+    // the exact "every display wrapped in a card" pattern this phase was
+    // asked to remove. Border-b row now, matching Dashboard/Cue Sheet's
+    // grammar, but deliberately not flattened as far as those: a fleet row
+    // still needs identity + type + health scannable in one glance, so the
+    // status dot, type icon, and a persistent tint while expanded all stay —
+    // "fleet console," not a plain table. Named region, not just a visual
+    // grouping — every action button inside still carries its own
+    // device-specific aria-label too (below), but a screen-reader user
+    // landing on this group via rotor/landmark navigation gets "AV Waiting
+    // Room" immediately rather than needing to read every button label
+    // first to figure out which display they're in.
+    <div
+      className={cn("border-b border-line-soft transition-colors duration-[110ms]", expanded && "bg-card-hover/60")}
+      role="group"
+      aria-label={display.name}
+    >
       {/* SCAN row — always visible, never requires expanding. Preview sits
           outside the expand toggle on purpose (a sibling button, not
           nested inside it): it's the one action reached for constantly
           while checking a show is on track, so it can't be gated behind
           "first open this device's settings." */}
-      <div className="flex items-center gap-2 px-5 py-4">
+      <div className="flex items-center gap-2 px-3 py-3">
         <button
           type="button"
           onClick={onToggleExpand}
           aria-expanded={expanded}
           aria-label={`${expanded ? "Collapse" : "Expand"} ${display.name}`}
-          className="flex-1 min-w-0 flex items-center gap-3 text-left"
+          className="flex-1 min-w-0 flex items-center gap-3 text-left cursor-pointer"
         >
           <OperationalStatus kind={status} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-console-row font-medium text-primary truncate">{display.name}</span>
-              <Badge tone="muted" className="shrink-0">
+              <span className="flex items-center gap-1 text-console-meta text-muted-2 shrink-0">
+                {TypeIcon && <TypeIcon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />}
                 {typeLabel(display.type)}
-              </Badge>
+              </span>
               {display.room && <span className="text-console-meta text-muted-2 truncate">{display.room}</span>}
             </div>
           </div>
@@ -561,7 +635,7 @@ function DisplayRow({
       </div>
 
       {expanded && (
-        <div className="px-5 pb-5 pt-1 border-t border-line-soft flex flex-col gap-5">
+        <div className="px-3 pb-5 pt-1 flex flex-col gap-5">
           <div>
             <SectionLabel>Configure</SectionLabel>
             {/* Rename/type/room all route through app/api/display-engine/
@@ -715,6 +789,12 @@ function DisplayRow({
 // the deliberate gate (same reasoning as Alert/Broadcast composers), so
 // this doesn't need a second confirm step on top, just a real component
 // instead of a native browser dialog.
+//
+// Phase 7d: was its own hand-rolled framer-motion overlay — the one
+// non-canonical dialog implementation left on this page, with none of
+// Modal's Escape/overlay-stack/focus-trap wiring. Migrated onto the shared
+// Modal shell; no behavior change (still clears its own field on each
+// open, still submits on Enter).
 function TestMessageDialog({
   open,
   onClose,
@@ -735,47 +815,25 @@ function TestMessageDialog({
   }
 
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25, ease: "easeOut" }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-6"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 8 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-            className="w-full max-w-sm rounded-panel bg-card border border-line-soft p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-console-md text-primary">Send a test message</h2>
-            <Input
-              autoFocus
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Message to show on this display"
-              aria-label="Test message"
-              className="mt-4"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && text.trim()) onSend(text.trim());
-              }}
-            />
-            <div className="flex items-center gap-3 mt-6">
-              <Button variant="primary" size="md" className="flex-1" disabled={!text.trim()} onClick={() => onSend(text.trim())}>
-                Send
-              </Button>
-              <Button variant="ghost" size="md" className="flex-1" onClick={onClose}>
-                Cancel
-              </Button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <Modal open={open} onClose={onClose} title="Send a test message" size="sm">
+      <Input
+        autoFocus
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Message to show on this display"
+        aria-label="Test message"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && text.trim()) onSend(text.trim());
+        }}
+      />
+      <div className="flex items-center gap-3 mt-6">
+        <Button variant="primary" size="md" className="flex-1" disabled={!text.trim()} onClick={() => onSend(text.trim())}>
+          Send
+        </Button>
+        <Button variant="ghost" size="md" className="flex-1" onClick={onClose}>
+          Cancel
+        </Button>
+      </div>
+    </Modal>
   );
 }

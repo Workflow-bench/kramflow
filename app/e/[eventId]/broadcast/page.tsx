@@ -15,6 +15,7 @@ import {
   type BroadcastType,
 } from "@/lib/display-engine/types";
 import { BROADCAST_TYPE_META, BROADCAST_TYPE_OPTIONS } from "@/lib/display-engine/broadcast-style";
+import { DISPLAY_TYPE_META } from "@/lib/display-engine/display-meta";
 import { TargetHealthSummary } from "@/components/display-engine/target-health-summary";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +76,18 @@ function toConnectionStatus(status: TransportStatus): ConnectionBadgeStatus {
   if (status === "open") return "connected";
   if (status === "connecting") return "reconnecting";
   return "disconnected";
+}
+
+function typeLabel(type: string): string {
+  return DISPLAY_TYPES.find((t) => t.value === type)?.label ?? type;
+}
+
+// Same canonical per-type icon vocabulary Displays' own fleet rows use
+// (lib/display-engine/display-meta.ts) — "custom" has no entry there and
+// isn't a real target an operator picks from this dropdown.
+function displayTypeMeta(type?: string) {
+  if (!type || !(type in DISPLAY_TYPE_META)) return null;
+  return DISPLAY_TYPE_META[type as keyof typeof DISPLAY_TYPE_META];
 }
 
 type Tab = "history" | "scheduled" | "templates" | "drafts";
@@ -293,465 +306,537 @@ export default function BroadcastCenterPage() {
   const previewMeta = BROADCAST_TYPE_META[draft.type];
   const PreviewIcon = previewMeta.Icon;
   const activeEmergency = engine.broadcasts.active.find((m) => m.type === "emergency");
+  // Emergency gets its own guardrail-styled zone below; every other
+  // still-active (not-yet-dismissed) broadcast previously surfaced nowhere
+  // except a per-row "Active" badge buried in the History tab — answering
+  // "is anything currently active?" required opening that tab and reading
+  // 50 rows. Same engine.broadcasts.active data, just given a compact,
+  // always-visible home next to the emergency zone.
+  const activeNonEmergency = engine.broadcasts.active.filter((m) => m.type !== "emergency");
 
   return (
     <main className="min-h-screen bg-background">
       <EventShellHeader title="Broadcast Center" connectionStatus={toConnectionStatus(transportStatus)} />
 
-      {/* Emergency quick-send — a bordered zone, not just red buttons, so it
-          reads as categorically different from routine compose actions
-          below it. Real Button (danger tier) instead of a hand-tinted
-          pill — same guardrail weight DESIGN.md's tier table gives every
-          other destructive control in the product, not a one-off style. */}
-      <div className="mx-4 sm:mx-6 xl:mx-12 mt-6 rounded-panel border-2 border-status-red/40 bg-status-red/[0.04] px-6 py-5">
-        <SectionLabel>Emergency Broadcast: Overrides Every Display</SectionLabel>
-        <p className="text-console-meta text-muted-2 mt-1">
-          Takes over all {registeredCount} registered display{registeredCount === 1 ? "" : "s"} immediately
-          {registeredHealthCounts.offline > 0
-            ? `. ${registeredHealthCounts.offline} currently offline will show it the moment they reconnect.`
-            : "."}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {EMERGENCY_PRESETS.map((preset) => (
-            <MaybeTooltip key={preset.label} when={readOnly} content={PERMISSION_NOTE}>
-              <Button variant="danger" onClick={() => emergencyConfirm.request(preset)} disabled={readOnly}>
-                <AlertTriangle className="h-4 w-4" strokeWidth={2} />
-                {preset.label}
-              </Button>
-            </MaybeTooltip>
-          ))}
-        </div>
-
-        {activeEmergency && (
-          <div className="mt-4 rounded-control bg-status-red/10 border border-status-red/30 px-6 py-3 flex items-center justify-between gap-4">
-            <p className="text-console-meta text-status-red font-medium">
-              &ldquo;{activeEmergency.title}&rdquo; is currently active on every targeted display.
+      {/* Phase 7e: bounded workspace width (max-w-6xl), matching the capped
+          measure Dashboard/Console/Cue Sheet already use for their own
+          primary workspace — full-bleed panels stacked edge-to-edge was
+          part of what the Landing -> Product Visual System Audit flagged
+          as "buried as a secondary capability" / over-paneled here. */}
+      <div className="px-4 sm:px-6 xl:px-12 py-8">
+        <div className="max-w-6xl mx-auto flex flex-col gap-8">
+          {/* Emergency quick-send — a bordered zone, not just red buttons, so
+              it reads as categorically different from routine compose
+              actions below it. Real Button (danger tier) instead of a
+              hand-tinted pill — same guardrail weight DESIGN.md's tier table
+              gives every other destructive control in the product.
+              Phase 7e: border-2 was a one-off heavier than every other
+              guardrail surface in the product (Settings' Danger Zone, the
+              integration-token box) — a single border at the same weight
+              keeps this categorically distinct without reading louder than
+              Console itself. */}
+          <section className="rounded-panel border border-status-red/30 bg-status-red/[0.04] p-5">
+            <SectionLabel>Emergency Broadcast: Overrides Every Display</SectionLabel>
+            <p className="text-console-meta text-muted-2 mt-1">
+              Takes over all {registeredCount} registered display{registeredCount === 1 ? "" : "s"} immediately
+              {registeredHealthCounts.offline > 0
+                ? `. ${registeredHealthCounts.offline} currently offline will show it the moment they reconnect.`
+                : "."}
             </p>
-            <MaybeTooltip when={readOnly} content={PERMISSION_NOTE}>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={readOnly}
-                onClick={() => destructiveConfirm.request({ kind: "clear-emergencies" })}
-              >
-                Clear
-              </Button>
-            </MaybeTooltip>
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-[440px_1fr] gap-8 px-4 sm:px-6 xl:px-12 py-8">
-        {/* Compose — ordered Content -> Audience -> Severity -> Duration ->
-            Preview -> Send, so an operator reads what/who/how-serious/how-
-            long before ever reaching the button that commits to it. */}
-        <div>
-          <SectionLabel>Compose</SectionLabel>
-          <div className="mt-4 flex flex-col gap-5">
-            <div className="flex flex-col gap-4">
-              <FormField label="Title">
-                <Input
-                  value={draft.title}
-                  onChange={(e) => patchDraft({ title: e.target.value })}
-                  placeholder="Broadcast title"
-                />
-              </FormField>
-              <FormField label="Message">
-                <Textarea
-                  value={draft.message}
-                  onChange={(e) => patchDraft({ message: e.target.value })}
-                  placeholder="Message body"
-                  rows={3}
-                  className="resize-none"
-                />
-              </FormField>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {EMERGENCY_PRESETS.map((preset) => (
+                <MaybeTooltip key={preset.label} when={readOnly} content={PERMISSION_NOTE}>
+                  <Button variant="danger" onClick={() => emergencyConfirm.request(preset)} disabled={readOnly}>
+                    <AlertTriangle className="h-4 w-4" strokeWidth={2} />
+                    {preset.label}
+                  </Button>
+                </MaybeTooltip>
+              ))}
             </div>
 
-            <div className="flex flex-col gap-3 pt-1 border-t border-line-soft">
-              <SectionLabel className="mt-3">Audience</SectionLabel>
-              <FormField label="Target">
-                <Select
-                  value={draft.target.kind}
-                  onChange={(v) => patchTarget(v as BroadcastTargetKind, undefined)}
-                  options={TARGET_KIND_OPTIONS}
-                  searchable={false}
-                />
-              </FormField>
-
-              {draft.target.kind === "type" && (
-                <FormField label="Display Type">
-                  <Select
-                    value={draft.target.value ?? ""}
-                    onChange={(v) => patchTarget("type", v)}
-                    options={DISPLAY_TYPES}
-                    placeholder="Select a type"
-                    searchable={false}
-                  />
-                </FormField>
-              )}
-
-              {draft.target.kind === "display" && (
-                <FormField label="Display">
-                  <Select
-                    value={draft.target.value ?? ""}
-                    onChange={(v) => patchTarget("display", v)}
-                    options={Object.values(engine.registry).map((d) => ({ value: d.id, label: d.name }))}
-                    placeholder="Select a display"
-                    searchable={false}
-                  />
-                </FormField>
-              )}
-
-              {draft.target.kind === "group" && (
-                <FormField label="Group">
-                  <Select
-                    value={draft.target.value ?? ""}
-                    onChange={(v) => patchTarget("group", v)}
-                    options={Object.values(engine.groups).map((g) => ({ value: g.id, label: g.name }))}
-                    placeholder="Select a group"
-                    searchable={false}
-                  />
-                </FormField>
-              )}
-
-              <TargetHealthSummary target={draft.target} registry={engine.registry} groups={engine.groups} />
-            </div>
-
-            <div className="flex flex-col gap-4 pt-1 border-t border-line-soft">
-              <SectionLabel className="mt-3">Severity</SectionLabel>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Type">
-                  <Select
-                    value={draft.type}
-                    onChange={(v) => {
-                      const type = v as BroadcastType;
-                      // Emergency is inherently max-priority — the preset
-                      // buttons above already hardcode this; letting a
-                      // manually-composed emergency sit at "Low" priority
-                      // would be a confusing dead combination the product
-                      // never actually means.
-                      patchDraft(type === "emergency" ? { type, priority: 3 } : { type });
-                    }}
-                    options={BROADCAST_TYPE_OPTIONS}
-                    searchable={false}
-                  />
-                </FormField>
-                <FormField label="Priority">
-                  <Select
-                    value={String(draft.priority)}
-                    onChange={(v) => patchDraft({ priority: Number(v) as 1 | 2 | 3 })}
-                    options={PRIORITY_OPTIONS}
-                    searchable={false}
-                    disabled={draft.type === "emergency"}
-                  />
-                </FormField>
-              </div>
-              <FormField label="Icon (optional)">
-                <Input
-                  value={draft.icon ?? ""}
-                  onChange={(e) => patchDraft({ icon: e.target.value || null })}
-                  placeholder="e.g. 📢"
-                  className="max-w-40"
-                />
-              </FormField>
-            </div>
-
-            <div className="flex flex-col gap-4 pt-1 border-t border-line-soft">
-              <SectionLabel className="mt-3">Duration &amp; Persistence</SectionLabel>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Expires in (min)">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={draft.expiresInMinutes ?? ""}
-                    onChange={(e) => patchDraft({ expiresInMinutes: e.target.value ? Number(e.target.value) : null })}
-                    placeholder="No expiry"
-                  />
-                </FormField>
-                <FormField label="Duration (sec)">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={draft.durationSeconds ?? ""}
-                    onChange={(e) => patchDraft({ durationSeconds: e.target.value ? Number(e.target.value) : null })}
-                    placeholder="Until dismissed"
-                  />
-                </FormField>
-              </div>
-
-              <div className="flex items-center gap-6">
-                <Checkbox
-                  checked={draft.acknowledgementRequired}
-                  onChange={(v) => patchDraft({ acknowledgementRequired: v })}
-                  label="Require acknowledgement"
-                />
-                <Checkbox checked={draft.persistent} onChange={(v) => patchDraft({ persistent: v })} label="Persistent" />
-              </div>
-
-              <div>
-                <Checkbox
-                  checked={scheduleEnabled}
-                  onChange={(v) => {
-                    setScheduleEnabled(v);
-                    if (!v) patchDraft({ scheduledFor: null });
-                  }}
-                  label="Schedule for later"
-                />
-                {scheduleEnabled && (
-                  <Input
-                    type="datetime-local"
-                    min={minScheduleValue()}
-                    onChange={(e) =>
-                      patchDraft({ scheduledFor: e.target.value ? new Date(e.target.value).toISOString() : null })
-                    }
-                    className="mt-3"
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Preview — the same styling BroadcastOverlay itself renders
-                with (BROADCAST_TYPE_META), not a separately-invented
-                mockup. Emergency's real behavior is a full-screen takeover,
-                which this panel can't and shouldn't literally reproduce
-                inline — so it says so in words instead of faking it. */}
-            <div className="pt-1 border-t border-line-soft">
-              <SectionLabel className="mt-3">Preview</SectionLabel>
-              <Panel className="mt-3 p-4">
-                <div className="flex items-center gap-3">
-                  <span
-                    className={cn(
-                      "flex items-center justify-center h-9 w-9 rounded-full shrink-0",
-                      previewMeta.accentClass
-                    )}
+            {activeEmergency && (
+              <div className="mt-4 rounded-control bg-status-red/10 border border-status-red/30 px-6 py-3 flex items-center justify-between gap-4">
+                <p className="text-console-meta text-status-red font-medium">
+                  &ldquo;{activeEmergency.title}&rdquo; is currently active on every targeted display.
+                </p>
+                <MaybeTooltip when={readOnly} content={PERMISSION_NOTE}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={readOnly}
+                    onClick={() => destructiveConfirm.request({ kind: "clear-emergencies" })}
                   >
-                    <PreviewIcon className="h-4 w-4" strokeWidth={2} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-console-sm text-primary font-semibold truncate">
-                      {draft.title.trim() || "Untitled broadcast"}
-                    </p>
-                    {draft.message.trim() && (
-                      <p className="text-console-meta text-muted truncate">{draft.message}</p>
+                    Clear
+                  </Button>
+                </MaybeTooltip>
+              </div>
+            )}
+          </section>
+
+          {/* Current operational state, beyond emergency — every other
+              still-active broadcast, previously visible only by opening
+              History and reading a per-row badge. Compact rows, restrained
+              tint only on the type badge itself (BROADCAST_TYPE_META),
+              never a colored panel — same "typography + semantic status
+              over colored panels" restraint the brief calls for. */}
+          {activeNonEmergency.length > 0 && (
+            <section>
+              <SectionLabel>Active Now</SectionLabel>
+              <div className="mt-3 flex flex-col border-t border-line-soft">
+                {activeNonEmergency.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between gap-4 py-3 border-b border-line-soft">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <TypeBadge type={m.type} />
+                      <p className="text-console-sm text-primary truncate">{m.title}</p>
+                    </div>
+                    <IconButton label={`Dismiss ${m.title}`} onClick={() => dismissBroadcast(m.id)}>
+                      <X className="h-4 w-4" strokeWidth={2} />
+                    </IconButton>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Composer is the flexible/primary column (1fr) — History gets a
+              fixed, narrower secondary column (380px), the reverse of the
+              original 440px/1fr split, which gave the activity list more
+              raw width than composition itself. Composer content is capped
+              at max-w-xl inside its flexible column (same "flexible primary
+              region, capped content" shape Settings' own workspace uses)
+              so form fields don't stretch awkwardly on wide screens; the
+              modest leftover space reads as a gutter, not the dead
+              analytics-dashboard silhouette the brief warned against. */}
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-8">
+            {/* Compose — ordered Content -> Audience -> Severity -> Duration ->
+                Preview -> Send, so an operator reads what/who/how-serious/how-
+                long before ever reaching the button that commits to it. */}
+            <div className="max-w-xl">
+              <SectionLabel>Compose</SectionLabel>
+              <div className="mt-4 flex flex-col gap-5">
+                <div className="flex flex-col gap-4">
+                  <FormField label="Title">
+                    <Input
+                      value={draft.title}
+                      onChange={(e) => patchDraft({ title: e.target.value })}
+                      placeholder="Broadcast title"
+                    />
+                  </FormField>
+                  <FormField label="Message">
+                    <Textarea
+                      value={draft.message}
+                      onChange={(e) => patchDraft({ message: e.target.value })}
+                      placeholder="Message body"
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </FormField>
+                </div>
+
+                <div className="flex flex-col gap-3 pt-1 border-t border-line-soft">
+                  <SectionLabel className="mt-3">Audience</SectionLabel>
+                  <FormField label="Target">
+                    <Select
+                      value={draft.target.kind}
+                      onChange={(v) => patchTarget(v as BroadcastTargetKind, undefined)}
+                      options={TARGET_KIND_OPTIONS}
+                      searchable={false}
+                    />
+                  </FormField>
+
+                  {draft.target.kind === "type" && (
+                    <FormField label="Display Type">
+                      <Select
+                        value={draft.target.value ?? ""}
+                        onChange={(v) => patchTarget("type", v)}
+                        options={DISPLAY_TYPES}
+                        placeholder="Select a type"
+                        searchable={false}
+                      />
+                      {displayTypeMeta(draft.target.value) && (
+                        <p className="flex items-center gap-1.5 text-console-meta text-muted-2 mt-2">
+                          {(() => {
+                            const Icon = displayTypeMeta(draft.target.value)!.Icon;
+                            return <Icon className="h-3.5 w-3.5" strokeWidth={2} />;
+                          })()}
+                          {displayTypeMeta(draft.target.value)!.desc}
+                        </p>
+                      )}
+                    </FormField>
+                  )}
+
+                  {draft.target.kind === "display" && (
+                    <FormField label="Display">
+                      <Select
+                        value={draft.target.value ?? ""}
+                        onChange={(v) => patchTarget("display", v)}
+                        options={Object.values(engine.registry).map((d) => ({
+                          value: d.id,
+                          label: `${d.name} — ${typeLabel(d.type)}`,
+                        }))}
+                        placeholder="Select a display"
+                        searchable={false}
+                      />
+                    </FormField>
+                  )}
+
+                  {draft.target.kind === "group" && (
+                    <FormField label="Group">
+                      <Select
+                        value={draft.target.value ?? ""}
+                        onChange={(v) => patchTarget("group", v)}
+                        options={Object.values(engine.groups).map((g) => ({ value: g.id, label: g.name }))}
+                        placeholder="Select a group"
+                        searchable={false}
+                      />
+                    </FormField>
+                  )}
+
+                  <TargetHealthSummary target={draft.target} registry={engine.registry} groups={engine.groups} />
+                </div>
+
+                <div className="flex flex-col gap-4 pt-1 border-t border-line-soft">
+                  <SectionLabel className="mt-3">Severity</SectionLabel>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Type">
+                      <Select
+                        value={draft.type}
+                        onChange={(v) => {
+                          const type = v as BroadcastType;
+                          // Emergency is inherently max-priority — the preset
+                          // buttons above already hardcode this; letting a
+                          // manually-composed emergency sit at "Low" priority
+                          // would be a confusing dead combination the product
+                          // never actually means.
+                          patchDraft(type === "emergency" ? { type, priority: 3 } : { type });
+                        }}
+                        options={BROADCAST_TYPE_OPTIONS}
+                        searchable={false}
+                      />
+                    </FormField>
+                    <FormField label="Priority">
+                      <Select
+                        value={String(draft.priority)}
+                        onChange={(v) => patchDraft({ priority: Number(v) as 1 | 2 | 3 })}
+                        options={PRIORITY_OPTIONS}
+                        searchable={false}
+                        disabled={draft.type === "emergency"}
+                      />
+                    </FormField>
+                  </div>
+                  <FormField label="Icon (optional)">
+                    <Input
+                      value={draft.icon ?? ""}
+                      onChange={(e) => patchDraft({ icon: e.target.value || null })}
+                      placeholder="e.g. 📢"
+                      className="max-w-40"
+                    />
+                  </FormField>
+                </div>
+
+                <div className="flex flex-col gap-4 pt-1 border-t border-line-soft">
+                  <SectionLabel className="mt-3">Duration &amp; Persistence</SectionLabel>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Expires in (min)">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={draft.expiresInMinutes ?? ""}
+                        onChange={(e) => patchDraft({ expiresInMinutes: e.target.value ? Number(e.target.value) : null })}
+                        placeholder="No expiry"
+                      />
+                    </FormField>
+                    <FormField label="Duration (sec)">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={draft.durationSeconds ?? ""}
+                        onChange={(e) => patchDraft({ durationSeconds: e.target.value ? Number(e.target.value) : null })}
+                        placeholder="Until dismissed"
+                      />
+                    </FormField>
+                  </div>
+
+                  <div className="flex items-center gap-6">
+                    <Checkbox
+                      checked={draft.acknowledgementRequired}
+                      onChange={(v) => patchDraft({ acknowledgementRequired: v })}
+                      label="Require acknowledgement"
+                    />
+                    <Checkbox checked={draft.persistent} onChange={(v) => patchDraft({ persistent: v })} label="Persistent" />
+                  </div>
+
+                  <div>
+                    <Checkbox
+                      checked={scheduleEnabled}
+                      onChange={(v) => {
+                        setScheduleEnabled(v);
+                        if (!v) patchDraft({ scheduledFor: null });
+                      }}
+                      label="Schedule for later"
+                    />
+                    {scheduleEnabled && (
+                      <Input
+                        type="datetime-local"
+                        min={minScheduleValue()}
+                        onChange={(e) =>
+                          patchDraft({ scheduledFor: e.target.value ? new Date(e.target.value).toISOString() : null })
+                        }
+                        className="mt-3"
+                      />
                     )}
                   </div>
                 </div>
-                <p className="text-console-meta text-muted-2 mt-3">
-                  {draft.type === "emergency"
-                    ? "Takes over the full screen on every targeted display until acknowledged or cleared, not a corner banner like other types."
-                    : `Appears as a banner on each targeted display${
-                        draft.persistent
-                          ? " until dismissed."
-                          : draft.durationSeconds
-                            ? ` for ${draft.durationSeconds}s.`
-                            : "."
-                      }`}
-                </p>
-              </Panel>
-            </div>
 
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <MaybeTooltip when={readOnly} content={PERMISSION_NOTE}>
-                <Button
-                  variant="primary"
-                  onClick={requestSend}
-                  disabled={readOnly || !draft.title.trim()}
-                  loading={sending}
-                >
-                  <Send className="h-4 w-4" strokeWidth={2} />
-                  {isScheduling ? "Schedule" : "Send Now"}
-                </Button>
-              </MaybeTooltip>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  if (!draft.title.trim()) return;
-                  saveDraft(draft);
-                  toast.success("Draft saved");
-                }}
-              >
-                Save Draft
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  if (!draft.title.trim()) return;
-                  saveTemplate(draft.title, draft);
-                  toast.success("Template saved");
-                }}
-              >
-                Save as Template
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* History / Scheduled / Templates / Drafts */}
-        <div className="min-w-0">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            {/* overflow-x-auto, not flex-wrap — four tabs plus their counts
-                ("Scheduled (0)") don't reliably fit one line at 390px, and
-                wrapping a rounded-full pill group onto two lines reads as
-                broken rather than intentional. A horizontally-scrollable
-                segmented control is the same pattern iOS-style tab strips
-                already use for this exact case — no information lost, no
-                second layout to maintain. */}
-            <div className="flex items-center gap-1 rounded-full bg-card p-1 max-w-full overflow-x-auto">
-              <TabButton active={tab === "history"} onClick={() => setTab("history")}>
-                History
-              </TabButton>
-              <TabButton active={tab === "scheduled"} onClick={() => setTab("scheduled")}>
-                Scheduled ({engine.broadcasts.scheduled.length})
-              </TabButton>
-              <TabButton active={tab === "templates"} onClick={() => setTab("templates")}>
-                Templates
-              </TabButton>
-              <TabButton active={tab === "drafts"} onClick={() => setTab("drafts")}>
-                Drafts ({engine.broadcasts.drafts.length})
-              </TabButton>
-            </div>
-            {(tab === "history" || tab === "templates") && (
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search…"
-                className="w-full sm:w-56"
-              />
-            )}
-          </div>
-
-          <div className="mt-5 flex flex-col gap-3">
-            {tab === "history" &&
-              (filteredHistory.length === 0 ? (
-                <EmptyState title="No broadcasts sent yet" />
-              ) : (
-                filteredHistory.map((m) => {
-                  const isActive = engine.broadcasts.active.some((a) => a.id === m.id);
-                  return (
-                    <BroadcastRow
-                      key={m.id}
-                      meta={
-                        <>
-                          <TypeBadge type={m.type} />
-                          <span className="text-console-meta text-muted-2">{new Date(m.createdAt).toLocaleString()}</span>
-                          <Badge tone={isActive ? "green" : "muted"}>{isActive ? "Active" : "Dismissed"}</Badge>
-                        </>
-                      }
-                      title={m.title}
-                      message={m.message}
-                      footer={
-                        m.acknowledgementRequired ? `Acknowledged by ${m.acknowledgedBy.length}` : undefined
-                      }
-                      actions={
-                        <>
-                          <IconButton label="Duplicate into compose" onClick={() => loadIntoCompose(toDraft(m))}>
-                            <Copy className="h-4 w-4" strokeWidth={2} />
-                          </IconButton>
-                          {isActive && (
-                            <IconButton label="Dismiss" onClick={() => dismissBroadcast(m.id)}>
-                              <X className="h-4 w-4" strokeWidth={2} />
-                            </IconButton>
-                          )}
-                        </>
-                      }
-                    />
-                  );
-                })
-              ))}
-
-            {tab === "scheduled" &&
-              (engine.broadcasts.scheduled.length === 0 ? (
-                <EmptyState title="No broadcasts scheduled" />
-              ) : (
-                engine.broadcasts.scheduled.map((m) => (
-                  <BroadcastRow
-                    key={m.id}
-                    meta={
-                      <>
-                        <TypeBadge type={m.type} />
-                        <span className="text-console-meta text-muted-2">
-                          fires {m.scheduledFor ? new Date(m.scheduledFor).toLocaleString() : "—"}
-                        </span>
-                      </>
-                    }
-                    title={m.title}
-                    message={m.message}
-                    actions={
-                      <IconButton
-                        label={readOnly ? PERMISSION_NOTE : "Cancel"}
-                        disabled={readOnly}
-                        onClick={() => destructiveConfirm.request({ kind: "cancel-scheduled", id: m.id, title: m.title })}
+                {/* Preview — the same styling BroadcastOverlay itself renders
+                    with (BROADCAST_TYPE_META), not a separately-invented
+                    mockup. Emergency's real behavior is a full-screen takeover,
+                    which this panel can't and shouldn't literally reproduce
+                    inline — so it says so in words instead of faking it. */}
+                <div className="pt-1 border-t border-line-soft">
+                  <SectionLabel className="mt-3">Preview</SectionLabel>
+                  <Panel className="mt-3 p-4">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={cn(
+                          "flex items-center justify-center h-9 w-9 rounded-full shrink-0",
+                          previewMeta.accentClass
+                        )}
                       >
-                        <Trash2 className="h-4 w-4" strokeWidth={2} />
-                      </IconButton>
-                    }
-                  />
-                ))
-              ))}
+                        <PreviewIcon className="h-4 w-4" strokeWidth={2} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-console-sm text-primary font-semibold truncate">
+                          {draft.title.trim() || "Untitled broadcast"}
+                        </p>
+                        {draft.message.trim() && (
+                          <p className="text-console-meta text-muted truncate">{draft.message}</p>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-console-meta text-muted-2 mt-3">
+                      {draft.type === "emergency"
+                        ? "Takes over the full screen on every targeted display until acknowledged or cleared, not a corner banner like other types."
+                        : `Appears as a banner on each targeted display${
+                            draft.persistent
+                              ? " until dismissed."
+                              : draft.durationSeconds
+                                ? ` for ${draft.durationSeconds}s.`
+                                : "."
+                          }`}
+                    </p>
+                  </Panel>
+                </div>
 
-            {tab === "templates" &&
-              (filteredTemplates.length === 0 ? (
-                <EmptyState title="No templates saved yet" />
-              ) : (
-                filteredTemplates.map((t) => (
-                  <BroadcastRow
-                    key={t.id}
-                    meta={<TypeBadge type={t.draft.type} />}
-                    title={t.name}
-                    actions={
-                      <>
-                        <IconButton
-                          label={engine.broadcasts.favorites.includes(t.id) ? "Unfavorite" : "Favorite"}
-                          onClick={() => toggleFavoriteTemplate(t.id)}
-                        >
-                          <Star
-                            className={cn(
-                              "h-4 w-4",
-                              engine.broadcasts.favorites.includes(t.id) && "fill-status-orange text-status-orange"
-                            )}
-                            strokeWidth={2}
-                          />
-                        </IconButton>
-                        <IconButton label="Use template" onClick={() => loadIntoCompose(t.draft)}>
-                          <Copy className="h-4 w-4" strokeWidth={2} />
-                        </IconButton>
-                        <IconButton
-                          label="Delete"
-                          onClick={() => destructiveConfirm.request({ kind: "delete-template", id: t.id, name: t.name })}
-                        >
-                          <Trash2 className="h-4 w-4" strokeWidth={2} />
-                        </IconButton>
-                      </>
-                    }
-                  />
-                ))
-              ))}
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <MaybeTooltip when={readOnly} content={PERMISSION_NOTE}>
+                    <Button
+                      variant="primary"
+                      onClick={requestSend}
+                      disabled={readOnly || !draft.title.trim()}
+                      loading={sending}
+                    >
+                      <Send className="h-4 w-4" strokeWidth={2} />
+                      {isScheduling ? "Schedule" : "Send Now"}
+                    </Button>
+                  </MaybeTooltip>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      if (!draft.title.trim()) return;
+                      saveDraft(draft);
+                      toast.success("Draft saved");
+                    }}
+                  >
+                    Save Draft
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      if (!draft.title.trim()) return;
+                      saveTemplate(draft.title, draft);
+                      toast.success("Template saved");
+                    }}
+                  >
+                    Save as Template
+                  </Button>
+                </div>
+              </div>
+            </div>
 
-            {tab === "drafts" &&
-              (engine.broadcasts.drafts.length === 0 ? (
-                <EmptyState title="No drafts saved" />
-              ) : (
-                engine.broadcasts.drafts.map((d, i) => (
-                  <BroadcastRow
-                    key={i}
-                    meta={<TypeBadge type={d.type} />}
-                    title={d.title || "Untitled draft"}
-                    actions={
-                      <>
-                        <IconButton label="Load" onClick={() => loadIntoCompose(d)}>
-                          <Copy className="h-4 w-4" strokeWidth={2} />
-                        </IconButton>
-                        <IconButton
-                          label="Delete"
-                          onClick={() => destructiveConfirm.request({ kind: "delete-draft", index: i, title: d.title || "Untitled draft" })}
-                        >
-                          <Trash2 className="h-4 w-4" strokeWidth={2} />
-                        </IconButton>
-                      </>
-                    }
+            {/* History / Scheduled / Templates / Drafts — secondary, narrower
+                column (see the grid comment above): recent activity, not the
+                page's main event. */}
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                {/* overflow-x-auto, not flex-wrap — four tabs plus their counts
+                    ("Scheduled (0)") don't reliably fit one line at 390px, and
+                    wrapping onto two lines reads as broken rather than
+                    intentional. A horizontally-scrollable tab strip is the same
+                    pattern iOS-style tab strips already use for this exact
+                    case — no information lost, no second layout to maintain.
+                    Phase 7e: dropped the rounded-full bg-card p-1 segmented-pill
+                    wrapper in favor of the plain button row Displays' own
+                    health filter uses (app/e/[eventId]/displays/page.tsx) —
+                    one tab-strip vocabulary across the product instead of two. */}
+                <div role="tablist" aria-label="Broadcast lists" className="flex items-center gap-1.5 max-w-full overflow-x-auto">
+                  <TabButton active={tab === "history"} onClick={() => setTab("history")}>
+                    History
+                  </TabButton>
+                  <TabButton active={tab === "scheduled"} onClick={() => setTab("scheduled")}>
+                    Scheduled ({engine.broadcasts.scheduled.length})
+                  </TabButton>
+                  <TabButton active={tab === "templates"} onClick={() => setTab("templates")}>
+                    Templates
+                  </TabButton>
+                  <TabButton active={tab === "drafts"} onClick={() => setTab("drafts")}>
+                    Drafts ({engine.broadcasts.drafts.length})
+                  </TabButton>
+                </div>
+                {(tab === "history" || tab === "templates") && (
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search…"
+                    className="w-full sm:w-56"
                   />
-                ))
-              ))}
+                )}
+              </div>
+
+              <div className="mt-5 flex flex-col border-t border-line-soft">
+                {tab === "history" &&
+                  (filteredHistory.length === 0 ? (
+                    <EmptyState title="No broadcasts sent yet" />
+                  ) : (
+                    filteredHistory.map((m) => {
+                      const isActive = engine.broadcasts.active.some((a) => a.id === m.id);
+                      return (
+                        <BroadcastRow
+                          key={m.id}
+                          meta={
+                            <>
+                              <TypeBadge type={m.type} />
+                              <span className="text-console-meta text-muted-2">{new Date(m.createdAt).toLocaleString()}</span>
+                              <Badge tone={isActive ? "green" : "muted"}>{isActive ? "Active" : "Dismissed"}</Badge>
+                            </>
+                          }
+                          title={m.title}
+                          message={m.message}
+                          footer={
+                            m.acknowledgementRequired ? `Acknowledged by ${m.acknowledgedBy.length}` : undefined
+                          }
+                          actions={
+                            <>
+                              <IconButton label="Duplicate into compose" onClick={() => loadIntoCompose(toDraft(m))}>
+                                <Copy className="h-4 w-4" strokeWidth={2} />
+                              </IconButton>
+                              {isActive && (
+                                <IconButton label="Dismiss" onClick={() => dismissBroadcast(m.id)}>
+                                  <X className="h-4 w-4" strokeWidth={2} />
+                                </IconButton>
+                              )}
+                            </>
+                          }
+                        />
+                      );
+                    })
+                  ))}
+
+                {tab === "scheduled" &&
+                  (engine.broadcasts.scheduled.length === 0 ? (
+                    <EmptyState title="No broadcasts scheduled" />
+                  ) : (
+                    engine.broadcasts.scheduled.map((m) => (
+                      <BroadcastRow
+                        key={m.id}
+                        meta={
+                          <>
+                            <TypeBadge type={m.type} />
+                            <span className="text-console-meta text-muted-2">
+                              fires {m.scheduledFor ? new Date(m.scheduledFor).toLocaleString() : "—"}
+                            </span>
+                          </>
+                        }
+                        title={m.title}
+                        message={m.message}
+                        actions={
+                          <IconButton
+                            label={readOnly ? PERMISSION_NOTE : "Cancel"}
+                            disabled={readOnly}
+                            onClick={() => destructiveConfirm.request({ kind: "cancel-scheduled", id: m.id, title: m.title })}
+                          >
+                            <Trash2 className="h-4 w-4" strokeWidth={2} />
+                          </IconButton>
+                        }
+                      />
+                    ))
+                  ))}
+
+                {tab === "templates" &&
+                  (filteredTemplates.length === 0 ? (
+                    <EmptyState title="No templates saved yet" />
+                  ) : (
+                    filteredTemplates.map((t) => (
+                      <BroadcastRow
+                        key={t.id}
+                        meta={<TypeBadge type={t.draft.type} />}
+                        title={t.name}
+                        actions={
+                          <>
+                            <IconButton
+                              label={engine.broadcasts.favorites.includes(t.id) ? "Unfavorite" : "Favorite"}
+                              onClick={() => toggleFavoriteTemplate(t.id)}
+                            >
+                              <Star
+                                className={cn(
+                                  "h-4 w-4",
+                                  engine.broadcasts.favorites.includes(t.id) && "fill-status-orange text-status-orange"
+                                )}
+                                strokeWidth={2}
+                              />
+                            </IconButton>
+                            <IconButton label="Use template" onClick={() => loadIntoCompose(t.draft)}>
+                              <Copy className="h-4 w-4" strokeWidth={2} />
+                            </IconButton>
+                            <IconButton
+                              label="Delete"
+                              onClick={() => destructiveConfirm.request({ kind: "delete-template", id: t.id, name: t.name })}
+                            >
+                              <Trash2 className="h-4 w-4" strokeWidth={2} />
+                            </IconButton>
+                          </>
+                        }
+                      />
+                    ))
+                  ))}
+
+                {tab === "drafts" &&
+                  (engine.broadcasts.drafts.length === 0 ? (
+                    <EmptyState title="No drafts saved" />
+                  ) : (
+                    engine.broadcasts.drafts.map((d, i) => (
+                      <BroadcastRow
+                        key={i}
+                        meta={<TypeBadge type={d.type} />}
+                        title={d.title || "Untitled draft"}
+                        actions={
+                          <>
+                            <IconButton label="Load" onClick={() => loadIntoCompose(d)}>
+                              <Copy className="h-4 w-4" strokeWidth={2} />
+                            </IconButton>
+                            <IconButton
+                              label="Delete"
+                              onClick={() => destructiveConfirm.request({ kind: "delete-draft", index: i, title: d.title || "Untitled draft" })}
+                            >
+                              <Trash2 className="h-4 w-4" strokeWidth={2} />
+                            </IconButton>
+                          </>
+                        }
+                      />
+                    ))
+                  ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -877,6 +962,9 @@ function TypeBadge({ type }: { type: BroadcastType }) {
   );
 }
 
+// Phase 7e: was its own Panel per row (rounded-panel bg-card border) —
+// exactly the "card per history item" the brief asked to flatten. Same
+// border-b row grammar Dashboard/Cue Sheet/Settings/Displays already use.
 function BroadcastRow({
   meta,
   title,
@@ -891,7 +979,7 @@ function BroadcastRow({
   actions: React.ReactNode;
 }) {
   return (
-    <Panel className="px-6 py-4 flex items-start justify-between gap-4">
+    <div className="py-3 border-b border-line-soft flex items-start justify-between gap-4">
       <div className="min-w-0">
         <div className="flex items-center gap-2 flex-wrap">{meta}</div>
         <p className="text-console-sm text-primary font-medium mt-1.5">{title}</p>
@@ -899,13 +987,21 @@ function BroadcastRow({
         {footer && <p className="text-console-meta text-muted-2 mt-1">{footer}</p>}
       </div>
       <div className="flex items-center gap-1 shrink-0">{actions}</div>
-    </Panel>
+    </div>
   );
 }
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <Button type="button" variant={active ? "primary" : "ghost"} size="sm" onClick={onClick} className="rounded-full">
+    <Button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      variant={active ? "primary" : "ghost"}
+      size="sm"
+      onClick={onClick}
+      className="rounded-full shrink-0"
+    >
       {children}
     </Button>
   );

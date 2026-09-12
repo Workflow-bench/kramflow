@@ -54,7 +54,16 @@ export function Tooltip({
         role="tooltip"
         id={id}
         className={cn(
-          "pointer-events-none absolute left-1/2 -translate-x-1/2 z-50 whitespace-nowrap rounded-control bg-raised border border-line px-2 py-1 text-console-meta text-primary shadow-float transition-opacity duration-100",
+          // Material, same reasoning as select.tsx's dropdown — a small
+          // floating layer with no scrim, directly over whatever it's
+          // anchored to. Deliberately lighter than the rest of the
+          // bg-card/90 + backdrop-blur-xl family (Select/Toast/command
+          // palette/overflow menu): a tooltip mounts and unmounts on every
+          // hover, far more often than any of those, so it gets the
+          // cheapest version of the same material (backdrop-blur-md, and
+          // bg-raised rather than bg-card) instead of paying the same
+          // blur cost every time.
+          "pointer-events-none absolute left-1/2 -translate-x-1/2 z-50 whitespace-nowrap rounded-control bg-raised/90 backdrop-blur-md border border-line px-2 py-1 text-console-meta text-primary shadow-float transition-opacity duration-100",
           side === "bottom" ? "top-full mt-1.5" : "bottom-full mb-1.5",
           visible ? "opacity-100" : "opacity-0"
         )}

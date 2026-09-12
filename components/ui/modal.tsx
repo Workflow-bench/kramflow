@@ -16,6 +16,14 @@ import { useDialogFocus } from "./use-dialog-focus";
 // single-field, in-context edit (session settings, bulk-edit) stays inline
 // on purpose; see senior-ux-layout-standards's inline-vs-modal reasoning
 // for why the line is drawn there, not "everything becomes a modal."
+//
+// Phase 7a correction: title and shell radius were `text-subtitle`/
+// `rounded-card` — Stage-tier tokens (5-15ft viewing distance) — despite
+// this being the Operational Product's most-used overlay (18-24in). Now
+// `text-console-lg`/`rounded-panel`, the same tier every other Console
+// surface uses. Public-display/Stage surfaces never rendered Modal at all
+// (Stage has its own overlays — BroadcastOverlay, HoldScreen, etc. — see
+// components/display-engine/), so this correction has zero Stage impact.
 export function Modal({
   open,
   onClose,
@@ -72,7 +80,7 @@ export function Modal({
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.25, ease: "easeOut" }}
             className={cn(
-              "w-full rounded-card bg-card flex flex-col max-h-full overflow-hidden focus:outline-none",
+              "w-full rounded-panel bg-card flex flex-col max-h-full overflow-hidden focus:outline-none",
               size === "sm" && "max-w-sm",
               size === "md" && "max-w-lg",
               size === "lg" && "max-w-2xl",
@@ -81,7 +89,7 @@ export function Modal({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-4 px-6 pt-6 pb-4 shrink-0">
-              <h2 id={titleId} className="text-subtitle text-primary">
+              <h2 id={titleId} className="text-console-lg text-primary">
                 {title}
               </h2>
               <Button variant="ghost" size="sm" square onClick={onClose} aria-label="Close">

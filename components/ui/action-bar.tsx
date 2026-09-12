@@ -24,7 +24,8 @@ export function ActionBar({
         role="toolbar"
         className={cn(
           "pointer-events-auto flex flex-wrap items-center gap-1 rounded-full",
-          "bg-raised border border-line px-1.5 py-1.5",
+          // kramflow-v3: floating toolbar over live content — real material.
+          "bg-raised/90 backdrop-blur-xl border border-line px-1.5 py-1.5",
           "shadow-float",
           "motion-safe:animate-rise",
           className

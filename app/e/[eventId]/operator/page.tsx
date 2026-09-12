@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { FileSpreadsheet, FlaskConical, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, FileSpreadsheet, FlaskConical, Users } from "lucide-react";
 import { useEventStore, useConnectionStatus } from "@/lib/store";
 import { useSessions, useSessionsLoading } from "@/lib/use-sessions";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -12,7 +12,7 @@ import { useAuth } from "@/components/auth/auth-context";
 import { useOperatorPresence } from "@/lib/use-operator-presence";
 import { useOperatorColumnLayout } from "@/lib/use-operator-column-layout";
 import { ProgramList } from "@/components/operator/program-list";
-import { SessionSwitcher } from "@/components/operator/session-switcher";
+import { SessionPopover } from "@/components/operator/session-popover";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { LiveDetailsPanel, LiveNotes } from "@/components/operator/live-details-panel";
 import { ControlsPanel, ControlsSecondaryTools } from "@/components/operator/controls-panel";
@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 
 export default function OperatorPage() {
   const eventId = useEventId();
@@ -84,6 +85,7 @@ export default function OperatorPage() {
             </span>
           )
         }
+        sessionContext={<SessionPopover />}
         actions={[
           // Rehearsal Mode deliberately lives here, next to Lock, rather
           // than as a nav destination — it's an operating mode for the
@@ -109,11 +111,6 @@ export default function OperatorPage() {
           // fixed compositions with nothing here to adjust.
           isDesktopLayout && <OperatorLayoutMenu key="layout" layout={columnLayout} />,
         ]}
-        belowNav={
-          <div className="px-4 sm:px-6 xl:px-12 py-3 border-b border-line-soft">
-            <SessionSwitcher />
-          </div>
-        }
       />
 
       {sessionsLoading ? (
@@ -255,6 +252,20 @@ function OperatorGrid({
     // actual complaint, and that pattern has already caused one real
     // layout bug and one real click-blocking bug on the desktop grid this
     // session. Simpler and safer wins when it solves the same problem.
+    //
+    // Kramflow UI Shell v2 (Phase 5): Live Now renders first again, ABOVE
+    // Controls, superseding the previous order (which existed only to keep
+    // Next/Previous/Hold above the fold at short intermediate laptop
+    // heights — 1024x768, 1100x700). Phase 5's explicit information
+    // hierarchy ranks current item + timer above control authority, and
+    // removing Live Now's own card chrome (see live-details-panel.tsx)
+    // recovers most of the height that fold-fix was compensating for. At
+    // both required tablet breakpoints (834x1194, 1024x1366 — tall) this
+    // is a non-issue; a browser window manually resized into the
+    // 1024-1279px band at a short height may still need to scroll to reach
+    // transport controls, a known, accepted tradeoff of following the
+    // brief's priority order rather than re-deriving it — see the Phase 5
+    // report's Known issues.
     return (
       <div className="flex-1 grid grid-cols-[1fr_380px]">
         {program}
@@ -266,26 +277,30 @@ function OperatorGrid({
     );
   }
 
-  // Mobile: not desktop's columns stacked vertically. The 2026-09 UI/UX
-  // convergence sprint measured the previous stack precisely — Next sat at
-  // 880px in an 844px viewport (just past first paint), and Activity Log
-  // (a passive audit trail) rendered *before* the Program list it should
-  // never outrank. Reordered around what the redesign brief's ~1-second
-  // question list actually needs visible without scrolling — current/live
-  // state, countdown, control ownership, Next, Previous/Hold, system
-  // health — then Program (still a primary task surface, not supplementary
-  // — a rundown reference is looked up far more often than notes are
-  // edited or the activity log is read), and only then the lower-frequency
-  // Notes/Jump/Alert/Broadcast/Activity tools. hideNotes/hideSecondaryTools
-  // move those two pieces to their own later position via <LiveNotes>/
-  // <ControlsSecondaryTools> instead of dropping them — nothing here is
-  // reachable-only-on-desktop.
+  // Mobile: not desktop's columns stacked vertically.
+  //
+  // Kramflow UI Shell v2 (Phase 5): Live Now renders FIRST again — the
+  // approved Phase 5 hierarchy is explicit and ranks it above control
+  // authority: current item, timer, next, on deck, THEN control authority,
+  // THEN connection, THEN rundown, THEN secondary controls. The prior
+  // ordering (Controls first) existed purely to keep Next/Previous/Hold
+  // reachable without scrolling — a real, measured problem (Next sat at
+  // 971px in an 844px viewport) — but it solved that by inverting the
+  // stated information priority rather than by shrinking what was pushing
+  // Next down. Live Now no longer carries its own bordered/glass card (see
+  // live-details-panel.tsx) — that was the single largest contributor to
+  // its height — so the fold problem is addressed at the source instead of
+  // by reordering around it. What's left below the fold now is Jump/Alert/
+  // Broadcast/Activity, moved behind the collapsed <MoreTools> disclosure
+  // below: exactly the "secondary information into progressive disclosure"
+  // treatment Phase 5 asks for, and lowest in the stated priority order
+  // regardless of scroll position.
   return (
     <div className="flex-1 flex flex-col">
-      <div className="border-b border-line-soft px-4 sm:px-6 py-6">
+      <div className="border-b border-line-soft px-4 sm:px-6 py-5 sm:py-6">
         <LiveDetailsPanel session={session} hideNotes />
       </div>
-      <div className="border-b border-line-soft px-4 sm:px-6 py-6">
+      <div className="border-b border-line-soft px-4 sm:px-6 py-5 sm:py-6">
         <ControlsPanel session={session} broadcastAction={broadcastAction} hideSecondaryTools />
       </div>
       {program}
@@ -293,8 +308,44 @@ function OperatorGrid({
         <LiveNotes session={session} />
       </div>
       <div className="border-t border-line-soft px-4 sm:px-6 py-6">
-        <ControlsSecondaryTools session={session} />
+        <MoreTools session={session} />
       </div>
+    </div>
+  );
+}
+
+// Mobile-only progressive disclosure for Jump/Alert/Broadcast/Activity —
+// Phase 5's lowest-priority tier ("secondary operational controls"),
+// collapsed by default so it costs no scroll distance until an operator
+// actually wants one of these. Desktop/tablet keep them permanently
+// visible in the Controls column (there's room, and they're reached with a
+// mouse, not a thumb scrolling past four sections to get back to the
+// rundown). A plain toggle, not a Popover/Sheet: this content is tall
+// (Activity's own list, Alert's composer) and belongs in the page's normal
+// scroll flow once open, not a floating overlay that would need its own
+// internal scroll region.
+function MoreTools({ session }: { session: Session }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls="operator-more-tools"
+        className="flex w-full items-center justify-between gap-2 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-control -m-1 p-1"
+      >
+        <SectionLabel>More Tools</SectionLabel>
+        <ChevronDown
+          className={cn("h-4 w-4 text-muted-2 transition-transform duration-150", open && "rotate-180")}
+          strokeWidth={2}
+        />
+      </button>
+      {open && (
+        <div id="operator-more-tools" className="mt-6 motion-safe:animate-rise">
+          <ControlsSecondaryTools session={session} />
+        </div>
+      )}
     </div>
   );
 }

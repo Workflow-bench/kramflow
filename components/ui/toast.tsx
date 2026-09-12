@@ -71,7 +71,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               exit={{ opacity: 0, y: 12, scale: 0.96 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
               className={cn(
-                "pointer-events-auto flex items-center gap-2.5 rounded-panel bg-card px-4 py-3 text-console-sm shadow-lg border",
+                // Material, same reasoning as select.tsx's dropdown — a
+                // transient layer floating over whatever page it interrupts,
+                // no scrim.
+                "pointer-events-auto flex items-center gap-2.5 rounded-panel bg-card/90 backdrop-blur-xl px-4 py-3 text-console-sm shadow-lg border",
                 item.tone === "success" && "border-status-green/20",
                 item.tone === "error" && "border-status-red/20",
                 item.tone === "info" && "border-status-blue/20"

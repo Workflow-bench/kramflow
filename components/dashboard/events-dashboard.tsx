@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LayoutDashboard, Smartphone, FileSpreadsheet, MonitorPlay, Plus, Trash2, Link2 } from "lucide-react";
-import { Panel } from "@/components/ui/card";
+import { Gauge, Smartphone, FileSpreadsheet, MonitorPlay, Plus, Trash2, Link2 } from "lucide-react";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -126,75 +125,65 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
   // other) preserves the server's own recency ordering within each group.
   const sortedEvents = [...events].sort((a, b) => Number(b.isLive) - Number(a.isLive));
 
+  const createField = (
+    <>
+      <Input
+        value={newName}
+        onChange={(e) => setNewName(e.target.value)}
+        placeholder="e.g. Satsang Shibir 2027"
+        aria-label="New event name"
+        className="w-56"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleCreate();
+        }}
+      />
+      <Button variant="primary" size="sm" onClick={handleCreate} loading={creating}>
+        <Plus className="h-4 w-4" strokeWidth={2} />
+        Create Event
+      </Button>
+    </>
+  );
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <GettingStartedChecklist events={events} />
 
-      {events.length === 0 ? (
-        <>
-          <Panel className="p-5">
-            <div className="flex items-center gap-3 flex-wrap">
-              <Input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Event name (e.g. Satsang Shibir 2027)"
-                aria-label="New event name"
-                className="flex-1 min-w-[16rem]"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreate();
-                }}
-              />
-              <Button variant="primary" onClick={handleCreate} loading={creating}>
-                <Plus className="h-4 w-4" strokeWidth={2} />
-                Create Event
-              </Button>
-            </div>
-          </Panel>
+      {/* Kramflow UI Shell v2 (Phase 7b): a workspace section — heading +
+          row list — not a grid of marketing-style cards. Same "Items"
+          heading + inline toolbar grammar Cue Sheet's own workspace uses
+          (app/e/[eventId]/operator/cue-sheet/page.tsx), so Dashboard reads
+          as the same application instead of a different one that happens
+          to share a color palette. */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="text-console-md text-primary">
+            Events
+            {events.length > 0 && <span className="text-console-meta text-muted-2 font-normal ml-2">{events.length}</span>}
+          </h2>
+          {events.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">{createField}</div>
+          )}
+        </div>
+
+        {events.length === 0 ? (
           <EmptyState
             title="No events yet"
             body="Create your first event to start building a cue sheet and running a show."
+            action={<div className="flex items-center gap-2 flex-wrap justify-center">{createField}</div>}
           />
-        </>
-      ) : (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
-          {/* auto-fit, not fixed breakpoint column counts — a fixed column
-              count stretches to fill every track regardless of how many
-              events actually exist, so 1-2 events left ~75% of a wide
-              desktop viewport as dead space (2026-09 convergence sprint,
-              Workstream 7: measured directly). auto-fit collapses tracks
-              with no content to 0 width and grows the real cards to fill
-              what's freed (up to minmax's cap) instead of leaving them
-              narrow in a sea of empty gutter — one rule that self-adjusts
-              for any event count, not per-breakpoint tuning. */}
-          {/* The "create" affordance is a peer of the events it creates, not
-              a separate toolbar above them (uniform connectedness) — same
-              first-grid-tile convention as Linear's/Notion's "new" tiles,
-              a familiar pattern rather than an invented one (Jakob's Law).
-              The input stays visible rather than hidden behind its own
-              "+" click — one fewer gate in front of the single most
-              common first action on this page. */}
-          <div className="rounded-panel border border-dashed border-line p-5 flex flex-col gap-3 justify-center">
-            <p className="text-console-meta text-muted-2 uppercase tracking-wide">New event</p>
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. Satsang Shibir 2027"
-              aria-label="New event name"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreate();
-              }}
-            />
-            <Button variant="primary" size="sm" onClick={handleCreate} loading={creating}>
-              <Plus className="h-4 w-4" strokeWidth={2} />
-              Create Event
-            </Button>
+        ) : (
+          // Rows, not cards — the same list grammar Console's rundown and
+          // Cue Sheet's own item list use (border-b between rows, no
+          // per-row box). An event is functionally one row of "what is it,
+          // how ready is it, get me in" — the same shape as a queue item,
+          // just at the event level instead of the cue level.
+          <div className="flex flex-col">
+            {sortedEvents.map((event) => (
+              <EventRow key={event.id} event={event} onRequestDelete={() => setDeleteTarget(event)} />
+            ))}
           </div>
-
-          {sortedEvents.map((event) => (
-            <EventCard key={event.id} event={event} onRequestDelete={() => setDeleteTarget(event)} />
-          ))}
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Tier 4 — the one action in the product that outweighs everything
           else on the guardrail-tier table (docs/DESIGN.md): it cascades
@@ -217,33 +206,55 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
   );
 }
 
-// Everything meaningful about an event visible in one glance — identity,
-// readiness counts, and the primary action (Open Console, sized and
-// weighted above its siblings: Pareto — running the live show is the
+// Everything meaningful about an event visible in one glance, in one row —
+// identity, readiness counts, and the primary action (Open Console, sized
+// and weighted above its siblings: Pareto — running the live show is the
 // overwhelmingly common reason to open an event, so it gets the biggest
 // target, not equal billing with Cue Sheet/Remote/Displays). Previously
-// this whole card lived behind a click-to-expand row, which meant scanning
+// this whole thing lived behind a click-to-expand row, which meant scanning
 // N events for "which one needs me" cost N clicks before any of this was
 // visible — Hick's Law says that gate should only exist if the content
 // behind it is genuinely secondary, and none of this is.
-function EventCard({ event, onRequestDelete }: { event: EventSummary; onRequestDelete: () => void }) {
+//
+// Phase 7b: was its own bordered/glass Panel card in an auto-fit grid — the
+// exact "collection of cards" pattern flagged against Console and Cue
+// Sheet's own row-based lists. Same information, same actions, now a plain
+// row (border-b, no box) so N events read as one scannable workspace list
+// instead of N equally-weighted tiles.
+function EventRow({ event, onRequestDelete }: { event: EventSummary; onRequestDelete: () => void }) {
   const isOwner = (event.role ?? "owner") === "owner";
   const [shareOpen, setShareOpen] = useState(false);
 
+  const meta = [
+    // Parsed as a plain calendar date (not a UTC instant) so the displayed
+    // date can't shift a day depending on the viewer's own timezone offset
+    // from midnight UTC.
+    event.event_date
+      ? new Date(`${event.event_date}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+      : `Created ${new Date(event.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`,
+    event.venue || null,
+    event.sessionCount !== undefined ? `${event.sessionCount} session${event.sessionCount === 1 ? "" : "s"}` : null,
+    event.sessionCount !== undefined ? `${event.itemCount ?? 0} item${event.itemCount === 1 ? "" : "s"}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <Panel
+    <div
       className={cn(
-        "p-5 flex flex-col gap-4",
-        // A live event's card gets a visible accent, not just an inline
-        // badge easy to miss while scanning a grid of otherwise-identical
-        // cards (Von Restorff) — routine events stay visually calm so this
-        // keeps its power.
-        event.isLive && "border-status-green/40 bg-status-green/[0.03]"
+        "flex flex-wrap items-center gap-x-4 gap-y-3 px-3 py-3 border-b border-line-soft",
+        "transition-colors duration-[110ms] ease-out",
+        // Same "this is what's on air" tint Console's rundown and Cue
+        // Sheet's current-row use (bg-status-green/10) — one shared
+        // meaning, not a second invented live treatment.
+        event.isLive ? "bg-status-green/10" : "hover:bg-card-hover"
       )}
     >
-      <div className="min-w-0">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <h2 className="text-console-md font-semibold text-primary truncate">{event.name}</h2>
+      <div className="min-w-0 flex-1 basis-64">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className={cn("text-console-row truncate", event.isLive ? "text-primary font-semibold" : "text-primary font-medium")}>
+            {event.name}
+          </p>
           {event.isLive && <OperationalStatus kind="live" />}
           {!isOwner && (
             <Badge tone="muted" className="capitalize">
@@ -251,51 +262,46 @@ function EventCard({ event, onRequestDelete }: { event: EventSummary; onRequestD
             </Badge>
           )}
         </div>
-        <p className="text-console-meta text-muted-2 mt-1 truncate">
-          {event.event_date
-            ? // Parsed as a plain calendar date (not a UTC instant) so the
-              // displayed date can't shift a day depending on the viewer's
-              // own timezone offset from midnight UTC.
-              new Date(`${event.event_date}T00:00:00`).toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })
-            : `Created ${new Date(event.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`}
-          {event.venue ? ` · ${event.venue}` : ""}
-          {event.sessionCount !== undefined &&
-            ` · ${event.sessionCount} session${event.sessionCount === 1 ? "" : "s"} · ${event.itemCount ?? 0} item${event.itemCount === 1 ? "" : "s"}`}
-        </p>
+        <p className="text-console-meta text-muted-2 mt-0.5 truncate">{meta}</p>
       </div>
 
-      <LinkButton href={`/e/${event.id}/operator`} variant="primary" size="sm">
-        <LayoutDashboard className="h-3.5 w-3.5" strokeWidth={2} />
-        Open Console
-      </LinkButton>
+      <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+        <LinkButton href={`/e/${event.id}/operator`} variant="primary" size="sm">
+          <Gauge className="h-3.5 w-3.5" strokeWidth={2} />
+          Open Console
+        </LinkButton>
 
-      <div className="flex items-center gap-1.5">
-        <Tooltip content="Cue Sheet">
-          <LinkButton href={`/e/${event.id}/operator/cue-sheet`} variant="secondary" size="sm" square aria-label="Cue Sheet">
-            <FileSpreadsheet className="h-3.5 w-3.5" strokeWidth={2} />
-          </LinkButton>
-        </Tooltip>
-        <Tooltip content="Remote: one-handed mobile control">
-          <LinkButton href={`/e/${event.id}/remote`} variant="secondary" size="sm" square aria-label="Remote">
-            <Smartphone className="h-3.5 w-3.5" strokeWidth={2} />
-          </LinkButton>
-        </Tooltip>
-        <Tooltip content="Displays">
-          <LinkButton href={`/e/${event.id}/displays`} variant="secondary" size="sm" square aria-label="Displays">
-            <MonitorPlay className="h-3.5 w-3.5" strokeWidth={2} />
-          </LinkButton>
-        </Tooltip>
+        {/* Quick links to Cue Sheet/Remote/Displays — visible from sm: up,
+            where a row has the horizontal room for them without crowding
+            the primary action. Below sm:, they're one tap further away
+            (Open Console, then EventNav's own mobile menu) rather than
+            adding a 4th/5th icon to an already-narrow row — the exact
+            "cramped icon soup" this phase was asked to avoid. */}
+        <div className="hidden sm:flex items-center gap-1.5">
+          <Tooltip content="Cue Sheet">
+            <LinkButton href={`/e/${event.id}/operator/cue-sheet`} variant="secondary" size="sm" square aria-label="Cue Sheet">
+              <FileSpreadsheet className="h-3.5 w-3.5" strokeWidth={2} />
+            </LinkButton>
+          </Tooltip>
+          <Tooltip content="Remote: one-handed mobile control">
+            <LinkButton href={`/e/${event.id}/remote`} variant="secondary" size="sm" square aria-label="Remote">
+              <Smartphone className="h-3.5 w-3.5" strokeWidth={2} />
+            </LinkButton>
+          </Tooltip>
+          <Tooltip content="Displays">
+            <LinkButton href={`/e/${event.id}/displays`} variant="secondary" size="sm" square aria-label="Displays">
+              <MonitorPlay className="h-3.5 w-3.5" strokeWidth={2} />
+            </LinkButton>
+          </Tooltip>
+        </div>
+
         {/* Share Link and Delete are owner-only server-side
             (requireEventAccess(eventId, "owner") in both routes) — hidden
             here too so a collaborator never sees an action that would just
-            403. Folded into one overflow trigger rather than a separate
-            bordered footer row: unlike Cue Sheet/Remote/Displays (clicked
-            constantly), these two are genuinely low-frequency — exactly
-            what OverflowMenu's own doc comment reserves it for. */}
+            403. Folded into one overflow trigger rather than more row
+            icons: unlike Cue Sheet/Remote/Displays (clicked constantly),
+            these two are genuinely low-frequency — exactly what
+            OverflowMenu's own doc comment reserves it for. */}
         {isOwner && (
           <OverflowMenu
             iconOnly
@@ -308,6 +314,6 @@ function EventCard({ event, onRequestDelete }: { event: EventSummary; onRequestD
         )}
       </div>
       {isOwner && <ShareLinkPanel eventId={event.id} open={shareOpen} onOpenChange={setShareOpen} />}
-    </Panel>
+    </div>
   );
 }

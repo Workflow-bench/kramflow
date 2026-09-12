@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Panel } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -15,6 +14,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useIsOwner, useCanEdit } from "@/lib/event-context";
 import { useToast } from "@/components/ui/toast";
+
+export type SettingsSection = "details" | "auditoriums" | "collaborators" | "integrations" | "danger";
 
 interface Collaborator {
   id: string;
@@ -58,20 +59,31 @@ function timezoneOptions(): { value: string; label: string }[] {
 
 // Four real, distinct configuration domains — Event Details, Auditoriums,
 // Collaborators, and (owner-only) the one destructive action the product
-// has at the event level. Each is its own Panel with its own heading and
-// one-line "what this configures" description, not three <section>s of
-// identical weight inside one box shaped like the modal this used to be
-// (2026-09-01 UI/UX audit: "Event, Auditoriums and Collaborators visually
-// undifferentiated"). Auditorium management had no UI at all before an
-// earlier pass — the API route existed, nothing called it except the Add
-// Item form's read-only dropdown.
+// has at the event level. Each has its own heading and one-line "what this
+// configures" description, not three <section>s of identical weight
+// inside one box shaped like the modal this used to be (2026-09-01 UI/UX
+// audit: "Event, Auditoriums and Collaborators visually undifferentiated").
+// Auditorium management had no UI at all before an earlier pass — the API
+// route existed, nothing called it except the Add Item form's read-only
+// dropdown.
+//
+// Phase 7c: this no longer renders all four domains stacked as separate
+// Panel cards — the page shell (app/e/[eventId]/settings/page.tsx) now
+// picks one section via its own left-nav/mobile-Popover, and this
+// component renders only that section's content, unboxed (a single
+// section is never competing with its siblings for attention, so the
+// card boundary that used to separate them stopped earning its keep).
+// All state/effects below are unchanged and still run regardless of which
+// section is showing — switching sections is instant, never a refetch.
 export function EventSettingsPanel({
+  section,
   eventId,
   initialName,
   auditoriums,
   onAuditoriumsChanged,
   onEventDeleted,
 }: {
+  section: SettingsSection;
   eventId: string;
   initialName: string;
   auditoriums: { id: string; name: string }[];
@@ -319,94 +331,96 @@ export function EventSettingsPanel({
 
   return (
     <div className="flex flex-col gap-6">
-      <Panel className="p-6 flex flex-col gap-4">
-        <div>
-          <SectionLabel>Event Details</SectionLabel>
-          <p className="text-console-meta text-muted-2 mt-1">
-            Name, date, venue, and timezone. Shown across the Dashboard, Console, and every display.
-          </p>
-        </div>
-        {!isOwner && (
-          <p className="text-console-meta text-status-orange">{PERMISSION_NOTE}</p>
-        )}
-        <form onSubmit={handleSaveDetails} className="flex flex-col gap-3 max-w-lg">
-          <FormField label="Event name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!isOwner} />
-          </FormField>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <FormField label="Date (optional)">
-              <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} disabled={!isOwner} />
+      {section === "details" && (
+        <div className="flex flex-col gap-4">
+          <div>
+            <SectionLabel>Event Details</SectionLabel>
+            <p className="text-console-meta text-muted-2 mt-1">
+              Name, date, venue, and timezone. Shown across the Dashboard, Console, and every display.
+            </p>
+          </div>
+          {!isOwner && <p className="text-console-meta text-status-orange">{PERMISSION_NOTE}</p>}
+          <form onSubmit={handleSaveDetails} className="flex flex-col gap-3">
+            <FormField label="Event name">
+              <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!isOwner} />
             </FormField>
-            <FormField label="Timezone (optional)">
-              <Select
-                value={timezone}
-                onChange={setTimezone}
-                options={tzOptions}
-                placeholder="Select timezone…"
-                aria-label="Timezone"
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField label="Date (optional)">
+                <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} disabled={!isOwner} />
+              </FormField>
+              <FormField label="Timezone (optional)">
+                <Select
+                  value={timezone}
+                  onChange={setTimezone}
+                  options={tzOptions}
+                  placeholder="Select timezone…"
+                  aria-label="Timezone"
+                  disabled={!isOwner}
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Venue (optional)">
+              <Input
+                value={venue}
+                onChange={(e) => setVenue(e.target.value)}
+                placeholder="e.g. Main Ballroom, 123 Main St"
                 disabled={!isOwner}
               />
             </FormField>
+
+            {isOwner && (
+              <div>
+                <Button type="submit" variant="secondary" size="sm" loading={savingDetails} disabled={!name.trim() || !detailsDirty}>
+                  Save
+                </Button>
+              </div>
+            )}
+          </form>
+        </div>
+      )}
+
+      {section === "auditoriums" && (
+        <div className="flex flex-col gap-4">
+          <div>
+            <SectionLabel>Auditoriums</SectionLabel>
+            <p className="text-console-meta text-muted-2 mt-1">
+              Drives the Add Item form&rsquo;s Production Requirements. An item&rsquo;s auditorium determines which of those fields apply.
+            </p>
           </div>
 
-          <FormField label="Venue (optional)">
-            <Input
-              value={venue}
-              onChange={(e) => setVenue(e.target.value)}
-              placeholder="e.g. Main Ballroom, 123 Main St"
-              disabled={!isOwner}
-            />
-          </FormField>
-
-          {isOwner && (
-            <div>
-              <Button type="submit" variant="secondary" size="sm" loading={savingDetails} disabled={!name.trim() || !detailsDirty}>
-                Save
-              </Button>
-            </div>
+          {auditoriums.length > 0 ? (
+            <ul className="flex flex-col">
+              {auditoriums.map((a) => (
+                <li key={a.id} className="text-console-sm text-primary px-1 py-2.5 border-b border-line-soft">
+                  {a.name}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState title="No auditoriums yet" body="Add one below. It becomes selectable from the Add Item form." />
           )}
-        </form>
-      </Panel>
 
-      <Panel className="p-6 flex flex-col gap-4">
-        <div>
-          <SectionLabel>Auditoriums</SectionLabel>
-          <p className="text-console-meta text-muted-2 mt-1">
-            Drives the Add Item form&rsquo;s Production Requirements. An item&rsquo;s auditorium determines which of those fields apply.
-          </p>
+          {canAddAuditorium ? (
+            <form onSubmit={handleAddAuditorium} className="flex items-end gap-2">
+              <FormField label="New auditorium" className="flex-1">
+                <Input
+                  value={newAuditorium}
+                  onChange={(e) => setNewAuditorium(e.target.value)}
+                  placeholder="e.g. Main Hall"
+                />
+              </FormField>
+              <Button type="submit" variant="secondary" size="sm" loading={addingAuditorium} disabled={!newAuditorium.trim()}>
+                <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                Add
+              </Button>
+            </form>
+          ) : (
+            <p className="text-console-meta text-status-orange">{PERMISSION_NOTE}</p>
+          )}
         </div>
-
-        {auditoriums.length > 0 ? (
-          <ul className="flex flex-col gap-1.5 max-w-lg">
-            {auditoriums.map((a) => (
-              <li key={a.id} className="rounded-control bg-raised border border-line px-3 py-2 text-console-sm text-primary">
-                {a.name}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState title="No auditoriums yet" body="Add one below. It becomes selectable from the Add Item form." className="max-w-lg" />
-        )}
-
-        {canAddAuditorium ? (
-          <form onSubmit={handleAddAuditorium} className="flex items-end gap-2 max-w-lg">
-            <FormField label="New auditorium" className="flex-1">
-              <Input
-                value={newAuditorium}
-                onChange={(e) => setNewAuditorium(e.target.value)}
-                placeholder="e.g. Main Hall"
-              />
-            </FormField>
-            <Button type="submit" variant="secondary" size="sm" loading={addingAuditorium} disabled={!newAuditorium.trim()}>
-              <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-              Add
-            </Button>
-          </form>
-        ) : (
-          <p className="text-console-meta text-status-orange">{PERMISSION_NOTE}</p>
-        )}
-      </Panel>
+      )}
 
       {/* Report finding #26 — minimum-viable role-based permissions.
           "editor" can edit the cue sheet but not run the live show or touch
@@ -415,118 +429,120 @@ export function EventSettingsPanel({
           collaborators/route.ts's requireEventAccess(..., "owner")), so a
           collaborator sees the list but not the invite form or remove
           buttons. */}
-      <Panel className="p-6 flex flex-col gap-4">
-        <div>
-          <SectionLabel>Collaborators</SectionLabel>
-          <p className="text-console-meta text-muted-2 mt-1">
-            Editors can edit the cue sheet but can&rsquo;t run the live show. Viewers can only look.
-          </p>
-        </div>
-
-        {collaboratorsError ? (
-          <EmptyState
-            title="Couldn't load collaborators"
-            body={`This isn't the same as having none. The list failed to load (${collaboratorsError}). Try reloading the page.`}
-          />
-        ) : collaborators.length > 0 ? (
-          <ul className="flex flex-col gap-2">
-            {collaborators.map((c) => (
-              <li key={c.id} className="rounded-control bg-raised border border-line px-3 py-2.5">
-                {/* Identity / Role / Status / Actions — four distinct facts,
-                    not one generic badge doing double duty (2026-09-01
-                    audit). Role and status are separate Badge families:
-                    role is a stable fact about permission tier, status is
-                    the invite's own lifecycle — collapsing them would lose
-                    which is which. */}
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-console-sm text-primary truncate min-w-0">{c.invited_email}</span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge tone="muted" className="capitalize">
-                      {c.role}
-                    </Badge>
-                    <Badge tone={c.status === "pending" ? "orange" : "green"} dot>
-                      {c.status === "pending" ? "Pending" : "Accepted"}
-                    </Badge>
-                    {isOwner && (
-                      <Tooltip content={c.status === "pending" ? "Revoke invite" : "Remove collaborator"}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          square
-                          aria-label={c.status === "pending" ? `Revoke invite to ${c.invited_email}` : `Remove ${c.invited_email}`}
-                          onClick={() => removeConfirm.request(c)}
-                          disabled={removingId === c.id}
-                        >
-                          <X className="h-3.5 w-3.5" strokeWidth={2} />
-                        </Button>
-                      </Tooltip>
-                    )}
-                  </div>
-                </div>
-                {c.status === "pending" && isOwner && c.invite_token && (
-                  <div className="flex items-center gap-1 pt-1.5 -ml-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleCopyInviteLink(c.invite_token!)}
-                    >
-                      <Copy className="h-3 w-3" strokeWidth={2} />
-                      Copy invite link
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleResendInvite(c)}
-                      disabled={removingId === c.id}
-                    >
-                      <RefreshCw className="h-3 w-3" strokeWidth={2} />
-                      Resend
-                    </Button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState
-            title="No collaborators yet"
-            body={isOwner ? "Invite someone below to give them access to this event." : "Only you and the event owner have access right now."}
-          />
-        )}
-
-        {isOwner && (
-          <>
-            <form onSubmit={handleInvite} className="flex items-end gap-2 flex-wrap">
-              <FormField label="Add by email" className="flex-1 min-w-[10rem]">
-                <Input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="name@example.com"
-                />
-              </FormField>
-              <FormField label="Role" className="w-32">
-                <Select
-                  value={inviteRole}
-                  onChange={(v) => setInviteRole(v as "editor" | "viewer")}
-                  options={[
-                    { value: "editor", label: "Editor" },
-                    { value: "viewer", label: "Viewer" },
-                  ]}
-                />
-              </FormField>
-              <Button type="submit" variant="secondary" size="sm" loading={inviting} disabled={!inviteEmail.trim()}>
-                <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-                Add
-              </Button>
-            </form>
-            <p className="text-console-meta text-muted-2">
-              If they don&rsquo;t have a Kramflow account yet, we&rsquo;ll email them an invite to create one and join
-              this event.
+      {section === "collaborators" && (
+        <div className="flex flex-col gap-4">
+          <div>
+            <SectionLabel>Collaborators</SectionLabel>
+            <p className="text-console-meta text-muted-2 mt-1">
+              Editors can edit the cue sheet but can&rsquo;t run the live show. Viewers can only look.
             </p>
-          </>
-        )}
-      </Panel>
+          </div>
+
+          {collaboratorsError ? (
+            <EmptyState
+              title="Couldn't load collaborators"
+              body={`This isn't the same as having none. The list failed to load (${collaboratorsError}). Try reloading the page.`}
+            />
+          ) : collaborators.length > 0 ? (
+            <ul className="flex flex-col">
+              {collaborators.map((c) => (
+                <li key={c.id} className="py-2.5 border-b border-line-soft">
+                  {/* Identity / Role / Status / Actions — four distinct facts,
+                      not one generic badge doing double duty (2026-09-01
+                      audit). Role and status are separate Badge families:
+                      role is a stable fact about permission tier, status is
+                      the invite's own lifecycle — collapsing them would lose
+                      which is which. */}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-console-sm text-primary truncate min-w-0">{c.invited_email}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge tone="muted" className="capitalize">
+                        {c.role}
+                      </Badge>
+                      <Badge tone={c.status === "pending" ? "orange" : "green"} dot>
+                        {c.status === "pending" ? "Pending" : "Accepted"}
+                      </Badge>
+                      {isOwner && (
+                        <Tooltip content={c.status === "pending" ? "Revoke invite" : "Remove collaborator"}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            square
+                            aria-label={c.status === "pending" ? `Revoke invite to ${c.invited_email}` : `Remove ${c.invited_email}`}
+                            onClick={() => removeConfirm.request(c)}
+                            disabled={removingId === c.id}
+                          >
+                            <X className="h-3.5 w-3.5" strokeWidth={2} />
+                          </Button>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </div>
+                  {c.status === "pending" && isOwner && c.invite_token && (
+                    <div className="flex items-center gap-1 pt-1.5 -ml-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopyInviteLink(c.invite_token!)}
+                      >
+                        <Copy className="h-3 w-3" strokeWidth={2} />
+                        Copy invite link
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleResendInvite(c)}
+                        disabled={removingId === c.id}
+                      >
+                        <RefreshCw className="h-3 w-3" strokeWidth={2} />
+                        Resend
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState
+              title="No collaborators yet"
+              body={isOwner ? "Invite someone below to give them access to this event." : "Only you and the event owner have access right now."}
+            />
+          )}
+
+          {isOwner && (
+            <>
+              <form onSubmit={handleInvite} className="flex items-end gap-2 flex-wrap">
+                <FormField label="Add by email" className="flex-1 min-w-[10rem]">
+                  <Input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="name@example.com"
+                  />
+                </FormField>
+                <FormField label="Role" className="w-32">
+                  <Select
+                    value={inviteRole}
+                    onChange={(v) => setInviteRole(v as "editor" | "viewer")}
+                    options={[
+                      { value: "editor", label: "Editor" },
+                      { value: "viewer", label: "Viewer" },
+                    ]}
+                  />
+                </FormField>
+                <Button type="submit" variant="secondary" size="sm" loading={inviting} disabled={!inviteEmail.trim()}>
+                  <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                  Add
+                </Button>
+              </form>
+              <p className="text-console-meta text-muted-2">
+                If they don&rsquo;t have a Kramflow account yet, we&rsquo;ll email them an invite to create one and join
+                this event.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Guardrail tier 4 (docs/DESIGN.md) — the same weight and typed-
           confirmation pattern the Dashboard's own Delete Event uses,
@@ -534,9 +550,12 @@ export function EventSettingsPanel({
           event would actually look for it. Owner-only and hidden (not
           merely disabled) for anyone else — there is no legitimate reason
           for a non-owner to see a control this consequential for an event
-          they don't own. */}
-      {isOwner && (
-        <Panel className="p-6 flex flex-col gap-4 border-status-red/30">
+          they don't own. Still a bordered surface, deliberately — a
+          destructive action earning visual distinction from the rest of
+          Settings' otherwise-unboxed sections is the one exception Phase
+          7c's own brief calls for, not a leftover card. */}
+      {section === "danger" && isOwner && (
+        <div className="flex flex-col gap-4 rounded-panel border border-status-red/30 p-4">
           <div>
             <SectionLabel className="text-status-red">Danger Zone</SectionLabel>
             <p className="text-console-meta text-muted-2 mt-1">
@@ -549,7 +568,7 @@ export function EventSettingsPanel({
               Delete Event
             </Button>
           </div>
-        </Panel>
+        </div>
       )}
 
       <ConfirmDialog

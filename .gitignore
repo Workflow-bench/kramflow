@@ -59,3 +59,6 @@ next-env.d.ts
 
 # graphify - local codebase-analysis artifact, not app code
 /graphify-out/
+
+# Supabase CLI local cache — not app code
+/supabase/.temp/
