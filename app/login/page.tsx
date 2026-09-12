@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
+import { Wordmark } from "@/components/site/wordmark";
 
 // proxy.ts sets `next` to the pathname a signed-out operator was redirected
 // from, but it's still an attacker-controllable query param on a public
@@ -96,9 +97,18 @@ function LoginForm() {
         {/* The one recovery path missing from this page for anyone who
             landed here by accident or a stray bookmark — there was
             previously no way back to the public site short of editing the
-            URL (2026-09-01 UI/UX audit finding #17). */}
-        <Link href="/" className="text-console-md font-semibold text-primary hover:opacity-80 transition-opacity">
-          KramFlow
+            URL (2026-09-01 UI/UX audit finding #17).
+            Now the shared `Wordmark`, not a hardcoded "KramFlow" string —
+            this was the only place on the site still spelling the brand
+            with a capital F, and the only place using the console's own
+            type scale (`text-console-md`) for what is, here, the brand
+            mark rather than an operational label. Same component the
+            landing nav/footer render, same focus ring. */}
+        <Link
+          href="/"
+          className="-my-3 rounded-chip py-3 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <Wordmark />
         </Link>
         <p className="text-console-sm text-muted mt-2">Log in to your account</p>
 

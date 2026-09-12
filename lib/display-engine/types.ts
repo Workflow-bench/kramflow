@@ -30,7 +30,13 @@ export type DisplayType =
 // this DisplayType union or from each other.
 export const DISPLAY_TYPES: { value: DisplayType; label: string; route: string }[] = [
   { value: "presenter", label: "Presenter", route: "/presenter" },
-  { value: "green-room", label: "Green Room", route: "/green-room" },
+  // "Speaker Ready" is the term conference and corporate-event teams
+  // actually use for this room, and the product already speaks it — the
+  // remote's "Mark Speaker Ready" action and the ready badge on
+  // stage-next-card both predate this. Only the human-readable label
+  // changed; `value` and `route` stay `green-room`, so stored display
+  // types, share links and existing display URLs are untouched.
+  { value: "green-room", label: "Speaker Ready", route: "/green-room" },
   { value: "av", label: "AV", route: "/av" },
   { value: "general", label: "General", route: "/general" },
   { value: "custom", label: "Custom", route: "/presenter" },

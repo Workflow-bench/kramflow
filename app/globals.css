@@ -5,21 +5,34 @@
   prefers-color-scheme switch — the use scene is a darkened venue and a
   production gallery, not an office.
 
-  Two scales live here, deliberately (see docs/DESIGN.md, Phase 3 of the
-  from-scratch UX rethink):
+  Two scales live here, deliberately (see DESIGN.md):
 
     Console — operator surfaces, read at 18-24in. Dense instrument.
     Stage   — TV/display surfaces, read at 5-15ft. Hero typography.
 
-  This is a full replacement of the prior token set, not a re-tint of it —
-  the prior values were found, on review, to be identical to an earlier
-  rejected design-system proposal ("Nexus"). Every value below was
-  independently re-derived and re-verified visually, not copied.
+  kramflow-v3 (2026-09-09) — full visual-world replacement, not a re-tint.
+  Console adopts real macOS 26 "Liquid Glass" material language: genuine
+  translucency/blur on chrome and floating surfaces (not flat opaque
+  panels), the actual macOS system color ramp (extracted directly from
+  Apple's own macOS 26 Figma reference, not approximated), continuous
+  "squircle" radii replacing the prior rack-hardware sharp-corner
+  philosophy, and a systematic vibrancy opacity ladder (10/8/5/3/2%) for
+  every hover/press/selected state instead of per-component ad hoc values.
+  This is a deliberate, explicit reversal of kramflow-v2's "no gradients,
+  glassmorphism, or decorative imagery" guardrail — that guardrail was
+  right for what it was reacting to (Console had none of this vocabulary
+  and needed discipline more than expression); the brief for this pass is
+  the opposite: adopt a real, named, evidenced material system in full,
+  not decorate around its edges. Show-state semantics (what green/orange/
+  red/blue *mean*), the type scale, and Stage surfaces are unchanged —
+  this is Console's material and geometry, not its information model.
 */
 :root {
-  /* ── Chrome. Warm graphite, not cool slate — a live-event control room
-       runs warm-black hardware under practical stage light, not a
-       cool-blue screen glow. Achromatic; carries no meaning. ──────────── */
+  /* ── Chrome. Still warm-neutral, not cool slate — the use scene is a
+       darkened venue under practical stage light — but the surfaces
+       themselves are now genuinely translucent (see --glass-* below),
+       not flat opaque fills. These base tones are what shows *through*
+       the glass, not the glass itself. ──────────────────────────────── */
   --color-background: #0c0b09;
   --color-card: #17140f;
   --color-card-hover: #201c15;
@@ -33,24 +46,49 @@
   --color-muted-2: #8a8070; /* 5.2:1 on bg, 4.9:1 on card, 4.5:1 on raised */
 
   /* ── Show state. Same four roles operators are trained on (a live show is
-       the wrong place to retrain muscle memory) — deeper and less neon
-       than a typical dark-dashboard status set, tuned for the warm ground
-       above rather than a cool-slate one. ──────────────────────────────── */
-  --color-green: #2bb673; /* live / go / ready      8.9:1 */
-  --color-orange: #e8a33d; /* standby / warning      9.8:1 */
-  --color-red: #e5484d; /* alert / not ready       5.3:1 */
-  --color-blue: #4b8fe3; /* next / informational    6.1:1 */
+       the wrong place to retrain muscle memory) — now the real macOS 26
+       system color values (extracted via the Figma Plugin API from the
+       "Colors" reference page of Apple's own macOS 26 Community file,
+       dark-mode column), not a project-tuned approximation of them. Any
+       macOS user's color intuition (green=go, red=stop, orange=caution,
+       blue=informational) now transfers exactly, not approximately. ──── */
+  --color-green: #30d158; /* live / go / ready      — macOS systemGreen (dark) */
+  --color-orange: #ff9f0a; /* standby / warning      — macOS systemOrange (dark) */
+  --color-red: #ff453a; /* alert / not ready       — macOS systemRed (dark) */
+  --color-blue: #0a84ff; /* next / informational    — macOS systemBlue (dark) */
 
-  /* ── Interface state. Never means show status.
-       Deliberately neutral, not a fifth hue — confirmed against StageTimer's
-       own UI (2026-08-17 audit): selection is a plain white ring, the
-       primary action is a light/white fill, and pressed states go to a
-       light fill, never a colored one. A dedicated violet "interface accent"
-       here previously was this project's own invention, not drawn from any
-       reference; removed for exactly that reason. Reuses --color-primary's
-       exact value so "selected/focused" reads as "the same off-white the
-       UI's text already uses," not a new color introduced for the role. ── */
+  /* ── Interface state. Never means show status. Still equals --color-primary
+       exactly (selection/focus reads as "the same off-white the UI's text
+       already uses") — real macOS selection/focus is a plain light fill or
+       a system-blue ring, never a dedicated interface hue, so this
+       kramflow-v2 decision survives the v3 material change unchanged. ── */
   --color-accent: #f4efe5;
+
+  /* ── Vibrancy ladder. The actual five-step opacity system macOS 26 uses
+       for hover/pressed/selected states on translucent materials
+       (extracted from the Figma reference's "Materials" page swatches:
+       white-on-dark at 10/8/5/3/2%, mirrored as black-on-light) — replaces
+       kramflow-v2's scattered per-component values (/12, /20, /25, /6...)
+       with one systematic scale every interactive surface pulls from. ─── */
+  --overlay-1: rgba(255, 255, 255, 0.1); /* hover */
+  --overlay-2: rgba(255, 255, 255, 0.08); /* pressed */
+  --overlay-3: rgba(255, 255, 255, 0.05); /* selected (subtle) */
+  --overlay-4: rgba(255, 255, 255, 0.03); /* raised-on-raised separation */
+  --overlay-5: rgba(255, 255, 255, 0.02); /* barely-there hairline fill */
+
+  /* ── Liquid Glass material. A real macOS 26 surface is translucent with
+       a soft top-edge highlight, not a flat tint — this is the minimum
+       vocabulary for that on the web: a semi-transparent base tint (let
+       the blurred content actually show through) plus an inset highlight
+       standing in for the gloss real Liquid Glass renders via specular
+       light. Two depths: -chrome for the persistent nav/toolbar layer
+       (lighter, more transparent — it's always there, so it stays
+       quietest), -panel for content surfaces that still need to read as
+       "glass," not "a card" (Controls, Live Now, modals' content layer). */
+  --glass-chrome-bg: rgba(23, 20, 15, 0.65);
+  --glass-panel-bg: rgba(23, 20, 15, 0.55);
+  --glass-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+  --glass-blur: 24px;
 }
 
 @theme inline {
@@ -68,16 +106,30 @@
   --color-status-blue: var(--color-blue);
   --color-status-orange: var(--color-orange);
   --color-status-red: var(--color-red);
+  --color-overlay-1: var(--overlay-1);
+  --color-overlay-2: var(--overlay-2);
+  --color-overlay-3: var(--overlay-3);
+  --color-overlay-4: var(--overlay-4);
+  --color-overlay-5: var(--overlay-5);
+  --color-glass-chrome: var(--glass-chrome-bg);
+  --color-glass-panel: var(--glass-panel-bg);
 
   --font-sans: var(--font-inter);
   --font-mono: var(--font-plex-mono);
+  /* Brand/Marketing display voice only — see app/layout.tsx. Never set on
+     a Console or Stage surface: those are Inter by design. */
+  --font-display: var(--font-archivo);
 
-  /* Console radius. Sharper than a typical soft SaaS card — closer to
-     rack-hardware panelling, and buys back vertical space in a list that
-     scrolls past 40 rows. */
-  --radius-panel: 0.25rem; /* 4px — panels, popovers, cards */
-  --radius-control: 0.1875rem; /* 3px — buttons, inputs, selects */
-  --radius-chip: 0.125rem; /* 2px — tags, badges, counters */
+  /* Console radius — kramflow-v3: continuous "squircle" geometry (real
+     macOS 26 corner language, confirmed against the Figma reference's
+     Liquid Glass component swatches), replacing v2's deliberately sharp
+     rack-hardware radii. Still three tiers by role, just re-tuned: chips
+     stay small enough not to look like buttons, controls get a real
+     macOS-control radius, panels get the generous, continuous-feeling
+     corner a glass surface needs to read as one soft object. */
+  --radius-panel: 1rem; /* 16px — panels, popovers, cards */
+  --radius-control: 0.625rem; /* 10px — buttons, inputs, selects */
+  --radius-chip: 0.375rem; /* 6px — tags, badges, counters */
 
   --radius-card: 1.25rem; /* 20px — Stage surfaces only, unchanged */
 
@@ -182,6 +234,46 @@
       transform: translateY(0);
     }
   }
+
+  /* ── Landing page only (app/page.tsx) — Persuade mode, a different rule
+       than Console's "nothing ambient" motion restraint. The hero's
+       live-sync diagram: a signal travels from Console to each display
+       node on a loop, meaning something specific (this is what "live sync"
+       actually looks like), not decoration for its own sake. */
+  --animate-signal-flow: signal-flow 3.5s ease-in-out infinite;
+  --animate-node-pulse: node-pulse 3.5s ease-in-out infinite;
+
+  @keyframes signal-flow {
+    0% {
+      stroke-dashoffset: 40;
+      opacity: 0;
+    }
+    8% {
+      opacity: 1;
+    }
+    45% {
+      stroke-dashoffset: -120;
+      opacity: 1;
+    }
+    55% {
+      opacity: 0;
+    }
+    100% {
+      stroke-dashoffset: -120;
+      opacity: 0;
+    }
+  }
+
+  @keyframes node-pulse {
+    0%,
+    100% {
+      opacity: 0.4;
+    }
+    45%,
+    55% {
+      opacity: 1;
+    }
+  }
 }
 
 html {
@@ -214,6 +306,83 @@ body {
   color: var(--color-primary);
   font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-feature-settings: "cv11" 1;
+}
+
+/* Liquid Glass surfaces — kramflow-v3, scope corrected at Phase 5 (UI Shell
+   v2). Two reusable classes rather than repeating backdrop-blur + tint +
+   highlight at every call site: .glass-chrome for the persistent nav/toolbar
+   layer (EventShellHeader), .glass-panel for functional chrome elsewhere —
+   popovers, sheets, floating/toolbar surfaces. Console *content* (Controls,
+   Live Now) no longer uses .glass-panel as of Phase 5: the operator's eye
+   needs to land on the live item as the operational center, not on "the
+   glass one among the glass ones," and glass applied to every content panel
+   reads as decoration rather than the functional-layering signal it's meant
+   to carry. .glass-panel is still exactly right for Select/overflow-menu's
+   dropdown, command-palette, and any future Sheet — floating UI that is
+   genuinely layered above the content underneath it. The inset highlight is
+   the cheap, correct stand-in for the specular gloss real Liquid Glass
+   renders via actual light physics — a single 1px inset line, not a
+   decorative gradient sweep. */
+.glass-chrome {
+  background: var(--glass-chrome-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  box-shadow: var(--glass-highlight);
+}
+
+.glass-panel {
+  background: var(--glass-panel-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
+  box-shadow: var(--glass-highlight);
+}
+
+/* ── Brand/Marketing display type. One class, not a second type scale:
+   the landing page sets its own sizes inline (Persuade mode reads at a
+   different scale than any product surface), this just carries the face,
+   the optical-size-appropriate weight, and the tracking those sizes need. */
+.font-display {
+  font-family: var(--font-archivo), var(--font-inter), sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+}
+
+/* ── Browser surfaces. The parts we did not draw still carry the design:
+   left at their defaults, selection renders Chrome blue and the scrollbar
+   renders system gray on a warm-graphite page, which is the single most
+   reliable tell that a page was assembled rather than built. Themed from
+   the same tokens everything else uses. Global on purpose — the product
+   has the same problem and the same answer. */
+::selection {
+  background: color-mix(in srgb, var(--color-orange) 28%, transparent);
+  color: var(--color-primary);
+}
+
+:root {
+  scrollbar-color: var(--color-line) transparent;
+  scrollbar-width: thin;
+  /* Orange means warning / behind schedule / rehearsal everywhere else in
+     this product — using it for the plain text-input caret spent that
+     semantic color on pure decoration, and read as a stray amber flicker
+     against the neutral warm-white focus ring around it. The caret now
+     matches the text it's typing into, which is also just the sane
+     default every browser already uses when this isn't overridden. */
+  caret-color: var(--color-primary);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 999px;
+  border: 3px solid var(--color-background);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-raised);
 }
 
 /* Time is the primary data in a run-of-show tool. Anywhere digits stack in
