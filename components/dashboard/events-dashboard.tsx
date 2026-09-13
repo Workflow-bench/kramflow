@@ -252,9 +252,9 @@ function EventRow({ event, onRequestDelete }: { event: EventSummary; onRequestDe
     >
       <div className="min-w-0 flex-1 basis-64">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className={cn("text-console-row truncate", event.isLive ? "text-primary font-semibold" : "text-primary font-medium")}>
+          <h3 className={cn("text-console-row truncate", event.isLive ? "text-primary font-semibold" : "text-primary font-medium")}>
             {event.name}
-          </p>
+          </h3>
           {event.isLive && <OperationalStatus kind="live" />}
           {!isOwner && (
             <Badge tone="muted" className="capitalize">
