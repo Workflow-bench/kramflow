@@ -34,6 +34,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # next-env.d.ts (the ambient `.png`/`.svg` import declarations) is
+      # gitignored and only ever generated as a side effect of `next dev`/
+      # `build`/`lint`. On a fresh CI checkout nothing has run yet, so
+      # `tsc --noEmit` below would fail every static image import with
+      # TS2307. `next typegen` generates it standalone, no secrets needed.
+      - name: Generate Next.js types
+        run: npx next typegen
+
       - name: Typecheck
         run: npx tsc --noEmit
 
