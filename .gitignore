@@ -59,6 +59,12 @@ next-env.d.ts
 
 # graphify - local codebase-analysis artifact, not app code
 /graphify-out/
+scripts/.capture-context.json
 
-# Supabase CLI local cache — not app code
+# supabase CLI local cache
 /supabase/.temp/
+
+# migration runbooks and handoff docs - working docs, not app code
+/*.docx
+/pilot_readiness_v2_evidence_draft.md
+/smoke_test_instructions_for_deep.md

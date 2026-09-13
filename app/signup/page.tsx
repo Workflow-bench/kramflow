@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
+import { Wordmark } from "@/components/site/wordmark";
 
 function SignupForm() {
   const searchParams = useSearchParams();
@@ -67,7 +68,13 @@ function SignupForm() {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
         <Panel className="w-full max-w-sm text-center p-6">
-          <h1 className="text-console-lg text-primary">Check your email</h1>
+          {/* The one real heading on this screen, so it gets the same
+              display voice as every other heading on the site
+              (font-display) instead of the product console's own
+              operational type scale — that scale is right for a label
+              inside a running show, not for the one sentence a brand-new
+              visitor reads here. */}
+          <h1 className="font-display text-[1.75rem] text-primary">Check your email</h1>
           <p className="text-console-sm text-muted mt-3">
             We sent a confirmation link to <span className="text-primary">{email}</span>. Click it to activate your
             account, then come back and log in.
@@ -83,8 +90,14 @@ function SignupForm() {
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
       <div className="flex flex-col items-center w-full max-w-sm">
-        <Link href="/" className="text-console-md font-semibold text-primary hover:opacity-80 transition-opacity">
-          KramFlow
+        {/* Matches app/login/page.tsx's Wordmark treatment — see that
+            file's comment for why the plain "KramFlow" text was wrong on
+            both counts (wrong case, wrong type scale). */}
+        <Link
+          href="/"
+          className="-my-3 rounded-chip py-3 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <Wordmark />
         </Link>
         <p className="text-console-sm text-muted mt-2">Create your operator account</p>
 
