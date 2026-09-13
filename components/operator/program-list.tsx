@@ -34,6 +34,15 @@ export function ProgramList({ session }: { session: Session }) {
               : program.order < currentOrder
                 ? "done"
                 : "upcoming";
+        // The rundown's own "clear relationship" between current/next/on
+        // deck (Phase 5 brief) — RunPosition already states this in Live
+        // Now; this is the same fact restated where an operator scanning
+        // the list itself would otherwise have to count rows from the
+        // green one. Restrained: a bare dot, same status-blue/muted-2/70
+        // pairing RunPosition uses for Next/On Deck, never a second fill
+        // color competing with the live row's green.
+        const isNext = currentOrder !== null && program.order === currentOrder + 1;
+        const isOnDeck = currentOrder !== null && program.order === currentOrder + 2;
         const previousPartitionId = index > 0 ? session.items[index - 1].partitionId : null;
         const showSectionHeader = program.partitionId !== null && program.partitionId !== previousPartitionId;
         const sectionHeaderLabel = program.partitionId ? partitionsById.get(program.partitionId)?.label : null;
@@ -57,7 +66,14 @@ export function ProgramList({ session }: { session: Session }) {
             {program.type === "break" ? (
               <BreakRow program={program} status={status} onClick={onClick} />
             ) : (
-              <ItemRow program={program} status={status} hasNotes={hasNotes} onClick={onClick} />
+              <ItemRow
+                program={program}
+                status={status}
+                hasNotes={hasNotes}
+                isNext={isNext}
+                isOnDeck={isOnDeck}
+                onClick={onClick}
+              />
             )}
           </div>
         );
@@ -115,11 +131,15 @@ function ItemRow({
   program,
   status,
   hasNotes,
+  isNext,
+  isOnDeck,
   onClick,
 }: {
   program: Program;
   status: RowStatus;
   hasNotes: boolean;
+  isNext?: boolean;
+  isOnDeck?: boolean;
   onClick?: () => void;
 }) {
   const meta = [program.presenter, program.scheduledStart, program.durationMinutes > 0 ? `${program.durationMinutes}m` : null]
@@ -132,7 +152,7 @@ function ItemRow({
       onClick={onClick}
       disabled={!onClick}
       aria-current={status === "live" ? "true" : undefined}
-      aria-label={`Jump to ${program.title}${program.presenter ? `, ${program.presenter}` : ""}${status === "live" ? " (live)" : status === "done" ? " (done)" : ""}`}
+      aria-label={`Jump to ${program.title}${program.presenter ? `, ${program.presenter}` : ""}${status === "live" ? " (live)" : status === "done" ? " (done)" : isNext ? " (next)" : isOnDeck ? " (on deck)" : ""}`}
       className={cn(
         "w-full flex items-start sm:items-center gap-3 sm:gap-4 py-2.5 px-3 min-h-11 text-left border-b border-line-soft",
         "transition-colors duration-[110ms] ease-out",
@@ -147,8 +167,17 @@ function ItemRow({
         status === "done" && "opacity-55"
       )}
     >
-      <span className="tnum w-6 text-console-meta text-muted-2 shrink-0 pt-0.5 sm:pt-0 text-right">
+      <span className="relative tnum w-6 text-console-meta text-muted-2 shrink-0 pt-0.5 sm:pt-0 text-right">
         {program.order}
+        {(isNext || isOnDeck) && (
+          <span
+            aria-hidden="true"
+            className={cn(
+              "absolute -left-2.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full",
+              isNext ? "bg-status-blue" : "bg-muted-2/70"
+            )}
+          />
+        )}
       </span>
 
       <div className="min-w-0 flex-1">

@@ -34,10 +34,12 @@ import { OperationalStatus } from "@/components/ui/operational-status";
 import { BigActionButton } from "@/components/remote/big-action-button";
 import { QuickActionButton } from "@/components/remote/quick-action-button";
 import { TimeCorrectionControl } from "@/components/operator/time-correction-control";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useDialogFocus } from "@/components/ui/use-dialog-focus";
+import { isTopmostOverlay, popOverlay, pushOverlay } from "@/components/ui/overlay-stack";
 import { MaybeTooltip } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -223,9 +225,26 @@ export default function RemotePage() {
       {/* Compact header — session context, not a full navigation bar */}
       <div className="shrink-0 px-6 pt-6 pb-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-caption text-muted-2 truncate min-w-0">
-            {session.dayLabel} • {session.sessionLabel}
-          </p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {/* Remote had no way back to the Console/Dashboard at all — an
+                operator who opened Remote from a shared link or a home-
+                screen bookmark had to hand-edit the URL to leave it. One
+                small icon-button, not a full nav bar, matching this
+                header's own "compact, not a navigation bar" framing. */}
+            <LinkButton
+              href={`/e/${eventId}/operator`}
+              variant="ghost"
+              size="sm"
+              square
+              aria-label="Back to Console"
+              className="h-11 w-11 -ml-1.5 -my-1.5 shrink-0"
+            >
+              <ChevronLeft className="h-4 w-4" strokeWidth={2} />
+            </LinkButton>
+            <p className="text-caption text-muted-2 truncate min-w-0">
+              {session.dayLabel} • {session.sessionLabel}
+            </p>
+          </div>
           <div className="flex items-center gap-3 shrink-0">
             {/* Report finding #34 (connection-badge.tsx's own comment) fixed
                 the Operator Console and every display screen — Remote was
@@ -306,23 +325,42 @@ export default function RemotePage() {
             <p className="text-title text-primary mt-2 leading-tight">{live?.title}</p>
             {live?.presenter && <p className="text-body text-muted mt-1">{live.presenter}</p>}
 
-            {live && live.type === "item" && live.durationMinutes > 0 && (
-              <div className="mt-8 w-full max-w-xs">
-                <p className={cn("text-hero tabular-nums", countdown.isOverrun ? "text-status-red" : "text-primary")}>
-                  {countdown.isOverrun ? "+" : ""}
-                  {formatClock(countdown.remainingSeconds)}
-                </p>
-                <div className="mt-4">
-                  <ProgressBar
-                    fraction={countdown.fraction}
-                    tone={state.pausedAt ? "orange" : countdown.isOverrun ? "red" : "green"}
-                  />
+            {live && live.type === "item" && live.durationMinutes > 0 && (() => {
+              const clockLabel = `${countdown.isOverrun ? "+" : ""}${formatClock(countdown.remainingSeconds)}`;
+              // text-hero (92px) was fixed regardless of content — fine for
+              // the common "MM:SS" case, but formatClock adds an unpadded
+              // hour digit past 59:59 with no cap, and a real, reachable
+              // stale/paused show can sit overrun for hours. At this
+              // column's own 320px cap (max-w-xs), a 9-character overrun
+              // string ("+20:47:33") clipped off-screen against this div's
+              // overflow-hidden ancestor (confirmed live, not assumed) —
+              // dropping to text-title (42px, an existing token, not a new
+              // one) once the string passes 6 characters keeps every digit
+              // on screen instead of silently eating the tail.
+              const isLong = clockLabel.length > 6;
+              return (
+                <div className="mt-8 w-full max-w-xs">
+                  <p
+                    className={cn(
+                      "tabular-nums",
+                      isLong ? "text-title" : "text-hero",
+                      countdown.isOverrun ? "text-status-red" : "text-primary"
+                    )}
+                  >
+                    {clockLabel}
+                  </p>
+                  <div className="mt-4">
+                    <ProgressBar
+                      fraction={countdown.fraction}
+                      tone={state.pausedAt ? "orange" : countdown.isOverrun ? "red" : "green"}
+                    />
+                  </div>
+                  <div className="mt-5">
+                    <TimeCorrectionControl compact />
+                  </div>
                 </div>
-                <div className="mt-5">
-                  <TimeCorrectionControl compact />
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Read-only context — the actual Speaker Ready control lives in
                 the fixed thumb zone below (Kramflow/Stagetimer competitive
@@ -468,9 +506,18 @@ export default function RemotePage() {
                   Previous
                 </BigActionButton>
               </MaybeTooltip>
+              {/* Phase 7f: was variant="secondary" — the same outlined
+                  treatment as Previous, so Hold read as equal-weight to a
+                  step-back control instead of the primary transport action
+                  it actually is (paired with Next in the brief's own
+                  thumb-zone hierarchy). Filled like Next, just shorter
+                  (h-16 vs h-28) — primary tier, not AS primary as Next.
+                  "warning" while paused is unchanged and stays even more
+                  prominent, since resuming is the one action everything
+                  else is blocked behind. */}
               <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
                 <BigActionButton
-                  variant={state.pausedAt ? "warning" : "secondary"}
+                  variant={state.pausedAt ? "warning" : "primary"}
                   className="h-16 text-base"
                   onClick={() => run("hold", togglePause)}
                   disabled={!isOwner || pending !== null}
@@ -650,6 +697,28 @@ function QuickPanel({
   const [notesValue, setNotesValue] = useState(currentNotes);
   const [broadcastValue, setBroadcastValue] = useState("");
 
+  // QuickPanel is an inline sheet, not a full-viewport Modal, but it's still
+  // a transient overlay the operator opens and needs to dismiss quickly —
+  // same autofocus-on-open + Escape-to-close contract as Modal/ConfirmDialog
+  // (components/ui/use-dialog-focus.ts, components/ui/overlay-stack.ts),
+  // reused rather than reinvented so a stacked ConfirmDialog (jump's own
+  // "Jump Here?" confirm, opened from inside this panel) is the one that
+  // actually closes on Escape, not both at once.
+  const [overlayId] = useState(() => Symbol("remote-quick-panel"));
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(true, panelRef);
+  useEffect(() => {
+    pushOverlay(overlayId);
+    return () => popOverlay(overlayId);
+  }, [overlayId]);
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && isTopmostOverlay(overlayId)) onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [overlayId, onClose]);
+
   // QuickPanel stays mounted across sub-panel switches (only which section
   // renders changes) — useState(currentNotes) above only captures the
   // value from the first mount, so switching to the jump/alert/broadcast
@@ -666,7 +735,10 @@ function QuickPanel({
   }
 
   return (
-    <div className="rounded-card bg-card p-5 mb-3">
+    // kramflow-v3: material only, not type or radius — Remote's Stage-scale
+    // type/rounded-card is an explicit, kept DESIGN.md exception; the glass
+    // material is a separate axis and applies here like everywhere else.
+    <div ref={panelRef} className="rounded-card glass-panel p-5 mb-3" tabIndex={-1}>
       <div className="flex items-center justify-between mb-3">
         <p className="text-caption uppercase tracking-wide text-muted-2">
           {panel === "jump"

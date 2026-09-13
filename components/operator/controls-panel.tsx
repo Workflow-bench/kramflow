@@ -207,12 +207,19 @@ export function ControlsPanel({
 
   return (
     <div className="flex flex-col gap-10">
-      {/* One grouped instrument, not four loosely-stacked pieces (spec:
-          "grouping," Uniform Connectedness) — ownership state sits
-          directly against the transport buttons it governs (Law of
-          Proximity) inside a single bordered surface, instead of a plain
-          heading followed by a loose link followed by buttons. */}
-      <div className="rounded-panel border border-line-soft bg-card/40 p-4 flex flex-col gap-4">
+      {/* Kramflow UI Shell v2 (Phase 5): unboxed, matching Live Now — Law
+          of Proximity (ownership state directly against the transport
+          buttons it governs) still does the grouping work; a bordered
+          glass-panel card around the whole thing no longer does, since
+          Phase 5's direction reserves glass for functional chrome and
+          content surfaces stay quiet by default. This is also what removes
+          the one real nested-card in this screen: ControlLeaseStatus below
+          already renders its own bordered, tinted surface (deliberately —
+          "held by other" needs to visually interrupt); it was previously a
+          card inside this card. Now it's the only box in this column,
+          exactly where the Von Restorff emphasis it's built for should
+          land. */}
+      <div className="flex flex-col gap-3 sm:gap-4">
         <div className="flex items-center gap-1.5">
           <SectionLabel>Controls</SectionLabel>
           {/* Shortcuts demoted to a tooltip rather than sitting inline next

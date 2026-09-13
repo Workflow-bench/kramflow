@@ -65,17 +65,37 @@ export function LiveDetailsPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* The live item is the single most important object on this screen
-          during a show — a grouped instrument (same pattern as Controls'
-          own bordered surface below it), not text loosely floating at the
-          same weight as the page around it. Still flat: no shadow, one
-          hairline border, the existing card background ramp. */}
-      <div className="rounded-panel border border-line-soft bg-card/40 p-4">
-        <div className="flex items-center gap-2">
-          <SectionLabel>Live Now</SectionLabel>
-          {state.pausedAt && <OperationalStatus kind="hold" />}
-        </div>
+      {/* Kramflow UI Shell v2 (Phase 5): the live item is the operational
+          center of this screen, not a card among cards — Phase 5's explicit
+          direction is to reserve glass/boxed-surface treatment for
+          functional chrome (nav, toolbar, popover, sheet) and let Console
+          *content* read through typography, spacing, and restrained
+          semantic color instead. This block is deliberately unboxed: no
+          border, no glass-panel fill — just the column's own padding
+          (operator/page.tsx) giving it room to be the thing the eye lands
+          on first. See DESIGN.md's Materials section for the corrected
+          glass-panel scope this supersedes. */}
+      <div className="flex items-center gap-2">
+        {/* A bare status-green dot when genuinely live (matches the
+            documented show-state vocabulary — DESIGN.md's Live Operations
+            table already specs "Ready / live: status-green, bare dot," this
+            was simply never applied here) — the one glance-able cue that
+            was previously missing entirely: "Live Now" as a label reads the
+            same whether the show is running or not. */}
+        {!state.pausedAt && (
+          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-status-green shrink-0" />
+        )}
+        <SectionLabel className={cn(!state.pausedAt && "text-status-green")}>Live Now</SectionLabel>
+        {state.pausedAt && <OperationalStatus kind="hold" />}
+      </div>
 
+      {/* aria-live: an operator using a screen reader hears the live item
+          change without needing to re-scan the page — the brief's own
+          "screen-reader relationship between current/next/on-deck"
+          requirement, previously unaddressed. aria-atomic=false so only the
+          part that actually changed (title, or the countdown ticking) is
+          announced, not the whole block every second. */}
+      <div aria-live="polite" aria-atomic="false">
         {live.kicker && <p className="text-console-meta text-muted-2 mt-3">{live.kicker}</p>}
         <p className="text-console-lg font-semibold text-primary mt-1">{live.title}</p>
         {live.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
@@ -83,7 +103,7 @@ export function LiveDetailsPanel({
         <ProjectedFinishLine session={session} state={state} />
 
         {live.type === "item" && live.durationMinutes > 0 && (
-          <div className="mt-8">
+          <div className="mt-6 sm:mt-8">
             <p
               className={cn(
                 "text-console-headline tabular-nums transition-colors duration-200",

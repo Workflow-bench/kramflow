@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus, Clock, RotateCcw } from "lucide-react";
+import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus, Clock, RotateCcw, ClipboardList } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -30,8 +30,9 @@ import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ColorTagPicker } from "@/components/ui/color-tag-picker";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Panel } from "@/components/ui/card";
+import { Sheet } from "@/components/ui/sheet";
 import { Tooltip } from "@/components/ui/tooltip";
+import { OperationalStatus } from "@/components/ui/operational-status";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/ui/overflow-menu";
 import {
   ActionBar,
@@ -40,7 +41,6 @@ import {
   ActionBarCount,
   ActionBarSeparator,
 } from "@/components/ui/action-bar";
-import { SectionLabel } from "@/components/ui/section-label";
 import { ProgramForm } from "@/components/forms/program-form";
 import { SessionForm } from "@/components/forms/session-form";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
@@ -134,6 +134,43 @@ function formatDurationMinutes(totalMinutes: number): string {
   return `${hours}h ${minutes}m`;
 }
 
+type LivePosition = "current" | "next" | "on-deck" | null;
+
+// The exact CURRENT/NEXT/ON-DECK vocabulary Console's RunPosition and
+// ProgramList establish (Phase 5) — one row-position model reused, not a
+// second one invented for the planning view. `currentOrder` is already
+// gated to null unless this session is the one actually live (see
+// isViewingLiveSession above), so a row in a session that merely looks
+// similar never gets marked live by accident.
+function livePositionFor(sortOrder: number, currentOrder: number | null): LivePosition {
+  if (currentOrder === null) return null;
+  if (sortOrder === currentOrder) return "current";
+  if (sortOrder === currentOrder + 1) return "next";
+  if (sortOrder === currentOrder + 2) return "on-deck";
+  return null;
+}
+
+// Compact, restrained stand-in for "this item carries production
+// requirements worth knowing about before it goes live" — every field here
+// already exists on the row (no extra fetch), it's just never surfaced
+// anywhere in the list today, only inside the Edit form. One icon, not one
+// per field: the brief is explicit that a row must stay scannable, not
+// enumerate every checkbox it's carrying.
+function hasProductionDetail(row: ProgramRow): boolean {
+  return (
+    row.audio_mics ||
+    row.audio_track ||
+    row.backdrop ||
+    row.video_ppt_needed ||
+    row.video_sidescreen !== "none" ||
+    !!row.hall_lights ||
+    !!row.stage_lights ||
+    !!row.camera_angle ||
+    !!row.props ||
+    row.curtains !== null
+  );
+}
+
 function rowToInput(row: ProgramRow): Partial<ProgramInput> {
   return {
     sessionId: row.session_id,
@@ -183,7 +220,7 @@ export default function CueSheetPage() {
   // gates it "owner", the same tier every sequencing action requires), not
   // a content-edit — canEdit ("editor" or above) isn't sufficient here.
   const canResetSession = useIsOwner();
-  const { resetSession } = useEventStore();
+  const { state, resetSession } = useEventStore();
   const sessions = useSessions();
   const toast = useToast();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -466,6 +503,18 @@ export default function CueSheetPage() {
   const searchQuery = search.trim().toLowerCase();
   const activeSession = sessions.find((s) => s.id === activeSessionId);
 
+  // Reuses the exact CURRENT/NEXT/ON-DECK vocabulary the Operator Console
+  // established (Phase 5) — not a second status system. The Cue Sheet is a
+  // planning instrument for every session, not just the one that happens
+  // to be live; live_state.active_session_id is the only source of truth
+  // for which session that is, so the position only ever applies when the
+  // session currently open here is that one. Viewing a different (planning-
+  // only) session shows no live markers at all, same as if nothing were live.
+  const isViewingLiveSession = !!state.activeSessionId && state.activeSessionId === activeSessionId;
+  const liveCurrentOrder = isViewingLiveSession
+    ? (state.progressBySession[state.activeSessionId]?.currentOrder ?? null)
+    : null;
+
   // Memoized — this component has many independent pieces of state
   // (selection, drag, panel toggles) that trigger re-renders without
   // rows/searchQuery changing; without this, every one of those re-runs
@@ -667,7 +716,18 @@ export default function CueSheetPage() {
 
       <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto flex flex-col gap-6">
 
-        {panel === "create-session" && (
+        {/* Kramflow UI Shell v2 (Phase 6): a Sheet, not an inline swap that
+            replaced the whole item list with a form card — creating or
+            renaming a session is a quick, contextual task, not one the
+            operator steps fully out of the rundown to do. The cue sheet
+            stays in place (dimmed) behind it. This is the first real use of
+            the canonical Sheet primitive DESIGN.md's Phase 3-4 audits both
+            flagged as a gap without inventing one to fill it. */}
+        <Sheet
+          open={panel === "create-session"}
+          onClose={() => setPanel("none")}
+          title="New Session"
+        >
           <SessionForm
             eventId={eventId}
             nextSortOrder={sessions.length}
@@ -682,23 +742,37 @@ export default function CueSheetPage() {
             }}
             onCancel={() => setPanel("none")}
           />
-        )}
+        </Sheet>
 
-        {typeof panel === "object" && "editSession" in panel && (
-          <SessionForm
-            eventId={eventId}
-            session={panel.editSession}
-            nextSortOrder={sessions.length}
-            onSaved={() => {
-              setPanel("none");
-              toast.success("Session updated");
-              refetchSessions(eventId);
-            }}
-            onCancel={() => setPanel("none")}
-          />
-        )}
+        <Sheet
+          open={typeof panel === "object" && "editSession" in panel}
+          onClose={() => setPanel("none")}
+          title="Edit Session"
+        >
+          {typeof panel === "object" && "editSession" in panel && (
+            <SessionForm
+              eventId={eventId}
+              session={panel.editSession}
+              nextSortOrder={sessions.length}
+              onSaved={() => {
+                setPanel("none");
+                toast.success("Session updated");
+                refetchSessions(eventId);
+              }}
+              onCancel={() => setPanel("none")}
+            />
+          )}
+        </Sheet>
 
-        {panel === "upload" && (
+        {/* Import stays a Modal, not a Sheet — it's a genuine multi-step
+            task (pick file -> preview -> confirm) with a real data table,
+            matching Add/Edit Item's own "the operator steps out of the
+            rundown to do this" reasoning, not the quick/contextual case
+            Sheet is for. size="xl" gives the preview table room without the
+            three-ish stacked bordered panels this used to render inline in
+            the content column (warning box, preview table, and the panel's
+            own card, one after another). */}
+        <Modal open={panel === "upload"} onClose={() => setPanel("none")} title="Import from Excel" size="xl">
           <UploadPanel
             eventId={eventId}
             sessions={sessions}
@@ -713,7 +787,7 @@ export default function CueSheetPage() {
             }}
             onCancel={() => setPanel("none")}
           />
-        )}
+        </Modal>
 
         {/* Add/Edit Item is a genuinely multi-step configuration task the
             operator steps out of the queue view to do — not a quick,
@@ -776,6 +850,17 @@ export default function CueSheetPage() {
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-baseline gap-2.5 min-w-0 flex-wrap">
                 <h2 className="text-console-md text-primary">Items</h2>
+                {/* Session-level "this is the one actually on air right
+                    now" fact — the same canonical component Console uses
+                    for the identical semantic (show-state, audience-
+                    irrelevant here since only operators see the cue sheet,
+                    but the vocabulary must still match). One badge, not
+                    one per row: row-level position is carried by CURRENT/
+                    NEXT/ON DECK labels below instead, so this doesn't
+                    duplicate that fact, just frames the whole list. */}
+                {isViewingLiveSession && liveCurrentOrder !== null && (
+                  <OperationalStatus kind="live" label="Live now" />
+                )}
                 {rows && rows.length > 0 && (
                   <span className="tnum text-console-meta text-muted-2">
                     {filteredRows?.length ?? 0} of {rows.length}
@@ -939,6 +1024,7 @@ export default function CueSheetPage() {
                       key={row.id}
                       row={row}
                       selected={isSelected}
+                      livePosition={livePositionFor(row.sort_order, liveCurrentOrder)}
                       onToggleSelect={(checked, shiftKey) => toggleSelected(row.id, checked, shiftKey)}
                       onEdit={() => setPanel({ edit: row })}
                       onDelete={() => scheduleDelete([row])}
@@ -989,6 +1075,7 @@ export default function CueSheetPage() {
                             row={row}
                             selected={isSelected}
                             isDragging={activeDragId === row.id}
+                            livePosition={livePositionFor(row.sort_order, liveCurrentOrder)}
                             onToggleSelect={(checked, shiftKey) => toggleSelected(row.id, checked, shiftKey)}
                             onEdit={() => setPanel({ edit: row })}
                             onDelete={() => scheduleDelete([row])}
@@ -1103,6 +1190,8 @@ export default function CueSheetPage() {
 interface ProgramRowViewProps {
   row: ProgramRow;
   selected: boolean;
+  /** CURRENT/NEXT/ON-DECK, or null when this session isn't the live one or nothing is live yet. */
+  livePosition?: LivePosition;
   onToggleSelect: (checked: boolean, shiftKey: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -1118,6 +1207,7 @@ interface ProgramRowViewProps {
 function ProgramRowView({
   row,
   selected,
+  livePosition = null,
   onToggleSelect,
   onEdit,
   onDelete,
@@ -1128,11 +1218,14 @@ function ProgramRowView({
 }: ProgramRowViewProps) {
   const shiftKeyRef = useRef(false);
   const colorTone = colorTagTone(row.color_tag);
+  const isCurrent = livePosition === "current";
+  const detail = hasProductionDetail(row);
+  const remarks = !!row.remarks?.trim();
   return (
     <div
       ref={setNodeRef}
       role="row"
-      aria-label={row.name}
+      aria-label={`${row.name}${isCurrent ? " (current)" : livePosition === "next" ? " (next)" : livePosition === "on-deck" ? " (on deck)" : ""}`}
       style={style}
       data-selected={selected || undefined}
       className={cn(
@@ -1150,8 +1243,13 @@ function ProgramRowView({
         "transition-colors duration-[110ms] ease-out",
         // Selection is a full tinted fill, not a coloured left border —
         // both competitors fill the row, and a 2px accent rail on every
-        // list item is the tell of a design that had no better idea.
-        selected ? "bg-accent/10 hover:bg-accent/15" : "hover:bg-card-hover",
+        // list item is the tell of a design that had no better idea. The
+        // live row gets the identical treatment Console's own rundown uses
+        // for its current row (bg-status-green/10) — one shared visual for
+        // "this is what's on air," not a second invented tint. Selection
+        // still wins if both are somehow true (a live row can be selected
+        // for bulk-edit) since it's the more actionable state in this view.
+        selected ? "bg-accent/10 hover:bg-accent/15" : isCurrent ? "bg-status-green/10" : "hover:bg-card-hover",
         className
       )}
     >
@@ -1178,7 +1276,22 @@ function ProgramRowView({
         }}
       />
 
-      <span role="cell" className="tnum hidden sm:block text-console-meta text-muted-2 text-right">{row.sort_order}</span>
+      <span role="cell" className="relative tnum hidden sm:block text-console-meta text-muted-2 text-right">
+        {row.sort_order}
+        {/* Same dot Console's own rundown (ProgramList) uses for the
+            identical fact, in the identical position relative to the
+            order number — an operator who's used Console today already
+            knows what this means here. */}
+        {(livePosition === "next" || livePosition === "on-deck") && (
+          <span
+            aria-hidden="true"
+            className={cn(
+              "absolute -left-2.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full",
+              livePosition === "next" ? "bg-status-blue" : "bg-muted-2/70"
+            )}
+          />
+        )}
+      </span>
 
       <div role="cell" aria-label="Item" className="min-w-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -1208,9 +1321,44 @@ function ProgramRowView({
               <span className="sr-only">{colorTagLabel(row.color_tag)}</span>
             </span>
           )}
-          <p className="text-console-row text-primary truncate">{row.name}</p>
+          {/* Title is the row's own primary scan target (row-hierarchy
+              point 2) — font-medium as the default weight, escalating to
+              semibold only for the item actually on air, matching how
+              Console's own rundown escalates its live row. Not just color:
+              a colorblind operator or anyone on the stage-orange/red
+              variants above still gets a real weight difference. */}
+          <p className={cn("text-console-row truncate", isCurrent ? "text-primary font-semibold" : "text-primary font-medium")}>
+            {row.name}
+          </p>
+          {/* CURRENT/NEXT/ON DECK — the exact words and the exact color
+              pairing (status-green / status-blue / muted-2) Console's
+              RunPosition and ProgramList already established, reused
+              verbatim rather than inventing a second vocabulary for the
+              planning view. Only one is ever true per row. */}
+          {isCurrent && <span className="text-console-label text-status-green shrink-0 uppercase">Current</span>}
+          {livePosition === "next" && <span className="text-console-label text-status-blue shrink-0 uppercase">Next</span>}
+          {livePosition === "on-deck" && <span className="text-console-label text-muted-2 shrink-0 uppercase">On deck</span>}
           {row.status !== "confirmed" && (
             <span className="text-console-label text-muted-2 shrink-0 uppercase">{row.status}</span>
+          )}
+          {/* One compact icon standing in for every production/remarks
+              field the row doesn't otherwise show (row-hierarchy point 5) —
+              native title, not the canonical Tooltip, for the same reason
+              the color-tag dot above skips it: this can appear on every one
+              of 244 rows, and each would be an extra Tab stop for no benefit
+              over the identical text a screen reader already gets from
+              sr-only. Edit remains the one place to see which fields
+              specifically. */}
+          {(detail || remarks) && (
+            <span
+              className="shrink-0 text-muted-2/80"
+              title={[detail && "Has production requirements", remarks && "Has remarks"].filter(Boolean).join(" · ")}
+            >
+              <ClipboardList className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+              <span className="sr-only">
+                {[detail && "Has production requirements", remarks && "Has remarks"].filter(Boolean).join(", ")}
+              </span>
+            </span>
           )}
         </div>
         {/* Below 640px the numeric columns are gone, so start and duration
@@ -1308,6 +1456,7 @@ function SortableProgramRow({
   row,
   selected,
   isDragging,
+  livePosition = null,
   onToggleSelect,
   onEdit,
   onDelete,
@@ -1315,6 +1464,7 @@ function SortableProgramRow({
   row: ProgramRow;
   selected: boolean;
   isDragging: boolean;
+  livePosition?: LivePosition;
   onToggleSelect: (checked: boolean, shiftKey: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -1336,6 +1486,7 @@ function SortableProgramRow({
     <ProgramRowView
       row={row}
       selected={selected}
+      livePosition={livePosition}
       onToggleSelect={onToggleSelect}
       onEdit={onEdit}
       onDelete={onDelete}
@@ -1608,8 +1759,7 @@ function UploadPanel({
   }));
 
   return (
-    <Panel className="p-6 flex flex-col gap-4">
-      <SectionLabel>Import Excel</SectionLabel>
+    <div className="flex flex-col gap-4">
       {/* Report finding #8 — no downloadable template or example existed
           anywhere, so a first-time import meant guessing the expected
           format. This is the exact file lib/parse-cuesheet.ts's
@@ -1736,6 +1886,6 @@ function UploadPanel({
           </div>
         </div>
       )}
-    </Panel>
+    </div>
   );
 }

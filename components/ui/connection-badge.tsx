@@ -80,7 +80,10 @@ export function ConnectionBadge({
           style={{ top: "clamp(10px, 1.5vw, 18px)" }}
           title={ageLabel}
         >
-          <span className="h-2.5 w-2.5 rounded-full bg-status-green shadow-[0_0_8px_rgba(43,182,115,0.7)]" aria-hidden="true" />
+          {/* Phase 7a: the glow was rgba(43,182,115,0.7) — a different
+              green than --color-status-green (#30d158 / rgb(48,209,88)).
+              Corrected to match the canonical token exactly. */}
+          <span className="h-2.5 w-2.5 rounded-full bg-status-green shadow-[0_0_8px_rgba(48,209,88,0.7)]" aria-hidden="true" />
           <span className="sr-only">{ageLabel}</span>
         </div>
       );

@@ -64,7 +64,8 @@ export function OverflowMenu({
         <div
           role="menu"
           className={cn(
-            "absolute right-0 z-30 mt-1.5 min-w-[11rem] rounded-panel bg-card border border-line shadow-float py-1",
+            // kramflow-v3: same material as select.tsx's dropdown.
+            "absolute right-0 z-30 mt-1.5 min-w-[11rem] rounded-panel bg-card/90 backdrop-blur-xl border border-line shadow-float py-1",
             "motion-safe:animate-rise"
           )}
         >

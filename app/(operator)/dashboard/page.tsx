@@ -4,7 +4,6 @@ import { LockButton } from "@/components/dashboard/lock-button";
 import { HelpMenu } from "@/components/dashboard/help-menu";
 import { EventsDashboard } from "@/components/dashboard/events-dashboard";
 import { DashboardInstrumentStrip } from "@/components/dashboard/dashboard-instrument-strip";
-import { PageHeader } from "@/components/ui/page-header";
 
 // The post-login landing point — proxy.ts sends every authenticated
 // operator here. Lists every event this operator can actually open:
@@ -82,22 +81,24 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardInstrumentStrip email={user?.email ?? "unknown"} />
-      <main className="px-6 py-10 sm:px-10">
-        <div className="max-w-7xl mx-auto flex flex-col gap-8">
-          <PageHeader
-            eyebrow="Operator Dashboard"
-            title="Your Events"
-            meta={<>{events.length} event{events.length === 1 ? "" : "s"}</>}
-            actions={
-              <>
-                <HelpMenu />
-                <LockButton />
-              </>
-            }
-          />
-
+    <div className="min-h-screen bg-background flex flex-col">
+      <DashboardInstrumentStrip
+        email={user?.email ?? "unknown"}
+        eventCount={events.length}
+        actions={
+          <>
+            <HelpMenu />
+            <LockButton />
+          </>
+        }
+      />
+      {/* max-w-5xl, not 7xl — the same bounded measure Console and Cue
+          Sheet's own workspaces use for a list of like items (Phase 5/6):
+          a dense row list scans better at a consistent width than
+          stretched edge-to-edge, and matching their cap is what makes this
+          read as the same application instead of a wider, looser one. */}
+      <main className="px-6 py-6 sm:px-10">
+        <div className="max-w-5xl mx-auto">
           <EventsDashboard initialEvents={eventsWithReadiness} />
         </div>
       </main>

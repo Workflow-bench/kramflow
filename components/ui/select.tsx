@@ -116,7 +116,14 @@ export function Select({
       {open && (
         <div
           role="listbox"
-          className="absolute z-30 mt-1.5 w-full min-w-[15rem] max-h-80 flex flex-col overflow-hidden rounded-panel bg-card border border-line shadow-float motion-safe:animate-rise"
+          // Material, not a flat opaque panel (macOS 26 popover/menu
+          // convention — confirmed via the referenced Figma library's
+          // vibrancy examples): this floats directly over page content
+          // with no separate scrim layer, the same category EventShellHeader's
+          // nav strip already treats as a material. bg-card stays as the
+          // fallback tint so content is still readable if backdrop-filter
+          // is unsupported.
+          className="absolute z-30 mt-1.5 w-full min-w-[15rem] max-h-80 flex flex-col overflow-hidden rounded-panel bg-card/90 backdrop-blur-xl border border-line shadow-float motion-safe:animate-rise"
         >
           {searchable && (
             <div className="flex items-center gap-2 px-3 py-2 border-b border-line-soft shrink-0">

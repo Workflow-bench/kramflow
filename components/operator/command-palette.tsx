@@ -6,9 +6,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   FileSpreadsheet,
   FlaskConical,
-  LayoutDashboard,
-  Tv,
-  Presentation,
+  Gauge,
+  LayoutGrid,
   Smartphone,
   Megaphone,
   MonitorPlay,
@@ -21,16 +20,9 @@ import { useAuth } from "@/components/auth/auth-context";
 import { useEventStore } from "@/lib/store";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventId } from "@/lib/event-context";
-import { DISPLAY_TYPES, type DisplayType } from "@/lib/display-engine/types";
+import { DISPLAY_TYPES } from "@/lib/display-engine/types";
+import { DISPLAY_TYPE_META } from "@/lib/display-engine/display-meta";
 import { cn } from "@/lib/utils";
-
-const DISPLAY_COMMAND_ICON: Record<DisplayType, typeof Tv> = {
-  "green-room": Tv,
-  av: Tv,
-  general: Tv,
-  presenter: Presentation,
-  custom: Tv,
-};
 
 interface Command {
   id: string;
@@ -108,12 +100,25 @@ export function CommandPalette() {
       setOpen(false);
     };
     const routes: Command[] = [
-      { id: "console", label: "Console", icon: <LayoutDashboard className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/operator`) },
+      // Phase 7g: the one canonical destination (DESIGN.md's own "Canonical
+      // destination icons" table) missing from this list — every other row
+      // here had a way in, but leaving the current event for the event
+      // list meant abandoning the keyboard for EventIdentity's "All
+      // events" link. Same LayoutGrid icon that link already uses.
+      { id: "dashboard", label: "All events", icon: <LayoutGrid className="h-4 w-4" strokeWidth={2} />, run: nav("/dashboard") },
+      { id: "console", label: "Console", icon: <Gauge className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/operator`) },
       { id: "cue-sheet", label: "Cue Sheet", icon: <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/operator/cue-sheet`) },
       { id: "displays", label: "Displays", icon: <MonitorPlay className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/displays`) },
       { id: "settings", label: "Settings", icon: <SettingsIcon className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/settings`) },
+      // Phase 7g: was a local DISPLAY_COMMAND_ICON map that gave AV and
+      // Green Room the same generic Tv icon as General — DISPLAY_TYPE_META
+      // (lib/display-engine/display-meta.ts) is the canonical per-type
+      // icon source Displays/Broadcast/Screens already consume; this was
+      // the one remaining hand-rolled copy, and it had drifted (DESIGN.md's
+      // own "Per-display-type icons" table specifies Sliders for AV,
+      // Sparkles for Green Room — neither was Tv).
       ...DISPLAY_TYPES.filter((d) => d.value !== "custom").map((d) => {
-        const Icon = DISPLAY_COMMAND_ICON[d.value];
+        const Icon = DISPLAY_TYPE_META[d.value as Exclude<typeof d.value, "custom">].Icon;
         return {
           id: d.value,
           label: `${d.label} display`,
@@ -186,7 +191,9 @@ export function CommandPalette() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: -8 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="w-full max-w-lg rounded-panel bg-card border border-line shadow-lg overflow-hidden"
+            // kramflow-v3: same material as select.tsx's dropdown — a
+            // transient floating layer over a dimmed scrim.
+            className="w-full max-w-lg rounded-panel bg-card/90 backdrop-blur-xl border border-line shadow-lg overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 px-4 py-3 border-b border-line">

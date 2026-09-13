@@ -1,5 +1,6 @@
 import type { Program } from "@/lib/types";
 import { SectionLabel } from "@/components/ui/section-label";
+import { cn } from "@/lib/utils";
 
 // Current/Next/On Deck as one relationship, not one alone — the audit's
 // "Live / current / next" finding named this specifically: Console showed
@@ -28,7 +29,14 @@ export function RunPosition({
     <div className="mt-6 flex flex-col gap-3">
       {next && (
         <div className="flex items-baseline gap-3">
-          <SectionLabel className="shrink-0 w-20 whitespace-nowrap">Next</SectionLabel>
+          {/* status-blue, not muted-2 — DESIGN.md's Live Operations
+              vocabulary already specs "next: informational, status-blue,"
+              this simply wasn't applied to the one place that says "Next."
+              Restrained: color on the label only, never a filled badge —
+              the row otherwise reads as plain text, same as On Deck below
+              it, so the eye separates CURRENT/NEXT/ON DECK by hue and
+              position together, not by three different surface treatments. */}
+          <SectionLabel className="shrink-0 w-20 whitespace-nowrap !text-status-blue">Next</SectionLabel>
           <p className="text-console-row text-primary truncate">{next.title}</p>
           {currentDriftMinutes !== null && Math.abs(currentDriftMinutes) >= 1 && (
             <span className="text-console-meta text-muted-2 shrink-0 tabular-nums">
@@ -38,7 +46,7 @@ export function RunPosition({
         </div>
       )}
       {onDeck && (
-        <div className="flex items-baseline gap-3">
+        <div className={cn("flex items-baseline gap-3", next && "opacity-80")}>
           <SectionLabel className="shrink-0 w-20 whitespace-nowrap text-muted-2/70">On deck</SectionLabel>
           <p className="text-console-sm text-muted truncate">{onDeck.title}</p>
         </div>

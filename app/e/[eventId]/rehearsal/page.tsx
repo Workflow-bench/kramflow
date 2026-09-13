@@ -183,7 +183,11 @@ export default function RehearsalPage() {
             <SectionLabel className={sessions.length > 1 ? "mt-6" : undefined}>
               {session.dayLabel} • {session.sessionLabel}
             </SectionLabel>
-            <ul className="mt-3 flex flex-col rounded-panel border border-line-soft overflow-hidden">
+            {/* Unboxed, border-b rows — the same rundown grammar Console's
+                own ProgramList uses (components/operator/program-list.tsx),
+                not a second, boxed-list treatment for what is otherwise
+                the identical relationship (current/done/upcoming). */}
+            <ul className="mt-3 flex flex-col">
               {session.items.map((item) => {
                 const isLive = live?.id === item.id;
                 const isDone = currentOrder !== null && item.order < currentOrder;
@@ -208,39 +212,66 @@ export default function RehearsalPage() {
           <div className="order-1 lg:order-2 lg:border-l border-line-soft min-w-0 px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex flex-col gap-8">
             {state.alert && <AlertBanner alert={state.alert} />}
 
-            <section className="flex flex-col gap-2 rounded-panel border border-line-soft bg-card/40 p-4">
+            {/* Phase 7a correction: this used to carry the same
+                glass-panel/border treatment as Console's Live Now, on the
+                (since Phase 5, false) claim that Console's card was the
+                shared reference. Console's own Live Now is now unboxed —
+                the live item is the operational center of the screen, not
+                a card among cards — and this follows suit: same unboxed
+                grammar, same dot+label pattern, same aria-live wrapper.
+                The one deliberate divergence is color: Console's dot is
+                status-green because it's genuinely live; this stays
+                status-orange, matching Rehearsal's own established
+                identity everywhere else on this page (hazard-stripe
+                header, the rundown's "Rehearsing" row highlight) —
+                preserving rehearsal/live separation is more important
+                than literal parity with Console's color. */}
+            <section className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <SectionLabel>{isFinished ? "Finished" : live ? "Rehearsing now" : "Not started"}</SectionLabel>
+                {live && !isFinished && (
+                  <span aria-hidden="true" className="h-2 w-2 rounded-full bg-status-orange shrink-0" />
+                )}
+                <SectionLabel className={cn(live && !isFinished && "text-status-orange")}>
+                  {isFinished ? "Finished" : live ? "Rehearsing now" : "Not started"}
+                </SectionLabel>
                 {state.pausedAt && <OperationalStatus kind="hold" />}
               </div>
-              <p className="text-console-lg font-semibold text-primary mt-1">
-                {isFinished ? "Rehearsal complete" : live ? live.title : "—"}
-              </p>
-              {live?.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
+              <div aria-live="polite" aria-atomic="false">
+                {/* Same kicker line Console's Live Now shows above its own
+                    title (components/operator/live-details-panel.tsx) —
+                    both read the identical Program.kicker field through
+                    getLive(), so omitting it here was a gap, not a
+                    deliberate divergence. */}
+                {live?.kicker && !isFinished && <p className="text-console-meta text-muted-2 mt-3">{live.kicker}</p>}
+                <p className="text-console-lg font-semibold text-primary mt-1">
+                  {isFinished ? "Rehearsal complete" : live ? live.title : "—"}
+                </p>
+                {live?.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
 
-              {live && live.type === "item" && live.durationMinutes > 0 && (() => {
-                const severity = countdownSeverity(countdown.remainingSeconds, countdown.isOverrun);
-                return (
-                  <div className="mt-6">
-                    <p
-                      className={cn(
-                        "text-console-headline tabular-nums transition-colors duration-200",
-                        severity === "overrun" ? "text-status-red" : severity === "approaching" ? "text-status-orange" : "text-primary"
-                      )}
-                    >
-                      {countdown.isOverrun ? "+" : ""}
-                      {formatClock(countdown.remainingSeconds)}
-                    </p>
-                    <div className="mt-3">
-                      <ProgressBar
-                        fraction={countdown.fraction}
-                        tone={state.pausedAt ? "orange" : severity === "overrun" ? "red" : severity === "approaching" ? "orange" : "green"}
-                      />
+                {live && live.type === "item" && live.durationMinutes > 0 && (() => {
+                  const severity = countdownSeverity(countdown.remainingSeconds, countdown.isOverrun);
+                  return (
+                    <div className="mt-6">
+                      <p
+                        className={cn(
+                          "text-console-headline tabular-nums transition-colors duration-200",
+                          severity === "overrun" ? "text-status-red" : severity === "approaching" ? "text-status-orange" : "text-primary"
+                        )}
+                      >
+                        {countdown.isOverrun ? "+" : ""}
+                        {formatClock(countdown.remainingSeconds)}
+                      </p>
+                      <div className="mt-3">
+                        <ProgressBar
+                          fraction={countdown.fraction}
+                          tone={state.pausedAt ? "orange" : severity === "overrun" ? "red" : severity === "approaching" ? "orange" : "green"}
+                        />
+                      </div>
+                      <p className="text-console-meta text-muted mt-2">{countdown.isOverrun ? "over" : "remaining"}</p>
                     </div>
-                    <p className="text-console-meta text-muted mt-2">{countdown.isOverrun ? "over" : "remaining"}</p>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
+              </div>
 
               <RunPosition next={next} onDeck={onDeck} />
             </section>
@@ -296,6 +327,7 @@ export default function RehearsalPage() {
                       key={sev}
                       type="button"
                       onClick={() => setAlertSeverity(sev)}
+                      aria-pressed={alertSeverity === sev}
                       className={cn(
                         "h-9 px-3 rounded-control text-console-meta font-medium uppercase tracking-wide border",
                         alertSeverity === sev ? "border-accent text-primary bg-card-hover" : "border-line text-muted-2"

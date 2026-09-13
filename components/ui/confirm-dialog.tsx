@@ -18,6 +18,11 @@ import { useDialogFocus } from "./use-dialog-focus";
 //   tone="danger"        — tier 2/3: outlined danger button
 //   tone="danger-solid"  — tier 4: solid danger button, reserved for
 //                          requireTypedConfirmation (event delete only)
+//
+// Phase 7a correction: title/description/shell used `text-subtitle`/
+// `text-body`/`rounded-card` — Stage-tier tokens — despite being the
+// Operational Product's confirmation surface. Now `text-console-lg`/
+// `text-console-sm`/`rounded-panel`, matching Modal's identical fix.
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -109,14 +114,14 @@ export function ConfirmDialog({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.25, ease: "easeOut" }}
-            className="w-full max-w-sm rounded-card bg-card p-6 focus:outline-none"
+            className="w-full max-w-sm rounded-panel bg-card p-6 focus:outline-none"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id={titleId} className="text-subtitle text-primary">
+            <h2 id={titleId} className="text-console-lg text-primary">
               {title}
             </h2>
             {description && (
-              <p id={descriptionId} className="text-body text-muted mt-2">
+              <p id={descriptionId} className="text-console-sm text-muted mt-2">
                 {description}
               </p>
             )}
