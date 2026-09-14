@@ -30,16 +30,19 @@ export type DisplayType =
 // this DisplayType union or from each other.
 export const DISPLAY_TYPES: { value: DisplayType; label: string; route: string }[] = [
   { value: "presenter", label: "Presenter", route: "/presenter" },
-  // "Speaker Ready" is the term conference and corporate-event teams
-  // actually use for this room, and the product already speaks it — the
-  // remote's "Mark Speaker Ready" action and the ready badge on
-  // stage-next-card both predate this. Only the human-readable label
-  // changed; `value` and `route` stay `green-room`, so stored display
-  // types, share links and existing display URLs are untouched.
-  { value: "green-room", label: "Speaker Ready", route: "/green-room" },
+  // Label reverted to "Green Room" per explicit request — `value` and
+  // `route` stay `green-room` regardless of which label is current, so
+  // stored display types, share links, and existing display URLs are
+  // untouched either way.
+  { value: "green-room", label: "Green Room", route: "/green-room" },
   { value: "av", label: "AV", route: "/av" },
   { value: "general", label: "General", route: "/general" },
-  { value: "custom", label: "Custom", route: "/presenter" },
+  // A custom display has no single fixed route the way the 4 real types
+  // do — which screen it renders depends on which DisplayProfile it's
+  // pointed at (?profileId=... in the URL, same as ?token=...). This
+  // route is the base path every custom display link is built from; see
+  // app/custom/page.tsx.
+  { value: "custom", label: "Custom", route: "/custom" },
 ];
 
 // "stale" (one missed heartbeat, still short of the hard offline
@@ -272,3 +275,104 @@ export interface EngineMessage<T = unknown> {
 // Re-exported for convenience so display components importing from the
 // engine don't also need a separate import from "@/lib/types" for alerts.
 export type { AlertSeverity };
+
+// ---------------------------------------------------------------------------
+// Display Profiles — the customizable "custom" display type.
+//
+// A profile fully describes one custom display's content: pick a zone
+// template, assign a widget (or leave it empty) to each of that
+// template's zones, set a viewing-distance scale, and optionally an
+// accent color / static text block. Backed by the real `display_profiles`
+// table (supabase/migrations/0013_display_profiles.sql) — see that
+// migration's comment for why this exists (display_registry.profile_id
+// was already there, pointing at nothing real, since a prior pass).
+//
+// Deliberately NOT part of DisplayEngineState/the Realtime broadcast-sync
+// machinery in store.tsx: a profile is authored configuration (same
+// category as Program/Session), not live show state a client mutates
+// every few seconds — plain REST CRUD (app/api/display-engine/profiles)
+// is the right tool, the same way sessions/programs use plain REST rather
+// than the engine's own sync transport.
+// ---------------------------------------------------------------------------
+
+export type WidgetType = "now-playing" | "up-next" | "status-pill" | "schedule-list" | "custom-text";
+
+export const WIDGET_TYPES: { value: WidgetType; label: string; desc: string }[] = [
+  { value: "now-playing", label: "Now Playing", desc: "Current item, presenter, and countdown" },
+  { value: "up-next", label: "Up Next", desc: "The next item on the schedule" },
+  { value: "status-pill", label: "Status", desc: "LIVE / PAUSED / STANDBY / ON HOLD" },
+  { value: "schedule-list", label: "Schedule", desc: "The full run of show for the active session" },
+  { value: "custom-text", label: "Custom Text", desc: "A static message this profile sets (wifi password, venue rules, sponsor line...)" },
+];
+
+export type ZoneTemplateId = "hero-sidebar" | "grid-3up" | "full-bleed";
+
+export interface ZoneTemplateDef {
+  id: ZoneTemplateId;
+  label: string;
+  desc: string;
+  /** Zone ids in this template, in reading order — the profile editor and
+   *  the renderer both iterate this list rather than hardcoding zone
+   *  names, so a template's shape lives in exactly one place. */
+  zones: { id: string; label: string }[];
+}
+
+// 3 templates, not free-form drag-and-drop layout — see
+// docs/CUSTOM-DISPLAY-REQUIREMENTS.md section 2.2 for the reasoning.
+export const ZONE_TEMPLATES: ZoneTemplateDef[] = [
+  {
+    id: "hero-sidebar",
+    label: "Hero + Sidebar",
+    desc: "One large focal widget with a narrower column beside it — general's own layout shape.",
+    zones: [
+      { id: "hero", label: "Hero" },
+      { id: "sidebar", label: "Sidebar" },
+    ],
+  },
+  {
+    id: "grid-3up",
+    label: "3-Up Grid",
+    desc: "Three equal widgets side by side — good for a monitor with several things to track at once.",
+    zones: [
+      { id: "left", label: "Left" },
+      { id: "center", label: "Center" },
+      { id: "right", label: "Right" },
+    ],
+  },
+  {
+    id: "full-bleed",
+    label: "Full Bleed",
+    desc: "One widget filling the whole screen — for a single-purpose screen (e.g. just a schedule, or just branding).",
+    zones: [{ id: "main", label: "Main" }],
+  },
+];
+
+export function getZoneTemplate(id: ZoneTemplateId): ZoneTemplateDef {
+  return ZONE_TEMPLATES.find((t) => t.id === id) ?? ZONE_TEMPLATES[0];
+}
+
+export type ViewingDistance = "close" | "far";
+
+export interface DisplayProfile {
+  id: string;
+  eventId: string;
+  name: string;
+  template: ZoneTemplateId;
+  /** zoneId -> widget assigned to it, or null for an empty zone. */
+  zones: Record<string, WidgetType | null>;
+  /** "close" = console/arm's-length type scale, "far" = across-the-room TV scale — same principle the case study calls "distance dictates fidelity," applied here instead of being hand-encoded per display client. */
+  viewingDistance: ViewingDistance;
+  accentColor: string | null;
+  customText: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DisplayProfileInput {
+  name: string;
+  template: ZoneTemplateId;
+  zones: Record<string, WidgetType | null>;
+  viewingDistance: ViewingDistance;
+  accentColor: string | null;
+  customText: string | null;
+}

@@ -797,7 +797,13 @@ export default function CueSheetPage() {
             — see senior-ux-layout-standards's inline-vs-modal reasoning.
             Event Settings itself moved to its own top-level page — see
             app/e/[eventId]/settings/page.tsx. */}
-        <Modal open={panel === "create" && !!activeSessionId} onClose={requestClosePanel} title="Add Item" size="lg">
+        <Modal
+          open={panel === "create" && !!activeSessionId}
+          onClose={requestClosePanel}
+          title="Add Item"
+          size="lg"
+          scrollBody={false}
+        >
           {activeSessionId && (
             <ProgramForm
               sessionId={activeSessionId}
@@ -822,6 +828,7 @@ export default function CueSheetPage() {
           onClose={requestClosePanel}
           title="Edit Item"
           size="lg"
+          scrollBody={false}
         >
           {typeof panel === "object" && "edit" in panel && (
             <ProgramForm

@@ -29,12 +29,25 @@ export function Modal({
   onClose,
   title,
   size = "md",
+  scrollBody = true,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   size?: "sm" | "md" | "lg" | "xl";
+  // false when `children` manages its own scroll region and footer (see
+  // ProgramForm) — a footer that's `position: sticky` *inside* this div
+  // still overlaps whatever field is at the current scroll position,
+  // because sticky content doesn't reserve space, it just always stays
+  // visible on top of whatever's behind it. That's fine for a footer that
+  // truly is the last thing on the page, but wrong for a Save/Cancel bar
+  // that must never sit on top of a field the operator can still see and
+  // is trying to edit. The real fix is structural, not a bigger spacer:
+  // the footer has to live outside the scrolling region entirely, as an
+  // actual shrink-0 flex sibling below it — which only the child can do
+  // correctly, since only it knows where its own footer boundary is.
+  scrollBody?: boolean;
   children: React.ReactNode;
 }) {
   const [overlayId] = useState(() => Symbol("modal"));
@@ -96,7 +109,9 @@ export function Modal({
                 <X className="h-4 w-4" strokeWidth={2} />
               </Button>
             </div>
-            <div className="px-6 pb-6 overflow-y-auto">{children}</div>
+            <div className={cn("min-h-0", scrollBody ? "px-6 pb-6 overflow-y-auto" : "flex-1 flex flex-col overflow-hidden")}>
+              {children}
+            </div>
           </motion.div>
         </motion.div>
       )}

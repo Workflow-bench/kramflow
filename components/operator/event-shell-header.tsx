@@ -58,7 +58,15 @@ export function EventShellHeader({
   const clock = useClock();
 
   return (
-    <header className="shrink-0 glass-chrome border-b border-line-soft">
+    // relative z-40: .glass-chrome's backdrop-filter makes this header a
+    // stacking context, which traps EventIdentity's internal z-30 dropdown
+    // — without an explicit z-index here, the header paints at the page's
+    // default level and a page's own sticky sub-toolbar (e.g. Cue Sheet's
+    // z-20 session picker) renders on top of the whole header, hiding the
+    // dropdown's first rows behind it. z-40 keeps the header (and anything
+    // inside it) above page-level sticky content while staying below
+    // modals/toasts (z-45/z-50).
+    <header className="relative z-40 shrink-0 glass-chrome border-b border-line-soft">
       <div className="flex items-center justify-between gap-x-4 gap-y-2 flex-wrap px-4 sm:px-6 xl:px-12 py-2.5">
         <div className="flex items-center flex-wrap gap-2.5 min-w-0">
           <EventIdentity />

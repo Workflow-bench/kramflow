@@ -56,7 +56,7 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
   const { progress, currentOrder, total, isFinished } = deriveProgress(session, appState);
 
   const { display, testMessage, fullscreenPrompt, dismissFullscreenPrompt } = useDisplayCommands(
-    "Speaker Ready Display",
+    "Green Room Display",
     "green-room"
   );
 
@@ -85,7 +85,7 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
       {!engine.hold.active && (
         <>
           <DisplayHeader
-            title="Speaker Ready"
+            title="Green Room"
             eventName={eventName}
             room={display?.room}
             session={session}
