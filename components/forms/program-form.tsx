@@ -14,6 +14,7 @@ import type { ProgramInput } from "@/lib/validation/program";
 import type { Partition } from "@/lib/types";
 import { DEFAULT_CONFIG, ALWAYS_REQUIRED_KEYS, resolveVisibility, type FormFieldConfig } from "@/lib/form-config";
 import { useItemEditingPresence } from "@/lib/use-item-editing-presence";
+import { parseTimeLabel, formatMinutesToLabel } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 
 const EMPTY: ProgramInput = {
@@ -29,7 +30,13 @@ const EMPTY: ProgramInput = {
   duration: 0,
   startTime: null,
   endTime: null,
-  timeIsComputed: false,
+  // Defaults on: without it, a brand-new item's duration has no effect on
+  // its own end time or on anything scheduled after it (lib/schedule.ts's
+  // cascade only touches timeIsComputed rows) — an operator adding an item
+  // and typing a duration reasonably expects the schedule to just work,
+  // not to also have to find and check a box. Existing items keep whatever
+  // value they already have; this only changes what a *new* item starts as.
+  timeIsComputed: true,
   audioMics: false,
   audioTrack: false,
   videoSidescreen: "none",
@@ -158,7 +165,37 @@ export function ProgramForm({
   }, [eventId]);
 
   function set(key: string, value: unknown) {
-    setValues((v) => ({ ...v, [key]: value }));
+    setValues((v) => {
+      const next = { ...v, [key]: value };
+      // Keep duration/startTime/endTime mutually consistent as the operator
+      // types, instead of three fields that only agree once you've manually
+      // updated all three yourself. Only applies to a literal (not
+      // timeIsComputed) item — a computed item's start/end are disabled and
+      // derived server-side by lib/schedule.ts's cascade off the previous
+      // item/section start, which already re-runs (and reaches every later
+      // computed item in the session) on every save.
+      if (!next.timeIsComputed) {
+        const start = parseTimeLabel(next.startTime ?? null);
+        const end = parseTimeLabel(next.endTime ?? null);
+        if (key === "duration") {
+          const duration = Number(value) || 0;
+          if (start !== null) next.endTime = formatMinutesToLabel(start + duration);
+          else if (end !== null) next.startTime = formatMinutesToLabel(end - duration);
+        } else if (key === "startTime") {
+          // Moving the start shifts the end, preserving the duration that
+          // was already set — the same "drag the whole block" behavior a
+          // calendar gives you, not a resize.
+          if (start !== null) next.endTime = formatMinutesToLabel(start + (next.duration || 0));
+        } else if (key === "endTime") {
+          // Moving the end resizes the block instead — duration follows,
+          // start stays put. Negative/zero results are left for the
+          // existing min:0 validation on submit rather than silently
+          // clamped here, so a genuine mistake is still visible.
+          if (start !== null && end !== null) next.duration = end - start;
+        }
+      }
+      return next;
+    });
     setDirty(true);
     // Choosing an Auditorium is what makes Production Requirements
     // meaningful at all — open the section the moment it gains a value,
@@ -225,7 +262,12 @@ export function ProgramForm({
   const auditoriumSet = Boolean(values.auditoriumId);
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+    // h-full so the scrollable region below can size itself against the
+    // Modal's own bounded height (Modal renders this with scrollBody=false
+    // — see its doc comment for why the footer can't just live inside a
+    // sticky-positioned div in the scrolling region below).
+    <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col">
+    <div className="flex flex-1 min-h-0 flex-col gap-8 overflow-y-auto px-6 pb-6">
       {othersEditing && (
         <div
           role="status"
@@ -372,23 +414,21 @@ export function ProgramForm({
           {errors.form.join(", ")}
         </p>
       )}
+    </div>
 
-      {/* Reserves clearance for the sticky footer below — without it, the
-          footer's own translucent background (bg-card/95, deliberately
-          see-through so it never looks like a hard-opaque bar) let the last
-          field's content show through behind the buttons once scrolled
-          near the bottom, on any event with enough dynamic Production
-          fields to make the form taller than the viewport (2026-09-01
-          UI/UX audit, P1 finding #9 — reproduced on mobile at 390×844).
-          `sticky` only ever "sticks" relative to *its own* container's
-          scroll range; nothing about it reserves the space a fixed footer
-          would, so the space has to be added explicitly. */}
-      <div aria-hidden="true" className="h-16 -mb-8" />
-
-      {/* Sticky footer — a config-driven form can run long enough that the
-          save control scrolls out of reach, and this one is reached from a
-          list you were mid-task in. */}
-      <div className="sticky bottom-0 -mx-5 -mb-5 mt-1 flex items-center gap-2 border-t border-line-soft bg-card/95 backdrop-blur-sm px-5 py-3">
+      {/* A real flex sibling below the scrollable region above, not a
+          `position: sticky` element living inside it. Sticky content never
+          reserves space — it just always stays visible on top of whatever
+          scrolls behind it, which means a sticky footer *inside* the
+          scrolling area overlaps whatever field is currently in view at
+          any scroll position, not just once you've reached the bottom
+          (confirmed live: it covered Start/End/Duration while sitting at
+          the very top of a short form, then covered Remarks once scrolled
+          further — same root cause, just a different field each time).
+          Moving it out here, as a shrink-0 sibling of the flex-1 scroll
+          region, makes the overlap structurally impossible instead of
+          something to keep re-tuning a spacer against. */}
+      <div className="flex shrink-0 items-center gap-2 border-t border-line-soft bg-card/95 backdrop-blur-sm px-6 py-3">
         <Button type="submit" variant="primary" size="sm" loading={saving}>
           {programId ? "Save changes" : "Add item"}
         </Button>
@@ -469,7 +509,7 @@ function FieldRenderer({
         </div>
         <div className="mt-2">
           <Checkbox
-            label="Compute from duration (cascades off the previous item / section start)"
+            label="Auto-schedule (cascades off the previous item / section start — off pins this item's start/end so later edits upstream never move it)"
             checked={timeIsComputed}
             onChange={onToggleComputed}
           />
@@ -502,6 +542,11 @@ function FieldRenderer({
         onChange={(e) => onChange(field.type === "number" ? Number(e.target.value) : e.target.value || null)}
         required={requiredMark && field.key === "name"}
         disabled={isTimeField && timeIsComputed}
+        // Auto-scheduled items derive start/end from duration + the previous
+        // item on save (lib/schedule.ts) — this form has no sibling-item
+        // data to preview that number, so say so rather than leaving a
+        // disabled field blank with no explanation.
+        placeholder={isTimeField && timeIsComputed ? "Computed on save" : undefined}
       />
     </FormField>
   );

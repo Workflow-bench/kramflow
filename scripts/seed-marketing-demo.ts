@@ -364,7 +364,7 @@ async function main() {
   const seenAt = new Date(Date.now() - 4_000).toISOString();
   const displays = [
     { id: `${eventId}-stage`, name: "Stage Confidence Monitor", type: "presenter", latency_ms: 22 },
-    { id: `${eventId}-speaker-ready`, name: "Speaker Ready Room", type: "green-room", latency_ms: 31 },
+    { id: `${eventId}-speaker-ready`, name: "Green Room", type: "green-room", latency_ms: 31 },
     { id: `${eventId}-av`, name: "AV Booth", type: "av", latency_ms: 18 },
     { id: `${eventId}-lobby`, name: "Lobby Display", type: "general", latency_ms: 44 },
   ];

@@ -10,6 +10,8 @@ import { DISPLAY_TYPES, type DisplayInstance, type DisplayType } from "@/lib/dis
 import { DISPLAY_TYPE_META } from "@/lib/display-engine/display-meta";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { ShareLinkPanel } from "@/components/dashboard/share-link-panel";
+import { DisplayProfilePanel, type DisplayProfilePanelHandle } from "@/components/operator/display-profile-panel";
+import { CustomDisplayPreviewMenu } from "@/components/operator/custom-display-preview-menu";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -38,8 +40,12 @@ const PREVIEW_LINKS = DISPLAY_TYPES.filter((t) => t.value !== "custom").map((t) 
   icon: DISPLAY_TYPE_META[t.value as Exclude<DisplayType, "custom">].Icon,
 }));
 
-function routeFor(type: DisplayType): string {
-  return DISPLAY_TYPES.find((t) => t.value === type)?.route ?? "/presenter";
+// A registered custom display's own profile_id decides which profile it
+// renders (?profileId=...) — the 4 fixed types still resolve to their one
+// static route.
+function routeFor(display: { type: DisplayType; profileId: string | null }): string {
+  const base = DISPLAY_TYPES.find((t) => t.value === display.type)?.route ?? "/presenter";
+  return display.type === "custom" && display.profileId ? `${base}?profileId=${display.profileId}` : base;
 }
 
 function typeLabel(type: DisplayType): string {
@@ -103,6 +109,24 @@ export default function DisplayManagerPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | DisplayHealth>("all");
   const [shareLinkOpen, setShareLinkOpen] = useState(false);
+  const profilePanelRef = useRef<DisplayProfilePanelHandle>(null);
+  // Just the id/name pairs a custom display's own type row needs to offer
+  // a profile picker — DisplayProfilePanel owns the full list/create/edit/
+  // delete flow independently; this is a separate, lighter fetch rather
+  // than lifting that panel's whole state up, so the two stay decoupled.
+  const [profileOptions, setProfileOptions] = useState<{ id: string; name: string }[]>([]);
+  function reloadProfileOptions() {
+    fetch(`/api/display-engine/profiles?eventId=${encodeURIComponent(eventId)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ok) setProfileOptions(data.profiles.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })));
+      })
+      .catch(() => {});
+  }
+  useEffect(() => {
+    reloadProfileOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reloadProfileOptions is redefined each render but only eventId should re-trigger the initial load; DisplayProfilePanel's onChange covers the "list changed" case
+  }, [eventId]);
   const confirmAction = useConfirmDialog<ConfirmAction>();
   const confirmingRef = useRef<ConfirmAction | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -261,6 +285,17 @@ export default function DisplayManagerPage() {
               {label}
             </LinkButton>
           ))}
+          {/* A single "+" trigger for custom displays, not one tile per
+              profile — a flat list of profile-name tiles read as just
+              more fixed screens next to Presenter/AV/etc. This opens a
+              dropdown to pick an existing profile to preview, or jump
+              straight into creating one (under your own name) when there
+              isn't one yet — see CustomDisplayPreviewMenu's own comment. */}
+          <CustomDisplayPreviewMenu
+            eventId={eventId}
+            profiles={profileOptions}
+            onCreateProfile={() => profilePanelRef.current?.openCreate()}
+          />
         </div>
 
         {/* Phase 7d: Share Display Link and Broadcast Center were each their
@@ -296,6 +331,7 @@ export default function DisplayManagerPage() {
               Open Broadcast Center
             </LinkButton>
           </div>
+          <DisplayProfilePanel ref={profilePanelRef} eventId={eventId} isOwner={isOwner} onChange={reloadProfileOptions} />
         </div>
         <ShareLinkPanel eventId={eventId} open={shareLinkOpen} onOpenChange={setShareLinkOpen} />
 
@@ -398,6 +434,11 @@ export default function DisplayManagerPage() {
                     const res = await assignDisplay(display.id, { room });
                     if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't update ${display.name}'s room. Try again.`));
                   }}
+                  profileOptions={profileOptions}
+                  onProfile={async (profileId) => {
+                    const res = await assignDisplay(display.id, { profileId });
+                    if (!res || !res.ok) toast.error(forbiddenAware(res, `Couldn't update ${display.name}'s profile. Try again.`));
+                  }}
                   onRequestTypeChange={(type) =>
                     confirmAction.request({ kind: "reassign-type", id: display.id, name: display.name, type })
                   }
@@ -444,7 +485,7 @@ export default function DisplayManagerPage() {
             </div>
             <div className="rounded-panel overflow-hidden bg-background border border-line-soft aspect-video">
               <iframe
-                src={`${routeFor(previewing.type)}?eventId=${encodeURIComponent(eventId)}`}
+                src={`${routeFor(previewing)}${routeFor(previewing).includes("?") ? "&" : "?"}eventId=${encodeURIComponent(eventId)}`}
                 title={`${previewing.name} preview`}
                 className="w-full h-full border-0"
               />
@@ -517,6 +558,8 @@ function DisplayRow({
   onToggleExpand,
   onRename,
   onRoom,
+  profileOptions,
+  onProfile,
   onRequestTypeChange,
   onPreview,
   onScreenshot,
@@ -533,6 +576,8 @@ function DisplayRow({
   onToggleExpand: () => void;
   onRename: (name: string) => void;
   onRoom: (room: string | null) => void;
+  profileOptions: { id: string; name: string }[];
+  onProfile: (profileId: string | null) => void;
   onRequestTypeChange: (type: DisplayType) => void;
   onPreview: () => void;
   onScreenshot: () => void;
@@ -680,19 +725,25 @@ function DisplayRow({
                   aria-label={`Room for ${display.name}`}
                 />
               </MaybeTooltip>
-              {/* Display Profiles (font scale, layout, widget visibility,
-                  color overrides) removed from this surface — same "false
-                  confidence" failure mode as the offline-disabled commands
-                  below, but worse: profile *content* lives only in the
-                  editing browser's localStorage (lib/display-engine/store.tsx),
-                  never reaches app/api/display-view/route.ts's payload, and
-                  none of the four real display clients (Presenter/AV/Green
-                  Room/General) read a profile field at all — so assigning one
-                  here would look like it configures a display's real output
-                  and would silently do nothing. display.profileId itself
-                  (the assignment) is still persisted to display_registry —
-                  intact for whenever the read path is actually built. See
-                  2026-09 blocker-remediation pass, Display Profiles P2. */}
+              {/* Display Profiles are real now (supabase/migrations/
+                  0013_display_profiles.sql — see that migration and
+                  components/operator/display-profile-panel.tsx for the
+                  full "why" this was previously disabled and what
+                  changed) — only shown for a "custom" display, since the
+                  4 fixed types have no profile concept of their own. */}
+              {display.type === "custom" && (
+                <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                  <Select
+                    value={display.profileId ?? ""}
+                    onChange={(v) => onProfile(v || null)}
+                    options={[{ value: "", label: "No profile assigned" }, ...profileOptions.map((p) => ({ value: p.id, label: p.name }))]}
+                    searchable={false}
+                    disabled={!isOwner}
+                    className="w-auto min-w-[10rem]"
+                    aria-label={`Profile for ${display.name}`}
+                  />
+                </MaybeTooltip>
+              )}
             </div>
           </div>
 
