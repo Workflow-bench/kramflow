@@ -77,6 +77,10 @@ export function recordSuccess(bucket: string, ip: string): Promise<void> {
 // NextRequest's `ip`/`geo` were removed in Next 15 — reading the standard
 // forwarded-for header directly is the documented replacement.
 export function getClientIp(request: Request): string {
+  if (process.env.VERCEL !== "1" && process.env.TRUST_FORWARDED_IP_HEADERS !== "1") {
+    return "unknown";
+  }
+
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
   return request.headers.get("x-real-ip") ?? "unknown";
