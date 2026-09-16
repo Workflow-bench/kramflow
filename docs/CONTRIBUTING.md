@@ -3,7 +3,7 @@
 ## Setup
 
 ```bash
-git clone https://github.com/deep8904/kramflow.git
+git clone https://github.com/Workflow-bench/kramflow.git
 cd kramflow
 npm install
 npm run dev
