@@ -1,8 +1,10 @@
 # Brand Guidelines
 
-## Status: naming and meaning are final. Visual identity is not yet built.
+## Status: naming and meaning are final. Visual identity is still a placeholder, not a designed brand.
 
 This document exists to record what's approved and what's still pending, so the gap doesn't get papered over with an improvised logo.
+
+A wordmark now exists (`components/site/wordmark.tsx`) and is used across the marketing site and auth pages, but it is explicitly a stand-in — see that file's own header comment: `logo.svg` at the repo root is an unrelated "CF Monogram," the favicon is a different mark again, and a real mark, matching favicon, and OG image are still unbuilt.
 
 ## Name
 
@@ -17,16 +19,16 @@ From क्रम (*Krama*) — Sanskrit/Hindi for sequence, order, progression,
 
 ## What's pending
 
-Nothing has shipped yet for:
+A placeholder wordmark exists; nothing designed has shipped for:
 
-- Logo (any form — wordmark, icon, lockup)
-- Color palette as a *brand* system (the app currently uses a functional dark-mode palette — see `docs/DESIGN_SYSTEM.md` — chosen for TV legibility, not brand expression)
+- A real logo mark (icon or lockup — the interim wordmark is type-only, see above)
+- Color palette as a *brand* system (the app currently uses a functional dark-mode palette — see `DESIGN.md` — chosen for legibility, not brand expression)
 - Typography as a *brand* choice (currently Inter, chosen for availability and legibility, not as a brand decision)
-- Favicon / browser tab icon (still the default Next.js icon)
+- A designed favicon / browser tab icon (`app/favicon.ico` exists but is not the brand mark — see `components/site/wordmark.tsx`'s header comment)
 - Apple touch icon
 - PWA manifest + icon set
 - Splash screen
-- Any marketing-facing assets
+- OG image and other marketing-facing assets
 
 **Do not treat the current dark background + white text + Inter as "the brand."** It's the interim functional design system. When real brand assets arrive, they replace this — see the touchpoint checklist below so nothing gets missed.
 
@@ -34,12 +36,11 @@ Nothing has shipped yet for:
 
 Replace, in this order of visibility:
 
-- [ ] Browser favicon (`app/favicon.ico` and/or `app/icon.tsx`)
+- [ ] Browser favicon (`app/favicon.ico`)
 - [ ] Apple touch icon
 - [ ] Web app manifest + PWA icon set
-- [ ] Navbar / header wordmark (currently plain text "KramFlow" in `app/(operator)/operator/page.tsx` and `components/auth/pin-gate.tsx`)
-- [ ] Launcher page (`app/page.tsx`)
-- [ ] PIN screen (`components/auth/pin-gate.tsx`)
+- [ ] The interim wordmark itself (`components/site/wordmark.tsx`), used in the marketing navbar/footer (`components/site/navbar.tsx`, `components/site/footer.tsx`) and the auth pages (`app/login/page.tsx`, `app/signup/page.tsx`)
+- [ ] Marketing landing page (`app/page.tsx`)
 - [ ] Loading/empty states (none currently carry a wordmark — add if the new identity calls for it)
 - [ ] README banner
 - [ ] This document, once assets exist — replace this whole file with real specs (logo files, clear space, minimum size, color values, misuse examples)
