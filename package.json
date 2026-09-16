@@ -84,12 +84,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
-    "eslint": "^10",
+    "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "pg": "^8.23.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
-    "typescript": "^7.0.2",
+    "typescript": "^6.0.3",
     "vitest": "^5.0.0"
   }
 }
