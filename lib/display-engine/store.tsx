@@ -293,8 +293,10 @@ function identityBody(identity: DisplayEngineIdentity): Record<string, string> {
 }
 
 function identityQuery(identity: DisplayEngineIdentity): string {
-  if (!identity.eventId) return "";
-  const params = new URLSearchParams({ eventId: identity.eventId });
+  const params = new URLSearchParams();
+  if (identity.token) params.set("token", identity.token);
+  else if (identity.eventId) params.set("eventId", identity.eventId);
+  else return "";
   if (identity.displayType) params.set("displayType", identity.displayType);
   return `?${params.toString()}`;
 }
@@ -801,8 +803,9 @@ function cancelScheduled(identity: DisplayEngineIdentity, id: string) {
 // environment (Supabase pg_cron or a Vercel Cron Job would be needed to
 // close this gap properly). Documented as a known limitation in
 // docs/DISPLAY_ENGINE.md — carried forward from before this migration,
-// not solved by it. dismiss/acknowledge/promote stay unauthenticated
-// (keyed by the broadcast's own unguessable id), so this needs no identity.
+// not solved by it. Public display tabs can process this, but the server
+// still verifies this instance's token/session maps to the broadcast's
+// event before mutating anything.
 function runSchedulerCheck(inst: EngineInstance) {
   if (inst.schedulerRunning || typeof window === "undefined") return;
   inst.schedulerRunning = true;
@@ -811,21 +814,21 @@ function runSchedulerCheck(inst: EngineInstance) {
     const due = inst.remoteSlice.broadcastRows.filter(
       (r) => r.status === "scheduled" && r.scheduled_for && Date.parse(r.scheduled_for) <= now
     );
-    for (const row of due) postJson(`/api/display-engine/broadcasts/${row.id}/promote`, {});
+    for (const row of due) postJson(`/api/display-engine/broadcasts/${row.id}/promote`, identityBody(inst.identity));
   }, 5000);
 }
 
-function dismissBroadcast(id: string) {
-  return postJson(`/api/display-engine/broadcasts/${id}/dismiss`, {});
+function dismissBroadcast(identity: DisplayEngineIdentity, id: string) {
+  return postJson(`/api/display-engine/broadcasts/${id}/dismiss`, identityBody(identity));
 }
 
-function acknowledgeBroadcast(id: string, displayId: string) {
-  return postJson(`/api/display-engine/broadcasts/${id}/acknowledge`, { displayId });
+function acknowledgeBroadcast(identity: DisplayEngineIdentity, id: string, displayId: string) {
+  return postJson(`/api/display-engine/broadcasts/${id}/acknowledge`, { ...identityBody(identity), displayId });
 }
 
-function clearEmergencies(inst: EngineInstance) {
+function clearEmergencies(identity: DisplayEngineIdentity, inst: EngineInstance) {
   const active = inst.remoteSlice.broadcastRows.filter((r) => r.status === "sent" && r.dismissed_at === null && r.type === "emergency");
-  return Promise.all(active.map((row) => dismissBroadcast(row.id)));
+  return Promise.all(active.map((row) => dismissBroadcast(identity, row.id)));
 }
 
 function saveTemplate(name: string, draft: BroadcastDraft): string {
@@ -915,9 +918,9 @@ export function useDisplayEngine() {
     sendBroadcast: (draft: BroadcastDraft) => sendBroadcast(identity, draft),
     scheduleBroadcast: (draft: BroadcastDraft, scheduledFor: string) => scheduleBroadcast(identity, draft, scheduledFor),
     cancelScheduled: (id: string) => cancelScheduled(identity, id),
-    dismissBroadcast,
-    acknowledgeBroadcast,
-    clearEmergencies: () => clearEmergencies(inst),
+    dismissBroadcast: (id: string) => dismissBroadcast(identity, id),
+    acknowledgeBroadcast: (id: string, displayId: string) => acknowledgeBroadcast(identity, id, displayId),
+    clearEmergencies: () => clearEmergencies(identity, inst),
     saveTemplate,
     deleteTemplate,
     toggleFavoriteTemplate,
