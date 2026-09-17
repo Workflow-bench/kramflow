@@ -37,13 +37,19 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
   }
 
   const admin = supabaseAdmin();
+  // invite_token is deliberately left in place, not nulled — resolveInvite()
+  // already refuses any further action on an accepted row (the
+  // already_accepted branch above), so there's nothing left for the token
+  // to authorize. Keeping it is what lets a stale/reused link resolve to
+  // "this invite has already been accepted" instead of "not recognized,"
+  // which read as if the link were simply wrong rather than already used
+  // (QA finding: nulling it made the already_accepted branch unreachable).
   const { error } = await admin
     .from("event_collaborators")
     .update({
       user_id: user.id,
       status: "accepted",
       accepted_at: new Date().toISOString(),
-      invite_token: null,
     })
     .eq("id", invite.id);
   // A pre-existing accepted row for this (event, user) pair — from being
