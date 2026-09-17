@@ -117,13 +117,10 @@ function SignedOutCta({
   loginHref: string;
   invitedEmail: string;
 }) {
-  // A pending invite already has a real (unconfirmed) auth.users row —
-  // Supabase's own inviteUserByEmail creates it up front — so self-serve
-  // signup against that same email is undefined behavior, not a clean
-  // "create account" path. The email Supabase actually sent has the one
-  // link that sets a password and lands here already signed in
-  // (app/auth/callback/route.ts); this state is only reachable by visiting
-  // the token link directly without having gone through that email yet.
+  // The account (with a temp password) is created up front when the invite
+  // is sent (app/api/events/[eventId]/collaborators/route.ts), so this
+  // branch should be unreachable in normal use — it's a defensive fallback
+  // for a stale invite row that predates an account existing for it.
   if (!hasAccount) {
     return (
       <div className="flex flex-col items-center text-center gap-4 max-w-md">
@@ -132,11 +129,10 @@ function SignedOutCta({
           Join as {role === "editor" ? "an Editor" : "a Viewer"}: {role === "editor" ? "edit the cue sheet" : "view the live cue sheet"}.
         </p>
         <p className="text-body text-muted">
-          Check <span className="text-primary">{invitedEmail}</span> for the invite email from Kramflow and use the
-          link in it to set your password and join.
+          No login has been set up for <span className="text-primary">{invitedEmail}</span> yet.
         </p>
         <p className="text-console-meta text-muted-2">
-          Don&rsquo;t see it? Ask the event owner to hit &ldquo;Resend&rdquo; on your invite.
+          Ask the event owner to hit &ldquo;Resend&rdquo; on your invite to get a login email/temporary password.
         </p>
       </div>
     );
