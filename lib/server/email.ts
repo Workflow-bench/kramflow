@@ -1,28 +1,18 @@
 import "server-only";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-// Generic SMTP, not a provider-specific SDK — this app's own custom
-// "here's your temp password" email can't go through Supabase Auth's
-// mailer (its templates only support the fixed flows it defines: confirm
-// signup, invite-by-link, recovery, email change — none of them let you
-// hand a caller arbitrary body text). Whatever SMTP credentials are
-// already configured for Supabase Auth's Custom SMTP (a Gmail app
-// password, Resend's SMTP endpoint, anything) work here too — same
-// account, two independent senders.
+// Resend's Node SDK, not raw SMTP — this app's own custom "here's your temp
+// password" email can't go through Supabase Auth's mailer (its templates
+// only support the fixed flows it defines: confirm signup, invite-by-link,
+// recovery, email change — none of them let you hand a caller arbitrary
+// body text), so it goes through the same provider as a second, independent
+// sender instead.
 export type SendResult = { sent: true } | { sent: false; reason: "not_configured" | "send_failed" };
 
-function transport(): ReturnType<typeof nodemailer.createTransport> | null {
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
-  if (!host || !port || !user || !pass) return null;
-  return nodemailer.createTransport({
-    host,
-    port: Number(port),
-    secure: Number(port) === 465,
-    auth: { user, pass },
-  });
+function client(): Resend | null {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null;
+  return new Resend(apiKey);
 }
 
 function inviteText(params: {
@@ -227,23 +217,22 @@ export async function sendCollaboratorAddedEmail(params: {
   inviterName: string;
   loginUrl: string;
 }): Promise<SendResult> {
-  const mailer = transport();
-  const from = process.env.SMTP_FROM_EMAIL;
-  if (!mailer || !from) return { sent: false, reason: "not_configured" };
+  const resend = client();
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!resend || !from) return { sent: false, reason: "not_configured" };
 
-  try {
-    await mailer.sendMail({
-      from,
-      to: params.to,
-      subject: `${params.inviterName} added you to ${params.eventName} on Kramflow`,
-      html: addedHtml(params),
-      text: addedText(params),
-    });
-    return { sent: true };
-  } catch (error) {
-    console.error("sendCollaboratorAddedEmail failed:", error);
+  const { error } = await resend.emails.send({
+    from,
+    to: params.to,
+    subject: `${params.inviterName} added you to ${params.eventName} on Kramflow`,
+    html: addedHtml(params),
+    text: addedText(params),
+  });
+  if (error) {
+    console.error("sendCollaboratorAddedEmail failed:", error.message);
     return { sent: false, reason: "send_failed" };
   }
+  return { sent: true };
 }
 
 export async function sendCollaboratorTempPasswordEmail(params: {
@@ -254,22 +243,21 @@ export async function sendCollaboratorTempPasswordEmail(params: {
   tempPassword: string;
   loginUrl: string;
 }): Promise<SendResult> {
-  const mailer = transport();
-  const from = process.env.SMTP_FROM_EMAIL;
-  if (!mailer || !from) return { sent: false, reason: "not_configured" };
+  const resend = client();
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!resend || !from) return { sent: false, reason: "not_configured" };
 
   const emailParams = { ...params, email: params.to };
-  try {
-    await mailer.sendMail({
-      from,
-      to: params.to,
-      subject: `${params.inviterName} invited you to ${params.eventName} on Kramflow`,
-      html: inviteHtml(emailParams),
-      text: inviteText(emailParams),
-    });
-    return { sent: true };
-  } catch (error) {
-    console.error("sendCollaboratorTempPasswordEmail failed:", error);
+  const { error } = await resend.emails.send({
+    from,
+    to: params.to,
+    subject: `${params.inviterName} invited you to ${params.eventName} on Kramflow`,
+    html: inviteHtml(emailParams),
+    text: inviteText(emailParams),
+  });
+  if (error) {
+    console.error("sendCollaboratorTempPasswordEmail failed:", error.message);
     return { sent: false, reason: "send_failed" };
   }
+  return { sent: true };
 }
