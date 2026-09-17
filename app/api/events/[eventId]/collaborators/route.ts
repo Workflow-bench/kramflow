@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { generateInviteToken, generateTempPassword, INVITE_EXPIRY_DAYS } from "@/lib/server/collaborator-invites";
-import { sendCollaboratorTempPasswordEmail } from "@/lib/server/email";
+import { sendCollaboratorAddedEmail, sendCollaboratorTempPasswordEmail } from "@/lib/server/email";
 import { getUserDisplayName } from "@/lib/server/user-display-name";
 import { logActivityAs } from "@/lib/server/activity-log";
 
@@ -105,7 +105,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
       return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
     }
     await logActivityAs(admin, eventId, auth.userId, "collaboratorAdd", `Added ${email} as ${role}`);
-    return NextResponse.json({ ok: true, status: "accepted" });
+
+    // Access is granted immediately (they already have a real login), but
+    // that's silent otherwise — the person has no way to know it happened
+    // unless the owner tells them separately. Covers both a first-time
+    // invite to someone who already had an account from something else,
+    // and a revoke-then-reinvite of someone who'd accepted before: neither
+    // case has anything to set up, just something to be told about.
+    const origin = new URL(request.url).origin;
+    const emailResult = await sendCollaboratorAddedEmail({
+      to: email,
+      eventName: event.name,
+      role,
+      inviterName,
+      loginUrl: `${origin}/login?email=${encodeURIComponent(email)}`,
+    });
+    return NextResponse.json({ ok: true, status: "accepted", emailSent: emailResult.sent });
   }
 
   // No account yet — create (or refresh) a pending invite row instead of
