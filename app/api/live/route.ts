@@ -171,7 +171,13 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
   // locked-out operator doesn't have to click-and-fail to find out; this is
   // what actually stops the R2-BUG-1 clobber if two operators' clicks land
   // close enough together to race past the client-side check.
-  if (LOCKED_ACTIONS.has(action) && isControllerActive(current) && current.controller_id !== clientId) {
+  //
+  // Requires an *active* claim by this exact clientId, not just "no one
+  // else holds it" — an unclaimed lock previously let any sequencing
+  // action through with nothing taken, which meant "Take Control" governed
+  // nothing until a second operator showed up. Every locked action now
+  // requires a real claim first, solo operator included.
+  if (LOCKED_ACTIONS.has(action) && (!isControllerActive(current) || current.controller_id !== clientId)) {
     return NextResponse.json({ ok: false, error: "locked", controllerId: current.controller_id }, { status: 423 });
   }
 
