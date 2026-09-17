@@ -22,8 +22,22 @@ const TEMP_PASSWORD_SYMBOL = "!@#$%^&*";
 const TEMP_PASSWORD_ALL = TEMP_PASSWORD_LOWER + TEMP_PASSWORD_UPPER + TEMP_PASSWORD_DIGIT + TEMP_PASSWORD_SYMBOL;
 const TEMP_PASSWORD_LENGTH = 12;
 
+// `randomByte() % max` is biased whenever 256 isn't a multiple of `max`
+// (flagged by CodeQL) — the low values 0..(256 % max - 1) come up one extra
+// time per 256-byte cycle. Rejection sampling discards any byte that would
+// fall in that leftover, uneven-remainder range, so every surviving byte
+// maps to exactly floor(256 / max) values.
+function randomIndex(max: number): number {
+  const limit = 256 - (256 % max);
+  let byte: number;
+  do {
+    byte = randomBytes(1)[0];
+  } while (byte >= limit);
+  return byte % max;
+}
+
 function randomChar(alphabet: string): string {
-  return alphabet[randomBytes(1)[0] % alphabet.length];
+  return alphabet[randomIndex(alphabet.length)];
 }
 
 // A one-time login credential sent in the invite email — the first-login
@@ -43,7 +57,7 @@ export function generateTempPassword(): string {
   // Fisher-Yates, so the four guaranteed characters aren't always the
   // first four positions.
   for (let i = chars.length - 1; i > 0; i--) {
-    const j = randomBytes(1)[0] % (i + 1);
+    const j = randomIndex(i + 1);
     [chars[i], chars[j]] = [chars[j], chars[i]];
   }
   return chars.join("");
