@@ -38,8 +38,13 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   } else {
     const admin = supabaseAdmin();
     const { data: usersPage } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    // Confirmed, not just present — an invited-but-never-completed email
+    // already has an auth.users row (Supabase's own inviteUserByEmail
+    // creates it up front), but no password set yet, so "Log In to Accept"
+    // would be a dead end. Same distinction as the collaborators route's
+    // own match/found split.
     const hasAccount = Boolean(
-      usersPage?.users.some((u) => u.email?.toLowerCase() === invite.invited_email.toLowerCase())
+      usersPage?.users.some((u) => u.email?.toLowerCase() === invite.invited_email.toLowerCase() && u.email_confirmed_at)
     );
     const emailParam = encodeURIComponent(invite.invited_email);
     const nextParam = encodeURIComponent(`/invite/${token}`);
@@ -50,7 +55,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
         role={invite.role}
         hasAccount={hasAccount}
         loginHref={`/login?next=${nextParam}&email=${emailParam}`}
-        signupHref={`/signup?invite=${token}&email=${emailParam}`}
+        invitedEmail={invite.invited_email}
       />
     );
   }

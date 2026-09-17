@@ -12,12 +12,14 @@ type AcceptState = "accepting" | "error";
 //    accept immediately, no extra click needed.
 //  - "mismatch": visitor is logged in, but as a different email — the
 //    invite can't silently switch accounts out from under them.
-//  - "signed-out": normal case — send them to log in or sign up, carrying
-//    the invite token through so acceptance happens right after.
+//  - "signed-out": normal case. A confirmed existing account sends them to
+//    log in; a first-time invite has no self-serve path here at all — the
+//    Supabase invite email itself (app/auth/callback/route.ts) is the one
+//    place that sets a password and lands them back here already signed in.
 type Props =
   | { mode: "auto-accept"; token: string; eventName: string }
   | { mode: "mismatch"; invitedEmail: string; loggedInEmail: string }
-  | { mode: "signed-out"; eventName: string; role: "editor" | "viewer"; hasAccount: boolean; loginHref: string; signupHref: string };
+  | { mode: "signed-out"; eventName: string; role: "editor" | "viewer"; hasAccount: boolean; loginHref: string; invitedEmail: string };
 
 export function AcceptInvitePanel(props: Props) {
   if (props.mode === "auto-accept") return <AutoAccept token={props.token} eventName={props.eventName} />;
@@ -107,33 +109,48 @@ function SignedOutCta({
   role,
   hasAccount,
   loginHref,
-  signupHref,
+  invitedEmail,
 }: {
   eventName: string;
   role: "editor" | "viewer";
   hasAccount: boolean;
   loginHref: string;
-  signupHref: string;
+  invitedEmail: string;
 }) {
+  // A pending invite already has a real (unconfirmed) auth.users row —
+  // Supabase's own inviteUserByEmail creates it up front — so self-serve
+  // signup against that same email is undefined behavior, not a clean
+  // "create account" path. The email Supabase actually sent has the one
+  // link that sets a password and lands here already signed in
+  // (app/auth/callback/route.ts); this state is only reachable by visiting
+  // the token link directly without having gone through that email yet.
+  if (!hasAccount) {
+    return (
+      <div className="flex flex-col items-center text-center gap-4 max-w-md">
+        <h1 className="text-title text-primary">You&rsquo;re invited to {eventName}</h1>
+        <p className="text-body text-muted">
+          Join as {role === "editor" ? "an Editor" : "a Viewer"}: {role === "editor" ? "edit the cue sheet" : "view the live cue sheet"}.
+        </p>
+        <p className="text-body text-muted">
+          Check <span className="text-primary">{invitedEmail}</span> for the invite email from Kramflow and use the
+          link in it to set your password and join.
+        </p>
+        <p className="text-console-meta text-muted-2">
+          Don&rsquo;t see it? Ask the event owner to hit &ldquo;Resend&rdquo; on your invite.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center text-center gap-4 max-w-md">
       <h1 className="text-title text-primary">You&rsquo;re invited to {eventName}</h1>
       <p className="text-body text-muted">
         Join as {role === "editor" ? "an Editor" : "a Viewer"}: {role === "editor" ? "edit the cue sheet" : "view the live cue sheet"}.
       </p>
-      <LinkButton
-        href={hasAccount ? loginHref : signupHref}
-        className="mt-2 w-full max-w-xs"
-        variant="primary"
-        size="lg"
-      >
-        {hasAccount ? "Log In to Accept" : "Create Your Account"}
+      <LinkButton href={loginHref} className="mt-2 w-full max-w-xs" variant="primary" size="lg">
+        Log In to Accept
       </LinkButton>
-      {!hasAccount && (
-        <Link href={loginHref} className="text-console-meta text-muted-2 hover:underline">
-          Already have an account? Log in
-        </Link>
-      )}
     </div>
   );
 }
