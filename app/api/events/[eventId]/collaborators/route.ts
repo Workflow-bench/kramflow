@@ -2,18 +2,18 @@ import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { generateInviteToken, INVITE_EXPIRY_DAYS } from "@/lib/server/collaborator-invites";
-import { sendCollaboratorInviteEmail } from "@/lib/server/email";
 import { getUserDisplayName } from "@/lib/server/user-display-name";
 import { logActivityAs } from "@/lib/server/activity-log";
 
 // Report finding #26 / #25 — collaborator management. An email that matches
-// an existing Kramflow account is added immediately (status 'accepted'); one
-// that doesn't gets a 'pending' row with its own invite_token — the same
-// no-login-required, DB-resolved token pattern share_links.token uses — and
-// a best-effort invite email (see lib/server/email.ts). Sending isn't
-// required for the invite to work: the owner always gets the accept link
-// back in the response too, so it's copyable/shareable even before a
-// sending domain is wired up.
+// an existing, *confirmed* Kramflow account is added immediately (status
+// 'accepted'); one that doesn't gets a 'pending' row with its own
+// invite_token — the same no-login-required, DB-resolved token pattern
+// share_links.token uses — and a real invite email sent through Supabase
+// Auth's own inviteUserByEmail (not a separate email provider — see
+// app/auth/callback/route.ts for the link it sends). Sending isn't required
+// for the invite to work: the owner always gets the accept link back in the
+// response too, so it's copyable/shareable even if the email send fails.
 export async function GET(_request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const auth = await requireEventAccess(eventId, "viewer");
@@ -71,10 +71,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     console.error(listError);
     return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
   }
-  const match = usersPage.users.find((u) => u.email?.toLowerCase() === email);
-  if (match?.id === auth.userId) {
+  const found = usersPage.users.find((u) => u.email?.toLowerCase() === email);
+  if (found?.id === auth.userId) {
     return NextResponse.json({ ok: false, error: "You already own this event." }, { status: 400 });
   }
+  // A user row can exist but be unconfirmed — e.g. a prior invite via
+  // Supabase's own inviteUserByEmail below already created the auth.users
+  // row, but they never clicked the email link to set a password. That's
+  // "no real account yet," not "add immediately as accepted": re-inviting
+  // must go through the same pending-row + resend path as a first-time
+  // invite, not silently mark them accepted without ever having consented.
+  const match = found?.email_confirmed_at ? found : null;
 
   const { data: event, error: eventError } = await admin.from("events").select("name").eq("id", eventId).single();
   if (eventError || !event) return NextResponse.json({ ok: false, error: "Event not found." }, { status: 404 });
@@ -131,17 +138,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
   }
   await logActivityAs(admin, eventId, auth.userId, "collaboratorInvite", `Invited ${email} as ${role}`);
 
-  const acceptUrl = `${new URL(request.url).origin}/invite/${token}`;
-  const emailResult = await sendCollaboratorInviteEmail({
-    to: email,
-    eventName: event.name,
-    role,
-    inviterName,
-    acceptUrl,
-    hasAccount: false,
+  // Supabase's own invite mail — no separate email provider. The link it
+  // sends completes at app/auth/callback/route.ts (PKCE code exchange),
+  // which then hands off to /invite/[token]'s existing auto-accept path
+  // (the visitor is signed in by then, so it just works). `data` populates
+  // the Supabase email template's `{{ .Data.* }}` variables if the default
+  // template is customized in the dashboard to use them; the stock template
+  // ignores it, so this degrades to a generic "You've been invited" email
+  // rather than failing.
+  const origin = new URL(request.url).origin;
+  const acceptUrl = `${origin}/invite/${token}`;
+  const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(`/invite/${token}`)}`;
+  const { error: inviteEmailError } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo,
+    data: { eventName: event.name, role, inviterName },
   });
+  if (inviteEmailError) console.error("inviteUserByEmail failed:", inviteEmailError);
 
-  return NextResponse.json({ ok: true, status: "pending", acceptUrl, emailSent: emailResult.sent });
+  return NextResponse.json({ ok: true, status: "pending", acceptUrl, emailSent: !inviteEmailError });
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ eventId: string }> }) {
