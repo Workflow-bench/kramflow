@@ -32,6 +32,8 @@ import { OverflowMenu } from "@/components/ui/overflow-menu";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LoadingState } from "@/components/ui/loading-state";
+import { ErrorState } from "@/components/ui/error-state";
 import { ColorTagPicker } from "@/components/ui/color-tag-picker";
 import { useToast } from "@/components/ui/toast";
 import { ActionBar, ActionBarClear, ActionBarCount, ActionBarSeparator, ActionBarButton } from "@/components/ui/action-bar";
@@ -344,6 +346,22 @@ export default function ComponentCatalogPage() {
           }
           className="w-64"
         />
+      </Row>
+
+      <Row
+        title="Loading state"
+        description="Phase 4: the shared answer to DESIGN.md's flagged gap — every surface previously hand-rolled its own 'Loading…' string. Same anatomy as EmptyState so a surface can swap between the two without its layout shifting."
+      >
+        <LoadingState className="w-64" />
+        <LoadingState title="Loading collaborators…" className="w-72" />
+      </Row>
+
+      <Row
+        title="Error state"
+        description="Phase 4: the other half of the gap — a failed load previously reused EmptyState verbatim, indistinguishable from a genuinely empty list. status-red + OctagonAlert makes a failure read as a failure; onRetry is optional (omit for a permanent failure like a 403)."
+      >
+        <ErrorState title="Couldn't load collaborators" body="The list failed to load (500)." className="w-72" />
+        <ErrorState title="Couldn't load collaborators" body="The list failed to load (500)." onRetry={() => {}} className="w-72" />
       </Row>
 
       <Row title="Toast" description="Persistent bottom-right stack (ToastProvider, mounted once at the app root) — success/error/info, with an optional button-weight action (e.g. Undo) rather than a text link.">
