@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { useEventStore } from "@/lib/store";
+import { useControlLock } from "@/lib/use-control-lock";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -10,7 +11,11 @@ import { SectionLabel } from "@/components/ui/section-label";
 import { useToast } from "@/components/ui/toast";
 
 export function JumpControl({ max }: { max: number }) {
-  const { jumpTo } = useEventStore();
+  const { state, jumpTo, claimControl } = useEventStore();
+  // jumpTo is a LOCKED_ACTION (app/api/live/route.ts) same as Next/Previous/
+  // Hold — needs the same "take control first" recovery ControlsPanel gives
+  // those, rather than a bare "couldn't jump" that doesn't say why.
+  const { iHaveControl, lockedByOther } = useControlLock(state);
   const toast = useToast();
   const [value, setValue] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -59,6 +64,21 @@ export function JumpControl({ max }: { max: number }) {
         loading={jumping}
         onConfirm={async () => {
           if (!isValid || jumpingRef.current) return;
+          if (!iHaveControl) {
+            setConfirmOpen(false);
+            if (lockedByOther) {
+              toast.error("Locked by another operator — take over from the Controls panel to jump.");
+            } else {
+              toast.error("Take control first", {
+                label: "Take Control",
+                onClick: async () => {
+                  const ok = await claimControl();
+                  if (!ok) toast.error("Couldn't take control. Try again.");
+                },
+              });
+            }
+            return;
+          }
           jumpingRef.current = true;
           setJumping(true);
           const ok = await jumpTo(order, max);
