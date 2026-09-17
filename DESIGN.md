@@ -367,14 +367,15 @@ Canonical Operational Product primitives, all in `components/ui/`:
 | Tabs | Session/day switcher pattern (`components/operator/session-switcher.tsx`) | No generic Tabs primitive — the one real tab-like pattern in the app is session switching, implemented directly. |
 | ActionBar | `action-bar.tsx` | One floating pill, fixed slot (no layout shift from selection), sits above the toast stack's own corner. |
 | EmptyState | `empty-state.tsx` | States what's true, why, and what to do next, with the action inline. |
-| LoadingState | *(inline per-surface, no shared primitive)* | Flagged as a real gap — each surface currently hand-rolls its own loading treatment. |
-| ErrorState | *(inline per-surface, no shared primitive)* | Same gap as LoadingState. |
+| LoadingState | `loading-state.tsx` | Phase 4: closes the gap flagged below — `Loader2` + `animate-spin`, same anatomy as EmptyState (title/body, no layout shift when swapping between the two). |
+| ErrorState | `error-state.tsx` | Phase 4: `status-red` + `OctagonAlert` (the same icon `OperationalStatus`'s `critical` variant uses) so a failed load reads as a failure, not a quiet empty list — event-settings-panel.tsx's collaborators list previously reused EmptyState verbatim for this and is the first real adopter. Optional `onRetry`. |
 | SuccessState | `toast.tsx` (`success` tone) | Toast is the canonical success-feedback surface; no separate inline SuccessState component exists. |
 
-**One real gap remains open:** Loading/Error states are still per-surface
-rather than shared (Sheet and Popover, both flagged at Phase 3, were built
-at Phases 6 and 4 respectively once an actual surface needed one — not
-invented speculatively ahead of a real use).
+**Gap closed at Phase 4:** Loading/Error states are now shared components
+(`loading-state.tsx`, `error-state.tsx`), following the same
+build-when-a-real-surface-needs-it discipline as Sheet and Popover before
+them — not invented speculatively, retrofitted into the one real callsite
+that was already awkwardly reusing EmptyState as an error state.
 
 ## Layout
 

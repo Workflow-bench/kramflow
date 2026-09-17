@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X, Copy, RefreshCw, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { FormField } from "@/components/ui/form-field";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useIsOwner, useCanEdit } from "@/lib/event-context";
 import { useToast } from "@/components/ui/toast";
@@ -112,19 +113,12 @@ export function EventSettingsPanel({
   const [addingAuditorium, setAddingAuditorium] = useState(false);
   const tzOptions = useMemo(() => timezoneOptions(), []);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  // Distinct from "loaded, zero rows" — a fetch failure was previously
-  // swallowed here (a bare .catch(() => {})), which left `collaborators`
-  // at its empty initial value and rendered indistinguishably from a
-  // genuinely empty roster. Confirmed live that this is exactly what's
-  // happening right now: the collaborators GET 500s (a live-database
-  // schema gap — event_collaborators is missing invited_by/
-  // invite_expires_at/accepted_at, columns supabase/schema.sql already
-  // documents and this route's own POST already writes to), so every
-  // event's collaborator list has been silently rendering as "No
-  // collaborators yet" regardless of who's actually on it. This can't be
-  // fixed from application code — it needs the missing columns added to
-  // the live database — so at minimum the UI should say so instead of
-  // lying.
+  // Distinct from "loaded, zero rows" — a bare .catch(() => {}) would
+  // otherwise swallow a fetch failure and leave `collaborators` at its
+  // empty initial value, rendering indistinguishably from a genuinely
+  // empty roster. Surfaced as its own ErrorState (not EmptyState, which
+  // this used to reuse verbatim — see components/ui/error-state.tsx) so a
+  // failed load reads as a failure, not a quiet empty list.
   const [collaboratorsError, setCollaboratorsError] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
@@ -135,25 +129,41 @@ export function EventSettingsPanel({
   const [deletingEvent, setDeletingEvent] = useState(false);
   const router = useRouter();
 
+  // Extracted so the ErrorState's "Try Again" button (below) can call the
+  // exact same fetch the initial load does, instead of a second, drifting
+  // implementation. `cancelledRef` guards both call sites against setting
+  // state after unmount — the effect's own cleanup flips it; a retry click
+  // can only ever happen while mounted, so it starts every call at false.
+  const cancelledRef = useRef(false);
+  async function loadCollaborators() {
+    try {
+      const res = await fetch(`/api/events/${eventId}/collaborators`);
+      const data = await res.json();
+      if (cancelledRef.current) return;
+      if (data?.ok) {
+        setCollaborators(data.collaborators ?? []);
+        setCollaboratorsError(null);
+      } else {
+        setCollaboratorsError(data?.error ?? "Couldn't load collaborators");
+      }
+    } catch {
+      if (!cancelledRef.current) setCollaboratorsError("Couldn't load collaborators");
+    }
+  }
+
   useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/events/${eventId}/collaborators`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        if (data?.ok) {
-          setCollaborators(data.collaborators ?? []);
-          setCollaboratorsError(null);
-        } else {
-          setCollaboratorsError(data?.error ?? "Couldn't load collaborators");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setCollaboratorsError("Couldn't load collaborators");
-      });
+    cancelledRef.current = false;
+    // Standard fetch-on-mount pattern, not the derived-state anti-pattern
+    // this rule targets — loadCollaborators' setCollaborators/
+    // setCollaboratorsError are a side effect of kicking off the fetch,
+    // not a synchronous state derivation (same reasoning already applied
+    // to this exact pattern in app/e/[eventId]/operator/cue-sheet/page.tsx).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadCollaborators();
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
   async function sendInvite(email: string, role: "editor" | "viewer") {
@@ -439,9 +449,10 @@ export function EventSettingsPanel({
           </div>
 
           {collaboratorsError ? (
-            <EmptyState
+            <ErrorState
               title="Couldn't load collaborators"
-              body={`This isn't the same as having none. The list failed to load (${collaboratorsError}). Try reloading the page.`}
+              body={`This isn't the same as having none — the list failed to load (${collaboratorsError}).`}
+              onRetry={() => void loadCollaborators()}
             />
           ) : collaborators.length > 0 ? (
             <ul className="flex flex-col">
