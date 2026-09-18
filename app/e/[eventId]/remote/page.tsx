@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import { useEventStore, getLastActionStatus, useConnectionStatus } from "@/lib/store";
 import { ConnectionBadge } from "@/components/ui/connection-badge";
-import { useSessions } from "@/lib/use-sessions";
+import { useSessions, useSessionsLoading } from "@/lib/use-sessions";
+import { LoadingState } from "@/components/ui/loading-state";
 import { getSessionById } from "@/lib/data/sessions";
 import { effectiveNotes, getLive, getNext } from "@/lib/types";
 import { useCountdown } from "@/lib/use-countdown";
@@ -67,6 +68,7 @@ export default function RemotePage() {
   const { sendBroadcast, state: engineState, setSpeakerReady } = useDisplayEngine();
   const registeredCount = Object.keys(engineState.registry).length;
   const sessions = useSessions();
+  const sessionsLoading = useSessionsLoading();
   const session = getSessionById(sessions, state.activeSessionId);
   const [panel, setPanel] = useState<Panel>("none");
   const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
@@ -220,6 +222,17 @@ export default function RemotePage() {
   }
 
   if (!session) {
+    // Distinct branches on purpose — see lib/use-sessions.ts's
+    // useSessionsLoading() comment (2026-09-01 UI/UX audit, P1 finding #2:
+    // false "No sessions yet" while loading). Remote was the one surface
+    // still missing this distinction; Operator's page already applies it.
+    if (sessionsLoading) {
+      return (
+        <main className="h-screen w-full max-w-md mx-auto flex items-center justify-center bg-background px-6">
+          <LoadingState title="Loading sessions…" />
+        </main>
+      );
+    }
     return (
       <main className="h-screen w-full max-w-md mx-auto flex items-center justify-center bg-background px-6 text-center">
         <p className="text-body text-muted">

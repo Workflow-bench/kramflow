@@ -5,6 +5,7 @@ import type { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import { getTransport, type TransportStatus } from "./transport";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fetchDisplayViewPolled } from "@/lib/shared-display-view-poll";
+import type { ShareLinkInvalidReason } from "@/lib/server/share-links";
 import { createInitialEngineState } from "./defaults";
 import { useDisplayEngineIdentity, type DisplayEngineIdentity } from "./context";
 import type {
@@ -247,6 +248,13 @@ interface EngineInstance {
   initialized: boolean;
   remoteHydrated: boolean;
   schedulerRunning: boolean;
+  // Set only for a token-identity instance's poll loop (see
+  // ensureRemoteConnected below) — undefined for an eventId-identity
+  // instance, which uses Realtime instead and never polls at all. Lets
+  // fetchRemoteSliceViaPoll stop its own interval on a definitive
+  // access-denial response (F-10 follow-up, Phase 7C.1) without a second
+  // interval ever existing to leak.
+  pollIntervalId?: ReturnType<typeof setInterval>;
 }
 
 const instances = new Map<string, EngineInstance>();
@@ -428,6 +436,20 @@ async function fetchBroadcastsSlice(inst: EngineInstance, eventId: string) {
   runSchedulerCheck(inst);
 }
 
+// The same four reasons app/api/display-view/route.ts's `reason` field
+// ever carries (lib/server/share-links.ts's ShareLinkInvalidReason, plus
+// verify-display-access.ts's "no_token") — a definitive, permanent access
+// denial an operator has to issue a new link to undo. Anything else
+// (!data.ok with no `reason`, i.e. a real 500/DB error, or a thrown
+// network/timeout exception) is a transient failure this loop should keep
+// retrying on, unchanged from before.
+const ACCESS_DENIAL_REASONS = new Set<ShareLinkInvalidReason | "no_token">([
+  "not_found",
+  "revoked",
+  "expired",
+  "no_token",
+]);
+
 async function fetchRemoteSliceViaPoll(inst: EngineInstance) {
   try {
     const base = inst.identity.token
@@ -445,11 +467,27 @@ async function fetchRemoteSliceViaPoll(inst: EngineInstance) {
     // independent fetches of the identical server-joined payload.
     const data = (await fetchDisplayViewPolled(qs)) as {
       ok: boolean;
+      reason?: ShareLinkInvalidReason | "no_token";
       displayState?: DisplayStateRow;
       displayRegistry?: RegistryRow[];
       displayBroadcasts?: BroadcastRow[];
     };
-    if (!data.ok || !data.displayState) return;
+    if (!data.ok) {
+      // F-10 follow-up (Phase 7C.1): lib/use-display-view.ts already owns
+      // the user-visible LinkInvalid state for this same definitive-denial
+      // response — this loop doesn't need (and must not invent) a second
+      // one. It only needs to stop making requests that can never succeed
+      // again until an operator issues a new link, same standard this
+      // store's own eventId/Realtime branch doesn't have to meet (a
+      // channel failure already has its own independent reconnect
+      // semantics, untouched here).
+      if (data.reason && ACCESS_DENIAL_REASONS.has(data.reason) && inst.pollIntervalId !== undefined) {
+        clearInterval(inst.pollIntervalId);
+        inst.pollIntervalId = undefined;
+      }
+      return;
+    }
+    if (!data.displayState) return;
     applyRemoteRows(inst, data.displayState, data.displayRegistry ?? [], data.displayBroadcasts ?? []);
   } catch (err) {
     console.error("[display-engine] poll failed:", err);
@@ -536,7 +574,7 @@ function ensureRemoteConnected(inst: EngineInstance) {
   } else if (inst.identity.token) {
     const poll = () => fetchRemoteSliceViaPoll(inst);
     poll();
-    setInterval(poll, POLL_INTERVAL_MS);
+    inst.pollIntervalId = setInterval(poll, POLL_INTERVAL_MS);
   }
 }
 
