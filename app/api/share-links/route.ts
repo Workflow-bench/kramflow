@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { generateShareToken } from "@/lib/server/share-links";
+import { generateShareToken, generateTvCode } from "@/lib/server/share-links";
 
 const ALLOWED_EXPIRY_DAYS = [1, 3, 7, 30] as const;
 const DEFAULT_EXPIRY_DAYS = 7;
@@ -47,19 +47,34 @@ export async function POST(request: Request) {
     : DEFAULT_EXPIRY_DAYS;
   const label = typeof body.label === "string" && body.label.trim() ? body.label.trim().slice(0, 80) : null;
 
-  const token = generateShareToken();
   const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString();
 
+  // The TV code must be unique among live shares, and only 1,000,000 values
+  // exist, so a collision is a real (if rare) outcome rather than an
+  // impossibility. The partial unique index on tv_code makes the database
+  // the arbiter: two concurrent creations can never both keep the same
+  // code, and the loser (Postgres 23505) simply draws a fresh code and token
+  // and inserts again. Nothing about the code is logged.
   const admin = supabaseAdmin();
-  const { data, error } = await admin
-    .from("share_links")
-    .insert({ token, label, event_id: auth.eventId, created_by: auth.userId, expires_at: expiresAt })
-    .select("*")
-    .single();
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const { data, error } = await admin
+      .from("share_links")
+      .insert({
+        token: generateShareToken(),
+        tv_code: generateTvCode(),
+        label,
+        event_id: auth.eventId,
+        created_by: auth.userId,
+        expires_at: expiresAt,
+      })
+      .select("*")
+      .single();
 
-  if (error) {
-    console.error(error);
-    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+    if (!error) return NextResponse.json({ ok: true, link: data });
+    if (error.code !== "23505") {
+      console.error("share link insert failed:", error.code, error.message);
+      break;
+    }
   }
-  return NextResponse.json({ ok: true, link: data });
+  return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
 }

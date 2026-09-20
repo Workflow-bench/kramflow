@@ -1,5 +1,5 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 // Share-link tokens: the no-login side of "generate a link + QR tied to
@@ -18,9 +18,21 @@ export function generateShareToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
+// Six-digit TV code: a human-typeable way to reach the SAME share_links row a
+// URL or QR already reaches (resolved by resolveShareLinkByTvCode below, then
+// handed to the normal /screens?token=... path). It carries no event, user,
+// or display information, and it is never the display secret. randomInt is
+// uniform and CSPRNG-backed. Only 1,000,000 values exist, so a collision
+// with another live share is real and is handled by the caller retrying on
+// the partial unique index (supabase/migrations/0015_share_link_tv_code.sql).
+export function generateTvCode(): string {
+  return randomInt(0, 1_000_000).toString().padStart(6, "0");
+}
+
 export interface ShareLinkRow {
   id: string;
   token: string;
+  tv_code: string | null;
   event_id: string;
   label: string | null;
   created_by: string | null;
@@ -45,8 +57,36 @@ export async function resolveShareLink(token: string): Promise<ResolveShareLinkR
   const { data, error } = await supabase.from("share_links").select("*").eq("token", token).maybeSingle();
 
   if (error || !data) return { ok: false, reason: "not_found" };
-  const link = data as ShareLinkRow;
+  return validateShareLink(supabase, data as ShareLinkRow);
+}
 
+// Resolves a six-digit TV code to its share, then applies the exact same
+// validity rule as a token lookup (validateShareLink). Only non-revoked rows
+// are queried because the unique index is partial: a revoked share's code may
+// since have been issued to another share, and this must never match the old
+// one. Expiry needs no filter here, validateShareLink rejects it. Every
+// failure is "not_found" on purpose, the caller must not be able to tell a
+// wrong code from a revoked or expired one.
+export async function resolveShareLinkByTvCode(code: string): Promise<ResolveShareLinkResult> {
+  const supabase = supabaseAdmin();
+  const { data, error } = await supabase
+    .from("share_links")
+    .select("*")
+    .eq("tv_code", code)
+    .is("revoked_at", null)
+    .maybeSingle();
+
+  if (error || !data) return { ok: false, reason: "not_found" };
+  const result = await validateShareLink(supabase, data as ShareLinkRow);
+  return result.ok ? result : { ok: false, reason: "not_found" };
+}
+
+// The single validity rule (revoked, then expired), shared by every way of
+// reaching a share so a link, its QR, and its TV code can never disagree.
+async function validateShareLink(
+  supabase: ReturnType<typeof supabaseAdmin>,
+  link: ShareLinkRow
+): Promise<ResolveShareLinkResult> {
   if (link.revoked_at) return { ok: false, reason: "revoked" };
   if (new Date(link.expires_at).getTime() <= Date.now()) return { ok: false, reason: "expired" };
 
