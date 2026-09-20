@@ -1,24 +1,16 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { verifyDisplayAccess } from "@/lib/server/verify-display-access";
+import { verifySessionAccess } from "@/lib/server/verify-display-access";
 
 const VALID_DISPLAY_TYPES = new Set(["presenter", "green-room", "av", "general"]);
 
-// PATCH activate/deactivate Hold. Still no requireAuth() — Presenter's own
-// Hold button is an unauthenticated control by design — but display_type_
-// state is one row per (event, display type), not per event alone
-// (2026-09 blocker remediation — supabase/migrations/0009_display_type_
-// state.sql), so a client-supplied eventId/token still can't be trusted
-// blindly: it resolves which *event* the same way the four canonical
-// display pages resolve which event they're allowed to see, and
-// displayType (required, not inferred) resolves which display's own row
-// this Hold applies to. Before this, display_state was one row per event —
-// Presenter is the only display type whose UI ever calls this route
-// (confirmed via a full grep of every display client), but the shared row
-// meant its Hold takeover rendered on every display type sharing the
-// event, including the audience-facing General display, reachable by any
-// share-link token regardless of which screen it was minted for. Body:
-// { token? | eventId?, displayType, active, ... }.
+// PATCH activate/deactivate Hold. Session only: a Share Display token is
+// read-only and never authorizes this (see verifySessionAccess), so the
+// caller must be logged in with access to body.eventId. display_type_state
+// is one row per (event, display type), not per event alone
+// (supabase/migrations/0009_display_type_state.sql), and displayType
+// (required, not inferred) resolves which display's own row this Hold
+// applies to. Body: { eventId, displayType, active, ... }.
 export async function PATCH(request: Request) {
   let body: Record<string, unknown>;
   try {
@@ -27,10 +19,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const access = await verifyDisplayAccess(
-    typeof body.token === "string" ? body.token : undefined,
-    typeof body.eventId === "string" ? body.eventId : undefined
-  );
+  const access = await verifySessionAccess(typeof body.eventId === "string" ? body.eventId : undefined);
   if (!access.ok) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 403 });
 
   const displayType = body.displayType;

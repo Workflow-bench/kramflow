@@ -5,7 +5,7 @@ import type { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import { getTransport, type TransportStatus } from "./transport";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fetchDisplayViewPolled } from "@/lib/shared-display-view-poll";
-import type { ShareLinkInvalidReason } from "@/lib/server/share-links";
+import { isDefinitiveAccessDenial, whileAccessValid } from "./access-gate";
 import { createInitialEngineState } from "./defaults";
 import { useDisplayEngineIdentity, type DisplayEngineIdentity } from "./context";
 import type {
@@ -248,6 +248,10 @@ interface EngineInstance {
   initialized: boolean;
   remoteHydrated: boolean;
   schedulerRunning: boolean;
+  // Set once this instance's poll sees a definitive access denial (revoked/
+  // expired/unknown link). From then on the display stops sending its own
+  // register/heartbeat and scheduler requests, which can only fail.
+  accessDenied: boolean;
   // Set only for a token-identity instance's poll loop (see
   // ensureRemoteConnected below) — undefined for an eventId-identity
   // instance, which uses Realtime instead and never polls at all. Lets
@@ -276,6 +280,7 @@ function getInstance(identity: DisplayEngineIdentity): EngineInstance {
       initialized: false,
       remoteHydrated: false,
       schedulerRunning: false,
+      accessDenied: false,
     };
     instances.set(key, inst);
   }
@@ -436,20 +441,6 @@ async function fetchBroadcastsSlice(inst: EngineInstance, eventId: string) {
   runSchedulerCheck(inst);
 }
 
-// The same four reasons app/api/display-view/route.ts's `reason` field
-// ever carries (lib/server/share-links.ts's ShareLinkInvalidReason, plus
-// verify-display-access.ts's "no_token") — a definitive, permanent access
-// denial an operator has to issue a new link to undo. Anything else
-// (!data.ok with no `reason`, i.e. a real 500/DB error, or a thrown
-// network/timeout exception) is a transient failure this loop should keep
-// retrying on, unchanged from before.
-const ACCESS_DENIAL_REASONS = new Set<ShareLinkInvalidReason | "no_token">([
-  "not_found",
-  "revoked",
-  "expired",
-  "no_token",
-]);
-
 async function fetchRemoteSliceViaPoll(inst: EngineInstance) {
   try {
     const base = inst.identity.token
@@ -467,7 +458,7 @@ async function fetchRemoteSliceViaPoll(inst: EngineInstance) {
     // independent fetches of the identical server-joined payload.
     const data = (await fetchDisplayViewPolled(qs)) as {
       ok: boolean;
-      reason?: ShareLinkInvalidReason | "no_token";
+      reason?: string;
       displayState?: DisplayStateRow;
       displayRegistry?: RegistryRow[];
       displayBroadcasts?: BroadcastRow[];
@@ -481,9 +472,12 @@ async function fetchRemoteSliceViaPoll(inst: EngineInstance) {
       // store's own eventId/Realtime branch doesn't have to meet (a
       // channel failure already has its own independent reconnect
       // semantics, untouched here).
-      if (data.reason && ACCESS_DENIAL_REASONS.has(data.reason) && inst.pollIntervalId !== undefined) {
-        clearInterval(inst.pollIntervalId);
-        inst.pollIntervalId = undefined;
+      if (isDefinitiveAccessDenial(data.reason)) {
+        inst.accessDenied = true;
+        if (inst.pollIntervalId !== undefined) {
+          clearInterval(inst.pollIntervalId);
+          inst.pollIntervalId = undefined;
+        }
       }
       return;
     }
@@ -847,7 +841,11 @@ function cancelScheduled(identity: DisplayEngineIdentity, id: string) {
 function runSchedulerCheck(inst: EngineInstance) {
   if (inst.schedulerRunning || typeof window === "undefined") return;
   inst.schedulerRunning = true;
-  setInterval(() => {
+  const schedulerId = setInterval(() => {
+    if (inst.accessDenied) {
+      clearInterval(schedulerId);
+      return;
+    }
     const now = Date.now();
     const due = inst.remoteSlice.broadcastRows.filter(
       (r) => r.status === "scheduled" && r.scheduled_for && Date.parse(r.scheduled_for) <= now
@@ -932,8 +930,10 @@ export function useDisplayEngine() {
   return {
     state,
     clientId,
-    registerDisplay: (input: { id: string; name: string; type: DisplayType; room?: string | null }) => registerDisplay(identity, input),
-    heartbeatDisplay: (id: string, latencyMs: number | null) => heartbeatDisplay(identity, id, latencyMs),
+    registerDisplay: whileAccessValid(inst, (input: { id: string; name: string; type: DisplayType; room?: string | null }) =>
+      registerDisplay(identity, input)
+    ),
+    heartbeatDisplay: whileAccessValid(inst, (id: string, latencyMs: number | null) => heartbeatDisplay(identity, id, latencyMs)),
     renameDisplay: (id: string, name: string) => renameDisplay(identity, id, name),
     assignDisplay: (id: string, patch: { type?: DisplayType; room?: string | null; profileId?: string | null }) =>
       assignDisplay(identity, id, patch),

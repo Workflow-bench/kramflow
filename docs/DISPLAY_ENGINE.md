@@ -76,11 +76,11 @@ app/{presenter,green-room,av,general}/page.tsx  — the 4 Display Engine display
 app/(operator)/broadcast/page.tsx        — Broadcast Center (PIN-gated, linked from the Operator dashboard header)
 app/(operator)/display-manager/page.tsx    — Display Manager (PIN-gated, linked from the Operator dashboard header)
 app/api/display-engine/time/route.ts       — { serverTime } for clock sync
-app/api/display-engine/registry/*          — display registration/heartbeat (public) + rename/assign/command/remove (PIN-gated)
-app/api/display-engine/hold/route.ts       — Hold activate/deactivate (public)
-app/api/display-engine/timer/route.ts      — every timer action (public)
-app/api/display-engine/speaker-ready/route.ts — Green Room's speaker-ready toggle (public)
-app/api/display-engine/broadcasts/*        — send/schedule (PIN-gated), dismiss/acknowledge/promote (public)
+app/api/display-engine/registry/*          — display registration/heartbeat (token or session) + rename/assign/command/remove (owner session)
+app/api/display-engine/hold/route.ts       — Hold activate/deactivate (session only)
+app/api/display-engine/timer/route.ts      — every timer action (session only)
+app/api/display-engine/speaker-ready/route.ts — Green Room's speaker-ready toggle (session only)
+app/api/display-engine/broadcasts/*        — send/schedule (owner session), dismiss (session only), acknowledge/promote (token or session)
 scripts/display-engine-ws-server.mjs        — optional standalone WS relay; no longer needed for Hold/Broadcast/Timer/Registry (see below), still usable for the local-only slice if ever needed
 ```
 
@@ -108,19 +108,36 @@ scripts/display-engine-ws-server.mjs        — optional standalone WS relay; no
 
 ### Auth boundary
 
-Hold/Timer/Speaker-Ready/Registry-heartbeat write endpoints are
-**intentionally public** (no PIN) — Presenter and Green Room are
-unauthenticated pages today (no PIN gate on `/presenter`, `/green-room`,
-`/av`, `/general`), so this matches the actual pre-existing risk level;
-the Supabase migration changed *how* this state syncs, not *who* can
-trigger it. Broadcast Center's send/schedule/cancel actions, and Display
-Manager's rename/assign/command/remove actions, **are** PIN-gated
-(`lib/server/require-auth.ts`) since those pages sit inside the
-`(operator)` route group. Dismiss/acknowledge/promote-a-scheduled-broadcast
-stay public too — `components/display-engine/broadcast-overlay.tsx`,
-rendered on every public display, calls dismiss/acknowledge directly, and
-the scheduled-broadcast poller runs in whichever tab happens to have the
-store loaded, not just an authenticated one.
+A Share Display token (and the six-digit TV code that resolves to one) is
+**read-only**. It can view a display and its live state, and nothing else.
+Show-state writes require a logged-in session with access to the event
+(`verifySessionAccess` in `lib/server/verify-display-access.ts`, which calls
+`requireEventAccess`):
+
+- `PATCH /timer`, `PATCH /hold`, `PATCH /speaker-ready`,
+  `POST /broadcasts/[id]/dismiss`: session only. A token gets 403 (404 for
+  dismiss, which answers "not found" for anything the caller may not touch).
+- Broadcast Center's send/schedule/cancel, Display Manager's rename/assign/
+  command/remove, and profile edits are role-gated as before.
+
+A display may still make a small set of writes about itself with a token, for
+its own event only:
+
+- `POST /registry`: registering and heartbeating its own row (name, type,
+  room, latency). It cannot send commands (`pendingCommand` is owner-only).
+- `POST /broadcasts/[id]/acknowledge`: an emergency acknowledgement for its own
+  display id.
+- `POST /broadcasts/[id]/promote`: only releases a scheduled broadcast whose
+  `scheduled_for` has already passed, which is what the scheduler does anyway.
+  The scheduler runs in whichever tab has the store loaded, including a public
+  display, because there is no server-side cron.
+
+`app/api/display-engine/token-authority.test.ts` fails if any other API route
+starts accepting a token, so widening this list has to be a deliberate edit.
+
+Once a display's poll sees a definitive denial (revoked, expired, or unknown
+link) it stops its own registry heartbeat and scheduler requests
+(`lib/display-engine/access-gate.ts`).
 
 ## Timer engine
 
@@ -166,7 +183,7 @@ Every display page calls `useRegisterDisplay(name, type, room, onCommand)` once:
 
 ## Speaker Ready — new, narrowly-scoped state
 
-The Green Room Display's "speaker ready" indicator has no equivalent in the existing `Program`/`LiveState` model — it's genuinely new information (has the next speaker checked in?), not derivable from anything already tracked. Lives in `display_state.speaker_ready` (a `Record<programId, boolean>` jsonb map), written via `PATCH /api/display-engine/speaker-ready` (public — Green Room's toggle is unauthenticated).
+The Green Room Display's "speaker ready" indicator has no equivalent in the existing `Program`/`LiveState` model — it's genuinely new information (has the next speaker checked in?), not derivable from anything already tracked. Lives in `display_state.speaker_ready` (a `Record<programId, boolean>` jsonb map), written via `PATCH /api/display-engine/speaker-ready` (session only — a Share Display token is read-only and cannot toggle it; any role with access to the event can, from the Remote page).
 
 ## General Display — pragmatic scoping
 

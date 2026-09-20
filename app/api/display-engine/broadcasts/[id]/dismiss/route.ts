@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { requireBroadcastDisplayAccess } from "@/lib/server/require-broadcast-display-access";
+import { requireBroadcastSessionAccess } from "@/lib/server/require-broadcast-display-access";
 
-// POST dismiss. No requireAuth() — components/display-engine/broadcast-overlay.tsx
-// (rendered on every public, unauthenticated display) calls this directly
-// via its own "Dismiss" button. Removes the message from "active"
-// everywhere (not just locally) — matches the original store's
-// dismissBroadcast; it stays in history (dismissed_at is informational,
-// not a delete).
+// POST dismiss. Session only: this removes the message from "active"
+// everywhere (not just on one screen), which is a change to what every
+// display shows, so a read-only Share Display token must not do it. The
+// public display overlay therefore no longer offers Dismiss. It stays in
+// history (dismissed_at is informational, not a delete).
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   let body: Record<string, unknown>;
@@ -17,11 +16,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const access = await requireBroadcastDisplayAccess(
-    id,
-    typeof body.token === "string" ? body.token : undefined,
-    typeof body.eventId === "string" ? body.eventId : undefined
-  );
+  const access = await requireBroadcastSessionAccess(id, typeof body.eventId === "string" ? body.eventId : undefined);
   if (access instanceof NextResponse) return access;
 
   const supabase = supabaseAdmin();
