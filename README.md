@@ -71,7 +71,7 @@ npm install
 
 ## Getting Started
 
-1. Set up a Supabase project and run every file in `supabase/schema.sql` then `supabase/migrations/` in order — see [Environment Variables](#environment-variables) and [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full setup.
+1. Set up a Supabase project and run every file in `supabase/migrations/` in filename order — see [Environment Variables](#environment-variables) and [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full setup.
 2. Copy `.env.example` to `.env.local` and fill in the three Supabase values.
 3. `npm run dev`, open [http://localhost:3000](http://localhost:3000).
 
@@ -128,7 +128,7 @@ kramflow/
 │   ├── server/                   — require-auth, require-event-access (role-based), rate-limit, share-links
 │   └── supabase/                 — browser client, request-scoped SSR client, service-role admin client
 ├── supabase/
-│   ├── schema.sql                — base schema, run once on a fresh project
+│   ├── schema.sql                — older single-file snapshot (no longer needed; the migrations below build the full schema)
 │   └── migrations/                — the full history, named by Supabase version timestamp so it matches the production migration table; run in filename order (base schema, multi-tenant, RPC fixes, rate limits, ...)
 ├── scripts/                      — seed.ts, seed-demo.ts, seed-mock.mjs, provision-test-account.mjs
 ├── e2e/                          — Playwright end-to-end tests

@@ -65,6 +65,15 @@ create table if not exists events (
 );
 create index if not exists events_owner_id_idx on events(owner_id);
 
+-- Fresh-install guard (events): the base schema already creates `events`
+-- without these columns, which makes the CREATE TABLE above a no-op. Adding
+-- them here keeps this migration self-sufficient on an empty project. No-op
+-- wherever the columns already exist (including production).
+alter table events add column if not exists event_date date;
+alter table events add column if not exists venue text;
+alter table events add column if not exists timezone text;
+alter table events add column if not exists form_config jsonb;
+
 -- ---------------------------------------------------------------------------
 -- event_collaborators — non-owner access grants. Owner is events.owner_id
 -- and is never a row here (see lib/server/require-event-access.ts).
@@ -115,6 +124,18 @@ create index if not exists programs_event_id_idx on programs(event_id);
 -- partitions / auditoriums / share_links — didn't exist yet on this
 -- project at all; create fresh, event-scoped from the start.
 -- ---------------------------------------------------------------------------
+-- Fresh-install guard: the base schema already creates these three tables
+-- WITHOUT event_id, so the CREATE TABLE IF NOT EXISTS blocks below would be
+-- no-ops and the event_id indexes would fail. Add the column first (the
+-- tables are empty on a fresh project, so NOT NULL is safe). No-op wherever
+-- event_id already exists (including production).
+alter table partitions add column if not exists event_id uuid references events(id) on delete cascade;
+alter table partitions alter column event_id set not null;
+alter table auditoriums add column if not exists event_id uuid references events(id) on delete cascade;
+alter table auditoriums alter column event_id set not null;
+alter table share_links add column if not exists event_id uuid references events(id) on delete cascade;
+alter table share_links alter column event_id set not null;
+
 create table if not exists partitions (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references events(id) on delete cascade,

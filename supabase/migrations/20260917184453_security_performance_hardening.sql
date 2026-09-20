@@ -14,7 +14,16 @@
 -- ---------------------------------------------------------------------------
 alter function public.swap_program_order(uuid, uuid) set search_path = public;
 alter function public.bulk_update_programs(uuid[], text, text) set search_path = public;
-alter function public.replace_session_programs(text[], jsonb, jsonb) set search_path = public;
+-- The pre-multitenant 3-argument overload is dropped by fix_missing_rpcs, so it
+-- only exists on a database that predates that migration (production still has
+-- it). ALTER FUNCTION has no IF EXISTS, hence the guard: a fresh install skips
+-- it, production behaves exactly as before.
+do $$
+begin
+  if to_regprocedure('public.replace_session_programs(text[], jsonb, jsonb)') is not null then
+    alter function public.replace_session_programs(text[], jsonb, jsonb) set search_path = public;
+  end if;
+end $$;
 alter function public.replace_session_programs(uuid, text[], jsonb, jsonb) set search_path = public;
 alter function public.bulk_move_programs_to_partition(uuid[], uuid) set search_path = public;
 alter function public.move_program(uuid, uuid, uuid) set search_path = public;
