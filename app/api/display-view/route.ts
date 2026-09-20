@@ -35,7 +35,7 @@ export async function GET(request: Request) {
   }
 
   // display_type_state, not display_state, for hold/timer (2026-09 blocker
-  // remediation — supabase/migrations/0009_display_type_state.sql): see
+  // remediation — supabase/migrations/20260909091740_display_type_state.sql): see
   // that migration's comment and app/api/display-engine/hold/route.ts's
   // for the full why. displayType is optional here — an unrecognized or
   // missing value just means no hold/timer override is merged in below,

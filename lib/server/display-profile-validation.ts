@@ -22,7 +22,7 @@ export function mapProfileRow(row: Record<string, unknown>) {
 }
 
 // Same trust boundary as every other jsonb config column in this schema
-// (see supabase/migrations/0013_display_profiles.sql's comment) —
+// (see supabase/migrations/20260909091744_display_profiles.sql's comment) —
 // validated here in application code against the real template/zone/
 // widget definitions, not by a jsonb schema constraint in Postgres.
 export function validateProfileInput(

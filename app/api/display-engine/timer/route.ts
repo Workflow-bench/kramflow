@@ -19,7 +19,7 @@ const VALID_DISPLAY_TYPES = new Set(["presenter", "green-room", "av", "general"]
 // caller must be logged in with access to body.eventId.
 //
 // display_type_state, not display_state (2026-09 blocker remediation —
-// supabase/migrations/0009_display_type_state.sql): the old shared
+// supabase/migrations/20260909091740_display_type_state.sql): the old shared
 // per-event row meant this PATCH, reachable by any event-scoped share-link
 // token regardless of which of the four screens it was actually minted
 // for, silently rewrote what AV's and Green Room's own auto-derived

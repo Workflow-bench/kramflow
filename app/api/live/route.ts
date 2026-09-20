@@ -442,7 +442,7 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
     //
     // Scoped strictly to progress_by_session[sessionId] — removes that one
     // key, every other session's entry untouched. Deliberately does NOT
-    // touch item_actuals: migration 0007_pilot_readiness_v2.sql's own
+    // touch item_actuals: migration 20260909091738_pilot_readiness_v2.sql's own
     // column comment states this exactly ("a session/rehearsal-adjacent
     // reset on the real console does not erase real timing history") —
     // this is the same established principle, just applied at session

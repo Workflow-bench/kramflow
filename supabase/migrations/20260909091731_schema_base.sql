@@ -6,7 +6,7 @@
 -- as a numbered file in supabase/migrations/ — run this file first, then
 -- everything in supabase/migrations/ in order. The app code's current RPC
 -- signatures (e.g. replace_session_programs's p_event_id param) only exist
--- after supabase/migrations/20260909091732_multitenant.sql — this file alone won't
+-- after supabase/migrations/0001_multitenant.sql — this file alone won't
 -- produce a working app. See docs/DEPLOYMENT.md for the full setup order.
 
 -- ---------------------------------------------------------------------------
@@ -57,27 +57,12 @@ create table if not exists programs (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   updated_by text,
-  -- Optimistic-concurrency guard for app/api/programs/[id]/route.ts's PATCH.
-  -- Confirmed live: two operators editing the same item within the same
-  -- stale-data window (one bumps duration, the other adds a stage note)
-  -- both got a 200 back, but whoever's PATCH landed second silently wiped
-  -- the other's change — the form PATCHes its entire snapshot, not a diff.
-  -- Same version-column pattern already used for live_state/display_state.
   version integer not null default 0
 );
 alter table programs add column if not exists version integer not null default 0;
 
 create index if not exists programs_session_id_idx on programs(session_id);
 
--- Deferrable, not a plain unique index — checked at end-of-statement/
--- transaction when a mutator explicitly defers it (SET CONSTRAINTS ...
--- DEFERRED), rather than per-row immediately. swap_program_order routes
--- through a -1 scratch value instead of relying on deferral (never
--- actually produces a transient duplicate), but the multi-row reorder RPCs
--- below (insert_program_into_partition, move_program,
--- bulk_move_programs_to_partition) do a bulk renumber that would
--- self-collide under a plain index, since Postgres doesn't guarantee bulk
--- UPDATE row-processing order.
 alter table programs drop constraint if exists programs_session_sort_order_key;
 drop index if exists programs_session_sort_order_idx;
 alter table programs
@@ -85,21 +70,13 @@ alter table programs
   unique (session_id, sort_order) deferrable initially immediate;
 
 -- ---------------------------------------------------------------------------
--- partitions — real identity for what programs.section_label used to fake.
--- section_label was a freeform string grouped in the UI purely by
--- comparing each program to its array-neighbor — two runs sharing
--- identical label text merged with no visible seam, and a reorder that
--- broke label-contiguity spawned a spurious duplicate header ("partition
--- bleeding"). section_label stays as a denormalized/legacy column; all new
--- code reads/writes the label via partition_id -> partitions.label.
+-- partitions
 -- ---------------------------------------------------------------------------
 create table if not exists partitions (
   id uuid primary key default gen_random_uuid(),
   session_id text not null references sessions(id) on delete cascade,
   label text not null,
   sort_order integer not null,
-  -- Anchor for the duration-cascade computation (lib/schedule.ts): "the
-  -- section's overall start time if it's the first item." Null = not set.
   start_time text
 );
 create index if not exists partitions_session_id_idx on partitions(session_id);
@@ -109,9 +86,7 @@ alter table programs add column if not exists time_is_computed boolean not null 
 create index if not exists programs_partition_id_idx on programs(partition_id);
 
 -- ---------------------------------------------------------------------------
--- auditoriums — production-field *availability* per auditorium is
--- expressed via event_form_configs' visibleIf mechanism below, not a
--- bespoke system here.
+-- auditoriums
 -- ---------------------------------------------------------------------------
 create table if not exists auditoriums (
   id uuid primary key default gen_random_uuid(),
@@ -120,11 +95,7 @@ create table if not exists auditoriums (
 alter table programs add column if not exists auditorium_id uuid references auditoriums(id) on delete set null;
 
 -- ---------------------------------------------------------------------------
--- event_form_configs — per-event Add Item form field config. Keyed by
--- sessions.event_name (the only existing "event" concept — free text
--- today, no FK; the API route validates a submitted event_name against
--- distinct sessions.event_name values before upsert so a typo can't
--- silently create an orphaned config no session will ever match).
+-- event_form_configs
 -- ---------------------------------------------------------------------------
 create table if not exists event_form_configs (
   event_name text primary key,
@@ -132,27 +103,7 @@ create table if not exists event_form_configs (
 );
 
 -- ---------------------------------------------------------------------------
--- replace_session_programs — atomic "delete this session's programs, then
--- insert the new set" for the cue-sheet upload route and scripts/seed.ts.
--- Both previously did this as two separate round trips (delete, then
--- insert); if the insert failed after the delete had already committed
--- (a transient error, a row that fails a check constraint the dry-run
--- validation didn't catch, etc.), the affected sessions were left with
--- zero programs until a successful re-upload — a real data-loss window.
--- A single function call runs in one transaction: either both steps
--- happen or neither does.
---
--- id/created_at/updated_at/updated_by are deliberately not in the column
--- list below — they're left for the table's own defaults, exactly as the
--- old two-step insert() already relied on (parsed rows never carry ids).
---
--- Now also owns partition lifecycle: Excel re-upload deletes and fully
--- replaces a session's programs (ids are never stable across re-uploads),
--- so without this the old partition rows would be orphaned and a re-upload
--- would create a parallel duplicate set every time. Partition ids are
--- generated client-side (crypto.randomUUID() in the upload route) and
--- referenced directly as p_programs.partition_id — avoids needing a
--- temp_id-to-real-id mapping step inside the function.
+-- replace_session_programs (pre-multitenant signature; superseded by 0001)
 -- ---------------------------------------------------------------------------
 drop function if exists replace_session_programs(text[], jsonb);
 
@@ -194,18 +145,7 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- insert_program_into_partition — atomic "find the next sort_order for
--- this partition, then insert" for app/api/programs/route.ts's POST
--- handler. Replaces the earlier insert_program_at_end, which always
--- appended to the end of the whole SESSION regardless of section_label —
--- one of "partition bleeding"'s root causes (a new item tagged into an
--- earlier partition could land physically after a later partition's
--- items). This computes the correct position as the end of the target
--- partition's own contiguous run (or end of session if p_partition_id is
--- null), then shifts every later row's sort_order by +1 — safe only
--- because programs_session_sort_order_key is now deferrable (see above); a
--- plain index would let the shift self-collide, since Postgres doesn't
--- guarantee bulk UPDATE row-processing order.
+-- insert_program_into_partition (pre-multitenant signature; superseded by 0001/0004)
 -- ---------------------------------------------------------------------------
 create or replace function insert_program_into_partition(
   p_session_id text,
@@ -265,14 +205,7 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- move_program — arbitrary-position reorder for drag-and-drop. Given real
--- row counts here (~40 items/session, 244 total per lib/parse-cuesheet.ts's
--- own comment), does a full row_number()-based renumber of the session
--- rather than surgical range-shift arithmetic — O(n) on ~40 rows, and
--- removes a whole class of off-by-one bugs a surgical shift invites.
--- p_after_id null = move to the very front. p_partition_id is the drop
--- target's partition (drag-and-drop stays scoped within a partition in the
--- UI, but the RPC itself doesn't need to enforce that — the caller does).
+-- move_program
 -- ---------------------------------------------------------------------------
 create or replace function move_program(p_id uuid, p_after_id uuid, p_partition_id uuid)
 returns void
@@ -309,11 +242,7 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- bulk_move_programs_to_partition — "move N selected items to a section"
--- for the Cue Sheet editor's multi-select bulk-edit. `select ... into
--- strict` auto-raises if p_ids spans more than one session or matches
--- none, which is exactly the guard needed here without a separate count
--- check.
+-- bulk_move_programs_to_partition
 -- ---------------------------------------------------------------------------
 create or replace function bulk_move_programs_to_partition(p_ids uuid[], p_partition_id uuid)
 returns void
@@ -345,11 +274,7 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- bulk_update_programs — the Cue Sheet editor's other bulk-edit half:
--- apply one field value to N program ids at once. Allow-listed to
--- genuinely text-typed, freely bulk-editable columns only (never
--- sort_order/version/id, and not auditorium_id, which is uuid-typed).
--- Doesn't touch sort_order, so no advisory lock or deferred constraint.
+-- bulk_update_programs
 -- ---------------------------------------------------------------------------
 create or replace function bulk_update_programs(p_ids uuid[], p_field text, p_value text)
 returns setof programs
@@ -371,21 +296,7 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- swap_program_order — atomically swap two programs' sort_order, for the
--- Cue Sheet editor's move-up/move-down reordering
--- (app/(operator)/operator/cue-sheet/page.tsx). A naive client-side swap
--- (PATCH A to B's order, then PATCH B to A's order) would violate
--- programs_session_sort_order_key's uniqueness the instant the first PATCH
--- lands, since both rows would briefly share a sort_order. Routing through
--- -1 first (sort_order is always >= 1 in practice) avoids that, and running
--- all three updates inside one function keeps the whole swap in a single
--- transaction — no other request can observe the intermediate state.
--- Also takes the advisory lock (a real pre-existing gap — harmless before
--- only by accident, since two single-row updates happen to serialize; not
--- safe once move_program/bulk_move_programs_to_partition can run
--- concurrently and read a stale sort_order mid-shift) and refuses to swap
--- across a session or partition boundary — the arrow-based reorder UI
--- shouldn't be able to interleave sections any more than drag-and-drop can.
+-- swap_program_order
 -- ---------------------------------------------------------------------------
 create or replace function swap_program_order(p_id_a uuid, p_id_b uuid)
 returns void
@@ -422,7 +333,7 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- live_state — singleton row, kept small by design (see ARCHITECTURE.md)
+-- live_state
 -- ---------------------------------------------------------------------------
 create table if not exists live_state (
   id smallint primary key default 1 check (id = 1),
@@ -433,24 +344,7 @@ create table if not exists live_state (
   notes_overrides jsonb not null default '{}'::jsonb,
   presenter_state jsonb not null default '{"note": null, "flashAt": null}'::jsonb,
   updated_at timestamptz not null default now(),
-  -- Optimistic concurrency: app/api/live/route.ts reads this row, computes
-  -- a patch, then writes it back as two separate round trips — without a
-  -- version check, two near-simultaneous requests (a fast double-tap on
-  -- Next, or Operator + Remote firing close together) can both read the
-  -- same starting state and the second write silently clobbers the
-  -- first's. The route bumps this by 1 on every successful write and
-  -- requires it to still match at write time; a mismatch means someone
-  -- else's write landed first, so the route returns 409 instead of
-  -- silently overwriting.
   version integer not null default 0,
-  -- Sequencing control lock (Start/Next/Previous/Jump/Hold/Finish/switch-
-  -- session only — Alert/Notes stay collaborative). Opt-in: null means
-  -- unclaimed and every operator acts exactly as before this existed.
-  -- controller_id is a client-generated id (lib/client-id.ts), not a real
-  -- account — this app has no per-user identity by design (see
-  -- lib/server/auth-cookie.ts). app/api/live/route.ts treats a claim older
-  -- than its staleness window as abandoned and reclaimable without forcing,
-  -- so a crashed/closed controlling tab can't permanently lock the show.
   controller_id text,
   controller_claimed_at timestamptz
 );
@@ -461,7 +355,7 @@ alter table live_state add column if not exists controller_id text;
 alter table live_state add column if not exists controller_claimed_at timestamptz;
 
 -- ---------------------------------------------------------------------------
--- activity_log — short operator action history, not analytics (see plan)
+-- activity_log
 -- ---------------------------------------------------------------------------
 create table if not exists activity_log (
   id bigint generated always as identity primary key,
@@ -473,12 +367,7 @@ create table if not exists activity_log (
 create index if not exists activity_log_created_at_idx on activity_log(created_at desc);
 
 -- ---------------------------------------------------------------------------
--- display_state — singleton row for the Display Engine's own live state
--- (Hold, Timer, Speaker Ready). Same "keep it small" reasoning as
--- live_state. Previously synced via BroadcastChannel/WebSocket only
--- (same-browser or requiring a separately-deployed relay); moved here so
--- it syncs across real devices the same reliable way live_state does. See
--- docs/DISPLAY_ENGINE.md.
+-- display_state
 -- ---------------------------------------------------------------------------
 create table if not exists display_state (
   id smallint primary key default 1 check (id = 1),
@@ -486,14 +375,6 @@ create table if not exists display_state (
   timer jsonb not null default '{"mode":"program","source":"auto","startedAt":null,"durationSeconds":300,"pausedAt":null,"adjustmentSeconds":0,"thresholds":{"yellowAt":300,"orangeAt":60,"redAt":0,"criticalAfter":60}}'::jsonb,
   speaker_ready jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now(),
-  -- Same optimistic-concurrency reasoning as live_state.version, scoped to
-  -- just the timer column: app/api/display-engine/timer/route.ts's adjust/
-  -- pause/resume/reset actions all depend on the timer value it read at
-  -- the start of the request, so two near-simultaneous timer PATCHes can
-  -- race the same way live_state's next/previous can. Hold and
-  -- speaker_ready each update their own column independently and don't
-  -- share this counter — a concurrent Hold toggle should never fail a
-  -- Timer adjustment's version check just because they hit the same row.
   timer_version integer not null default 0
 );
 
@@ -501,12 +382,7 @@ insert into display_state (id) values (1) on conflict (id) do nothing;
 alter table display_state add column if not exists timer_version integer not null default 0;
 
 -- ---------------------------------------------------------------------------
--- display_registry — one row per connected display (Presenter/AV/Green
--- Room/General instances, could be several of the same type across
--- different rooms/devices). Self-registers + heartbeats every 15s
--- (lib/display-engine/use-register-display.ts). Display Manager reads
--- this to show connection status/latency and issue remote commands via
--- pending_command.
+-- display_registry
 -- ---------------------------------------------------------------------------
 create table if not exists display_registry (
   id text primary key,
@@ -521,14 +397,7 @@ create table if not exists display_registry (
 );
 
 -- ---------------------------------------------------------------------------
--- display_broadcasts — Broadcast Center messages. `status`/`dismissed_for`
--- reconstruct the app's active/scheduled/history views client-side from
--- one table rather than three separate arrays:
---   active    = status='sent' and dismissed_at is null and not expired
---   scheduled = status='scheduled'
---   history   = every status='sent' row, regardless of dismissed_at
---     (dismissing removes a message from "active" everywhere, same as the
---     original store — it does not remove it from history)
+-- display_broadcasts
 -- ---------------------------------------------------------------------------
 create table if not exists display_broadcasts (
   id uuid primary key default gen_random_uuid(),
@@ -552,16 +421,7 @@ create table if not exists display_broadcasts (
 create index if not exists display_broadcasts_status_idx on display_broadcasts(status);
 
 -- ---------------------------------------------------------------------------
--- acknowledge_broadcast — atomically appends a display id to
--- acknowledged_by, used by app/api/display-engine/broadcasts/[id]/
--- acknowledge/route.ts. Previously that route did a separate SELECT then
--- UPDATE from app code: two displays acknowledging the same emergency
--- broadcast in the same round trip could both read the pre-update array,
--- compute their own "append one id" version, and the second UPDATE would
--- silently overwrite the first's acknowledgement. A single UPDATE...WHERE
--- (this function's whole body) is what Postgres itself serializes via the
--- row's lock — the second concurrent call re-evaluates its WHERE against
--- the already-updated row and correctly finds its id already present.
+-- acknowledge_broadcast
 -- ---------------------------------------------------------------------------
 create or replace function acknowledge_broadcast(p_id uuid, p_display_id text)
 returns display_broadcasts
@@ -585,13 +445,7 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- Backfill: derive partitions from any pre-existing programs' section_label
--- runs, mirroring lib/parse-cuesheet.ts's own contiguous-run logic (walk
--- each session's programs in sort_order, start a new partition every time
--- section_label changes). No-op on a fresh project (no programs exist
--- yet); guarded by `where partition_id is null` so a re-run against a
--- project that already has partitions doesn't reprocess already-backfilled
--- rows.
+-- Backfill partitions from section_label (no-op on a fresh project)
 -- ---------------------------------------------------------------------------
 do $$
 declare
@@ -629,23 +483,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- share_links — operator-generated, no-login display access. Real auth
--- (auth.users, Supabase Auth) replaces the old single-PIN gate; this table
--- is what a "Share Display Link" QR/URL actually resolves against.
---
--- token is a separate, opaque, cryptographically random column — not the
--- row's id — deliberately: the id is a perfectly good uuid but treating it
--- as the secret would mean every id ever handed to a client (logs, browser
--- history, a screenshot) is itself credential material. token is the only
--- thing that ever appears in a URL.
---
--- Revocation is a plain column flip (revoked_at), not a key rotation — this
--- is the intentional difference from the signed-URL model StageTimer uses
--- (see the KramFlow research notes): a stateless HMAC-signed link stays
--- valid until the whole room's signing key changes, so there's no way to
--- kill *one* leaked link without invalidating every other link sharing that
--- key. An opaque token looked up row-by-row means "revoke" is instant and
--- scoped to exactly the one link the operator clicked Revoke on.
+-- share_links
 -- ---------------------------------------------------------------------------
 create table if not exists share_links (
   id uuid primary key default gen_random_uuid(),
@@ -659,38 +497,10 @@ create table if not exists share_links (
 );
 create index if not exists share_links_token_idx on share_links(token);
 
--- No RLS policies granting anon or authenticated select/insert/update —
--- resolved and managed exclusively through API routes using the
--- service-role client (app/api/share-links/*, lib/server/share-links.ts),
--- same as every write in this schema. Any authenticated operator can list
--- or revoke any link (not just the one they created) — this app has no
--- per-user data isolation by design (see live_state above), and scoping
--- revoke to "only the creator" would mean a link generated by an operator
--- who's since gone home can't be killed by whoever's covering the desk now.
 alter table share_links enable row level security;
 
 -- ---------------------------------------------------------------------------
--- events / event_collaborators — reconstructed here from the live schema:
--- both tables predate this file and were never backported into it (verified
--- by grep — every `.from("events"|"event_collaborators")` call in the app
--- goes through supabaseAdmin(), so this omission never broke anything, it
--- just left schema.sql lying about what a fresh project needs). Written to
--- match the columns lib/server/require-event-access.ts and
--- app/api/events/[eventId]/collaborators/route.ts already depend on, plus
--- the invite columns added alongside this comment.
---
--- Collaborator invites: a collaborator row is created the moment an owner
--- adds someone by email, whether or not that email has a Kramflow account
--- yet. `status` distinguishes the two: 'accepted' rows have a real user_id
--- (either the immediate match at invite time, or a 'pending' row later
--- resolved once the invitee signs up/logs in and visits their invite link).
--- 'pending' rows carry invite_token instead of user_id — same opaque,
--- DB-resolved token pattern as share_links.token above, for the same
--- reason: instant, single-invite revocation without touching any other
--- invite. user_id stays nullable specifically to hold that pending state;
--- it's populated (and status flips to 'accepted') by
--- app/api/invites/[token]/accept/route.ts once the invitee is signed in
--- under the exact email the invite was sent to.
+-- events / event_collaborators
 -- ---------------------------------------------------------------------------
 create table if not exists events (
   id uuid primary key default gen_random_uuid(),
@@ -716,10 +526,6 @@ create table if not exists event_collaborators (
 create unique index if not exists event_collaborators_id_idx on event_collaborators(id);
 create unique index if not exists event_collaborators_invite_token_idx
   on event_collaborators(invite_token) where invite_token is not null;
--- Only one *pending* invite per (event, email) at a time — an owner
--- re-inviting the same address reuses/refreshes that row instead of piling
--- up duplicates. Accepted rows are excluded so a former collaborator who
--- was removed can be invited again.
 create unique index if not exists event_collaborators_pending_email_idx
   on event_collaborators(event_id, invited_email) where status = 'pending';
 
@@ -727,10 +533,7 @@ alter table events enable row level security;
 alter table event_collaborators enable row level security;
 
 -- ---------------------------------------------------------------------------
--- Row-Level Security
--- Public (anon) reads only. All writes go through Next.js API routes using
--- the service_role key, which bypasses RLS entirely — no write policies are
--- defined here on purpose.
+-- Row-Level Security (base, pre-multitenant — superseded by 0001)
 -- ---------------------------------------------------------------------------
 alter table sessions enable row level security;
 alter table programs enable row level security;
@@ -774,11 +577,7 @@ drop policy if exists "public read event_form_configs" on event_form_configs;
 create policy "public read event_form_configs" on event_form_configs for select using (true);
 
 -- ---------------------------------------------------------------------------
--- Realtime — enable change broadcasts for the tables clients subscribe to.
--- `ALTER PUBLICATION ... ADD TABLE` has no `IF NOT EXISTS` form and errors
--- ("already member of publication") on a re-run, unlike every other
--- statement in this file — wrapped in a loop that checks first so the
--- whole file stays genuinely idempotent.
+-- Realtime
 -- ---------------------------------------------------------------------------
 do $$
 declare

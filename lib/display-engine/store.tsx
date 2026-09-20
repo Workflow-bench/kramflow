@@ -316,7 +316,7 @@ function identityQuery(identity: DisplayEngineIdentity): string {
 
 // Hold/Timer moved out of display_state into a new per-(event, display
 // type) table (2026-09 blocker remediation — see
-// supabase/migrations/0009_display_type_state.sql for the full why: the
+// supabase/migrations/20260909091740_display_type_state.sql for the full why: the
 // old one-row-per-*event* shape meant Presenter's own local timer/hold
 // adjustments — the only display type that ever calls the mutating
 // functions — silently bled into AV's and Green Room's own shown
