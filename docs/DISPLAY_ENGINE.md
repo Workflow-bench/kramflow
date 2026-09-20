@@ -61,8 +61,7 @@ lib/display-engine/
 ├── use-register-display.ts      — registry registration + heartbeat + pending-command delivery
 ├── use-display-timer.ts         — the timer engine (auto-follow + manual), formatClock(), useDisplayClock()
 ├── use-fullscreen.ts            — Fullscreen API + Screen Wake Lock API wrappers
-├── use-keyboard-shortcuts.ts     — scoped per-page shortcut map
-└── use-idle-visibility.ts        — controls auto-hide/reveal on activity
+└── use-keyboard-shortcuts.ts     — scoped per-page shortcut map
 
 components/display-engine/
 ├── display-shell.tsx        — full-viewport safe-area wrapper (not a reuse of the deleted components/tv/tv-layout.tsx)

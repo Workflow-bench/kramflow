@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/safe-redirect";
 
 // The one place a Supabase-Auth-sent email link (collaborator invite,
 // password recovery, email change) lands before handing off to wherever it
@@ -11,7 +12,8 @@ import { supabaseServer } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? "/dashboard";
+  // `next` is attacker-controllable; only a same-origin path may be followed.
+  const next = safeNext(url.searchParams.get("next"));
 
   if (code) {
     const supabase = await supabaseServer();
