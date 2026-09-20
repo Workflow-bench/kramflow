@@ -28,7 +28,14 @@ create policy "event-scoped display_profiles" on display_profiles
   using (has_event_access(event_id));
 
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
-revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
+-- rls_auto_enable() is created by the Supabase platform, not by these
+-- migrations, so only revoke it where it exists.
+do $$
+begin
+  if to_regprocedure('public.rls_auto_enable()') is not null then
+    revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
+  end if;
+end $$;
 
 revoke execute on function public.has_event_access(uuid) from public, anon;
 grant execute on function public.has_event_access(uuid) to authenticated, service_role;
