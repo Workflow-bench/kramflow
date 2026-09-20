@@ -726,7 +726,7 @@ function DisplayRow({
                 />
               </MaybeTooltip>
               {/* Display Profiles are real now (supabase/migrations/
-                  0013_display_profiles.sql — see that migration and
+                  20260909091744_display_profiles.sql — see that migration and
                   components/operator/display-profile-panel.tsx for the
                   full "why" this was previously disabled and what
                   changed) — only shown for a "custom" display, since the

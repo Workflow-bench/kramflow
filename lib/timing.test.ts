@@ -403,7 +403,7 @@ describe("computeSessionTimingReport", () => {
 // which removes only progress_by_session[sessionId] (simulated here by a
 // state with no entry for the reset session) while deliberately leaving
 // item_actuals untouched (real timing history, per migration
-// 0007_pilot_readiness_v2.sql's own comment on that column).
+// 20260909091738_pilot_readiness_v2.sql's own comment on that column).
 describe("post-reset behavior (resetSession leaves item_actuals in place)", () => {
   function twoSessionFixture() {
     const sessionA = session([

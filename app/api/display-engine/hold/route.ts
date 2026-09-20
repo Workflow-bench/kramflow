@@ -8,7 +8,7 @@ const VALID_DISPLAY_TYPES = new Set(["presenter", "green-room", "av", "general"]
 // read-only and never authorizes this (see verifySessionAccess), so the
 // caller must be logged in with access to body.eventId. display_type_state
 // is one row per (event, display type), not per event alone
-// (supabase/migrations/0009_display_type_state.sql), and displayType
+// (supabase/migrations/20260909091740_display_type_state.sql), and displayType
 // (required, not inferred) resolves which display's own row this Hold
 // applies to. Body: { eventId, displayType, active, ... }.
 export async function PATCH(request: Request) {

@@ -24,7 +24,7 @@ export function generateShareToken(): string {
 // or display information, and it is never the display secret. randomInt is
 // uniform and CSPRNG-backed. Only 1,000,000 values exist, so a collision
 // with another live share is real and is handled by the caller retrying on
-// the partial unique index (supabase/migrations/0015_share_link_tv_code.sql).
+// the partial unique index (supabase/migrations/20260920172119_share_link_tv_code.sql).
 export function generateTvCode(): string {
   return randomInt(0, 1_000_000).toString().padStart(6, "0");
 }

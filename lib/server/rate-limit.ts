@@ -18,7 +18,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 // meaningfully affect each other, while still making automated brute-force
 // impractical.
 //
-// Backed by supabase/migrations/0003_rate_limits.sql's rate_limit_attempts
+// Backed by supabase/migrations/20260909091734_rate_limits.sql's rate_limit_attempts
 // table + check_and_record_rate_limit RPC — was an in-memory Map, which
 // reset on every restart and didn't share state across serverless
 // instances (see docs/DEPLOYMENT.md's old callout). The RPC does the

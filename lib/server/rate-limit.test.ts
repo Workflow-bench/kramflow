@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // The actual increment/lockout/doubling logic now lives in the
 // check_and_record_rate_limit Postgres RPC (supabase/migrations/
-// 0003_rate_limits.sql) — exercised directly against a live database in
+// 20260909091734_rate_limits.sql) — exercised directly against a live database in
 // this task's manual verification (see the PR description), since that's
 // real server-side SQL, not something to reimplement against a mock here.
 // What's left to unit-test at this layer is rate-limit.ts's own logic:

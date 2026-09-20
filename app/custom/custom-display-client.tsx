@@ -34,7 +34,7 @@ const PROFILE_POLL_MS = 10_000;
  * lib/display-engine/context.tsx's DisplayEngineIdentity.displayType doc:
  * that field only decides which display_type_state row Hold/Timer reads
  * from (a security-scoped table restricted to the 4 real types by design,
- * supabase/migrations/0009_display_type_state.sql), and a custom display
+ * supabase/migrations/20260909091740_display_type_state.sql), and a custom display
  * is meant to be a public-safe, read-only surface like General — never a
  * new local-control surface the way Presenter is. The *registry* identity
  * (what shows up in the Displays fleet, what a targeted broadcast can

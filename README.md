@@ -129,7 +129,7 @@ kramflow/
 │   └── supabase/                 — browser client, request-scoped SSR client, service-role admin client
 ├── supabase/
 │   ├── schema.sql                — base schema, run once on a fresh project
-│   └── migrations/                — everything since, run in order (multi-tenant, RPC fixes, rate limits, ...)
+│   └── migrations/                — the full history, named by Supabase version timestamp so it matches the production migration table; run in filename order (base schema, multi-tenant, RPC fixes, rate limits, ...)
 ├── scripts/                      — seed.ts, seed-demo.ts, seed-mock.mjs, provision-test-account.mjs
 ├── e2e/                          — Playwright end-to-end tests
 ├── data/cue-sheet.xlsx           — the bundled reference cue sheet
