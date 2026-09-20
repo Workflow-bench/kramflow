@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Alert, LiveState, Session } from "./types";
 import { fetchDisplayViewPolled } from "./shared-display-view-poll";
+import type { ShareLinkInvalidReason } from "./server/share-links";
 
 // The read path for the four public TV displays — polls
 // app/api/display-view/route.ts every ~2.5s instead of subscribing to
@@ -76,6 +77,18 @@ export interface DisplayViewResult {
   eventVenue: string | null;
   loading: boolean;
   error: string | null;
+  // A resolved-but-unauthorized response — revoked/expired/not_found/
+  // no_token, exactly app/api/display-view/route.ts's `reason` field, via
+  // the same ShareLinkInvalidReason enum LinkInvalid already renders for a
+  // fresh navigation. Kept separate from `error` deliberately: `error`
+  // also carries transient network/server failures (which *do* recover on
+  // their own and should keep showing last-known content behind a
+  // reconnecting badge), while this is permanent until an operator issues
+  // a new link — nothing currently reads it (F-10, Phase 7B: an
+  // already-open display kept rendering stale content with a healthy
+  // connection badge after its link was revoked), so every display client
+  // needs to branch on it explicitly rather than on `error`'s generic string.
+  accessError: ShareLinkInvalidReason | "no_token" | null;
   connectionStatus: DisplayConnectionStatus;
   // When the last successful poll landed — connectionStatus alone only ever
   // says "the last poll succeeded or didn't," not "how old is what's on
@@ -95,6 +108,7 @@ export function useDisplayView(params: { token?: string; eventId?: string; displ
   const [eventVenue, setEventVenue] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [accessError, setAccessError] = useState<ShareLinkInvalidReason | "no_token" | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<DisplayConnectionStatus>("connected");
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const consecutiveFailures = useRef(0);
@@ -102,6 +116,7 @@ export function useDisplayView(params: { token?: string; eventId?: string; displ
   useEffect(() => {
     if (!token && !requestedEventId) return;
     let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | undefined = undefined;
 
     function recordFailure() {
       consecutiveFailures.current += 1;
@@ -126,7 +141,7 @@ export function useDisplayView(params: { token?: string; eventId?: string; displ
         const qs = displayType ? `${base}&displayType=${encodeURIComponent(displayType)}` : base;
         const data = (await fetchDisplayViewPolled(qs)) as {
           ok: boolean;
-          reason?: string;
+          reason?: ShareLinkInvalidReason | "no_token";
           error?: string;
           sessions?: Session[];
           liveState: LiveStateRow;
@@ -143,7 +158,17 @@ export function useDisplayView(params: { token?: string; eventId?: string; displ
           // the same interval will never fix it, so it shouldn't cycle the
           // connection badge between reconnecting/disconnected the way an
           // actual dropped connection should.
-          if (!data.reason) recordFailure();
+          if (!data.reason) {
+            recordFailure();
+            return;
+          }
+          // Terminal: an operator has to issue a new link before this
+          // could ever succeed again, so unlike a network hiccup, nothing
+          // about waiting and retrying helps — every display client reads
+          // this and renders the same LinkInvalid state a fresh navigation
+          // to the same (now-dead) link already shows.
+          setAccessError(data.reason);
+          if (intervalId !== undefined) clearInterval(intervalId);
           return;
         }
         setSessions(data.sessions ?? []);
@@ -152,6 +177,7 @@ export function useDisplayView(params: { token?: string; eventId?: string; displ
         setEventName(data.eventName ?? null);
         setEventVenue(data.eventVenue ?? null);
         setError(null);
+        setAccessError(null);
         setLoading(false);
         setLastUpdatedAt(Date.now());
         recordSuccess();
@@ -164,10 +190,10 @@ export function useDisplayView(params: { token?: string; eventId?: string; displ
     }
 
     poll();
-    const id = setInterval(poll, POLL_INTERVAL_MS);
+    intervalId = setInterval(poll, POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      clearInterval(intervalId);
     };
   }, [token, requestedEventId, displayType]);
 
@@ -179,6 +205,7 @@ export function useDisplayView(params: { token?: string; eventId?: string; displ
     eventVenue,
     loading,
     error,
+    accessError,
     connectionStatus,
     lastUpdatedAt,
   };

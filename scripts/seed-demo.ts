@@ -33,11 +33,20 @@ interface DemoAccountSpec {
   timezone: string;
 }
 
+// Demo passwords come from the environment, never from source: this repo is
+// public, and these accounts are created in whichever Supabase project the
+// service-role key points at. Set DEMO1_PASSWORD and DEMO2_PASSWORD.
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is required (choose a strong password; do not commit it).`);
+  return value;
+}
+
 const DEMO_ACCOUNTS: DemoAccountSpec[] = [
   {
     key: "demo1",
     email: "demo1@kramflow.test",
-    password: "KramflowDemo1!",
+    password: requireEnv("DEMO1_PASSWORD"),
     name: "Demo Operator One",
     eventName: "Demo — Satsang Shibir 2026 (Weekend A)",
     venue: "Main Auditorium",
@@ -46,7 +55,7 @@ const DEMO_ACCOUNTS: DemoAccountSpec[] = [
   {
     key: "demo2",
     email: "demo2@kramflow.test",
-    password: "KramflowDemo2!",
+    password: requireEnv("DEMO2_PASSWORD"),
     name: "Demo Operator Two",
     eventName: "Demo — Satsang Shibir 2026 (Weekend B)",
     venue: "East Wing Hall",
@@ -365,7 +374,7 @@ async function main() {
   console.log("=".repeat(72));
   for (const { spec, eventId } of results) {
     console.log(`\n${spec.name}`);
-    console.log(`  Login:    ${spec.email} / ${spec.password}`);
+    console.log(`  Login:    ${spec.email} (password from ${spec.key === "demo1" ? "DEMO1_PASSWORD" : "DEMO2_PASSWORD"})`);
     console.log(`  Event:    ${spec.eventName}`);
     console.log(`  Event ID: ${eventId}`);
   }

@@ -8,20 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { Wordmark } from "@/components/site/wordmark";
-
-// proxy.ts sets `next` to the pathname a signed-out operator was redirected
-// from, but it's still an attacker-controllable query param on a public
-// URL — must be a same-origin path (starts with a single `/`, not `//` or
-// `/\`, both of which browsers treat as protocol-relative and will happily
-// navigate off-site) before it's ever handed to window.location.href.
-function isSafeRedirect(path: string): boolean {
-  return path.startsWith("/") && !path.startsWith("//") && !path.startsWith("/\\");
-}
+import { safeNext } from "@/lib/safe-redirect";
 
 function LoginForm() {
   const searchParams = useSearchParams();
   const rawNext = searchParams.get("next");
-  const next = rawNext && isSafeRedirect(rawNext) ? rawNext : "/dashboard";
+  const next = safeNext(rawNext);
 
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");

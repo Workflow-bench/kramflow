@@ -20,6 +20,8 @@ import { DisplayHeader } from "@/components/display-engine/display-header";
 import { StageInfoCard } from "@/components/display-engine/stage-info-card";
 import { StageNextCard } from "@/components/display-engine/stage-next-card";
 import { AlertBanner } from "@/components/ui/alert-banner";
+import { LoadingState } from "@/components/ui/loading-state";
+import { LinkInvalid } from "@/components/auth/link-invalid";
 
 /**
  * AV Waiting Room Display — new Display Engine route, distinct from and
@@ -36,7 +38,7 @@ export default function AvDisplayClient({ token, eventId }: { token?: string; ev
 }
 
 function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName, loading, accessError } = useDisplayView({
     token,
     eventId,
     displayType: "av",
@@ -64,6 +66,24 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
 
   const cueTarget = next?.type === "item" ? next : live?.type === "item" ? live : null;
   const stageStatus = deriveStageStatus(live, appState.pausedAt);
+
+  // See presenter-display-client.tsx's identical guard: useDisplayView()'s
+  // first poll hasn't landed yet, so `!live` would otherwise read as
+  // "not started" for a show that's actually LIVE.
+  // F-10 (Phase 7B): checked ahead of `loading` — a revoked/expired link
+  // discovered mid-poll is terminal, not a loading state. Same LinkInvalid
+  // a fresh navigation to the same dead link already shows (app/av/page.tsx).
+  if (accessError) {
+    return <LinkInvalid reason={accessError} />;
+  }
+
+  if (loading) {
+    return (
+      <DisplayShell connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>
+        <LoadingState title="Loading…" />
+      </DisplayShell>
+    );
+  }
 
   return (
     <DisplayShell connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>

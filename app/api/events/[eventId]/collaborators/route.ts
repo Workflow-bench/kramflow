@@ -2,22 +2,27 @@ import { NextResponse } from "next/server";
 import { requireEventAccess } from "@/lib/server/require-event-access";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { generateInviteToken, generateTempPassword, INVITE_EXPIRY_DAYS } from "@/lib/server/collaborator-invites";
-import { sendCollaboratorAddedEmail, sendCollaboratorTempPasswordEmail } from "@/lib/server/email";
+import { sendCollaboratorInviteToExistingAccountEmail, sendCollaboratorTempPasswordEmail } from "@/lib/server/email";
 import { getUserDisplayName } from "@/lib/server/user-display-name";
 import { logActivityAs } from "@/lib/server/activity-log";
 
-// Report finding #26 / #25 — collaborator management. An email that matches
-// an existing, fully-onboarded Kramflow account is added immediately
-// (status 'accepted'). One that doesn't — or one that only exists because
+// Report finding #26 / #25 — collaborator management. Every invite creates a
+// 'pending' row with its own invite_token — the same no-login-required,
+// DB-resolved token pattern share_links.token uses — and always requires an
+// explicit accept, even when the email matches an existing, fully-onboarded
+// Kramflow account: a revoke (the DELETE handler below) is a real removal,
+// so re-inviting that email never silently re-grants access. What differs
+// for a matched account is only that there's no password to set up — no
+// temp password is created and their existing login is left untouched. An
+// email that doesn't match a real account — or one that only exists because
 // of a still-unclaimed prior invite — gets a temporary password created (or
-// reissued) via the admin API and a 'pending' row with its own
-// invite_token — the same no-login-required, DB-resolved token pattern
-// share_links.token uses. The account is real and confirmed immediately
-// (no email-click step); app_metadata.must_change_password is what forces
-// the temp password to be replaced on first login (proxy.ts + app/set-
-// password) before it can do anything else. Sending isn't required for the
-// invite to work: the owner always gets the accept link back in the
-// response too, so it's copyable/shareable even if the email send fails.
+// reissued) via the admin API instead. That account is real and confirmed
+// immediately (no email-click step); app_metadata.must_change_password is
+// what forces the temp password to be replaced on first login (proxy.ts +
+// app/set-password) before it can do anything else. Sending isn't required
+// for the invite to work either way: the owner always gets the accept link
+// back in the response too, so it's copyable/shareable even if the email
+// send fails.
 export async function GET(_request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const auth = await requireEventAccess(eventId, "viewer");
@@ -93,43 +98,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
 
   const inviterName = await getUserDisplayName(admin, auth.userId);
 
-  if (match) {
-    const { error: insertError } = await admin
-      .from("event_collaborators")
-      .upsert(
-        { event_id: eventId, user_id: match.id, role, invited_email: email, status: "accepted", accepted_at: new Date().toISOString() },
-        { onConflict: "event_id,user_id" }
-      );
-    if (insertError) {
-      console.error(insertError);
-      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
-    }
-    await logActivityAs(admin, eventId, auth.userId, "collaboratorAdd", `Added ${email} as ${role}`);
-
-    // Access is granted immediately (they already have a real login), but
-    // that's silent otherwise — the person has no way to know it happened
-    // unless the owner tells them separately. Covers both a first-time
-    // invite to someone who already had an account from something else,
-    // and a revoke-then-reinvite of someone who'd accepted before: neither
-    // case has anything to set up, just something to be told about.
-    const origin = new URL(request.url).origin;
-    const emailResult = await sendCollaboratorAddedEmail({
-      to: email,
-      eventName: event.name,
-      role,
-      inviterName,
-      loginUrl: `${origin}/login?email=${encodeURIComponent(email)}`,
-    });
-    return NextResponse.json({ ok: true, status: "accepted", emailSent: emailResult.sent });
-  }
-
-  // No account yet — create (or refresh) a pending invite row instead of
-  // 404ing. Re-inviting the same still-pending email reuses the row rather
-  // than erroring on event_collaborators_pending_email_idx — that index is
-  // partial (WHERE status = 'pending'), which PostgREST's upsert() can't
-  // target directly (its ON CONFLICT inference needs the same predicate,
-  // and the JS client has no way to pass one), so the reuse check is done
-  // explicitly instead of relying on ON CONFLICT.
+  // Every invite — first-time, or a revoke-then-reinvite of someone who'd
+  // accepted before — goes through the same pending/accept step, whether or
+  // not the email already belongs to a real Kramflow account. A revoke is a
+  // genuine removal (DELETE below hard-deletes the row), so being invited
+  // again never silently re-grants access; the recipient always has to
+  // click accept. Re-inviting the same still-pending email reuses the row
+  // rather than erroring on event_collaborators_pending_email_idx — that
+  // index is partial (WHERE status = 'pending'), which PostgREST's
+  // upsert() can't target directly (its ON CONFLICT inference needs the
+  // same predicate, and the JS client has no way to pass one), so the
+  // reuse check is done explicitly instead of relying on ON CONFLICT.
   const token = generateInviteToken();
   const expiresAt = new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const pendingFields = {
@@ -158,10 +137,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
   }
   await logActivityAs(admin, eventId, auth.userId, "collaboratorInvite", `Invited ${email} as ${role}`);
 
-  // Create the account now (or reissue the temp password on an unclaimed
-  // one from a prior invite) rather than waiting for a self-serve signup or
-  // an email-link click — this is the actual credential the invite email
-  // hands over. email_confirm: true means it's a real, usable account
+  const origin = new URL(request.url).origin;
+  const acceptUrl = `${origin}/invite/${token}`;
+
+  if (match) {
+    // Already a real, confirmed account — no password to reset, nothing to
+    // set up. They still have to accept like anyone else; this only skips
+    // the account/temp-password step below.
+    const emailResult = await sendCollaboratorInviteToExistingAccountEmail({
+      to: email,
+      eventName: event.name,
+      role,
+      inviterName,
+      acceptUrl,
+    });
+    return NextResponse.json({ ok: true, status: "pending", acceptUrl, emailSent: emailResult.sent });
+  }
+
+  // No usable account yet — create (or reissue the temp password on an
+  // unclaimed one from a prior invite) rather than waiting for a self-serve
+  // signup. email_confirm: true means it's a real, usable account
   // immediately; must_change_password is what stops it being usable for
   // anything beyond logging in and setting a real password (enforced in
   // proxy.ts, cleared by app/api/auth/set-password/route.ts).
@@ -182,8 +177,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
     return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
   }
 
-  const origin = new URL(request.url).origin;
-  const acceptUrl = `${origin}/invite/${token}`;
   const loginUrl = `${origin}/login?next=${encodeURIComponent(`/invite/${token}`)}&email=${encodeURIComponent(email)}`;
   const emailResult = await sendCollaboratorTempPasswordEmail({
     to: email,

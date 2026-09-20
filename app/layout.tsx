@@ -41,25 +41,28 @@ const TITLE = "KramFlow";
 const DESCRIPTION =
   "KramFlow is a live-event operating system for coordinating stage managers, AV operators, and performers across TV displays and mobile control.";
 
-// Phase 8: Open Graph/Twitter metadata was entirely absent — a shared
-// link previously rendered with no title, description, or preview at all.
-// No `metadataBase`/canonical here and no `og:image`: there is no confirmed
-// production domain or a real social-card image anywhere in this repo, and
-// inventing either would be exactly the "fake brand asset" this pass was
-// told not to create. Flagged as a launch item in the Phase 8 report
-// instead — add both once a real domain and a designed 1200x630 image
-// exist.
+// Phase 8 flagged metadataBase/canonical as absent because no production
+// domain was confirmed to exist yet. Phase 5 confirmed www.kramflow.me is
+// live, so this fills that gap. og:image is still intentionally omitted —
+// no designed 1200x630 social-card asset exists in this repo, and inventing
+// one would be exactly the fabricated brand asset both passes were told not
+// to create.
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.kramflow.me"),
   title: {
     default: TITLE,
     template: "%s · KramFlow",
   },
   description: DESCRIPTION,
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
     siteName: TITLE,
     type: "website",
+    url: "/",
   },
   twitter: {
     card: "summary",

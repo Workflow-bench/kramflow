@@ -6,20 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { Wordmark } from "@/components/site/wordmark";
-
-// Same same-origin guard as app/login/page.tsx's isSafeRedirect — `next`
-// is an attacker-controllable query param on a URL proxy.ts itself set,
-// but that doesn't make it safe to hand straight to window.location.href.
-function isSafeRedirect(path: string): boolean {
-  return path.startsWith("/") && !path.startsWith("//") && !path.startsWith("/\\");
-}
+import { safeNext } from "@/lib/safe-redirect";
 
 const MIN_PASSWORD_LENGTH = 8;
 
 function SetPasswordForm() {
   const searchParams = useSearchParams();
   const rawNext = searchParams.get("next");
-  const next = rawNext && isSafeRedirect(rawNext) ? rawNext : "/dashboard";
+  const next = safeNext(rawNext);
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

@@ -6,7 +6,11 @@ import { verifyDisplayAccess } from "@/lib/server/verify-display-access";
 // automatically every 15s by every display page — but display_registry is
 // now one event's set of connected devices, not a global list, so
 // event_id is resolved via a token or an owned eventId rather than
-// accepted as a bare client parameter (see display-engine/hold/route.ts).
+// accepted as a bare client parameter. Token access is intentional and
+// narrow: a display registering or heartbeating itself for its own event.
+// It writes only this display's own registry row (name/type/room/latency),
+// never show state and never commands (pendingCommand is owner-only in
+// registry/[id]). See the list in lib/server/verify-display-access.ts.
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
   try {

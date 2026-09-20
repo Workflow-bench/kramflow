@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Link2, Plus, QrCode as QrCodeIcon, Trash2 } from "lucide-react";
+import { Copy, Link2, Plus, QrCode as QrCodeIcon, Trash2 } from "lucide-react";
 import { Panel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -11,11 +11,15 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { DISPLAY_TYPES } from "@/lib/display-engine/types";
+import { formatTvCode } from "@/lib/tv-code";
 import { QrCode } from "./qr-code";
 
 interface ShareLink {
   id: string;
   token: string;
+  // Null for a share that predates the TV code (only ever an inactive one:
+  // the migration backfills every active share).
+  tv_code: string | null;
   label: string | null;
   created_at: string;
   expires_at: string;
@@ -156,6 +160,8 @@ export function ShareLinkPanel({
   // render (not state+effect) — it's a stable property read, not a call to
   // an impure function, and the typeof guard keeps SSR from throwing.
   const origin = typeof window !== "undefined" ? window.location.origin : "";
+  // "www.kramflow.me/tv", shown as the place to type the TV code.
+  const tvAddress = `${origin.replace(/^https?:\/\//, "")}/tv`;
 
   const activeLinks = links?.filter((l) => !l.revoked_at && new Date(l.expires_at).getTime() > now) ?? [];
   const inactiveLinks = links?.filter((l) => l.revoked_at || new Date(l.expires_at).getTime() <= now) ?? [];
@@ -249,7 +255,7 @@ export function ShareLinkPanel({
                   {status.label === "Active" ? (
                     <>
                       <QrCode value={url} size={140} />
-                      <div className="flex-1 min-w-0 flex flex-col gap-2">
+                      <div className="w-full sm:w-auto flex-1 min-w-0 flex flex-col gap-2">
                         <p className="text-console-meta text-muted-2">Share URL</p>
                         <div className="flex items-center gap-2">
                           <code className="flex-1 min-w-0 truncate rounded-control bg-background border border-line px-3 py-2 text-console-meta text-primary">
@@ -266,6 +272,33 @@ export function ShareLinkPanel({
                             Copy
                           </Button>
                         </div>
+                        {link.tv_code && (
+                          <div className="pt-2 mt-1 border-t border-line-soft">
+                            <p className="text-console-meta text-muted-2">TV code</p>
+                            <div className="mt-1 flex items-center gap-3 flex-wrap">
+                              <span
+                                className="text-console-headline tabular-nums tracking-[0.08em] text-primary"
+                                aria-label={`TV code ${link.tv_code.split("").join(" ")}`}
+                              >
+                                {formatTvCode(link.tv_code)}
+                              </span>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(link.tv_code!);
+                                  toast.success("TV code copied.");
+                                }}
+                              >
+                                <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+                                Copy Code
+                              </Button>
+                            </div>
+                            <p className="text-console-meta text-muted-2 mt-1">
+                              Enter this code at {tvAddress}. It reaches the same screens as the link and QR.
+                            </p>
+                          </div>
+                        )}
                         <div>
                           <Button variant="danger" size="sm" onClick={() => setRevokeTarget(link)}>
                             <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
@@ -345,7 +378,7 @@ export function ShareLinkPanel({
       <ConfirmDialog
         open={revokeTarget !== null}
         title="Revoke this link?"
-        description="Any screen currently open on it loses access right away. A new link takes the same two clicks this one did."
+        description="Any screen currently open on it loses access right away, and its TV code stops working. A new link takes the same two clicks this one did."
         confirmLabel="Revoke"
         tone="danger"
         loading={revoking}
