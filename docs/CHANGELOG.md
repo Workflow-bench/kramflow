@@ -5,7 +5,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Dates ar
 ## [Unreleased]
 
 ### Added
-- PIN authentication gate for `/operator` and `/remote`, checked server-side (`app/api/auth/route.ts`) so the PIN never reaches the client bundle; session persists via `sessionStorage` until browser restart or an explicit "Lock"
+- A shared-PIN access gate for the operator surfaces, checked server-side. This was later replaced by per-operator accounts on Supabase Auth (see `docs/DEPLOYMENT.md`), and no PIN gate exists in the current code
 - `/docs` expanded with `BRAND_GUIDELINES.md`, `COMPONENT_GUIDE.md`, `DEPLOYMENT.md`, `CONTRIBUTING.md`, this changelog
 - Production-grade `README.md`
 

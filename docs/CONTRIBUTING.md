@@ -6,20 +6,26 @@
 git clone https://github.com/Workflow-bench/kramflow.git
 cd kramflow
 npm install
+cp .env.example .env.local   # fill in your Supabase values
 npm run dev
 ```
 
+The app needs a Supabase project with the schema and migrations applied. See the [README](../README.md#quick-start) and [Deployment](DEPLOYMENT.md).
+
 ## Before opening a PR
 
-All three must pass:
+These must pass:
 
 ```bash
 npx tsc --noEmit   # TypeScript, strict mode
-npm run lint       # ESLint
-npm run build      # production build, including the cue sheet regeneration step
+npm run lint       # ESLint (existing warnings are known)
+npm test           # unit tests (Vitest)
+npm run build      # production build
 ```
 
-There's no automated test suite yet — verify UI changes by actually driving the affected flow in a browser (all four surfaces if the change touches shared code) rather than relying on typecheck/lint/build alone.
+CI ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) runs these on every push and pull request, plus the Playwright end-to-end test (`npm run test:e2e`, which needs a provisioned test account; see [`e2e/README.md`](../e2e/README.md)).
+
+Automated tests do not cover the visual layout of each surface. Verify UI changes by driving the affected flow in a browser (all four display surfaces if the change touches shared code), rather than relying on typecheck, lint, and tests alone.
 
 ## Commit messages
 
@@ -40,7 +46,7 @@ Read `docs/COMPONENT_GUIDE.md` before adding a component — it explains which o
 
 Read `docs/DESIGN_SYSTEM.md` before touching layout, spacing, or type sizes. In particular: **never solve a mobile layout problem by shrinking the desktop one, and never solve a TV layout problem by centering the desktop one in a `max-width` box.** Each surface gets its own layout decision.
 
-If you're touching the cue sheet parser (`scripts/build-cuesheet.mjs`), read `docs/DATA_MODEL.md` first — it documents the specific quirks of the source spreadsheet the parser works around (columns that shift position between sheets, an order column that resets mid-sheet, etc.). Verify against the real file, not assumptions.
+If you're touching the cue sheet parser (`lib/parse-cuesheet.ts`), read `docs/DATA_MODEL.md` first - it documents the specific quirks of the source spreadsheet the parser works around (columns that shift position between sheets, an order column that resets mid-sheet, etc.). Verify against the real file, not assumptions.
 
 ## Code style
 
