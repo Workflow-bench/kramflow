@@ -134,7 +134,7 @@ npm run dev                  # http://localhost:3000
 Set up the database first:
 
 1. In the Supabase dashboard, enable Email under **Authentication → Providers**.
-2. In the SQL Editor, run [`supabase/schema.sql`](supabase/schema.sql), then every file in [`supabase/migrations/`](supabase/migrations) in filename order. The schema file alone does not produce a working app.
+2. Run every file in [`supabase/migrations/`](supabase/migrations) in filename order, in the SQL Editor or with `supabase db push`. The first file is the base schema, and the migrations alone build the full schema. [`supabase/schema.sql`](supabase/schema.sql) is an older snapshot and is not needed. See [Deployment](docs/DEPLOYMENT.md#supabase-setup-required).
 3. Copy the project URL, anon key and service-role key into `.env.local`.
 4. Optional: `npm run seed` loads a sample cue sheet, or upload one from the app.
 
