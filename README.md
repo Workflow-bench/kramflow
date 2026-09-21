@@ -12,13 +12,7 @@
 
 </div>
 
-<!--
-  Hero screenshot pending. The current captures in public/product/ show the Next.js
-  development badge. Recapture public/product/console.png without it, then replace
-  this comment with:
-
-  <p align="center"><img src="public/product/console.png" alt="KramFlow Operator Console" width="900"></p>
--->
+<p align="center"><img src="public/product/console.png" alt="KramFlow Operator Console showing live event control, program state, and display surfaces." width="900"></p>
 
 Live events often run on a spreadsheet that gets shouted across a green room. Each team keeps its own picture of what is happening now and what happens next, and the pictures drift apart.
 
