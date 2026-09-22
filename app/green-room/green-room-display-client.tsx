@@ -20,6 +20,8 @@ import { DisplayHeader } from "@/components/display-engine/display-header";
 import { StageInfoCard } from "@/components/display-engine/stage-info-card";
 import { StageNextCard } from "@/components/display-engine/stage-next-card";
 import { AlertBanner } from "@/components/ui/alert-banner";
+import { LoadingState } from "@/components/ui/loading-state";
+import { LinkInvalid } from "@/components/auth/link-invalid";
 
 /**
  * Green Room Display — new Display Engine route, distinct from and not
@@ -39,7 +41,7 @@ export default function GreenRoomDisplayClient({ token, eventId }: { token?: str
 }
 
 function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName, loading, accessError } = useDisplayView({
     token,
     eventId,
     displayType: "green-room",
@@ -67,6 +69,25 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
 
   const stageStatus = deriveStageStatus(live, appState.pausedAt);
   const nextReady = next ? Boolean(engine.speakerReady[next.id]) : false;
+
+  // See presenter-display-client.tsx's identical guard: useDisplayView()'s
+  // first poll hasn't landed yet, so `!live` would otherwise read as
+  // "not started" for a show that's actually LIVE.
+  // F-10 (Phase 7B): checked ahead of `loading` — a revoked/expired link
+  // discovered mid-poll is terminal, not a loading state. Same LinkInvalid
+  // a fresh navigation to the same dead link already shows
+  // (app/green-room/page.tsx).
+  if (accessError) {
+    return <LinkInvalid reason={accessError} />;
+  }
+
+  if (loading) {
+    return (
+      <DisplayShell connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>
+        <LoadingState title="Loading…" />
+      </DisplayShell>
+    );
+  }
 
   return (
     <DisplayShell connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>

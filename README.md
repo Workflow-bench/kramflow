@@ -1,347 +1,294 @@
+<div align="center">
+
 # KramFlow
 
-**Order in motion.** A real-time, multi-tenant live-event operating system for running multi-day, multi-session programs — built for stage managers, AV operators, green rooms, and performers, across Smart TVs, desktop, and mobile.
+**A realtime operational system for live events that coordinates operators, presenters, AV teams, green rooms and live displays through shared operational state.**
 
-> क्रम (*Krama*) — sequence, order, progression, flow.
+[Live app](https://kramflow.me) · [Documentation](docs/) · [Issues](https://github.com/Workflow-bench/kramflow/issues)
 
-KramFlow answers exactly two questions, everywhere it's displayed: **what's happening now, and what happens next.** No spreadsheets, no dashboards full of charts — just the run of show, live, on whatever screen you're looking at.
+[![CI](https://github.com/Workflow-bench/kramflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Workflow-bench/kramflow/actions/workflows/ci.yml)
+![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?logo=supabase&logoColor=white)
 
----
+</div>
 
-## Overview
+<p align="center"><img src="public/product/console.png" alt="KramFlow Operator Console showing live event control, program state, and display surfaces." width="900"></p>
 
-Live events run on a spreadsheet that gets shouted across a green room. KramFlow replaces that with one shared, real-time program state in Supabase, then projects that state into the right interface for each person in the venue: stage managers get a command console, backstage teams get a mobile remote, AV teams get timing and technical cues, green rooms get speaker readiness, presenters get confidence-monitor context, and public displays get a clean "now / next" view.
+Live events often run on a spreadsheet that gets shouted across a green room. Each team keeps its own picture of what is happening now and what happens next, and the pictures drift apart.
 
-Phase 1 is a complete multi-tenant event operating system:
+KramFlow keeps one shared state for the show. The operator advances the program, and every connected surface shows the same current item, next item and countdown: the presenter's confidence monitor, the AV crew's prep list, the green room, the lobby screen.
 
-- Operators can sign up, log in, create events, and manage only events they own or have been invited to.
-- Each event can span multiple days, sessions, partitions, auditoriums, and cue-sheet items.
-- Owners can invite collaborators as `viewer` or `editor`; owners retain event, collaborator, display, integration, and live-control authority.
-- The cue sheet can be uploaded from Excel, edited directly, exported, printed, reordered, bulk-edited, and used as the source of live display state.
-- Live show state is synchronized through Supabase for authenticated operator surfaces and served through token-verified polling for public display surfaces.
-- Public display access uses revocable share links rather than accounts, so a TV can be opened with a QR code while still preserving event isolation.
-- Display Manager, Broadcast Center, Rehearsal Mode, integration tokens, and activity logs are first-class Phase 1 features, not placeholders.
+**Scope.** KramFlow coordinates the operational layer around a show. It does not switch video, play media, run slides, sell tickets or handle registration. It is not a replacement for specialist production software such as Resolume, OBS, ATEM, QLab or ProPresenter, and it does not integrate with any of them today.
 
-The app is deliberately not a generic dashboard. It is built around the live-event trust boundary: an event's owner, collaborators, share-link viewers, connected displays, and integration clients can each do different things, and every route is scoped back to a specific event.
+## Surfaces
 
-## Features
+Each surface is a separate layout built for how it is used: a phone in one hand, a console at arm's length, a TV read from across a room. They do not have identical capabilities.
 
-### Operator Workspace
+**Operator side** (sign-in required). The event owner drives the live show. Editors can change the cue sheet. Viewers are read-only.
 
-- **Landing page** (`/`) — public product entry with login/signup paths.
-- **Authentication** (`/login`, `/signup`) — Supabase Auth email/password signup, login, logout, resend confirmation, generic credential errors, and database-backed rate limiting.
-- **Dashboard** (`/dashboard`) — the signed-in operator's event list, event creation, event deletion, empty-state guidance, help menu, and launch points into each event.
-- **Event shell** (`/e/[eventId]`) — shared event layout that verifies the signed-in user is the owner or an accepted collaborator before rendering any operator surface.
+| Surface | Route | What it does |
+|---|---|---|
+| Dashboard | `/dashboard` | Your events: create, open, delete |
+| Operator Console | `/e/[eventId]/operator` | Next, Previous, Hold, Jump, timer nudges, live notes and alerts. Shows schedule drift, projected finish and who holds control. |
+| Remote | `/e/[eventId]/remote` | Phone controller: Next, Previous, Hold, Jump, timer nudges, alerts, notes and broadcasts, plus Mark Speaker Ready |
+| Cue Sheet | `/e/[eventId]/operator/cue-sheet` | Drag-and-drop reorder, bulk edit, Excel import and export, print to PDF |
+| Displays | `/e/[eventId]/displays` | Registry of connected screens with online status and latency, previews, Share Display links |
+| Broadcast Center | `/e/[eventId]/broadcast` | Alerts, reminders and emergency overrides sent to displays |
+| Rehearsal | `/e/[eventId]/rehearsal` | Local practice run. Nothing in it reaches a real display, share link or console. |
+| Settings | `/e/[eventId]/settings` | Event details, auditoriums, collaborators, external API credentials |
 
-### Event Management
+**Display side** (no login when opened through a Share Display link)
 
-- **Event details** — event name, date, venue, timezone, and configurable event metadata.
-- **Auditoriums** — per-event auditorium setup used by cue-sheet items and production fields.
-- **Collaborators** — invite by email, assign `viewer` or `editor`, list accepted and pending collaborators, hide invite tokens from non-owners, and accept invite links from signed-in users.
-- **Roles** — `viewer` can read event surfaces, `editor` can mutate cue-sheet content, and `owner` can manage settings, displays, broadcasts, collaborators, integrations, and live control.
-- **Plan limits** — per-plan event limits are enforced server-side when creating events.
+| Display | Route | What it shows |
+|---|---|---|
+| General | `/general` | Lobby and public screens: current item, next, on deck, venue, active broadcasts |
+| AV | `/av` | Current cue and countdown, the next cue, and its prep requirements from the cue sheet (mic, video, lighting and similar) |
+| Green Room | `/green-room` | Performers: current item, countdown, operator notes, the next item to prepare, and whether the next speaker is marked ready |
+| Presenter | `/presenter` | Confidence monitor: large countdown and progress, current and next item. Display modes include countdown, count-up and clock. It has no show controls; its only shortcut toggles fullscreen. |
 
-### Cue Sheet & Program Management
+## Phase 1 feature inventory
 
-- **Excel import** — upload a cue sheet, parse sessions/partitions/program rows, validate data, and replace the selected event's reference data.
-- **Cue Sheet editor** (`/e/[eventId]/operator/cue-sheet`) — view sessions, partitions, and program items in editable form.
-- **Program item CRUD** — create, update, and delete cue-sheet items with validation for names, durations, cue fields, status, color tags, auditorium, session, and partition.
-- **Drag-and-drop reorder** — move items within and across partitions while preserving sort order and optimistic item versions.
-- **Bulk edit** — update selected item fields such as status, color, presenter, production notes, curtains, and video mode.
-- **Bulk move** — move selected items to another section while enforcing event and partition ownership.
-- **Session management** — create, rename, reorder, and delete sessions; deleting a live session clears the active-session pointer first.
-- **Partition management** — set section start times used by computed timing cascades.
-- **Export & print** — export cue-sheet data and render print/report-oriented cue-sheet pages.
-- **Computed timing** — derive scheduled item start/end times from section anchors and durations without requiring every row to store fixed times.
+Phase 1 is a complete multi-tenant event operating system. It is built around a live-event trust boundary: an event owner, collaborators, share-link viewers, connected displays and integration clients can each do different things, and every route is scoped back to one event.
 
-### Live Operator Console
+**Operator workspace**
+- Supabase Auth signup, login, logout and confirmation resend.
+- Database-backed login/signup rate limiting that survives restarts and serverless cold starts.
+- Dashboard event list, event creation, event deletion, empty-state guidance and event launch points.
+- Event shell that verifies owner or accepted collaborator access before rendering operator pages.
 
-- **Operator Console** (`/e/[eventId]/operator`) — desktop control room for running the show.
-- **Session selection** — switch the active session for the event.
-- **Start / Next / Previous / Jump / Finish** — move through the active session with server-side bounds, event-scoped resource checks, and optimistic live-state versioning.
-- **Hold / pause / resume** — pause the live countdown, resume without losing elapsed-time accuracy, and surface hold state to displays.
-- **Timer correction** — adjust the live timer forward or backward while clamping impossible future starts.
-- **Live alerts** — set and dismiss event-wide alerts.
-- **Live notes** — override cue-sheet notes during the show without editing the source cue sheet.
-- **Sequencing lock** — claim, renew, release, or force control; stale claims expire automatically so a closed tab cannot permanently lock the show.
-- **Activity feed** — record meaningful operator actions such as program changes, live control, display commands, broadcasts, and collaborator actions.
+**Event management**
+- Event details including name, date, venue, timezone and form configuration.
+- Auditoriums scoped to an event and available to cue-sheet production fields.
+- Collaborator invites by email with `viewer` and `editor` roles.
+- Pending and accepted collaborator lists, with invite tokens hidden from non-owners.
+- Signed-in invite acceptance so an invite token alone does not grant account access.
+- Plan-limit enforcement for event creation.
 
-### Mobile Remote
+**Cue sheet and program management**
+- Excel cue-sheet import through the runtime upload route.
+- Isomorphic cue-sheet parser shared by upload and seed scripts.
+- Session, section/partition and program-row validation before commit.
+- Program item create, edit and delete with validated cue fields, duration, status, color, auditorium, session and partition.
+- Drag-and-drop reorder with database-side sort-order repair.
+- Bulk field editing for selected cue-sheet items.
+- Bulk moves to sections with event and partition ownership checks.
+- Session create, rename, reorder and delete.
+- Section start-time anchors and computed timing cascades.
+- Cue-sheet export, print view and report-oriented pages.
 
-- **Remote control** (`/e/[eventId]/remote`) — mobile-optimized live-control surface for backstage use.
-- **One-handed operation** — exposes the essential live controls without the full desktop console layout.
-- **Shared live state** — uses the same event-scoped live mutation route as the Operator Console, so mobile and desktop controls cannot diverge.
+**Live show control**
+- Active session selection.
+- Start, Next, Previous, Jump and Finish actions.
+- Hold, pause and resume with elapsed-time correction.
+- Manual timer correction with clamped future-start protection.
+- Live alert set and dismiss.
+- Per-program live note overrides that do not mutate source cue-sheet notes.
+- Server-enforced sequencing lock with claim, renew, release, force and stale-claim expiry.
+- Optimistic live-state version checks to avoid silent overwrite races.
+- Activity logging for meaningful event operations.
 
-### Display Engine
+**Remote and rehearsal**
+- Mobile remote for backstage operation using the same live-action engine as the console.
+- Rehearsal surface for local practice runs that do not reach production displays, share links or console state.
+- Rehearsal reset without disturbing the real event run.
 
-- **Display Manager** (`/e/[eventId]/displays`) — registry of connected displays with names, types, rooms, status, latency, profile assignments, and pending commands.
-- **Display registration** — public display pages heartbeat into an event-scoped registry using either a share-link token or an authorized event preview.
-- **Remote display commands** — owners can send reload, test-message, and fullscreen-oriented commands to connected displays.
-- **Display profiles** — create, edit, read, assign, and delete custom display profiles for event-specific screen layouts.
-- **Custom display** (`/custom`) — render a configured custom profile for a share-link or operator preview.
-- **Time sync** — public display surfaces can measure server/client clock offset and latency.
+**Display engine**
+- Display Manager registry with display names, types, rooms, online status, latency and profile assignment.
+- Public display registration and heartbeat using a share-link token or an authorized operator preview.
+- Owner-issued display commands such as reload, test-message and fullscreen-oriented commands.
+- Display profiles for event-specific custom layouts.
+- Custom display rendering through `/custom`.
+- Time-sync endpoint for measuring display latency and clock offset.
 
-### Public Display Surfaces
+**Public displays**
+- Screens picker opened from a share link.
+- General, AV, Green Room and Presenter display modes.
+- Token or authenticated-session access for display preview.
+- Event-scoped display polling for anonymous screens.
+- Display-type hold and timer state keyed by `(event_id, display_type)`.
+- Speaker-ready state for Green Room and display surfaces.
 
-- **Screens picker** (`/screens`) — no-login entry opened from a share link; lets a TV choose which display type to show.
-- **General display** (`/general`) — audience-facing now/next display.
-- **AV display** (`/av`) — AV waiting-room/technical display.
-- **Green Room display** (`/green-room`) — backstage speaker-readiness display.
-- **Presenter display** (`/presenter`) — confidence-monitor display with presenter-focused state.
-- **Token or session access** — each display can be reached by a valid share-link token or by an authenticated operator previewing their own event.
-- **Event-scoped polling** — anonymous displays poll server routes that resolve the token to one event before reading service-role data.
-- **Display-type state** — hold and timer overrides are scoped by `(event_id, display_type)` so one display type cannot accidentally take over all display types.
-- **Speaker ready** — green-room readiness state is written into display state and reflected on live display surfaces.
+**Broadcast Center**
+- Immediate broadcasts to all displays, a display type or a selected group.
+- Scheduled broadcasts and due-time promotion.
+- Broadcast dismiss and acknowledge flows from display clients.
+- Broadcast history with severity, target and routing metadata.
 
-### Broadcast Center
+**Share links and integrations**
+- Expiring, revocable Share Display links backed by opaque random tokens.
+- QR code display for fast TV setup.
+- Last-used tracking for share-link activity.
+- Per-event integration credentials with hashed token storage.
+- Scoped HTTP API access for `state:read` and `live:control`.
+- Integration actions run through the same live-action handler as the Operator Console and Remote.
 
-- **Broadcast Center** (`/e/[eventId]/broadcast`) — send operational messages and emergency display overrides.
-- **Immediate broadcasts** — publish messages to all displays, a display type, or a selected group.
-- **Scheduled broadcasts** — queue future broadcasts and promote them when due.
-- **Dismiss / acknowledge** — display clients can dismiss or acknowledge broadcasts from public display routes.
-- **Broadcast history** — owners can see prior broadcast activity and scheduled messages.
-- **Severity and targeting** — broadcasts include severity, target type, and display routing metadata.
+**Security and reliability**
+- Server-side authorization through session, role, share-token or integration-token checks before service-role database access.
+- Multi-tenant isolation across events, collaborators, share links, sessions, partitions, programs, displays, broadcasts, profiles and integration credentials.
+- Postgres Row Level Security as the browser/anon access backstop.
+- Event-scoped resource checks for secondary IDs such as sessions, partitions and programs.
+- Production-oriented dark UI with TV-readable typography, mobile-specific controls and dense desktop operator surfaces.
 
-### Rehearsal Mode
+## Share Display and TV onboarding
 
-- **Rehearsal surface** (`/e/[eventId]/rehearsal`) — practice live-show progression without changing production display state.
-- **Local rehearsal state** — lets operators test timing and sequence decisions safely before showtime.
-- **Reset rehearsal progress** — clear rehearsal-only state without disturbing the real event run.
+A Share Display link opens the four displays on a TV or tablet without an account.
 
-### Share Links & QR
+- **Secure link.** Each share is an opaque random token with an expiry the operator chooses (3, 7 or 30 days).
+- **QR code.** Operators can copy the link or show a QR code that points to it.
+- **TV code.** Each share also has a 6-digit code. On a TV, open `/tv`, enter the code, and pick a screen. Entry is rate limited per IP.
+- **One code, many TVs.** Any number of TVs can use the active code. The code resolves to the same share, and the same access, as the link. It grants nothing extra.
+- **Revocation and expiry.** Revoking a share, or letting it expire, stops the link, the QR code and the TV code together.
 
-- **Share-link creation** — owners create expiring, revocable display links backed by 256-bit random opaque tokens.
-- **QR rendering** — dashboard/settings surfaces can show QR codes for display setup.
-- **Instant revoke** — revoking the database row kills that one link without rotating any global signing secret.
-- **Last-used tracking** — share-link use updates metadata so operators can see whether a link is active.
+What a share can and cannot do:
 
-### Integration API
+- It can read the live state that displays render.
+- It can register and heartbeat its own display, acknowledge broadcasts, and release scheduled broadcasts that are already due.
+- It cannot change the timer, hold or speaker-ready state, and it cannot dismiss broadcasts. Those routes require a signed-in session with sufficient role.
+- A signed-in operator session keeps the permissions of its role on the same displays.
 
-- **Integration credentials** — owners create and revoke per-event machine credentials.
-- **Token hashing** — only token hashes are stored; raw tokens are returned once at creation.
-- **Scoped API access** — credentials carry scopes such as `state:read` and `live:control`.
-- **State endpoint** (`/api/v1/events/[eventId]/state`) — integration clients can read event live state with a valid bearer token.
-- **Action endpoint** (`/api/v1/events/[eventId]/actions/[action]`) — integration clients can trigger supported live actions through the same live-action engine as the UI.
+## How it works
 
-### Security, Isolation, And Reliability
+```mermaid
+flowchart TB
+  subgraph Controllers
+    C["Operator Console"]
+    R["Remote"]
+    A["HTTP API client<br/>scoped bearer token"]
+  end
+  API["Next.js route handlers<br/>session and role checks<br/>version guard, control lock"]
+  DB[("Shared live state<br/>Supabase Postgres, RLS")]
+  subgraph Displays
+    P["Presenter"]
+    G["Green Room"]
+    V["AV"]
+    L["General"]
+  end
+  C --> API
+  R --> API
+  A --> API
+  API --> DB
+  DB -->|"read-only route, polled about every 2.5 s"| Displays
+```
 
-- **Real per-operator accounts** — Supabase Auth owns password hashing, sessions, confirmation, and logout.
-- **Server-side authorization** — mutating routes use `requireAuth`, `requireAuthUser`, `requireEventAccess`, `verifyDisplayAccess`, or integration-token checks before touching service-role data.
-- **Multi-tenant event isolation** — event owners, collaborators, share links, displays, integrations, sessions, partitions, programs, broadcasts, and profiles are all scoped to an event.
-- **Row Level Security backstop** — Postgres RLS protects browser/anon access; service-role routes resolve and validate event scope before bypassing RLS.
-- **Optimistic concurrency** — live state and program item updates use version checks to avoid silent overwrites from near-simultaneous users.
-- **Database-backed rate limits** — login and signup throttling state lives in Postgres and works across serverless instances.
-- **Production-oriented UI** — dark-only design, large TV-readable typography, mobile-specific remote layout, and dense desktop operator surfaces.
+The queue is the product. Every surface is a different view of one live state.
 
-## Screenshots
+- **Reference data** (sessions, sections, program items) is edited through the Cue Sheet or an Excel upload.
+- **Live state** (active session, position, hold, alert, note overrides) is what changes during a show.
+- **Operator surfaces** receive changes over Supabase Realtime.
+- **Displays** poll a read-only route, because a share-link viewer has no user identity for Realtime to scope to.
+- **Concurrent writes** are checked against a version number, and an optional control lock stops two tabs from driving the same show.
 
-_Coming soon — screenshots of the Operator Console, Cue Sheet, Remote, and the four TV displays will go here._
+Deeper reading: [Architecture](docs/ARCHITECTURE.md), [Data model](docs/DATA_MODEL.md), [Display Engine](docs/DISPLAY_ENGINE.md).
 
-## Tech Stack
+## External HTTP API
 
-| Layer | Choice |
-|---|---|
-| Framework | [Next.js 16](https://nextjs.org) (App Router, Turbopack) |
-| UI | [React 19](https://react.dev), [TypeScript](https://www.typescriptlang.org) |
-| Styling | [Tailwind CSS v4](https://tailwindcss.com) |
-| Motion | [Framer Motion](https://www.framer.com/motion/) |
-| Icons | [Lucide](https://lucide.dev) |
-| Database, Auth, Realtime | [Supabase](https://supabase.com) — Postgres + RLS, Supabase Auth, Realtime subscriptions |
-| Cue sheet parsing | [SheetJS (`xlsx`)](https://sheetjs.com) — runtime upload, isomorphic parser |
-| Unit tests | [Vitest](https://vitest.dev) |
-| End-to-end tests | [Playwright](https://playwright.dev) — real dev server, real Supabase project, no mocking |
-| CI | GitHub Actions — typecheck, lint, build, unit tests, E2E tests on every push/PR |
-| Deployment | [Vercel](https://vercel.com) |
+A trusted client can call a small HTTP API with a bearer credential created in Settings. Each credential is scoped to one event and carries two scopes: `state:read` and `live:control`.
 
-## Installation
+- `GET /api/v1/events/{eventId}/state` reads live state (`state:read`).
+- `POST /api/v1/events/{eventId}/actions/{start|hold|resume|next}` drives the active session (`live:control`).
 
-Requires Node.js ≥20.9 and npm.
+It goes through the same handler as the Console and Remote, so the control lock and version guard still apply, and each action is logged with the credential's name. Credentials can be revoked.
+
+This is a plain HTTP API. There is no native Bitfocus Companion module, Stream Deck plugin, or integration with Resolume, OBS, ATEM, ProPresenter, vMix, QLab or NDI in this repository. Status codes and setup are in [docs/EXTERNAL_API.md](docs/EXTERNAL_API.md).
+
+## Security
+
+- Event data is isolated per event, enforced by Row Level Security policies in the database as well as in route handlers.
+- Every mutating route re-verifies the session and the caller's role for that event on the server.
+- Share Display access cannot change the timer, hold or speaker-ready state, and cannot dismiss broadcasts. Only signed-in sessions with sufficient role can.
+- Share tokens and TV codes are generated with a cryptographically secure random source.
+- TV code entry is rate limited per IP, and login and signup are throttled too.
+- Revoked and expired shares are denied on every access method.
+
+This project has not had a formal security audit or certification. See [Deployment](docs/DEPLOYMENT.md#authentication-model) for the full model.
+
+## Quick start
+
+Requires Node.js 20.9 or newer and a [Supabase](https://supabase.com) project.
 
 ```bash
 git clone https://github.com/Workflow-bench/kramflow.git
 cd kramflow
 npm install
+cp .env.example .env.local   # then add your Supabase values
+npm run dev                  # http://localhost:3000
 ```
 
-## Getting Started
+Set up the database first:
 
-1. Set up a Supabase project and run every file in `supabase/schema.sql` then `supabase/migrations/` in order — see [Environment Variables](#environment-variables) and [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full setup.
-2. Copy `.env.example` to `.env.local` and fill in the three Supabase values.
-3. `npm run dev`, open [http://localhost:3000](http://localhost:3000).
+1. In the Supabase dashboard, enable Email under **Authentication → Providers**.
+2. Run every file in [`supabase/migrations/`](supabase/migrations) in filename order, in the SQL Editor or with `supabase db push`. The first file is the base schema, and the migrations alone build the full schema. [`supabase/schema.sql`](supabase/schema.sql) is an older snapshot and is not needed. See [Deployment](docs/DEPLOYMENT.md#supabase-setup-required).
+3. Copy the project URL, anon key and service-role key into `.env.local`.
+4. Optional: `npm run seed` loads a sample cue sheet, or upload one from the app.
 
-Anonymous visitors see a minimal landing page with a Log In link. Signing up (`/signup`) or logging in (`/login`) lands you on `/dashboard` — create an event, and every other route above is reachable from there via `/e/<eventId>/...`.
-
-See [Security](#security) for exactly what's gated vs. public.
-
-## Development
-
-There is no build-time data-generation step — the cue sheet lives in Supabase and is populated via `npm run seed` (once, against a fresh project) or at runtime through Excel upload / the item form.
-
-Useful things to know before making changes:
-
-- **Read `docs/DATA_MODEL.md` first** if you're touching the parser (`lib/parse-cuesheet.ts`) — it documents the exact column mapping and the quirks of the source file.
-- **Read `docs/DESIGN_SYSTEM.md`** before touching layout — each surface (TV, desktop, mobile) has its own deliberate layout logic; "just shrink the desktop version" is explicitly the wrong move for mobile/TV.
-- **Read `docs/ARCHITECTURE.md`** before touching the data model or the Display Engine's sync — two data layers (reference vs. live state) and a specific transport design are both deliberate.
-- State flows through `lib/store.tsx`'s `useEventStore()` hook (live show state) and `lib/display-engine/store.tsx`'s `useDisplayEngine()` (display/broadcast state) — components don't read Supabase directly.
-
-## Folder Structure
-
-```text
-kramflow/
-├── app/
-│   ├── (operator)/dashboard/     — post-login landing: this operator's event list
-│   ├── e/[eventId]/              — every per-event operator surface
-│   │   ├── operator/             — desktop control room + cue-sheet editor
-│   │   ├── remote/               — one-handed mobile controller
-│   │   ├── broadcast/            — Broadcast Center
-│   │   ├── displays/             — Display Manager
-│   │   ├── rehearsal/            — Rehearsal Mode
-│   │   └── settings/             — event details, auditoriums, collaborators
-│   ├── login/, signup/           — real auth forms (Supabase Auth)
-│   ├── screens/                  — no-login screen picker a Share Link opens
-│   ├── general/, av/, green-room/, presenter/  — the four public TV displays
-│   ├── api/                      — every write path; see lib/server/ for the guards each route calls
-│   ├── layout.tsx / page.tsx     — root layout + landing page
-│   └── globals.css               — design tokens, dark theme
-├── proxy.ts                      — Next 16's middleware.ts equivalent; route-level auth redirects
-├── components/
-│   ├── auth/                     — session auth context
-│   ├── dashboard/                — event list, Share Link panel, QR code
-│   ├── operator/                 — desktop console building blocks
-│   ├── remote/                   — mobile-only components
-│   ├── display-engine/           — Display Manager, Broadcast Center, display shells
-│   ├── forms/                    — cue-sheet item form, event settings panel
-│   ├── tv/                       — shared TV display primitives
-│   └── ui/                       — generic button/input/card/badge/select
-├── lib/
-│   ├── store.tsx                 — live show state (Next/Previous/Hold/notes/alerts)
-│   ├── display-engine/store.tsx  — display registry + broadcast state
-│   ├── types.ts                  — Program/Session/LiveState + selectors
-│   ├── parse-cuesheet.ts         — isomorphic Excel parser (upload route + seed scripts)
-│   ├── validation/                — zod schemas for programs and per-event custom form config
-│   ├── server/                   — require-auth, require-event-access (role-based), rate-limit, share-links
-│   └── supabase/                 — browser client, request-scoped SSR client, service-role admin client
-├── supabase/
-│   ├── schema.sql                — base schema, run once on a fresh project
-│   └── migrations/                — everything since, run in order (multi-tenant, RPC fixes, rate limits, ...)
-├── scripts/                      — seed.ts, seed-demo.ts, seed-mock.mjs, provision-test-account.mjs
-├── e2e/                          — Playwright end-to-end tests
-├── data/cue-sheet.xlsx           — the bundled reference cue sheet
-└── docs/                         — architecture, design system, deployment, etc.
-```
-
-## Architecture
-
-Two data layers, deliberately kept separate:
-
-1. **Reference data** — sessions, partitions, programs. Lives in Supabase, mutated via the Cue Sheet editor or Excel upload, not regenerated at build time.
-2. **Live state** — small and mutable: which session is active, current position per session, hold state, the active alert, note overrides, and the sequencing-lock claim. This is what actually syncs between displays, via Supabase Realtime (authenticated operators) or polling (anonymous share-link viewers, who have no `auth.uid()` for Realtime to scope to).
-
-Every component reaches live-show state through `useEventStore()` and display/broadcast state through `useDisplayEngine()` — one hook each, so the sync backend is a contained concern.
-
-Full details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md), [`docs/DISPLAY_ENGINE.md`](docs/DISPLAY_ENGINE.md).
-
-## Environment Variables
+Then open `/signup`, create an account and create an event from the dashboard.
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL — also what the Supabase Auth client (signup/login/logout) talks to. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anon key — safe to expose; Row Level Security restricts it to read-only on public tables, and Auth has its own access controls independent of that. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only, used by every write API route. Bypasses RLS — never expose to the client. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Anon key, restricted by Row Level Security |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only. Bypasses Row Level Security, so never expose it to the client. |
+| `RESEND_API_KEY` | No | Sends collaborator invite emails |
+| `RESEND_FROM_EMAIL` | No | Sender address on a domain verified in Resend |
 
-No separate auth secret: real authentication (signup/login/logout, password hashing, session expiry) runs on Supabase Auth, not custom code. In the Supabase dashboard, enable **Authentication → Providers → Email**, and decide under **Authentication → Settings** whether operator signups require email confirmation before they can log in.
+## Development
 
-Copy `.env.example` to `.env.local` and set real values before deploying:
-
-```bash
-cp .env.example .env.local
-```
-
-## Security
-
-Real per-operator accounts via **Supabase Auth**. `proxy.ts` redirects any unauthenticated request under `/dashboard` or `/e/...` straight to `/login` — but that redirect is defense in depth, not the actual boundary: every mutating API route calls `lib/server/require-auth.ts` or `lib/server/require-event-access.ts`, which re-verify the session server-side (`supabase.auth.getUser()`, not just decoding a cookie) and, for event-scoped routes, the caller's role (viewer/editor/owner) against that specific event. Row Level Security in `supabase/schema.sql` and `supabase/migrations/` is the backstop underneath both — it holds even if a route handler had a bug.
-
-**Share Display Link** is the no-login path for the four TV displays (General/AV/Green Room/Presenter):
-
-- From Settings, an operator generates a link — an opaque, cryptographically random 256-bit token (`lib/server/share-links.ts`), not a stateless signed URL — with a chosen expiry.
-- The link opens `/screens` (no login), a picker for the four display types.
-- Each display page is gated server-side (`lib/server/verify-display-access.ts`): it renders only for a real operator session that owns the event, or a token that resolves to a non-expired, non-revoked row in `share_links` — checked fresh on every request.
-- **Revoke is instant and one-click** — a deliberate improvement over a stateless signed-URL scheme, where killing one leaked link means rotating the key for every other link too.
-- Display pages are read-only by construction: every route capable of writing anything requires a real operator session with sufficient role, regardless of what's in the URL.
-
-**Rate limiting**: login and signup attempts are throttled per IP, backed by a Postgres table and RPC (`check_and_record_rate_limit`) rather than in-memory state, so it survives restarts and applies consistently across serverless instances.
-
-## Scripts
-
-| Script | Purpose |
+| Command | Purpose |
 |---|---|
-| `npm run dev` | Start the dev server |
-| `npm run build` | Production build |
-| `npm run start` | Serve the production build |
+| `npm run dev` | Development server |
+| `npm run build` · `npm start` | Production build and server |
 | `npm run lint` | ESLint |
 | `npm test` | Unit tests (Vitest) |
-| `npm run test:e2e` | End-to-end tests (Playwright, real dev server + real Supabase) |
+| `npm run test:e2e` | End-to-end test (Playwright, real dev server and Supabase project) |
 | `npm run seed` | Load `data/cue-sheet.xlsx` into a fresh project |
-| `npx tsx scripts/seed-demo.ts` | Provision 2 demo operator accounts with a full real cue sheet each — see the script's own header |
+| `npm run capture:product` | Regenerate the screenshots in `public/product/` |
 
-## Testing & CI
+Unit tests cover the cue-sheet parser, timing, validation, rate limiting, and share-link and TV-code access. GitHub Actions runs typecheck, lint, build, unit tests and the end-to-end test on every push and pull request (Dependabot pull requests skip the build and end-to-end steps). The end-to-end test needs a provisioned account: see [`e2e/README.md`](e2e/README.md).
 
-- **Unit tests** (`npm test`) cover the highest-logic-risk modules: cue-sheet parsing, form validation, and the rate limiter.
-- **One real end-to-end test** (`npm run test:e2e`, `e2e/auth-golden-path.spec.ts`) drives the actual golden path — signup/login, dashboard, event creation, logout — against a real running dev server and a real Supabase project, not mocks. Needs a provisioned test account first: `node --env-file=.env.local scripts/provision-test-account.mjs` (see `e2e/README.md`).
-- **CI** (`.github/workflows/ci.yml`) runs typecheck, lint, build, unit tests, and the E2E test on every push and pull request. `main` is protected — merges require a green check and a pull request, no direct pushes.
+Built with Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Supabase (Postgres, Auth, Realtime), Framer Motion, dnd-kit, SheetJS and Resend, and deployed on Vercel.
 
-## Deployment
+## Documentation
 
-Deploys to Vercel with zero configuration beyond the environment variables above — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full checklist, including the exact Supabase migration order and what a further-hardened production setup would still add.
+| Doc | Read it when |
+|---|---|
+| [Architecture](docs/ARCHITECTURE.md), [Data model](docs/DATA_MODEL.md) | Changing the schema, sync or the cue-sheet parser |
+| [Display Engine](docs/DISPLAY_ENGINE.md) | Working on displays, broadcasts or timers |
+| [Design system](docs/DESIGN_SYSTEM.md), [Component guide](docs/COMPONENT_GUIDE.md) | Changing layout or adding components |
+| [Deployment](docs/DEPLOYMENT.md) | Shipping to Vercel and Supabase |
+| [External API](docs/EXTERNAL_API.md) | Calling the HTTP API |
+| [Product requirements](docs/PRD.md), [Roadmap](docs/ROADMAP.md), [Changelog](docs/CHANGELOG.md) | Understanding scope and history |
 
-## Brand Identity
+## Current status
 
-KramFlow's name and meaning are final; the visual identity (logo, icon set, favicons) is **not yet implemented** — this codebase currently runs on placeholder/inherited assets. See [`docs/BRAND_GUIDELINES.md`](docs/BRAND_GUIDELINES.md) for the naming rationale and what's pending.
+**Implemented**
+- Multi-tenant events with Supabase Auth, and owner, editor and viewer roles
+- Operator Console, Remote, Cue Sheet (Excel import and export), Broadcast Center, Display Manager and Rehearsal
+- Presenter, Green Room, AV and General displays
+- Share Display links, QR codes, 6-digit TV codes, revocation and expiry
+- Scoped external HTTP API
 
-## Design System
+**Verified**
+- TypeScript typecheck, ESLint (warnings, no errors), Vitest unit tests and the production build
+- GitHub Actions configuration that runs typecheck, lint, build, unit tests and the end-to-end test
 
-Every surface — TV, desktop console, mobile remote — gets a layout strategy purpose-built for how it's actually used, not one responsive page. Full rationale, type scale, spacing, and color tokens: [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md).
+**Exploring.** These are being evaluated. None is implemented or scheduled.
+- Event visualization and event maps
+- Integrations with production software
+- Stream Deck and hardware control beyond the current HTTP API
+- Show health and readiness
+- Cue and run-of-show workflow improvements
+- AI-assisted operations
+
+**Not done yet.** Brand identity assets (logo, favicons, PWA icons). Earlier plans in [docs/ROADMAP.md](docs/ROADMAP.md) also list a performer phone companion, volunteer check-in, automatic cue timing and analytics.
 
 ## Contributing
 
-See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for setup, conventions, and how changes are reviewed. In short: `npm run lint`, `npx tsc --noEmit`, `npm test`, and `npm run build` should all pass before opening a PR — CI enforces this on every PR regardless.
-
-## Roadmap
-
-```text
-MVP — single event, localStorage/BroadcastChannel sync ✓
-  ↓
-Supabase Realtime — replace localStorage/BroadcastChannel sync ✓
-  ↓
-Real auth + multi-tenant events — any operator can sign up and run their own event(s) ✓
-  ↓
-Display Engine — Broadcast Center, Display Manager, Rehearsal Mode ✓
-  ↓
-CI/CD, automated tests, database-backed rate limiting ✓
-  ↓
-Real brand identity — logo, favicons, PWA icons
-  ↓
-Generic cue sheet import — any file, not just one event
-  ↓
-Phone companion for performers · volunteer check-in · QR join
-  ↓
-Automatic cue timing · analytics
-```
-
-Full detail: [`docs/ROADMAP.md`](docs/ROADMAP.md).
-
-## Future Improvements
-
-- Real brand assets across every touchpoint listed in `docs/BRAND_GUIDELINES.md`
-- Automated visual regression tests across the responsive breakpoints
-- A durable audit log beyond the operator activity feed's last-20 window
-- Supabase's built-in MFA (TOTP) for operator accounts
-- Rate limiting / abuse prevention on event creation beyond the current per-tier event-count cap
+Setup, checks and conventions are in [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ## License
 
-Not yet licensed for public/open-source use. All rights reserved pending a license decision.
+No open-source license has been selected yet.
 
-## Credits
+## Background
 
-Built for BAPS Phoenix's Satsang Shibir 2026. Cue sheet data, program structure, and event requirements courtesy of the event's production team.
+KramFlow was developed from real live-event production workflows: multi-day, multi-session programs where operators, AV crew, performers and presenters each need a different view of the same run of show. The name comes from *krama* (क्रम): sequence, order, progression.

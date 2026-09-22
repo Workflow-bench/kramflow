@@ -283,7 +283,7 @@ export type { AlertSeverity };
 // template, assign a widget (or leave it empty) to each of that
 // template's zones, set a viewing-distance scale, and optionally an
 // accent color / static text block. Backed by the real `display_profiles`
-// table (supabase/migrations/0013_display_profiles.sql) — see that
+// table (supabase/migrations/20260909091744_display_profiles.sql) — see that
 // migration's comment for why this exists (display_registry.profile_id
 // was already there, pointing at nothing real, since a prior pass).
 //

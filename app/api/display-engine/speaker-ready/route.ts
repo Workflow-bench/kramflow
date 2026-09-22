@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { verifyDisplayAccess } from "@/lib/server/verify-display-access";
+import { verifySessionAccess } from "@/lib/server/verify-display-access";
 
-// PATCH the speaker-ready toggle — still no requireAuth() (Green Room's
-// own unauthenticated toggle), event_id-resolved the same way as
-// display-engine/hold/route.ts.
+// PATCH the speaker-ready toggle. Session only: a Share Display token is
+// read-only and never authorizes this (see verifySessionAccess). Any role
+// with access to the event may toggle it, as the Remote page documents.
 export async function PATCH(request: Request) {
   let body: Record<string, unknown>;
   try {
@@ -13,10 +13,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const access = await verifyDisplayAccess(
-    typeof body.token === "string" ? body.token : undefined,
-    typeof body.eventId === "string" ? body.eventId : undefined
-  );
+  const access = await verifySessionAccess(typeof body.eventId === "string" ? body.eventId : undefined);
   if (!access.ok) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 403 });
 
   const programId = body.programId;

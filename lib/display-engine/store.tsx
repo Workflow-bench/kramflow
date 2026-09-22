@@ -5,6 +5,7 @@ import type { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import { getTransport, type TransportStatus } from "./transport";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { fetchDisplayViewPolled } from "@/lib/shared-display-view-poll";
+import { isDefinitiveAccessDenial, whileAccessValid } from "./access-gate";
 import { createInitialEngineState } from "./defaults";
 import { useDisplayEngineIdentity, type DisplayEngineIdentity } from "./context";
 import type {
@@ -247,6 +248,17 @@ interface EngineInstance {
   initialized: boolean;
   remoteHydrated: boolean;
   schedulerRunning: boolean;
+  // Set once this instance's poll sees a definitive access denial (revoked/
+  // expired/unknown link). From then on the display stops sending its own
+  // register/heartbeat and scheduler requests, which can only fail.
+  accessDenied: boolean;
+  // Set only for a token-identity instance's poll loop (see
+  // ensureRemoteConnected below) — undefined for an eventId-identity
+  // instance, which uses Realtime instead and never polls at all. Lets
+  // fetchRemoteSliceViaPoll stop its own interval on a definitive
+  // access-denial response (F-10 follow-up, Phase 7C.1) without a second
+  // interval ever existing to leak.
+  pollIntervalId?: ReturnType<typeof setInterval>;
 }
 
 const instances = new Map<string, EngineInstance>();
@@ -268,6 +280,7 @@ function getInstance(identity: DisplayEngineIdentity): EngineInstance {
       initialized: false,
       remoteHydrated: false,
       schedulerRunning: false,
+      accessDenied: false,
     };
     instances.set(key, inst);
   }
@@ -293,15 +306,17 @@ function identityBody(identity: DisplayEngineIdentity): Record<string, string> {
 }
 
 function identityQuery(identity: DisplayEngineIdentity): string {
-  if (!identity.eventId) return "";
-  const params = new URLSearchParams({ eventId: identity.eventId });
+  const params = new URLSearchParams();
+  if (identity.token) params.set("token", identity.token);
+  else if (identity.eventId) params.set("eventId", identity.eventId);
+  else return "";
   if (identity.displayType) params.set("displayType", identity.displayType);
   return `?${params.toString()}`;
 }
 
 // Hold/Timer moved out of display_state into a new per-(event, display
 // type) table (2026-09 blocker remediation — see
-// supabase/migrations/0009_display_type_state.sql for the full why: the
+// supabase/migrations/20260909091740_display_type_state.sql for the full why: the
 // old one-row-per-*event* shape meant Presenter's own local timer/hold
 // adjustments — the only display type that ever calls the mutating
 // functions — silently bled into AV's and Green Room's own shown
@@ -443,11 +458,30 @@ async function fetchRemoteSliceViaPoll(inst: EngineInstance) {
     // independent fetches of the identical server-joined payload.
     const data = (await fetchDisplayViewPolled(qs)) as {
       ok: boolean;
+      reason?: string;
       displayState?: DisplayStateRow;
       displayRegistry?: RegistryRow[];
       displayBroadcasts?: BroadcastRow[];
     };
-    if (!data.ok || !data.displayState) return;
+    if (!data.ok) {
+      // F-10 follow-up (Phase 7C.1): lib/use-display-view.ts already owns
+      // the user-visible LinkInvalid state for this same definitive-denial
+      // response — this loop doesn't need (and must not invent) a second
+      // one. It only needs to stop making requests that can never succeed
+      // again until an operator issues a new link, same standard this
+      // store's own eventId/Realtime branch doesn't have to meet (a
+      // channel failure already has its own independent reconnect
+      // semantics, untouched here).
+      if (isDefinitiveAccessDenial(data.reason)) {
+        inst.accessDenied = true;
+        if (inst.pollIntervalId !== undefined) {
+          clearInterval(inst.pollIntervalId);
+          inst.pollIntervalId = undefined;
+        }
+      }
+      return;
+    }
+    if (!data.displayState) return;
     applyRemoteRows(inst, data.displayState, data.displayRegistry ?? [], data.displayBroadcasts ?? []);
   } catch (err) {
     console.error("[display-engine] poll failed:", err);
@@ -534,7 +568,7 @@ function ensureRemoteConnected(inst: EngineInstance) {
   } else if (inst.identity.token) {
     const poll = () => fetchRemoteSliceViaPoll(inst);
     poll();
-    setInterval(poll, POLL_INTERVAL_MS);
+    inst.pollIntervalId = setInterval(poll, POLL_INTERVAL_MS);
   }
 }
 
@@ -801,31 +835,36 @@ function cancelScheduled(identity: DisplayEngineIdentity, id: string) {
 // environment (Supabase pg_cron or a Vercel Cron Job would be needed to
 // close this gap properly). Documented as a known limitation in
 // docs/DISPLAY_ENGINE.md — carried forward from before this migration,
-// not solved by it. dismiss/acknowledge/promote stay unauthenticated
-// (keyed by the broadcast's own unguessable id), so this needs no identity.
+// not solved by it. Public display tabs can process this, but the server
+// still verifies this instance's token/session maps to the broadcast's
+// event before mutating anything.
 function runSchedulerCheck(inst: EngineInstance) {
   if (inst.schedulerRunning || typeof window === "undefined") return;
   inst.schedulerRunning = true;
-  setInterval(() => {
+  const schedulerId = setInterval(() => {
+    if (inst.accessDenied) {
+      clearInterval(schedulerId);
+      return;
+    }
     const now = Date.now();
     const due = inst.remoteSlice.broadcastRows.filter(
       (r) => r.status === "scheduled" && r.scheduled_for && Date.parse(r.scheduled_for) <= now
     );
-    for (const row of due) postJson(`/api/display-engine/broadcasts/${row.id}/promote`, {});
+    for (const row of due) postJson(`/api/display-engine/broadcasts/${row.id}/promote`, identityBody(inst.identity));
   }, 5000);
 }
 
-function dismissBroadcast(id: string) {
-  return postJson(`/api/display-engine/broadcasts/${id}/dismiss`, {});
+function dismissBroadcast(identity: DisplayEngineIdentity, id: string) {
+  return postJson(`/api/display-engine/broadcasts/${id}/dismiss`, identityBody(identity));
 }
 
-function acknowledgeBroadcast(id: string, displayId: string) {
-  return postJson(`/api/display-engine/broadcasts/${id}/acknowledge`, { displayId });
+function acknowledgeBroadcast(identity: DisplayEngineIdentity, id: string, displayId: string) {
+  return postJson(`/api/display-engine/broadcasts/${id}/acknowledge`, { ...identityBody(identity), displayId });
 }
 
-function clearEmergencies(inst: EngineInstance) {
+function clearEmergencies(identity: DisplayEngineIdentity, inst: EngineInstance) {
   const active = inst.remoteSlice.broadcastRows.filter((r) => r.status === "sent" && r.dismissed_at === null && r.type === "emergency");
-  return Promise.all(active.map((row) => dismissBroadcast(row.id)));
+  return Promise.all(active.map((row) => dismissBroadcast(identity, row.id)));
 }
 
 function saveTemplate(name: string, draft: BroadcastDraft): string {
@@ -891,8 +930,10 @@ export function useDisplayEngine() {
   return {
     state,
     clientId,
-    registerDisplay: (input: { id: string; name: string; type: DisplayType; room?: string | null }) => registerDisplay(identity, input),
-    heartbeatDisplay: (id: string, latencyMs: number | null) => heartbeatDisplay(identity, id, latencyMs),
+    registerDisplay: whileAccessValid(inst, (input: { id: string; name: string; type: DisplayType; room?: string | null }) =>
+      registerDisplay(identity, input)
+    ),
+    heartbeatDisplay: whileAccessValid(inst, (id: string, latencyMs: number | null) => heartbeatDisplay(identity, id, latencyMs)),
     renameDisplay: (id: string, name: string) => renameDisplay(identity, id, name),
     assignDisplay: (id: string, patch: { type?: DisplayType; room?: string | null; profileId?: string | null }) =>
       assignDisplay(identity, id, patch),
@@ -915,9 +956,9 @@ export function useDisplayEngine() {
     sendBroadcast: (draft: BroadcastDraft) => sendBroadcast(identity, draft),
     scheduleBroadcast: (draft: BroadcastDraft, scheduledFor: string) => scheduleBroadcast(identity, draft, scheduledFor),
     cancelScheduled: (id: string) => cancelScheduled(identity, id),
-    dismissBroadcast,
-    acknowledgeBroadcast,
-    clearEmergencies: () => clearEmergencies(inst),
+    dismissBroadcast: (id: string) => dismissBroadcast(identity, id),
+    acknowledgeBroadcast: (id: string, displayId: string) => acknowledgeBroadcast(identity, id, displayId),
+    clearEmergencies: () => clearEmergencies(identity, inst),
     saveTemplate,
     deleteTemplate,
     toggleFavoriteTemplate,

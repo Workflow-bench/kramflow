@@ -4,10 +4,10 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 // POST send-now or schedule a broadcast. requireEventAccess(owner)-gated — only
 // Broadcast Center + Operator's embedded quick-panel (both authenticated,
-// scoped to the operator's own event) create broadcasts. Dismiss/
-// acknowledge/promote stay public (see their own route files) since
-// BroadcastOverlay — rendered on every public display — calls them
-// directly, keyed by the broadcast's own unguessable id, not by event_id.
+// scoped to the operator's own event) create broadcasts. Dismiss is
+// session-only. Acknowledge and promote accept a Share Display token because
+// public displays call them for their own event (see their route files and
+// lib/server/verify-display-access.ts).
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
   try {

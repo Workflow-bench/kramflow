@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { verifyDisplayAccess } from "@/lib/server/verify-display-access";
+import { verifySessionAccess } from "@/lib/server/verify-display-access";
 
 interface TimerState {
   mode: string;
@@ -14,12 +14,12 @@ interface TimerState {
 
 const VALID_DISPLAY_TYPES = new Set(["presenter", "green-room", "av", "general"]);
 
-// PATCH every timer action — still no requireAuth() (Presenter's own
-// unauthenticated controls), event_id-resolved the same way as
-// display-engine/hold/route.ts — see that file's comment.
+// PATCH every timer action. Session only: a Share Display token is
+// read-only and never authorizes this (see verifySessionAccess), so the
+// caller must be logged in with access to body.eventId.
 //
 // display_type_state, not display_state (2026-09 blocker remediation —
-// supabase/migrations/0009_display_type_state.sql): the old shared
+// supabase/migrations/20260909091740_display_type_state.sql): the old shared
 // per-event row meant this PATCH, reachable by any event-scoped share-link
 // token regardless of which of the four screens it was actually minted
 // for, silently rewrote what AV's and Green Room's own auto-derived
@@ -41,10 +41,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const access = await verifyDisplayAccess(
-    typeof body.token === "string" ? body.token : undefined,
-    typeof body.eventId === "string" ? body.eventId : undefined
-  );
+  const access = await verifySessionAccess(typeof body.eventId === "string" ? body.eventId : undefined);
   if (!access.ok) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 403 });
 
   const displayType = body.displayType;

@@ -1,16 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Maximize,
-  Minimize,
-  Minus,
-  Pause,
-  Play,
-  Plus,
-  RotateCcw,
-  Radio,
-} from "lucide-react";
 import { useDisplayView } from "@/lib/use-display-view";
 import { getSessionById } from "@/lib/data/sessions";
 import { getLive, getNext } from "@/lib/types";
@@ -22,11 +11,7 @@ import { deriveProgress, deriveAutoTimerInput, deriveStageStatus } from "@/lib/d
 import { useTimeSync } from "@/lib/display-engine/use-time-sync";
 import { useFullscreen } from "@/lib/display-engine/use-fullscreen";
 import { useKeyboardShortcuts } from "@/lib/display-engine/use-keyboard-shortcuts";
-import { useIdleVisibility } from "@/lib/display-engine/use-idle-visibility";
-import { TIMER_COLORS, TIMER_COLOR_LABELS } from "@/lib/display-engine/colors";
-import { HOLD_PRESETS, type TimerMode } from "@/lib/display-engine/types";
-import { Select } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
+import { TIMER_COLORS } from "@/lib/display-engine/colors";
 import { DisplayShell } from "@/components/display-engine/display-shell";
 import { HoldScreen } from "@/components/display-engine/hold-screen";
 import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay";
@@ -34,8 +19,8 @@ import { TestMessageOverlay } from "@/components/display-engine/test-message-ove
 import { FullscreenPrompt } from "@/components/display-engine/fullscreen-prompt";
 import { StageStatusPill } from "@/components/display-engine/stage-status-pill";
 import { AlertBanner } from "@/components/ui/alert-banner";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { cn } from "@/lib/utils";
+import { LoadingState } from "@/components/ui/loading-state";
+import { LinkInvalid } from "@/components/auth/link-invalid";
 
 // A fixed vw fraction alone doesn't account for string length — a short
 // "05:30" and a long overrun "21:06:34" (or a multi-digit-hour overrun,
@@ -66,22 +51,6 @@ function countdownFontSize(text: string, minRem: number, maxRem: number, baseVw:
   return `clamp(${minRem}rem, ${vw}vw, ${maxRem}rem)`;
 }
 
-const MODES: { mode: TimerMode; label: string }[] = [
-  { mode: "program", label: "Program" },
-  { mode: "countdown", label: "Countdown" },
-  { mode: "count-up", label: "Count-up" },
-  { mode: "session", label: "Session" },
-  { mode: "minimal", label: "Minimal" },
-  { mode: "clock", label: "Clock" },
-];
-
-// HOLD_PRESETS entries carry a `label` for the picker UI that isn't part of
-// HoldState — pick only the fields activateHold() actually declares rather
-// than spreading the whole preset, so `label` doesn't leak into persisted state.
-function holdPayload(preset: (typeof HOLD_PRESETS)[number]) {
-  return { message: preset.message, subMessage: preset.subMessage, continueClock: false };
-}
-
 export default function PresenterDisplayClient({ token, eventId }: { token?: string; eventId?: string }) {
   return (
     <DisplayEngineProvider token={token} eventId={eventId} displayType="presenter">
@@ -91,20 +60,16 @@ export default function PresenterDisplayClient({ token, eventId }: { token?: str
 }
 
 function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName } = useDisplayView({
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName, loading, accessError } = useDisplayView({
     token,
     eventId,
     displayType: "presenter",
   });
   const session = getSessionById(sessions, appState.activeSessionId);
-  const { state: engine, setTimerMode, setTimerSource, pauseTimer, resumeTimer, resetTimer, adjustTimer, activateHold, deactivateHold } =
-    useDisplayEngine();
+  const { state: engine } = useDisplayEngine();
 
   const { offsetMs } = useTimeSync();
   const fullscreen = useFullscreen();
-  const controlsVisible = useIdleVisibility(4000);
-  const [holdPresetIndex, setHoldPresetIndex] = useState(0);
-  const [confirmReset, setConfirmReset] = useState(false);
 
   // requestFullscreen() requires a real gesture on this device — a
   // Realtime command can't provide one, so useDisplayCommands' built-in
@@ -134,16 +99,8 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
   const clockLabel = useDisplayClock(offsetMs);
 
   useKeyboardShortcuts({
-    Space: () => (timer.isPaused ? resumeTimer() : pauseTimer()),
-    "+": () => adjustTimer(30),
-    "=": () => adjustTimer(30),
-    "-": () => adjustTimer(-30),
-    r: () => setConfirmReset(true),
-    R: () => setConfirmReset(true),
     f: () => fullscreen.toggle(),
     F: () => fullscreen.toggle(),
-    h: () => (engine.hold.active ? deactivateHold() : activateHold(holdPayload(HOLD_PRESETS[holdPresetIndex]))),
-    H: () => (engine.hold.active ? deactivateHold() : activateHold(holdPayload(HOLD_PRESETS[holdPresetIndex]))),
     Escape: () => {
       if (fullscreen.isFullscreen) void fullscreen.exit();
     },
@@ -152,6 +109,28 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
   const mode = engine.timer.mode;
   const color = TIMER_COLORS[timer.colorState];
   const stageStatus = deriveStageStatus(live, appState.pausedAt, engine.hold.active);
+
+  // useDisplayView()'s first poll hasn't landed yet — without this,
+  // `!live` reads identically to "not started," so a refresh briefly
+  // showed "Not Started" for a show that's actually LIVE (confirmed live,
+  // Phase 6B audit). Same distinction lib/use-sessions.ts's
+  // useSessionsLoading() draws for Remote, just sourced from this poll
+  // hook's own `loading` instead of a hasLoadedOnce flag.
+  // F-10 (Phase 7B): checked ahead of `loading` — a revoked/expired link
+  // discovered mid-poll is terminal, not a loading state. Same LinkInvalid
+  // a fresh navigation to the same dead link already shows
+  // (app/presenter/page.tsx).
+  if (accessError) {
+    return <LinkInvalid reason={accessError} />;
+  }
+
+  if (loading) {
+    return (
+      <DisplayShell connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>
+        <LoadingState title="Loading…" />
+      </DisplayShell>
+    );
+  }
 
   return (
     <DisplayShell connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>
@@ -289,184 +268,6 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
         </>
       )}
 
-      {/* Auto-hiding control bar — the presenter never sees this at rest.
-          Deliberately NOT pointer-events-none while faded: a click/tap that
-          lands in this zone right as the idle-hide kicks in (or a touch tap
-          that fires its click before the mousemove/touchstart reveal state
-          has re-rendered) would otherwise land on a non-interactive element
-          and silently do nothing — no error, control just doesn't respond.
-          Nothing else occupies this screen region, so leaving it clickable
-          while invisible costs nothing. */}
-      {/* z-45: above HoldScreen (z-40) so the presenter can still reach the
-          Hold toggle to release it — Presenter is the only display where a
-          human locally controls Hold, so this is the one place the control
-          bar needs to survive its own takeover screen. Still below
-          emergency broadcasts (z-50), which are meant to interrupt even
-          Hold. The other four Display Engine surfaces never render this
-          control bar at all, so Hold there stays exclusively
-          operator-controlled, as intended. */}
-      <div
-        className={cn(
-          "fixed bottom-0 left-0 right-0 z-[45] flex items-center justify-center gap-3 p-6 transition-opacity duration-300",
-          controlsVisible ? "opacity-100" : "opacity-0"
-        )}
-      >
-        {/* Every control below gets tabIndex={-1} while faded, on top of
-            the existing opacity fade — pointer/touch reachability while
-            fading is deliberately unchanged (see the comment above this
-            block), but a keyboard user tabbing through the page has no way
-            to see *where* focus is once these are invisible, and could
-            trigger a live Hold/timer mutation blind (2026-09-01 audit,
-            KF-003 / P0 finding #3). tabIndex alone doesn't affect pointer
-            events, so the "still tappable mid-fade" behavior survives
-            untouched — only Tab-reachability changes. */}
-        {/* max-w plus overflow-x-auto, not flex-wrap — a dozen controls
-            (transport, mode/hold selects, fullscreen) don't fit this pill
-            in one row below ~700px wide, and wrapping would turn a single
-            rounded-full dock into an uneven multi-row block. Bounding the
-            pill to the viewport and letting it scroll horizontally keeps
-            every control reachable via a swipe instead of rendering past
-            the screen edge with no way back (Kramflow/Stagetimer
-            competitive audit, 2026-09: reproduced at 390×844 — Fullscreen
-            measured off-screen to the right, dock's own left edge
-            off-screen to the left, both entirely untappable). Unchanged
-            above ~700px, where everything already fits in one row and
-            this never engages. */}
-        <div className="flex items-center gap-2 rounded-full bg-card/95 backdrop-blur px-4 py-3 shadow-lg max-w-[calc(100vw-3rem)] overflow-x-auto">
-          <ControlButton onClick={() => adjustTimer(-60)} label="-1:00" tabIndex={controlsVisible ? undefined : -1}>
-            <Minus className="h-4 w-4" strokeWidth={2} />
-          </ControlButton>
-          <ControlButton onClick={() => adjustTimer(-30)} label="-0:30" tabIndex={controlsVisible ? undefined : -1}>
-            <Minus className="h-3.5 w-3.5" strokeWidth={2} />
-          </ControlButton>
-          <ControlButton
-            onClick={() => (timer.isPaused ? resumeTimer() : pauseTimer())}
-            label={timer.isPaused ? "Resume" : "Pause"}
-            primary
-            tabIndex={controlsVisible ? undefined : -1}
-          >
-            {timer.isPaused ? <Play className="h-5 w-5" strokeWidth={2} /> : <Pause className="h-5 w-5" strokeWidth={2} />}
-          </ControlButton>
-          <ControlButton onClick={() => adjustTimer(30)} label="+0:30" tabIndex={controlsVisible ? undefined : -1}>
-            <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-          </ControlButton>
-          <ControlButton onClick={() => adjustTimer(60)} label="+1:00" tabIndex={controlsVisible ? undefined : -1}>
-            <Plus className="h-4 w-4" strokeWidth={2} />
-          </ControlButton>
-          <ControlButton onClick={() => setConfirmReset(true)} label="Reset" tabIndex={controlsVisible ? undefined : -1}>
-            <RotateCcw className="h-4 w-4" strokeWidth={2} />
-          </ControlButton>
-
-          <span className="w-px h-6 bg-white/10 mx-1" />
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setTimerSource(engine.timer.source === "auto" ? "manual" : "auto")}
-            className="rounded-full bg-white/5 hover:bg-white/10"
-            tabIndex={controlsVisible ? undefined : -1}
-          >
-            {engine.timer.source === "auto" ? "Auto-follow" : "Manual"}
-          </Button>
-
-          <Select
-            value={mode}
-            onChange={(v) => setTimerMode(v as TimerMode)}
-            options={MODES.map((m) => ({ value: m.mode, label: m.label }))}
-            searchable={false}
-            aria-label="Display mode"
-            className="w-auto min-w-[7rem]"
-            tabIndex={controlsVisible ? undefined : -1}
-          />
-
-          <span className="w-px h-6 bg-white/10 mx-1" />
-
-          <ControlButton
-            onClick={() =>
-              engine.hold.active
-                ? deactivateHold()
-                : activateHold(holdPayload(HOLD_PRESETS[holdPresetIndex]))
-            }
-            label="Hold"
-            active={engine.hold.active}
-            tabIndex={controlsVisible ? undefined : -1}
-          >
-            <Radio className="h-4 w-4" strokeWidth={2} />
-          </ControlButton>
-          <Select
-            value={String(holdPresetIndex)}
-            onChange={(v) => setHoldPresetIndex(Number(v))}
-            options={HOLD_PRESETS.map((preset, i) => ({ value: String(i), label: preset.label }))}
-            searchable={false}
-            aria-label="Hold message preset"
-            className="w-auto min-w-[9rem]"
-            tabIndex={controlsVisible ? undefined : -1}
-          />
-
-          <ControlButton
-            onClick={fullscreen.toggle}
-            label={fullscreen.isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-            tabIndex={controlsVisible ? undefined : -1}
-          >
-            {fullscreen.isFullscreen ? <Minimize className="h-4 w-4" strokeWidth={2} /> : <Maximize className="h-4 w-4" strokeWidth={2} />}
-          </ControlButton>
-
-          <span
-            className="h-2 w-2 rounded-full shrink-0 ml-1"
-            style={{ backgroundColor: color }}
-            title={TIMER_COLOR_LABELS[timer.colorState]}
-          />
-        </div>
-      </div>
-
-      <ConfirmDialog
-        open={confirmReset}
-        title="Reset the timer?"
-        description="This zeroes the current progress. It can't be undone."
-        confirmLabel="Reset"
-        tone="danger"
-        onConfirm={() => {
-          resetTimer();
-          setConfirmReset(false);
-        }}
-        onCancel={() => setConfirmReset(false)}
-      />
     </DisplayShell>
-  );
-}
-
-function ControlButton({
-  children,
-  onClick,
-  label,
-  primary,
-  active,
-  tabIndex,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  label: string;
-  primary?: boolean;
-  active?: boolean;
-  tabIndex?: number;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      tabIndex={tabIndex}
-      aria-label={label}
-      title={label}
-      className={cn(
-        "h-10 w-10 rounded-full flex items-center justify-center cursor-pointer transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        primary && "bg-primary text-background hover:bg-white/90",
-        active && "bg-status-orange text-background",
-        !primary && !active && "text-muted hover:text-primary hover:bg-white/5"
-      )}
-    >
-      {children}
-    </button>
   );
 }

@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireBroadcastDisplayAccess } from "@/lib/server/require-broadcast-display-access";
 
-// POST acknowledge (emergency broadcasts). No requireAuth() —
-// broadcast-overlay.tsx's "Acknowledge" button is on the public,
-// unauthenticated emergency takeover screen.
+// POST acknowledge (emergency broadcasts). Token-or-session, on purpose:
+// broadcast-overlay.tsx's "Acknowledge" button is on the public emergency
+// takeover screen. It records that one display saw the emergency and does
+// not change what any display shows. See the list in
+// lib/server/verify-display-access.ts.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   let body: Record<string, unknown>;
@@ -17,6 +20,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (typeof displayId !== "string") {
     return NextResponse.json({ ok: false, error: "displayId is required" }, { status: 400 });
   }
+
+  const access = await requireBroadcastDisplayAccess(
+    id,
+    typeof body.token === "string" ? body.token : undefined,
+    typeof body.eventId === "string" ? body.eventId : undefined
+  );
+  if (access instanceof NextResponse) return access;
 
   const supabase = supabaseAdmin();
   // acknowledge_broadcast (supabase/schema.sql) does the read-check-write

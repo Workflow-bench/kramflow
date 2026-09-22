@@ -5,7 +5,18 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: ["/", "/login", "/signup"],
-      disallow: ["/dashboard", "/e/", "/invite/", "/general", "/av", "/green-room", "/presenter", "/screens", "/api/"],
+      disallow: [
+        "/dashboard",
+        "/e/",
+        "/invite/",
+        "/general",
+        "/av",
+        "/green-room",
+        "/presenter",
+        "/screens",
+        "/api/",
+        "/dev/",
+      ],
     },
   };
 }

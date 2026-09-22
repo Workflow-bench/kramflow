@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { useDisplayEngine, targetMatchesDisplay } from "@/lib/display-engine/store";
+import { useDisplayEngineIdentity } from "@/lib/display-engine/context";
 import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
 import type { BroadcastMessage, DisplayType } from "@/lib/display-engine/types";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,9 @@ export function BroadcastOverlay({
   size?: "default" | "large";
 }) {
   const { state, acknowledgeBroadcast, dismissBroadcast } = useDisplayEngine();
+  // A Share Display (token) is read-only and cannot dismiss a message for
+  // everyone; only an operator's own session preview offers Dismiss.
+  const canDismiss = !useDisplayEngineIdentity().token;
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -125,7 +129,7 @@ export function BroadcastOverlay({
                       </p>
                     )}
                   </div>
-                  {!message.persistent && (
+                  {!message.persistent && canDismiss && (
                     <button
                       type="button"
                       onClick={() => dismissBroadcast(message.id)}

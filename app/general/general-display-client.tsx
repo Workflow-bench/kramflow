@@ -11,6 +11,7 @@ import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
 import { deriveStageStatus } from "@/lib/display-engine/live-progress";
 import { useTimeSync, syncedNow } from "@/lib/display-engine/use-time-sync";
 import { useFullscreen } from "@/lib/display-engine/use-fullscreen";
+import { LinkInvalid } from "@/components/auth/link-invalid";
 import { DisplayShell } from "@/components/display-engine/display-shell";
 import { HoldScreen } from "@/components/display-engine/hold-screen";
 import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay";
@@ -49,7 +50,7 @@ export default function GeneralDisplayClient({ token, eventId }: { token?: strin
 }
 
 function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: string }) {
-  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName, eventVenue } = useDisplayView({
+  const { sessions, liveState: appState, connectionStatus, lastUpdatedAt, eventName, eventVenue, accessError } = useDisplayView({
     token,
     eventId,
     displayType: "general",
@@ -85,6 +86,15 @@ function GeneralDisplayInner({ token, eventId }: { token?: string; eventId?: str
   const nextTargetMs = next?.scheduledStart && now !== null ? parseTimeToday(next.scheduledStart, now) : null;
   const countdownToNext =
     nextTargetMs !== null ? Math.max(0, Math.round((nextTargetMs - syncedNow(offsetMs)) / 1000)) : null;
+
+  // F-10 (Phase 7B): a share link revoked/expired while this display was
+  // already open — polling now reports it, but nothing rendered the
+  // result. Same LinkInvalid a fresh navigation to the same dead link
+  // already shows (app/general/page.tsx), so the display never keeps
+  // showing stale content behind a badge still claiming a healthy sync.
+  if (accessError) {
+    return <LinkInvalid reason={accessError} />;
+  }
 
   return (
     <DisplayShell wakeLockEnabled connectionStatus={connectionStatus} lastUpdatedAt={lastUpdatedAt}>

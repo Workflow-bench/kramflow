@@ -6,7 +6,7 @@
 -- as a numbered file in supabase/migrations/ — run this file first, then
 -- everything in supabase/migrations/ in order. The app code's current RPC
 -- signatures (e.g. replace_session_programs's p_event_id param) only exist
--- after supabase/migrations/0001_multitenant.sql — this file alone won't
+-- after supabase/migrations/20260909091732_multitenant.sql — this file alone won't
 -- produce a working app. See docs/DEPLOYMENT.md for the full setup order.
 
 -- ---------------------------------------------------------------------------

@@ -76,6 +76,20 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // A collaborator invited via app/api/events/[eventId]/collaborators/
+  // route.ts logs in with a temp password the invite email sent — this
+  // flag (cleared by app/api/auth/set-password/route.ts) is what stops
+  // that temp password from being usable for anything beyond setting a
+  // real one. Checked ahead of every other rule below, and ahead of the
+  // logged-in-users-skip-/login rule specifically, so a must-change-
+  // password session can't reach /dashboard by way of it.
+  if (user?.app_metadata?.must_change_password && pathname !== "/set-password" && !pathname.startsWith("/api/")) {
+    const setPasswordUrl = new URL("/set-password", request.url);
+    const next = pathname === "/" || pathname === "/login" || pathname === "/signup" ? "/dashboard" : pathname;
+    setPasswordUrl.searchParams.set("next", next);
+    return NextResponse.redirect(setPasswordUrl);
+  }
+
   const isOperatorRoute = OPERATOR_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`));
   const isDisplayRoute = DISPLAY_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`));
 

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // The actual increment/lockout/doubling logic now lives in the
 // check_and_record_rate_limit Postgres RPC (supabase/migrations/
-// 0003_rate_limits.sql) — exercised directly against a live database in
+// 20260909091734_rate_limits.sql) — exercised directly against a live database in
 // this task's manual verification (see the PR description), since that's
 // real server-side SQL, not something to reimplement against a mock here.
 // What's left to unit-test at this layer is rate-limit.ts's own logic:
@@ -80,5 +80,34 @@ describe("recordFailure / recordSuccess", () => {
   it("does not throw when the RPC call itself errors (fails open)", async () => {
     rpc.mockResolvedValue({ error: { message: "timeout" } });
     await expect(recordFailure("login", "1.2.3.4")).resolves.toBeUndefined();
+  });
+});
+
+describe("getClientIp", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    delete process.env.VERCEL;
+    delete process.env.TRUST_FORWARDED_IP_HEADERS;
+  });
+
+  it("does not trust spoofable forwarded headers by default", async () => {
+    const { getClientIp } = await import("./rate-limit");
+    const request = new Request("https://example.test", {
+      headers: { "x-forwarded-for": "203.0.113.99", "x-real-ip": "203.0.113.100" },
+    });
+
+    expect(getClientIp(request)).toBe("unknown");
+  });
+
+  it("uses the first forwarded IP when running behind Vercel's trusted proxy", async () => {
+    process.env.VERCEL = "1";
+    const { getClientIp } = await import("./rate-limit");
+    const request = new Request("https://example.test", {
+      headers: { "x-forwarded-for": "203.0.113.99, 10.0.0.1" },
+    });
+
+    expect(getClientIp(request)).toBe("203.0.113.99");
   });
 });

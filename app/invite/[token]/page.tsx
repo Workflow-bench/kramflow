@@ -36,6 +36,12 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
         <AcceptInvitePanel mode="mismatch" invitedEmail={invite.invited_email} loggedInEmail={user.email ?? ""} />
       );
   } else {
+    // The account is created up front, as part of sending the invite
+    // (app/api/events/[eventId]/collaborators/route.ts — a real, confirmed
+    // account with a temp password, not a self-serve signup to complete
+    // later), so by the time anyone lands here it should already exist.
+    // hasAccount only ever reads false for a genuinely stale/edge-case
+    // invite row that predates an account being created for it.
     const admin = supabaseAdmin();
     const { data: usersPage } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     const hasAccount = Boolean(
@@ -50,7 +56,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
         role={invite.role}
         hasAccount={hasAccount}
         loginHref={`/login?next=${nextParam}&email=${emailParam}`}
-        signupHref={`/signup?invite=${token}&email=${emailParam}`}
+        invitedEmail={invite.invited_email}
       />
     );
   }

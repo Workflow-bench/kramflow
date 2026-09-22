@@ -11,7 +11,7 @@ web
 Two distinct audiences, at two distinct distances from the screen, who never see the same surface:
 
 - **Operators** — the stage manager / AV/production crew member actually running a live event. Sits at a laptop (Operator Console, Cue Sheet) or holds a phone backstage (Remote) while walking. Task-focused, trained on the tool, returns to it repeatedly across a multi-day event. Now (post multi-tenancy) any operator can sign up and run their own event(s) — this is no longer a single-crew internal tool.
-- **Everyone else in the venue** — performers, AV/production crew, general attendees, presenters — glancing at a TV or tablet from 5–15ft, or a confidence monitor a few feet away. Never touches the interface (General/AV/Green Room displays are strictly read-only) except Presenter, which has a light physical-proximity control bar. Reached via a no-login share link/QR, not an account.
+- **Everyone else in the venue** - performers, AV/production crew, general attendees, presenters - glancing at a TV or tablet from 5–15ft, or a confidence monitor a few feet away. Never touches the interface: the General, AV, Green Room and Presenter displays render live state and expose no show controls (the Presenter display's only interaction is a fullscreen shortcut). Reached via a no-login share link, QR code or 6-digit TV code, not an account.
 
 ## Product Purpose
 
@@ -30,8 +30,8 @@ StageTimer.io is the closest existing product and the explicit inspiration for t
 - A live event runs across multiple days and multiple sessions per day (e.g., "Friday Evening," "Saturday Morning"), each session containing a queue of items grouped into sections/partitions.
 - The operator edits and reorders the queue before and *during* a live show — drag-and-drop reorder, bulk multi-select edit, dynamic duration-based schedule recalculation that cascades through the rest of the queue.
 - Item fields are dynamic per event (a configurable Add Item form) and per production context (auditorium/program type changes which fields are relevant — mic requirements, video/slides, lighting, camera angle, etc.).
-- Four no-login display surfaces exist today, each serving a different vantage point on the same live state: **General** (public/lobby), **AV** (technical requirements for crew), **Green Room** (performer-facing, "prepare now" cueing), **Presenter** (confidence monitor with a physical control bar).
-- Distribution to displays is via a single generated share link + QR per event, opening a no-login screen-picker (General/AV/Green Room/Presenter) — a deliberate departure from StageTimer's one-signed-link-per-role model, already confirmed and not to be revisited by this redesign.
+- Four no-login display surfaces exist today, each serving a different vantage point on the same live state: **General** (public/lobby), **AV** (technical requirements for crew), **Green Room** (performer-facing, "prepare now" cueing), **Presenter** (confidence monitor, display only).
+- Distribution to displays is via a single generated share link + QR per event (or the 6-digit TV code entered at `/tv`), opening a no-login screen-picker (General/AV/Green Room/Presenter) - a deliberate departure from StageTimer's one-signed-link-per-role model, already confirmed and not to be revisited by this redesign.
 - Multi-tenant: any operator can sign up, create their own event(s), and only ever sees/manages their own — enforced at the database layer, not just the UI. This redesign changes structure and visuals only; it must not regress that isolation or any other already-shipped functionality (auth, drag-reorder persistence, bulk edit, dynamic scheduling, dynamic forms, share-link generate/revoke, live sync).
 
 ## Capabilities and Constraints

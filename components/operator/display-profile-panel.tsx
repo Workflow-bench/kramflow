@@ -45,7 +45,7 @@ function emptyDraft(): DisplayProfileInput {
  * The real editor for the "Display Profiles" concept
  * app/e/[eventId]/displays/page.tsx's own comment documents as having been
  * disabled because there was nothing real to configure — see
- * supabase/migrations/0013_display_profiles.sql. Self-contained (own
+ * supabase/migrations/20260909091744_display_profiles.sql. Self-contained (own
  * fetch/CRUD state) the same way ShareLinkPanel is, so the parent page
  * only needs to render <DisplayProfilePanel eventId .../> and doesn't
  * carry this feature's state itself.

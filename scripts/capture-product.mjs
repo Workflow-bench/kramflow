@@ -57,7 +57,9 @@ async function heartbeatDisplays(eventId) {
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const EMAIL = "demo1@kramflow.test";
-const PASSWORD = "KramflowDemo1!";
+// From the environment, never from source: this repo is public.
+const PASSWORD = process.env.DEMO1_PASSWORD;
+if (!PASSWORD) throw new Error("DEMO1_PASSWORD is required (the demo1 account's password).");
 // Written by the seed step immediately before this runs. Hardcoding these
 // meant a capture could silently run against a different event, or in a
 // timezone the show was not anchored to.

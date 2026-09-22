@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import { useEventStore, getLastActionStatus, useConnectionStatus } from "@/lib/store";
 import { ConnectionBadge } from "@/components/ui/connection-badge";
-import { useSessions } from "@/lib/use-sessions";
+import { useSessions, useSessionsLoading } from "@/lib/use-sessions";
+import { LoadingState } from "@/components/ui/loading-state";
 import { getSessionById } from "@/lib/data/sessions";
 import { effectiveNotes, getLive, getNext } from "@/lib/types";
 import { useCountdown } from "@/lib/use-countdown";
@@ -67,6 +68,7 @@ export default function RemotePage() {
   const { sendBroadcast, state: engineState, setSpeakerReady } = useDisplayEngine();
   const registeredCount = Object.keys(engineState.registry).length;
   const sessions = useSessions();
+  const sessionsLoading = useSessionsLoading();
   const session = getSessionById(sessions, state.activeSessionId);
   const [panel, setPanel] = useState<Panel>("none");
   const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
@@ -85,7 +87,7 @@ export default function RemotePage() {
   const toast = useToast();
   const isOwner = useIsOwner();
   const connectionStatus = useConnectionStatus();
-  const { lockedByOther } = useControlLock(state);
+  const { iHaveControl, lockedByOther } = useControlLock(state);
   const eventId = useEventId();
   const controllerName = useControllerName(eventId, lockedByOther ? state.controllerId : null);
   const lockedMessage = controllerName ? `Locked by ${controllerName}` : "Locked by the operator dashboard";
@@ -95,11 +97,31 @@ export default function RemotePage() {
   // during the multi-operator stress test: a stale pre-check read is a
   // real, reachable race, not just theoretical).
   const lockedByOtherRef = useRef(lockedByOther);
+  const iHaveControlRef = useRef(iHaveControl);
   const lockedMessageRef = useRef(lockedMessage);
   useEffect(() => {
     lockedByOtherRef.current = lockedByOther;
+    iHaveControlRef.current = iHaveControl;
     lockedMessageRef.current = lockedMessage;
-  }, [lockedByOther, lockedMessage]);
+  }, [lockedByOther, iHaveControl, lockedMessage]);
+
+  // Same "unclaimed still blocks now" recovery as ControlsPanel's
+  // promptForControl() — Remote gets the lighter toast-only version rather
+  // than its own persistent lock-status affordance (see this page's run()
+  // doc comment on why Remote stays a lighter controller).
+  async function promptForControl() {
+    if (lockedByOtherRef.current) {
+      toast.error(lockedMessageRef.current, { label: "Take Over", onClick: () => claimControl(true) });
+      return;
+    }
+    toast.error("Take control first", {
+      label: "Take Control",
+      onClick: async () => {
+        const ok = await claimControl();
+        if (!ok) toast.error("Couldn't take control. Try again.");
+      },
+    });
+  }
 
   const progress = session ? state.progressBySession[state.activeSessionId] : undefined;
   const currentOrder = progress?.currentOrder ?? null;
@@ -129,13 +151,11 @@ export default function RemotePage() {
     // (app/api/live/route.ts) — see components/operator/controls-panel.tsx
     // for the full Take Control/Release/Take Over UI, which lives on
     // /operator as the primary coordination surface. Remote is a lighter
-    // controller, so it gets a toast with the same "Take Over" escape
-    // hatch rather than its own persistent lock-status affordance.
-    if (lockedByOther && SEQUENCING_KINDS.has(kind)) {
-      toast.error(lockedMessage, {
-        label: "Take Over",
-        onClick: () => claimControl(true),
-      });
+    // controller, so it gets a toast with the same "Take Over"/"Take
+    // Control" escape hatch rather than its own persistent lock-status
+    // affordance.
+    if (!iHaveControl && SEQUENCING_KINDS.has(kind)) {
+      await promptForControl();
       return;
     }
     if (runningRef.current) return;
@@ -144,8 +164,8 @@ export default function RemotePage() {
     try {
       const result = await action();
       if (result === false) {
-        if (SEQUENCING_KINDS.has(kind) && lockedByOtherRef.current) {
-          toast.error(lockedMessageRef.current, { label: "Take Over", onClick: () => claimControl(true) });
+        if (SEQUENCING_KINDS.has(kind) && !iHaveControlRef.current) {
+          await promptForControl();
         } else if (getLastActionStatus(eventId) === 403) {
           // Gating above should make this unreachable in normal use — a
           // stale/changed role (or a bypassed disabled control) is the
@@ -176,14 +196,14 @@ export default function RemotePage() {
       toast.error(OWNER_ONLY_NOTE);
       return;
     }
-    if (lockedByOther) {
-      toast.error(lockedMessage, { label: "Take Over", onClick: () => claimControl(true) });
+    if (!iHaveControl) {
+      await promptForControl();
       return;
     }
     const ok = await selectSession(sessionId);
     if (!ok) {
-      if (lockedByOtherRef.current) {
-        toast.error(lockedMessageRef.current, { label: "Take Over", onClick: () => claimControl(true) });
+      if (!iHaveControlRef.current) {
+        await promptForControl();
       } else if (getLastActionStatus(eventId) === 403) {
         toast.error("You no longer have permission to perform this action.");
       } else {
@@ -202,6 +222,17 @@ export default function RemotePage() {
   }
 
   if (!session) {
+    // Distinct branches on purpose — see lib/use-sessions.ts's
+    // useSessionsLoading() comment (2026-09-01 UI/UX audit, P1 finding #2:
+    // false "No sessions yet" while loading). Remote was the one surface
+    // still missing this distinction; Operator's page already applies it.
+    if (sessionsLoading) {
+      return (
+        <main className="h-screen w-full max-w-md mx-auto flex items-center justify-center bg-background px-6">
+          <LoadingState title="Loading sessions…" />
+        </main>
+      );
+    }
     return (
       <main className="h-screen w-full max-w-md mx-auto flex items-center justify-center bg-background px-6 text-center">
         <p className="text-body text-muted">

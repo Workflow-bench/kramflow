@@ -6,6 +6,25 @@ additive, flag-gated preview subsystem alongside the pre-existing app; since
 consolidated into the canonical implementation of those surfaces — see
 "History" below.
 
+## Current architecture, in short
+
+- **No feature flag.** The routes (`/presenter`, `/green-room`, `/av`,
+  `/general`) are permanent. `NEXT_PUBLIC_DISPLAY_ENGINE_ENABLED` no longer
+  exists in the code.
+- **Show-affecting state lives in Supabase**: Hold, Timer, Speaker Ready, the
+  display registry, and Broadcasts. A signed-in operator's engine instance
+  follows it over Realtime. A share-link display has no user identity for
+  Realtime, so it polls `GET /api/display-view` about every 2.5 seconds.
+- **Only operator UI preferences stay in the browser**: Groups, Broadcast
+  templates, favorites and drafts, in `localStorage`, synced across tabs of
+  one browser with `BroadcastChannel`. The optional WebSocket relay applies
+  only to that local slice.
+- **Display profiles are stored per event** in `display_profiles`, managed from
+  the Displays page.
+- **Writes** to show state require a signed-in session. A Share Display token
+  is limited to the display-side actions listed under
+  [Auth boundary](#auth-boundary).
+
 ## Design intent
 
 Long-distance readability, huge typography, a single confidence-monitor
@@ -17,7 +36,10 @@ KramFlow's own design tokens (`app/globals.css`) and the same "one accent
 color, no gradients, no decorative motion" discipline as the rest of the
 app, with one documented exception (see [Timer colors](#timer-colors)).
 
-## History
+## History (superseded design)
+
+Everything in this section describes how the subsystem started. It is kept for
+context and does not describe the current transport.
 
 This subsystem was originally built additively on a feature branch, kept
 behind a `NEXT_PUBLIC_DISPLAY_ENGINE_ENABLED` build flag, and synced its own
@@ -61,33 +83,37 @@ lib/display-engine/
 ├── use-register-display.ts      — registry registration + heartbeat + pending-command delivery
 ├── use-display-timer.ts         — the timer engine (auto-follow + manual), formatClock(), useDisplayClock()
 ├── use-fullscreen.ts            — Fullscreen API + Screen Wake Lock API wrappers
-├── use-keyboard-shortcuts.ts     — scoped per-page shortcut map
-└── use-idle-visibility.ts        — controls auto-hide/reveal on activity
+└── use-keyboard-shortcuts.ts     — scoped per-page shortcut map
 
 components/display-engine/
 ├── display-shell.tsx        — full-viewport safe-area wrapper (not a reuse of the deleted components/tv/tv-layout.tsx)
-├── timer-ring.tsx            — SVG progress ring, Framer Motion (not styled-jsx — see Known constraints)
 ├── hold-screen.tsx            — full-screen Hold takeover
 ├── broadcast-overlay.tsx       — renders active broadcasts targeted at a display (banner or emergency takeover)
-├── session-timeline.tsx        — shared running-order list (General/AV)
-└── profile-editor.tsx          — Display Profiles CRUD, embedded in Display Manager
+├── operator-broadcast-panel.tsx - operator-side broadcast composer used by the Broadcast Center
+└── (also) custom-layout-renderer, display-header, fullscreen-prompt, stage-info-card,
+    stage-next-card, stage-status-pill, target-health-summary, test-message-overlay, widgets/
+
+components/operator/display-profile-panel.tsx - Display Profiles, used from the Displays page
 
 app/{presenter,green-room,av,general}/page.tsx  — the 4 Display Engine display surfaces (Operator/Remote aren't Display Engine surfaces)
-app/(operator)/broadcast/page.tsx        — Broadcast Center (PIN-gated, linked from the Operator dashboard header)
-app/(operator)/display-manager/page.tsx    — Display Manager (PIN-gated, linked from the Operator dashboard header)
+app/e/[eventId]/broadcast/page.tsx       - Broadcast Center (signed-in operators)
+app/e/[eventId]/displays/page.tsx        - Display Manager (signed-in operators)
 app/api/display-engine/time/route.ts       — { serverTime } for clock sync
-app/api/display-engine/registry/*          — display registration/heartbeat (public) + rename/assign/command/remove (PIN-gated)
-app/api/display-engine/hold/route.ts       — Hold activate/deactivate (public)
-app/api/display-engine/timer/route.ts      — every timer action (public)
-app/api/display-engine/speaker-ready/route.ts — Green Room's speaker-ready toggle (public)
-app/api/display-engine/broadcasts/*        — send/schedule (PIN-gated), dismiss/acknowledge/promote (public)
+app/api/display-engine/registry/*          — display registration/heartbeat (token or session) + rename/assign/command/remove (owner session)
+app/api/display-engine/hold/route.ts       — Hold activate/deactivate (session only)
+app/api/display-engine/timer/route.ts      — every timer action (session only)
+app/api/display-engine/speaker-ready/route.ts — Green Room's speaker-ready toggle (session only)
+app/api/display-engine/broadcasts/*        — send/schedule (owner session), dismiss (session only), acknowledge/promote (token or session)
 scripts/display-engine-ws-server.mjs        — optional standalone WS relay; no longer needed for Hold/Broadcast/Timer/Registry (see below), still usable for the local-only slice if ever needed
 ```
 
 ## Real-time transport — two systems now, on purpose
 
 - **Hold, Timer, Speaker Ready, the display registry, and Broadcasts
-  (active/scheduled/history)** sync via **Supabase Postgres + Realtime**
+  (active/scheduled/history)** live in **Supabase Postgres** and reach
+  surfaces over **Realtime** (signed-in operator instances) or a **2.5 second
+  poll of `GET /api/display-view`** (share-link displays, which have no
+  `auth.uid()`)
   (`supabase/schema.sql`'s `display_state`, `display_registry`,
   `display_broadcasts` tables), following the exact pattern
   `lib/store.tsx`/`lib/use-sessions.ts` already established: reads are a
@@ -95,32 +121,51 @@ scripts/display-engine-ws-server.mjs        — optional standalone WS relay; no
   (`lib/display-engine/store.tsx`'s `fetchRemoteSlice()`/
   `ensureRemoteTransportConnected()`), writes go through
   `app/api/display-engine/*` routes using the service-role key. This is
-  genuinely cross-device now — a phone and a lobby TV in different rooms
-  see each other's Hold/Broadcast state without any extra infrastructure.
-- **Profiles, Groups, and Broadcast templates/favorites/drafts** — operator
-  UI configuration, not live show state — stay on `localStorage`, synced
-  same-browser-only via `BroadcastChannel` (`lib/display-engine/transport.ts`,
-  unchanged from before). Deliberately out of scope for the Supabase
-  migration; each operator's browser has its own. The optional WebSocket
+  cross-device without extra infrastructure: a phone and a lobby TV in
+  different rooms share Hold/Broadcast state, with a TV lagging by up to one
+  poll interval.
+- **Groups and Broadcast templates/favorites/drafts** - operator UI
+  configuration, not live show state - stay on `localStorage`, synced
+  same-browser-only via `BroadcastChannel` (`lib/display-engine/transport.ts`).
+  Deliberately out of scope for the Supabase migration; each operator's
+  browser has its own. (Display profiles are not in this group: they are
+  stored per event in `display_profiles`.) The optional WebSocket
   relay (`scripts/display-engine-ws-server.mjs`) still exists and would
   extend this local-only slice across devices if ever needed, but nothing
   in this app requires it anymore.
 
 ### Auth boundary
 
-Hold/Timer/Speaker-Ready/Registry-heartbeat write endpoints are
-**intentionally public** (no PIN) — Presenter and Green Room are
-unauthenticated pages today (no PIN gate on `/presenter`, `/green-room`,
-`/av`, `/general`), so this matches the actual pre-existing risk level;
-the Supabase migration changed *how* this state syncs, not *who* can
-trigger it. Broadcast Center's send/schedule/cancel actions, and Display
-Manager's rename/assign/command/remove actions, **are** PIN-gated
-(`lib/server/require-auth.ts`) since those pages sit inside the
-`(operator)` route group. Dismiss/acknowledge/promote-a-scheduled-broadcast
-stay public too — `components/display-engine/broadcast-overlay.tsx`,
-rendered on every public display, calls dismiss/acknowledge directly, and
-the scheduled-broadcast poller runs in whichever tab happens to have the
-store loaded, not just an authenticated one.
+A Share Display token (and the six-digit TV code that resolves to one) is
+**read-only**. It can view a display and its live state, and nothing else.
+Show-state writes require a logged-in session with access to the event
+(`verifySessionAccess` in `lib/server/verify-display-access.ts`, which calls
+`requireEventAccess`):
+
+- `PATCH /timer`, `PATCH /hold`, `PATCH /speaker-ready`,
+  `POST /broadcasts/[id]/dismiss`: session only. A token gets 403 (404 for
+  dismiss, which answers "not found" for anything the caller may not touch).
+- Broadcast Center's send/schedule/cancel, Display Manager's rename/assign/
+  command/remove, and profile edits are role-gated as before.
+
+A display may still make a small set of writes about itself with a token, for
+its own event only:
+
+- `POST /registry`: registering and heartbeating its own row (name, type,
+  room, latency). It cannot send commands (`pendingCommand` is owner-only).
+- `POST /broadcasts/[id]/acknowledge`: an emergency acknowledgement for its own
+  display id.
+- `POST /broadcasts/[id]/promote`: only releases a scheduled broadcast whose
+  `scheduled_for` has already passed, which is what the scheduler does anyway.
+  The scheduler runs in whichever tab has the store loaded, including a public
+  display, because there is no server-side cron.
+
+`app/api/display-engine/token-authority.test.ts` fails if any other API route
+starts accepting a token, so widening this list has to be a deliberate edit.
+
+Once a display's poll sees a definitive denial (revoked, expired, or unknown
+link) it stops its own registry heartbeat and scheduler requests
+(`lib/display-engine/access-gate.ts`).
 
 ## Timer engine
 
@@ -149,24 +194,29 @@ The existing data model tracks *per-item* `startedAt` (`SessionProgress.startedA
 
 ### Scheduled broadcasts — known limitation (carried forward, not solved by the Supabase migration)
 
-A scheduled broadcast (`display_broadcasts` row with `status = 'scheduled'`) is promoted to `status = 'sent'` by `app/api/display-engine/broadcasts/[id]/promote/route.ts`, called by a lightweight in-store scheduler (`ensureSchedulerRunning()`, polling every 5s) that runs inside whichever browser tab happens to have the Display Engine loaded. **There is still no server-side cron in this environment.** Moving the state to Supabase made the *result* of promotion genuinely cross-device (every display sees the promoted broadcast via Realtime), but the *trigger* is still "some open tab happened to notice" — a real fix would need Supabase `pg_cron` or a Vercel Cron Job calling the promote route on a schedule.
+A scheduled broadcast (`display_broadcasts` row with `status = 'scheduled'`) is promoted to `status = 'sent'` by `app/api/display-engine/broadcasts/[id]/promote/route.ts`, called by a lightweight in-store scheduler (`ensureSchedulerRunning()`, polling every 5s) that runs inside whichever browser tab happens to have the Display Engine loaded. **There is still no server-side cron in this environment.** Moving the state to Supabase made the *result* of promotion genuinely cross-device (every display sees the promoted broadcast on its next Realtime event or poll), but the *trigger* is still "some open tab happened to notice" - a real fix would need Supabase `pg_cron` or a Vercel Cron Job calling the promote route on a schedule.
 
 Recurrence (from the original spec's "schedule/recurrence") was **not implemented** — only one-shot future sends.
 
 ## Display Registry, Manager, and Profiles
 
-Every display page calls `useRegisterDisplay(name, type, room, onCommand)` once: registers itself (now via `POST /api/display-engine/registry`, public), heartbeats every 15s with a latency sample, and applies+clears any `pendingCommand` the Display Manager issues (`test-message`, `force-fullscreen`, `reload`, delivered via `PATCH /api/display-engine/registry/[id]`, PIN-gated). A display is considered `offline` after 45s without a heartbeat (`OFFLINE_AFTER_MS`).
+Every display page calls `useRegisterDisplay(name, type, room, onCommand)` once: registers itself (now via `POST /api/display-engine/registry`, accepting a share token or a session), heartbeats every 15s with a latency sample, and applies+clears any `pendingCommand` the Display Manager issues (`test-message`, `force-fullscreen`, `reload`, delivered via `PATCH /api/display-engine/registry/[id]`, owner-only). A display is considered `offline` after 45s without a heartbeat (`OFFLINE_AFTER_MS`).
 
-**Display Manager** (`/display-manager`, PIN-gated) lists every registered display with live status/latency — genuinely cross-device now, since the registry lives in `display_registry` rather than same-browser `localStorage` — with inline rename/type/room/profile assignment, and per-display actions:
+**Display Manager** (`/e/[eventId]/displays`, signed-in operators) lists every registered display with live status/latency - genuinely cross-device now, since the registry lives in `display_registry` rather than same-browser `localStorage` - with inline rename/type/room/profile assignment, and per-display actions:
 - **Preview** — a real, live `<iframe>` of the display's actual route (same synced state, genuinely live).
 - **Screenshot** — uses the browser's native `getDisplayMedia()` picker (the operator selects the window/screen to capture) and downloads a PNG. Unaffected by the transport migration — pure browser API.
 - **Force Fullscreen / Test Message / Reload** — delivered via `sendCommand()` → the target's `pending_command` column, read back via Realtime.
 
-**Display Profiles** (`profile-editor.tsx`, embedded in Display Manager) are full CRUD on top of `BUILT_IN_PROFILES` (Presenter/Minimal/AV/General/Green Room) — **stay local-only**, same as Groups. Built-in profiles are read-only; operators can create/edit/delete their own, then assign them to a display from the same list.
+**Display Profiles** are stored per event in the `display_profiles` table
+(`supabase/migrations/20260909091744_display_profiles.sql`) and managed from
+the Displays page (`components/operator/display-profile-panel.tsx`, backed by
+`app/api/display-engine/profiles`). Reads and writes are role-gated by
+`requireEventAccess`, and a share-token display can fetch its assigned
+profile.
 
 ## Speaker Ready — new, narrowly-scoped state
 
-The Green Room Display's "speaker ready" indicator has no equivalent in the existing `Program`/`LiveState` model — it's genuinely new information (has the next speaker checked in?), not derivable from anything already tracked. Lives in `display_state.speaker_ready` (a `Record<programId, boolean>` jsonb map), written via `PATCH /api/display-engine/speaker-ready` (public — Green Room's toggle is unauthenticated).
+The Green Room Display's "speaker ready" indicator has no equivalent in the existing `Program`/`LiveState` model — it's genuinely new information (has the next speaker checked in?), not derivable from anything already tracked. Lives in `display_state.speaker_ready` (a `Record<programId, boolean>` jsonb map), written via `PATCH /api/display-engine/speaker-ready` (session only — a Share Display token is read-only and cannot toggle it; any role with access to the event can, from the Remote page).
 
 ## General Display — pragmatic scoping
 
@@ -182,13 +232,16 @@ Originally scoped down to a static "Sponsor Slides"/"Directional Information" te
 
 `useDisplayEngine()`'s `clientId` was a module-level variable only corrected (from the SSR `"server"` fallback to the real per-tab id) inside `ensureTransportConnected()`, which runs post-commit via `useSyncExternalStore`'s `subscribe()`. A fast-firing effect (`useRegisterDisplay`'s registration effect) could run before that correction landed, registering a bogus `"server"` entry in the shared display registry. Fixed by resolving `clientId` eagerly at module init (`typeof window !== "undefined" ? readClientId() : "server"`) instead of waiting for `subscribe()` — verified fixed by clearing state and re-registering, confirming exactly one clean entry.
 
-## Keyboard shortcuts (Presenter Display)
+## Keyboard shortcuts
 
-`Space` pause/resume · `+`/`-` adjust 30s · `R` reset · `F` fullscreen toggle · `H` hold toggle · `Esc` exit fullscreen. Scoped per-page via `useKeyboardShortcuts()`, ignored while an `<input>`/`<textarea>` has focus, never attached globally.
+The Presenter display has no show controls. Its only shortcuts are `F` to
+toggle fullscreen and `Esc` to leave it (`useKeyboardShortcuts()`, scoped to
+that page and ignored while an `<input>` or `<textarea>` has focus). The
+other displays use the same fullscreen helper but register no shortcuts.
 
 ## Session persistence & reconnection
 
-Hold/Timer/Speaker-Ready/Registry/Broadcasts rehydrate from Supabase on load (a fetch, then Realtime keeps them current) — a refreshed display picks up exactly where the shared state left off regardless of which device refreshed. The local-only slice (Profiles/Groups/templates/favorites/drafts) still rehydrates from `localStorage` as before. `useFullscreen()` remembers the fullscreen preference across reloads (browsers only allow *entering* fullscreen from a real user gesture, so a refreshed display can't silently re-enter it, but the preference is available for an operator to act on).
+Hold/Timer/Speaker-Ready/Registry/Broadcasts rehydrate from Supabase on load (a fetch, then Realtime for signed-in instances or the 2.5 second poll for share-link displays keeps them current) - a refreshed display picks up exactly where the shared state left off regardless of which device refreshed. The local-only slice (Profiles/Groups/templates/favorites/drafts) still rehydrates from `localStorage` as before. `useFullscreen()` remembers the fullscreen preference across reloads (browsers only allow *entering* fullscreen from a real user gesture, so a refreshed display can't silently re-enter it, but the preference is available for an operator to act on).
 
 ## Known constraints
 

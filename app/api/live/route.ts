@@ -171,7 +171,13 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
   // locked-out operator doesn't have to click-and-fail to find out; this is
   // what actually stops the R2-BUG-1 clobber if two operators' clicks land
   // close enough together to race past the client-side check.
-  if (LOCKED_ACTIONS.has(action) && isControllerActive(current) && current.controller_id !== clientId) {
+  //
+  // Requires an *active* claim by this exact clientId, not just "no one
+  // else holds it" — an unclaimed lock previously let any sequencing
+  // action through with nothing taken, which meant "Take Control" governed
+  // nothing until a second operator showed up. Every locked action now
+  // requires a real claim first, solo operator included.
+  if (LOCKED_ACTIONS.has(action) && (!isControllerActive(current) || current.controller_id !== clientId)) {
     return NextResponse.json({ ok: false, error: "locked", controllerId: current.controller_id }, { status: 423 });
   }
 
@@ -216,7 +222,7 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
         .eq("id", sessionId)
         .eq("event_id", auth.eventId)
         .maybeSingle();
-      if (sessionError) return NextResponse.json({ ok: false, error: sessionError.message }, { status: 500 });
+      if (sessionError) return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
       if (!sessionRow) return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
       patch = { active_session_id: sessionId, paused_at: null };
       detail = `Switched session`;
@@ -436,7 +442,7 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
     //
     // Scoped strictly to progress_by_session[sessionId] — removes that one
     // key, every other session's entry untouched. Deliberately does NOT
-    // touch item_actuals: migration 0007_pilot_readiness_v2.sql's own
+    // touch item_actuals: migration 20260909091738_pilot_readiness_v2.sql's own
     // column comment states this exactly ("a session/rehearsal-adjacent
     // reset on the real console does not erase real timing history") —
     // this is the same established principle, just applied at session

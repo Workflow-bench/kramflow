@@ -32,8 +32,8 @@ running DDL, not just trust whichever project a tool happens to default to.)
 
 ## Migration order
 
-1. **`0009_display_type_state.sql`**
-2. **`0010_collaborator_invite_columns.sql`**
+1. **`20260909091740_display_type_state.sql`**
+2. **`20260909091741_collaborator_invite_columns.sql`**
 
 They are independent — neither's SQL references the other, and nothing in
 the application requires one to land before the other. This order is the
@@ -207,7 +207,7 @@ write paths back into the "table not found" 500 state described in §1.5.
 
 ### 1.9 Exact SQL
 
-Source of truth: `supabase/migrations/0009_display_type_state.sql` (has
+Source of truth: `supabase/migrations/20260909091740_display_type_state.sql` (has
 the full rationale in comments; reproduced verbatim below, comments
 included, for a direct copy-paste without needing to open the file
 separately):
@@ -273,7 +273,7 @@ end $$;
 -- that event's current shared display_state row, so hold/timer values are
 -- identical to what every display already shows immediately before this
 -- migration runs. cross join, not a loop: display_state has at most one
--- row per event_id (the unique constraint from migration 0001), so this
+-- row per event_id (the unique constraint from the multitenant migration (20260909091732)), so this
 -- produces exactly 4 new rows per existing display_state row.
 insert into display_type_state (event_id, display_type, hold, timer, timer_version)
 select ds.event_id, dt.display_type, ds.hold, ds.timer, ds.timer_version
@@ -405,7 +405,7 @@ unchanged. Compare against a pre-migration snapshot if you took one.
 
 ### 2.8 Exact SQL
 
-Source of truth: `supabase/migrations/0010_collaborator_invite_columns.sql`:
+Source of truth: `supabase/migrations/20260909091741_collaborator_invite_columns.sql`:
 
 ```sql
 begin;
