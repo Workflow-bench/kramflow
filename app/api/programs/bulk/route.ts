@@ -87,7 +87,26 @@ export async function PATCH(request: Request) {
     if (partitionId !== null && typeof partitionId !== "string") {
       return NextResponse.json({ ok: false, error: "partitionId must be a string or null" }, { status: 400 });
     }
-    const { error } = await supabase.rpc("bulk_move_programs_to_partition", { p_ids: uniqueIds, p_partition_id: partitionId });
+    if (partitionId !== null) {
+      const { data: ownedPartition, error: partitionError } = await supabase
+        .from("partitions")
+        .select("id")
+        .eq("id", partitionId)
+        .eq("event_id", auth.eventId)
+        .maybeSingle();
+      if (partitionError) {
+        console.error(partitionError);
+        return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+      }
+      if (!ownedPartition) {
+        return NextResponse.json({ ok: false, error: "Partition not found" }, { status: 404 });
+      }
+    }
+    const { error } = await supabase.rpc("bulk_move_programs_to_partition", {
+      p_event_id: auth.eventId,
+      p_ids: uniqueIds,
+      p_partition_id: partitionId,
+    });
     if (error) {
       console.error(error);
       return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });

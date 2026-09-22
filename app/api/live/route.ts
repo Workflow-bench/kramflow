@@ -88,6 +88,7 @@ function isControllerActive(row: LiveStateRow): boolean {
 // hand-typed order number, never the Program row it resolves to).
 async function programIdAtOrder(
   supabase: ReturnType<typeof supabaseAdmin>,
+  eventId: string,
   sessionId: string | null,
   order: number | null
 ): Promise<string | null> {
@@ -95,6 +96,7 @@ async function programIdAtOrder(
   const { data } = await supabase
     .from("programs")
     .select("id")
+    .eq("event_id", eventId)
     .eq("session_id", sessionId)
     .eq("sort_order", order)
     .maybeSingle();
@@ -208,13 +210,21 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
     case "selectSession": {
       const sessionId = body.sessionId;
       if (typeof sessionId !== "string") return NextResponse.json({ ok: false }, { status: 400 });
+      const { data: sessionRow, error: sessionError } = await supabase
+        .from("sessions")
+        .select("id")
+        .eq("id", sessionId)
+        .eq("event_id", auth.eventId)
+        .maybeSingle();
+      if (sessionError) return NextResponse.json({ ok: false, error: sessionError.message }, { status: 500 });
+      if (!sessionRow) return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
       patch = { active_session_id: sessionId, paused_at: null };
       detail = `Switched session`;
       break;
     }
     case "start": {
       const now = new Date().toISOString();
-      const landingId = await programIdAtOrder(supabase, current.active_session_id, 1);
+      const landingId = await programIdAtOrder(supabase, auth.eventId, current.active_session_id, 1);
       patch = {
         progress_by_session: {
           ...current.progress_by_session,
@@ -235,8 +245,8 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
       }
       const now = new Date().toISOString();
       const [departureId, landingId] = await Promise.all([
-        programIdAtOrder(supabase, current.active_session_id, currentOrder),
-        programIdAtOrder(supabase, current.active_session_id, currentOrder + 1),
+        programIdAtOrder(supabase, auth.eventId, current.active_session_id, currentOrder),
+        programIdAtOrder(supabase, auth.eventId, current.active_session_id, currentOrder + 1),
       ]);
       patch = {
         progress_by_session: {
@@ -257,7 +267,7 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
         return NextResponse.json({ ok: true, noop: true });
       }
       const now = new Date().toISOString();
-      const landingId = await programIdAtOrder(supabase, current.active_session_id, currentOrder - 1);
+      const landingId = await programIdAtOrder(supabase, auth.eventId, current.active_session_id, currentOrder - 1);
       patch = {
         progress_by_session: {
           ...current.progress_by_session,
@@ -289,8 +299,8 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
       const now = new Date().toISOString();
       const isForward = currentOrder !== null && order > currentOrder;
       const [departureId, landingId] = await Promise.all([
-        isForward ? programIdAtOrder(supabase, current.active_session_id, currentOrder) : Promise.resolve(null),
-        programIdAtOrder(supabase, current.active_session_id, order),
+        isForward ? programIdAtOrder(supabase, auth.eventId, current.active_session_id, currentOrder) : Promise.resolve(null),
+        programIdAtOrder(supabase, auth.eventId, current.active_session_id, order),
       ]);
       let itemActuals = current.item_actuals;
       if (isForward) itemActuals = withDeparture(itemActuals, departureId, now);
@@ -311,7 +321,7 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
       if (typeof maxOrder !== "number") return NextResponse.json({ ok: false }, { status: 400 });
       const now = new Date().toISOString();
       const { currentOrder } = activeProgress();
-      const departureId = await programIdAtOrder(supabase, current.active_session_id, currentOrder);
+      const departureId = await programIdAtOrder(supabase, auth.eventId, current.active_session_id, currentOrder);
       patch = {
         progress_by_session: {
           ...current.progress_by_session,

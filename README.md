@@ -10,34 +10,128 @@ KramFlow answers exactly two questions, everywhere it's displayed: **what's happ
 
 ## Overview
 
-Live events run on a spreadsheet that gets shouted across a green room. KramFlow replaces that with one shared, real-time program state (Supabase) driving every surface an event needs:
+Live events run on a spreadsheet that gets shouted across a green room. KramFlow replaces that with one shared, real-time program state in Supabase, then projects that state into the right interface for each person in the venue: stage managers get a command console, backstage teams get a mobile remote, AV teams get timing and technical cues, green rooms get speaker readiness, presenters get confidence-monitor context, and public displays get a clean "now / next" view.
 
-- **Dashboard** (`/dashboard`) — an operator's own event list: create, open, or delete an event.
-- **Operator Console** (`/e/[eventId]/operator`) — the desktop control room: Next/Previous/Hold/Jump, live notes, alerts, sequencing lock.
-- **Cue Sheet** (`/e/[eventId]/operator/cue-sheet`) — the editable program: drag-and-drop reorder, bulk edit, Excel import/export, print view.
-- **Remote** (`/e/[eventId]/remote`) — a one-handed mobile controller for walking backstage.
-- **Displays** (`/e/[eventId]/displays`) — the live registry of connected TV displays: status, latency, remote reload/test-message/fullscreen commands, screenshot capture.
-- **Broadcast Center** (`/e/[eventId]/broadcast`) — targeted alerts and emergency overrides (all displays / by type / by group), scheduling, history.
-- **Rehearsal Mode** (`/e/[eventId]/rehearsal`) — practice a show with zero risk to real displays.
-- **Settings** (`/e/[eventId]/settings`) — event details, auditoriums, and the collaborator roster (editor/viewer roles).
-- **Four public TV displays** — General, AV Waiting Room, Green Room, Presenter (`/general`, `/av`, `/green-room`, `/presenter`) — no-login, read-only, reachable via a revocable Share Link or an operator's own session.
+Phase 1 is a complete multi-tenant event operating system:
 
-Every event is owned by the operator who created it. Any signed-up operator can create their own event(s) and invite collaborators (editor or viewer) to their own — this is a real multi-tenant system, not a single shared event.
+- Operators can sign up, log in, create events, and manage only events they own or have been invited to.
+- Each event can span multiple days, sessions, partitions, auditoriums, and cue-sheet items.
+- Owners can invite collaborators as `viewer` or `editor`; owners retain event, collaborator, display, integration, and live-control authority.
+- The cue sheet can be uploaded from Excel, edited directly, exported, printed, reordered, bulk-edited, and used as the source of live display state.
+- Live show state is synchronized through Supabase for authenticated operator surfaces and served through token-verified polling for public display surfaces.
+- Public display access uses revocable share links rather than accounts, so a TV can be opened with a QR code while still preserving event isolation.
+- Display Manager, Broadcast Center, Rehearsal Mode, integration tokens, and activity logs are first-class Phase 1 features, not placeholders.
+
+The app is deliberately not a generic dashboard. It is built around the live-event trust boundary: an event's owner, collaborators, share-link viewers, connected displays, and integration clients can each do different things, and every route is scoped back to a specific event.
 
 ## Features
 
-- **Real cue-sheet-driven data, live** — upload an Excel cue sheet (`app/api/cue-sheet/upload`) or build one from scratch in the Cue Sheet editor. Parsing (`lib/parse-cuesheet.ts`) is isomorphic — the same code path backs both the runtime upload route and the one-time seed scripts.
-- **Session-aware control** — an event spans multiple days and sessions; the operator switches between them, and each session remembers its own progress independently.
-- **Next / Previous / Jump to Item** — full control over what's live, with server-side bounds checking on jump targets and an optimistic-concurrency version check so two near-simultaneous writes (a fast double-tap, or Operator + Remote firing together) can't silently clobber each other.
-- **Pause / Hold** — freezes the countdown across every connected display in lockstep, and resumes exactly where it left off.
-- **Live alerts & Broadcast Center** — post a message with a severity level, or push a targeted/emergency broadcast to every display, a type, or a group — scheduled or immediate, with history and acknowledgement tracking.
-- **Editable stage notes** — pre-filled from the cue sheet, editable live without touching the source file.
-- **Sequencing lock** — an opt-in "Take Control" claim (server-enforced, auto-released if the controlling tab goes stale) so two open operator tabs can't silently fight over the same show.
-- **Real per-operator accounts (Supabase Auth)** — every operator surface requires a signed-in session, enforced both by `proxy.ts` (redirect) and server-side on every mutating API route (the actual authorization boundary, not just the redirect).
-- **Role-based collaborator access** — an event owner can invite collaborators as editor (can edit the cue sheet) or viewer (read-only), scoped per event via Postgres RLS, not just hidden in the UI.
-- **Share Display Link + QR** — a revocable, expiring, cryptographically random token per event opens the four TV displays with no login — instantly killable from Settings.
-- **Database-backed rate limiting** — login/signup lockout state lives in Postgres (`check_and_record_rate_limit`), so it survives restarts and is shared across serverless instances, not reset by every cold start.
-- **Dark mode only, TV-legible typography** — designed to be read from 5–15 feet away on a 1920×1080 display, and to feel calm rather than like an admin panel.
+### Operator Workspace
+
+- **Landing page** (`/`) — public product entry with login/signup paths.
+- **Authentication** (`/login`, `/signup`) — Supabase Auth email/password signup, login, logout, resend confirmation, generic credential errors, and database-backed rate limiting.
+- **Dashboard** (`/dashboard`) — the signed-in operator's event list, event creation, event deletion, empty-state guidance, help menu, and launch points into each event.
+- **Event shell** (`/e/[eventId]`) — shared event layout that verifies the signed-in user is the owner or an accepted collaborator before rendering any operator surface.
+
+### Event Management
+
+- **Event details** — event name, date, venue, timezone, and configurable event metadata.
+- **Auditoriums** — per-event auditorium setup used by cue-sheet items and production fields.
+- **Collaborators** — invite by email, assign `viewer` or `editor`, list accepted and pending collaborators, hide invite tokens from non-owners, and accept invite links from signed-in users.
+- **Roles** — `viewer` can read event surfaces, `editor` can mutate cue-sheet content, and `owner` can manage settings, displays, broadcasts, collaborators, integrations, and live control.
+- **Plan limits** — per-plan event limits are enforced server-side when creating events.
+
+### Cue Sheet & Program Management
+
+- **Excel import** — upload a cue sheet, parse sessions/partitions/program rows, validate data, and replace the selected event's reference data.
+- **Cue Sheet editor** (`/e/[eventId]/operator/cue-sheet`) — view sessions, partitions, and program items in editable form.
+- **Program item CRUD** — create, update, and delete cue-sheet items with validation for names, durations, cue fields, status, color tags, auditorium, session, and partition.
+- **Drag-and-drop reorder** — move items within and across partitions while preserving sort order and optimistic item versions.
+- **Bulk edit** — update selected item fields such as status, color, presenter, production notes, curtains, and video mode.
+- **Bulk move** — move selected items to another section while enforcing event and partition ownership.
+- **Session management** — create, rename, reorder, and delete sessions; deleting a live session clears the active-session pointer first.
+- **Partition management** — set section start times used by computed timing cascades.
+- **Export & print** — export cue-sheet data and render print/report-oriented cue-sheet pages.
+- **Computed timing** — derive scheduled item start/end times from section anchors and durations without requiring every row to store fixed times.
+
+### Live Operator Console
+
+- **Operator Console** (`/e/[eventId]/operator`) — desktop control room for running the show.
+- **Session selection** — switch the active session for the event.
+- **Start / Next / Previous / Jump / Finish** — move through the active session with server-side bounds, event-scoped resource checks, and optimistic live-state versioning.
+- **Hold / pause / resume** — pause the live countdown, resume without losing elapsed-time accuracy, and surface hold state to displays.
+- **Timer correction** — adjust the live timer forward or backward while clamping impossible future starts.
+- **Live alerts** — set and dismiss event-wide alerts.
+- **Live notes** — override cue-sheet notes during the show without editing the source cue sheet.
+- **Sequencing lock** — claim, renew, release, or force control; stale claims expire automatically so a closed tab cannot permanently lock the show.
+- **Activity feed** — record meaningful operator actions such as program changes, live control, display commands, broadcasts, and collaborator actions.
+
+### Mobile Remote
+
+- **Remote control** (`/e/[eventId]/remote`) — mobile-optimized live-control surface for backstage use.
+- **One-handed operation** — exposes the essential live controls without the full desktop console layout.
+- **Shared live state** — uses the same event-scoped live mutation route as the Operator Console, so mobile and desktop controls cannot diverge.
+
+### Display Engine
+
+- **Display Manager** (`/e/[eventId]/displays`) — registry of connected displays with names, types, rooms, status, latency, profile assignments, and pending commands.
+- **Display registration** — public display pages heartbeat into an event-scoped registry using either a share-link token or an authorized event preview.
+- **Remote display commands** — owners can send reload, test-message, and fullscreen-oriented commands to connected displays.
+- **Display profiles** — create, edit, read, assign, and delete custom display profiles for event-specific screen layouts.
+- **Custom display** (`/custom`) — render a configured custom profile for a share-link or operator preview.
+- **Time sync** — public display surfaces can measure server/client clock offset and latency.
+
+### Public Display Surfaces
+
+- **Screens picker** (`/screens`) — no-login entry opened from a share link; lets a TV choose which display type to show.
+- **General display** (`/general`) — audience-facing now/next display.
+- **AV display** (`/av`) — AV waiting-room/technical display.
+- **Green Room display** (`/green-room`) — backstage speaker-readiness display.
+- **Presenter display** (`/presenter`) — confidence-monitor display with presenter-focused state.
+- **Token or session access** — each display can be reached by a valid share-link token or by an authenticated operator previewing their own event.
+- **Event-scoped polling** — anonymous displays poll server routes that resolve the token to one event before reading service-role data.
+- **Display-type state** — hold and timer overrides are scoped by `(event_id, display_type)` so one display type cannot accidentally take over all display types.
+- **Speaker ready** — green-room readiness state is written into display state and reflected on live display surfaces.
+
+### Broadcast Center
+
+- **Broadcast Center** (`/e/[eventId]/broadcast`) — send operational messages and emergency display overrides.
+- **Immediate broadcasts** — publish messages to all displays, a display type, or a selected group.
+- **Scheduled broadcasts** — queue future broadcasts and promote them when due.
+- **Dismiss / acknowledge** — display clients can dismiss or acknowledge broadcasts from public display routes.
+- **Broadcast history** — owners can see prior broadcast activity and scheduled messages.
+- **Severity and targeting** — broadcasts include severity, target type, and display routing metadata.
+
+### Rehearsal Mode
+
+- **Rehearsal surface** (`/e/[eventId]/rehearsal`) — practice live-show progression without changing production display state.
+- **Local rehearsal state** — lets operators test timing and sequence decisions safely before showtime.
+- **Reset rehearsal progress** — clear rehearsal-only state without disturbing the real event run.
+
+### Share Links & QR
+
+- **Share-link creation** — owners create expiring, revocable display links backed by 256-bit random opaque tokens.
+- **QR rendering** — dashboard/settings surfaces can show QR codes for display setup.
+- **Instant revoke** — revoking the database row kills that one link without rotating any global signing secret.
+- **Last-used tracking** — share-link use updates metadata so operators can see whether a link is active.
+
+### Integration API
+
+- **Integration credentials** — owners create and revoke per-event machine credentials.
+- **Token hashing** — only token hashes are stored; raw tokens are returned once at creation.
+- **Scoped API access** — credentials carry scopes such as `state:read` and `live:control`.
+- **State endpoint** (`/api/v1/events/[eventId]/state`) — integration clients can read event live state with a valid bearer token.
+- **Action endpoint** (`/api/v1/events/[eventId]/actions/[action]`) — integration clients can trigger supported live actions through the same live-action engine as the UI.
+
+### Security, Isolation, And Reliability
+
+- **Real per-operator accounts** — Supabase Auth owns password hashing, sessions, confirmation, and logout.
+- **Server-side authorization** — mutating routes use `requireAuth`, `requireAuthUser`, `requireEventAccess`, `verifyDisplayAccess`, or integration-token checks before touching service-role data.
+- **Multi-tenant event isolation** — event owners, collaborators, share links, displays, integrations, sessions, partitions, programs, broadcasts, and profiles are all scoped to an event.
+- **Row Level Security backstop** — Postgres RLS protects browser/anon access; service-role routes resolve and validate event scope before bypassing RLS.
+- **Optimistic concurrency** — live state and program item updates use version checks to avoid silent overwrites from near-simultaneous users.
+- **Database-backed rate limits** — login and signup throttling state lives in Postgres and works across serverless instances.
+- **Production-oriented UI** — dark-only design, large TV-readable typography, mobile-specific remote layout, and dense desktop operator surfaces.
 
 ## Screenshots
 
