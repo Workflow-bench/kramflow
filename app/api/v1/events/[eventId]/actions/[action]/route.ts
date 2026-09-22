@@ -16,7 +16,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
   if ((action === "hold" && state.paused_at) || (action === "resume" && !state.paused_at)) return NextResponse.json({ ok: true, noop: true });
   let body: Record<string, unknown> = { eventId, clientId: `integration:${credential.id}`, action: action === "hold" || action === "resume" ? "togglePause" : action };
   if (action === "next") {
-    const { count, error: countError } = await admin.from("programs").select("id", { count: "exact", head: true }).eq("session_id", state.active_session_id);
+    const { count, error: countError } = await admin
+      .from("programs")
+      .select("id", { count: "exact", head: true })
+      .eq("event_id", eventId)
+      .eq("session_id", state.active_session_id);
     if (countError || count === null) return NextResponse.json({ ok: false, error: "Could not resolve program" }, { status: 500 });
     body = { ...body, maxOrder: count };
   }

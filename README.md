@@ -46,6 +46,89 @@ Each surface is a separate layout built for how it is used: a phone in one hand,
 | Green Room | `/green-room` | Performers: current item, countdown, operator notes, the next item to prepare, and whether the next speaker is marked ready |
 | Presenter | `/presenter` | Confidence monitor: large countdown and progress, current and next item. Display modes include countdown, count-up and clock. It has no show controls; its only shortcut toggles fullscreen. |
 
+## Phase 1 feature inventory
+
+Phase 1 is a complete multi-tenant event operating system. It is built around a live-event trust boundary: an event owner, collaborators, share-link viewers, connected displays and integration clients can each do different things, and every route is scoped back to one event.
+
+**Operator workspace**
+- Supabase Auth signup, login, logout and confirmation resend.
+- Database-backed login/signup rate limiting that survives restarts and serverless cold starts.
+- Dashboard event list, event creation, event deletion, empty-state guidance and event launch points.
+- Event shell that verifies owner or accepted collaborator access before rendering operator pages.
+
+**Event management**
+- Event details including name, date, venue, timezone and form configuration.
+- Auditoriums scoped to an event and available to cue-sheet production fields.
+- Collaborator invites by email with `viewer` and `editor` roles.
+- Pending and accepted collaborator lists, with invite tokens hidden from non-owners.
+- Signed-in invite acceptance so an invite token alone does not grant account access.
+- Plan-limit enforcement for event creation.
+
+**Cue sheet and program management**
+- Excel cue-sheet import through the runtime upload route.
+- Isomorphic cue-sheet parser shared by upload and seed scripts.
+- Session, section/partition and program-row validation before commit.
+- Program item create, edit and delete with validated cue fields, duration, status, color, auditorium, session and partition.
+- Drag-and-drop reorder with database-side sort-order repair.
+- Bulk field editing for selected cue-sheet items.
+- Bulk moves to sections with event and partition ownership checks.
+- Session create, rename, reorder and delete.
+- Section start-time anchors and computed timing cascades.
+- Cue-sheet export, print view and report-oriented pages.
+
+**Live show control**
+- Active session selection.
+- Start, Next, Previous, Jump and Finish actions.
+- Hold, pause and resume with elapsed-time correction.
+- Manual timer correction with clamped future-start protection.
+- Live alert set and dismiss.
+- Per-program live note overrides that do not mutate source cue-sheet notes.
+- Server-enforced sequencing lock with claim, renew, release, force and stale-claim expiry.
+- Optimistic live-state version checks to avoid silent overwrite races.
+- Activity logging for meaningful event operations.
+
+**Remote and rehearsal**
+- Mobile remote for backstage operation using the same live-action engine as the console.
+- Rehearsal surface for local practice runs that do not reach production displays, share links or console state.
+- Rehearsal reset without disturbing the real event run.
+
+**Display engine**
+- Display Manager registry with display names, types, rooms, online status, latency and profile assignment.
+- Public display registration and heartbeat using a share-link token or an authorized operator preview.
+- Owner-issued display commands such as reload, test-message and fullscreen-oriented commands.
+- Display profiles for event-specific custom layouts.
+- Custom display rendering through `/custom`.
+- Time-sync endpoint for measuring display latency and clock offset.
+
+**Public displays**
+- Screens picker opened from a share link.
+- General, AV, Green Room and Presenter display modes.
+- Token or authenticated-session access for display preview.
+- Event-scoped display polling for anonymous screens.
+- Display-type hold and timer state keyed by `(event_id, display_type)`.
+- Speaker-ready state for Green Room and display surfaces.
+
+**Broadcast Center**
+- Immediate broadcasts to all displays, a display type or a selected group.
+- Scheduled broadcasts and due-time promotion.
+- Broadcast dismiss and acknowledge flows from display clients.
+- Broadcast history with severity, target and routing metadata.
+
+**Share links and integrations**
+- Expiring, revocable Share Display links backed by opaque random tokens.
+- QR code display for fast TV setup.
+- Last-used tracking for share-link activity.
+- Per-event integration credentials with hashed token storage.
+- Scoped HTTP API access for `state:read` and `live:control`.
+- Integration actions run through the same live-action handler as the Operator Console and Remote.
+
+**Security and reliability**
+- Server-side authorization through session, role, share-token or integration-token checks before service-role database access.
+- Multi-tenant isolation across events, collaborators, share links, sessions, partitions, programs, displays, broadcasts, profiles and integration credentials.
+- Postgres Row Level Security as the browser/anon access backstop.
+- Event-scoped resource checks for secondary IDs such as sessions, partitions and programs.
+- Production-oriented dark UI with TV-readable typography, mobile-specific controls and dense desktop operator surfaces.
+
 ## Share Display and TV onboarding
 
 A Share Display link opens the four displays on a TV or tablet without an account.
