@@ -4,7 +4,7 @@
 
 **A realtime operational system for live events that coordinates operators, presenters, AV teams, green rooms and live displays through shared operational state.**
 
-[Live app](https://kramflow.vercel.app) · [Documentation](docs/) · [Issues](https://github.com/Workflow-bench/kramflow/issues)
+[Live app](https://kramflow.me) · [Documentation](docs/) · [Issues](https://github.com/Workflow-bench/kramflow/issues)
 
 [![CI](https://github.com/Workflow-bench/kramflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Workflow-bench/kramflow/actions/workflows/ci.yml)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
