@@ -129,6 +129,24 @@ Phase 1 is a complete multi-tenant event operating system. It is built around a 
 - Event-scoped resource checks for secondary IDs such as sessions, partitions and programs.
 - Production-oriented dark UI with TV-readable typography, mobile-specific controls and dense desktop operator surfaces.
 
+## AI features
+
+Optional, and off unless `ANTHROPIC_API_KEY` is set. With no key the app behaves exactly as before and none of these buttons appear. In every case the AI proposes and a person confirms: it never changes the cue sheet, sends a broadcast, or touches the timer on its own.
+
+| Feature | Where | What it does |
+|---|---|---|
+| Import from any document | Cue Sheet → Import → "Any document (AI)" | Reads a messy spreadsheet, CSV, text file or pasted text and proposes sessions, sections and items. You review and can remove rows before anything is saved. Like the Excel import, it replaces the affected sessions' items. |
+| Readiness review | Operator Console → "AI review" (before a session goes live) | A second opinion on the stored cue sheet: back-to-back presenters, overlapping times, implied but unset AV needs, implausible durations. Advice only. |
+| Alert and broadcast drafting | Console alert box and Broadcast Center → "Draft with AI" | Turns a rough note ("running 10 min late, tell green room") into a clear message with a suggested type, priority and audience. It only fills the form. |
+| Post-show summary | Cue Sheet → Timing Report → "Write summary with AI" | Writes a short narrative from the figures the report already computes. The AI explains the numbers; it doesn't calculate them. |
+
+Details worth knowing:
+
+- **Data sent to Anthropic.** Uploaded or pasted document text for import; cue-sheet fields for the readiness review (presenter phone numbers are never sent, only whether one exists); the alert instruction plus the current and next item names for drafting; timing figures and item names for the summary.
+- **Access.** Import needs editor access, alert drafting needs owner access (the same as sending), and the review and summary need viewer access. Every route re-checks the caller's role for that event.
+- **Limits.** Per-user request throttling on every AI route, a 10 MB / 400,000-character cap on import documents, and validated structured output. Word and PDF aren't read directly yet; paste their text.
+- **Cost.** Each use is a model call billed to your Anthropic account. A long cue-sheet import is the most expensive.
+
 ## Share Display and TV onboarding
 
 A Share Display link opens the four displays on a TV or tablet without an account.
@@ -230,6 +248,8 @@ Then open `/signup`, create an account and create an event from the dashboard.
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only. Bypasses Row Level Security, so never expose it to the client. |
 | `RESEND_API_KEY` | No | Sends collaborator invite emails |
 | `RESEND_FROM_EMAIL` | No | Sender address on a domain verified in Resend |
+| `ANTHROPIC_API_KEY` | No | Turns on the [AI features](#ai-features). Server-only. |
+| `ANTHROPIC_MODEL` | No | Claude model for the AI features. Defaults to `claude-opus-5`. |
 
 ## Development
 

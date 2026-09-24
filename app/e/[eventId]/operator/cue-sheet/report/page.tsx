@@ -9,6 +9,7 @@ import { computeSessionTimingReport, formatClockTime, formatMinutes, type ItemVa
 import type { LiveState, Session } from "@/lib/types";
 import { Button, LinkButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AiReportSummary } from "@/components/operator/ai-report-summary";
 
 const EXCEPTION_LABEL: Record<ItemVariance["exception"], string> = {
   none: "",
@@ -67,6 +68,8 @@ export default function TimingReportPage() {
         <p className="text-neutral-500 text-sm mt-1">Planned vs. actual: one section per session, most recent run only.</p>
 
         {sessions.length === 0 && <p className="mt-4 text-neutral-500">No sessions to report on yet.</p>}
+
+        {sessions.length > 0 && <AiReportSummary eventId={eventId} eventName={eventName} sessions={sessions} state={state} />}
 
         {sessions.map((session, sessionIndex) => (
           <SessionReportSection
