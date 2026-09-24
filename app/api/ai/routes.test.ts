@@ -102,6 +102,12 @@ describe("POST /api/ai/alert-draft", () => {
     });
   });
 
+  it("uses the fast model tier", async () => {
+    runStructured.mockResolvedValue({ type: "info", title: "t", message: "m", priority: "low", audience: "all", acknowledgement_required: false });
+    await alertRoute.POST(json("/api/ai/alert-draft", body));
+    expect(runStructured.mock.calls[0][0].tier).toBe("fast");
+  });
+
   it("surfaces an AI failure with its status", async () => {
     runStructured.mockRejectedValue(new AiError("busy", 429));
     const res = await alertRoute.POST(json("/api/ai/alert-draft", body));

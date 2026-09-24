@@ -249,7 +249,8 @@ Then open `/signup`, create an account and create an event from the dashboard.
 | `RESEND_API_KEY` | No | Sends collaborator invite emails |
 | `RESEND_FROM_EMAIL` | No | Sender address on a domain verified in Resend |
 | `ANTHROPIC_API_KEY` | No | Turns on the [AI features](#ai-features). Server-only. |
-| `ANTHROPIC_MODEL` | No | Claude model for the AI features. Defaults to `claude-opus-5`. |
+| `ANTHROPIC_MODEL_FAST` | No | Model for alert drafting. Defaults to `claude-haiku-4-5`, the cheapest. |
+| `ANTHROPIC_MODEL_QUALITY` | No | Model for cue-sheet import, the readiness review and the post-show summary. Defaults to `claude-sonnet-5`. |
 
 ## Development
 

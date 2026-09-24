@@ -11,7 +11,23 @@ import type { z } from "zod";
 // Optional by design: with no ANTHROPIC_API_KEY the rest of the app runs
 // exactly as before and each AI route answers 503 (see ai-guard.ts).
 
-const DEFAULT_MODEL = "claude-opus-5";
+// Two tiers so cost tracks how much accuracy a feature needs:
+//   fast    - short, low-stakes drafting (alerts); the cheapest model.
+//   quality - reading whole documents and judging a cue sheet (import,
+//             readiness review, post-show summary). Haiku made factual
+//             slips on these in testing, so they get a stronger model.
+// Override either with ANTHROPIC_MODEL_FAST / ANTHROPIC_MODEL_QUALITY.
+const DEFAULT_MODELS = {
+  fast: "claude-haiku-4-5",
+  quality: "claude-sonnet-5",
+} as const;
+
+export type AiTier = keyof typeof DEFAULT_MODELS;
+
+function modelFor(tier: AiTier): string {
+  const override = tier === "fast" ? process.env.ANTHROPIC_MODEL_FAST : process.env.ANTHROPIC_MODEL_QUALITY;
+  return override || DEFAULT_MODELS[tier];
+}
 
 export type AiEffort = "low" | "medium" | "high";
 
@@ -28,6 +44,12 @@ export class AiError extends Error {
 
 export function isAiConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY);
+}
+
+// Haiku 4.5 predates adaptive thinking and the effort setting: sending
+// either is a 400. Every other current model accepts both.
+function supportsThinkingControls(model: string): boolean {
+  return !/haiku/i.test(model);
 }
 
 let cachedClient: Anthropic | null = null;
@@ -58,6 +80,8 @@ export interface StructuredRequest<S extends z.ZodType> {
   prompt: string;
   schema: S;
   maxTokens: number;
+  /** Which model tier to use. Defaults to "quality". */
+  tier?: AiTier;
   effort?: AiEffort;
 }
 
@@ -69,16 +93,20 @@ export interface StructuredRequest<S extends z.ZodType> {
 export async function runStructured<S extends z.ZodType>(req: StructuredRequest<S>): Promise<z.infer<S>> {
   let lastProblem = "unknown";
   for (let attempt = 0; attempt < 2; attempt++) {
+    const model = modelFor(req.tier ?? "quality");
     let message: Anthropic.Message;
     try {
       // Streamed even though only the final message is used: large
       // max_tokens on a non-streaming request trips the SDK's timeout guard.
       message = await client()
         .messages.stream({
-          model: process.env.ANTHROPIC_MODEL || DEFAULT_MODEL,
+          model,
           max_tokens: req.maxTokens,
-          thinking: { type: "adaptive" },
-          output_config: { effort: req.effort ?? "medium", format: zodOutputFormat(req.schema) },
+          ...(supportsThinkingControls(model) ? { thinking: { type: "adaptive" as const } } : {}),
+          output_config: {
+            ...(supportsThinkingControls(model) ? { effort: req.effort ?? "medium" } : {}),
+            format: zodOutputFormat(req.schema),
+          },
           system: req.system,
           messages: [{ role: "user", content: req.prompt }],
         })

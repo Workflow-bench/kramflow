@@ -33,6 +33,7 @@ export async function POST(request: Request) {
       prompt: buildAlertPrompt(input.data),
       schema: alertDraftSchema,
       maxTokens: 2000,
+      tier: "fast",
       effort: "low",
     });
     return NextResponse.json({

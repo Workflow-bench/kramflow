@@ -41,22 +41,36 @@ describe("runStructured", () => {
     await expect(runStructured(request)).resolves.toEqual({ answer: "ok" });
   });
 
-  it("uses adaptive thinking, the requested effort and the configured model", async () => {
-    vi.stubEnv("ANTHROPIC_MODEL", "claude-test");
+  it("uses adaptive thinking and the requested effort on the quality tier (Sonnet 5 by default)", async () => {
+    vi.stubEnv("ANTHROPIC_MODEL_QUALITY", "");
     stream.mockReturnValueOnce(reply('{"answer":"ok"}'));
     await runStructured({ ...request, effort: "low" });
     const params = stream.mock.calls[0][0];
-    expect(params.model).toBe("claude-test");
+    expect(params.model).toBe("claude-sonnet-5");
     expect(params.thinking).toEqual({ type: "adaptive" });
     expect(params.output_config.effort).toBe("low");
     vi.unstubAllEnvs();
   });
 
-  it("defaults to claude-opus-5", async () => {
-    vi.stubEnv("ANTHROPIC_MODEL", "");
+  it("uses the cheapest model on the fast tier, without thinking or effort settings it would reject", async () => {
+    vi.stubEnv("ANTHROPIC_MODEL_FAST", "");
     stream.mockReturnValueOnce(reply('{"answer":"ok"}'));
+    await runStructured({ ...request, tier: "fast", effort: "high" });
+    const params = stream.mock.calls[0][0];
+    expect(params.model).toBe("claude-haiku-4-5");
+    expect("thinking" in params).toBe(false);
+    expect("effort" in params.output_config).toBe(false);
+    expect(params.output_config.format).toEqual({ type: "json_schema" });
+    vi.unstubAllEnvs();
+  });
+
+  it("lets each tier be overridden independently", async () => {
+    vi.stubEnv("ANTHROPIC_MODEL_FAST", "fast-x");
+    vi.stubEnv("ANTHROPIC_MODEL_QUALITY", "quality-x");
+    stream.mockReturnValue(reply('{"answer":"ok"}'));
+    await runStructured({ ...request, tier: "fast" });
     await runStructured(request);
-    expect(stream.mock.calls[0][0].model).toBe("claude-opus-5");
+    expect(stream.mock.calls.map((c) => c[0].model)).toEqual(["fast-x", "quality-x"]);
     vi.unstubAllEnvs();
   });
 
