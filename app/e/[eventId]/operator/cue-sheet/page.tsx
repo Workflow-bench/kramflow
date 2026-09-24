@@ -43,6 +43,8 @@ import {
 } from "@/components/ui/action-bar";
 import { ProgramForm } from "@/components/forms/program-form";
 import { SessionForm } from "@/components/forms/session-form";
+import { AiImportPanel } from "@/components/forms/ai-import-panel";
+import { useAiEnabled } from "@/lib/use-ai-enabled";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
@@ -240,6 +242,8 @@ export default function CueSheetPage() {
   const [panel, setPanel] = useState<
     "none" | "upload" | "create" | "create-session" | { edit: ProgramRow } | { editSession: Session }
   >("none");
+  const aiEnabled = useAiEnabled();
+  const [importMode, setImportMode] = useState<"excel" | "ai">("excel");
   const deleteConfirm = useConfirmDialog<ProgramRow[]>();
   const deleteSessionConfirm = useConfirmDialog<Session>();
   const resetSessionConfirm = useConfirmDialog<Session>();
@@ -772,11 +776,28 @@ export default function CueSheetPage() {
             three-ish stacked bordered panels this used to render inline in
             the content column (warning box, preview table, and the panel's
             own card, one after another). */}
-        <Modal open={panel === "upload"} onClose={() => setPanel("none")} title="Import from Excel" size="xl">
-          <UploadPanel
-            eventId={eventId}
-            sessions={sessions}
-            onDone={() => {
+        <Modal open={panel === "upload"} onClose={() => setPanel("none")} title={aiEnabled ? "Import cue sheet" : "Import from Excel"} size="xl">
+          {aiEnabled && (
+            <div role="tablist" aria-label="Import method" className="mb-4 flex gap-2">
+              {(["excel", "ai"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={importMode === mode}
+                  onClick={() => setImportMode(mode)}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-console-meta font-semibold cursor-pointer",
+                    importMode === mode ? "bg-primary text-background" : "bg-raised text-muted hover:text-primary"
+                  )}
+                >
+                  {mode === "excel" ? "Excel template" : "Any document (AI)"}
+                </button>
+              ))}
+            </div>
+          )}
+          {(() => {
+            const handleImported = () => {
               setPanel("none");
               toast.success("Cue sheet imported");
               // An import can create new sessions, not just items in an
@@ -784,9 +805,13 @@ export default function CueSheetPage() {
               // creation above.
               refetchSessions(eventId);
               if (activeSessionId) loadRows(activeSessionId);
-            }}
-            onCancel={() => setPanel("none")}
-          />
+            };
+            return aiEnabled && importMode === "ai" ? (
+              <AiImportPanel eventId={eventId} sessions={sessions} onDone={handleImported} onCancel={() => setPanel("none")} />
+            ) : (
+              <UploadPanel eventId={eventId} sessions={sessions} onDone={handleImported} onCancel={() => setPanel("none")} />
+            );
+          })()}
         </Modal>
 
         {/* Add/Edit Item is a genuinely multi-step configuration task the

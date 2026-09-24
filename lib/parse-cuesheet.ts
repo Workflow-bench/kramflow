@@ -78,7 +78,7 @@ function excelTimeToLabel(fraction: unknown): string | null {
   return `${hours}:${String(minutes).padStart(2, "0")} ${period}`;
 }
 
-function slugify(s: string): string {
+export function slugify(s: string): string {
   return s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")

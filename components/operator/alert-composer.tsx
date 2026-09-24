@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useEventStore } from "@/lib/store";
@@ -10,6 +10,8 @@ import { SectionLabel } from "@/components/ui/section-label";
 import { useToast } from "@/components/ui/toast";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { cn } from "@/lib/utils";
+import { useAiEnabled } from "@/lib/use-ai-enabled";
+import { useAlertDraft } from "./use-alert-draft";
 
 const severities: { value: AlertSeverity; label: string; tone: string }[] = [
   { value: "info", label: "Info", tone: "bg-status-blue/15 text-status-blue" },
@@ -28,6 +30,19 @@ export function AlertComposer() {
   // guard lets all of them through. Confirmed live on the identical pattern
   // in app/(operator)/broadcast/page.tsx (5 clicks -> 5 live broadcasts).
   const postingRef = useRef(false);
+  const aiEnabled = useAiEnabled();
+  const { draft, drafting } = useAlertDraft();
+
+  // Rewrites whatever the operator typed (even a rough note like "10 min
+  // behind, tell green room") into a clear alert and picks a severity. It
+  // only fills the form — Post Alert is still the operator's call.
+  async function handleDraft() {
+    const result = await draft(message);
+    if (!result) return;
+    setMessage(`${result.title}. ${result.message}`);
+    setSeverity(result.type === "emergency" ? "critical" : result.type === "warning" ? "warning" : "info");
+    toast.success("Drafted. Check it before posting.");
+  }
 
   async function handlePost() {
     if (postingRef.current) return;
@@ -84,6 +99,19 @@ export function AlertComposer() {
             </button>
           ))}
         </div>
+        {aiEnabled && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="w-full"
+            disabled={message.trim().length < 3 || posting}
+            loading={drafting}
+            onClick={handleDraft}
+          >
+            <Sparkles className="h-4 w-4" strokeWidth={2} />
+            Draft with AI
+          </Button>
+        )}
         <Button
           variant="primary"
           size="sm"

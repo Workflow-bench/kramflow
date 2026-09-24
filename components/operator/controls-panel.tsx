@@ -15,6 +15,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { ControlLeaseStatus } from "@/components/ui/control-lease-status";
 import { TargetHealthSummary } from "@/components/display-engine/target-health-summary";
 import { SessionReadiness } from "./session-readiness";
+import { AiReadinessReview } from "./ai-readiness-review";
 import { JumpControl } from "./jump-control";
 import { AlertComposer } from "./alert-composer";
 import { ActivityLog } from "./activity-log";
@@ -309,6 +310,7 @@ export function ControlsPanel({
             it isn't anymore. See lib/readiness.ts for what's checked and
             why collaborator access is deliberately not one of them. */}
         {currentOrder === null && <SessionReadiness session={session} registry={engine.registry} />}
+        {currentOrder === null && session.items.length > 0 && <AiReadinessReview sessionId={session.id} />}
 
         {/* "IS THE SYSTEM HEALTHY?" — a question this screen had no answer
             to at all before (an operator had to leave Console for Displays

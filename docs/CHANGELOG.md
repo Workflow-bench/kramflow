@@ -5,6 +5,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Dates ar
 ## [Unreleased]
 
 ### Added
+- Optional AI features, on when `ANTHROPIC_API_KEY` is set (see README "AI features"): cue-sheet import from any document with a review step, a pre-show readiness review, alert and broadcast drafting, and a written post-show summary. All are propose-only and go through `lib/server/ai.ts` and `lib/server/ai-guard.ts` (access check, per-user throttle, validated structured output)
 - A shared-PIN access gate for the operator surfaces, checked server-side. This was later replaced by per-operator accounts on Supabase Auth (see `docs/DEPLOYMENT.md`), and no PIN gate exists in the current code
 - `/docs` expanded with `BRAND_GUIDELINES.md`, `COMPONENT_GUIDE.md`, `DEPLOYMENT.md`, `CONTRIBUTING.md`, this changelog
 - Production-grade `README.md`
