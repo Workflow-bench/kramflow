@@ -8,6 +8,15 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+    # typescript-eslint (via eslint-config-next) doesn't support TypeScript 7,
+    # and ESLint 10 crashes eslint-plugin-react through the same config, so
+    # major bumps of either fail the Lint step. Drop these once
+    # eslint-config-next supports them. Minor and patch updates still flow.
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
