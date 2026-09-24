@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { AlertTriangle, Copy, Send, Star, Trash2, X } from "lucide-react";
+import { AlertTriangle, Copy, Send, Sparkles, Star, Trash2, X } from "lucide-react";
 import { useIsOwner } from "@/lib/event-context";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
@@ -32,6 +32,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { useAiEnabled } from "@/lib/use-ai-enabled";
+import { useAlertDraft } from "@/components/operator/use-alert-draft";
 
 const PRIORITY_OPTIONS = [
   { value: "1", label: "Low" },
@@ -133,6 +135,9 @@ export default function BroadcastCenterPage() {
   }, [engine.registry]);
 
   const [draft, setDraft] = useState<BroadcastDraft>(EMPTY_DRAFT);
+  const aiEnabled = useAiEnabled();
+  const { draft: requestAiDraft, drafting: aiDrafting } = useAlertDraft();
+  const [aiInstruction, setAiInstruction] = useState("");
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [sending, setSending] = useState(false);
   // A spam-click storm (5 clicks in the same synchronous burst) fires all 5
@@ -175,6 +180,25 @@ export default function BroadcastCenterPage() {
   function resetCompose() {
     setDraft(EMPTY_DRAFT);
     setScheduleEnabled(false);
+    setAiInstruction("");
+  }
+
+  // Fills the composer from a plain-language instruction. It replaces the
+  // content fields only, keeps any schedule the operator already picked, and
+  // never sends — the usual Send / confirm flow still applies (including the
+  // emergency confirmation, which a drafted emergency also goes through).
+  async function handleAiDraft() {
+    const result = await requestAiDraft(aiInstruction);
+    if (!result) return;
+    patchDraft({
+      type: result.type,
+      title: result.title,
+      message: result.message,
+      priority: result.priority,
+      acknowledgementRequired: result.acknowledgementRequired,
+      target: result.audience === "all" ? { kind: "all" } : { kind: "type", value: result.audience },
+    });
+    toast.success("Drafted. Review it before sending.");
   }
 
   const isScheduling = scheduleEnabled && Boolean(draft.scheduledFor);
@@ -415,6 +439,34 @@ export default function BroadcastCenterPage() {
               <SectionLabel>Compose</SectionLabel>
               <div className="mt-4 flex flex-col gap-5">
                 <div className="flex flex-col gap-4">
+                  {aiEnabled && (
+                    <FormField label="Draft with AI">
+                      <div className="flex gap-2">
+                        <Input
+                          value={aiInstruction}
+                          onChange={(e) => setAiInstruction(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void handleAiDraft();
+                            }
+                          }}
+                          placeholder="e.g. Running 10 minutes behind, tell the green room"
+                          disabled={readOnly}
+                        />
+                        <Button
+                          variant="secondary"
+                          className="shrink-0"
+                          onClick={handleAiDraft}
+                          disabled={readOnly || aiInstruction.trim().length < 3}
+                          loading={aiDrafting}
+                        >
+                          <Sparkles className="h-4 w-4" strokeWidth={2} />
+                          Draft
+                        </Button>
+                      </div>
+                    </FormField>
+                  )}
                   <FormField label="Title">
                     <Input
                       value={draft.title}
