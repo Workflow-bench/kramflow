@@ -69,7 +69,7 @@ const tvConnect = await import("../tv/connect/route");
 
 const json = (body: unknown) => ({ method: "POST", body: JSON.stringify(body) });
 const unauthenticated = () => NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-const sessionFor = (eventId: string) => ({ userId: "user-1", eventId, role: "viewer" as const });
+const sessionFor = (eventId: string, role: "owner" | "editor" | "viewer" = "viewer") => ({ userId: "user-1", eventId, role });
 const validToken = () => resolveShareLink.mockResolvedValue({ ok: true, link: { event_id: "event-a", token: "tok-a" } });
 const wrote = () => dbCalls.some((ops) => ops.includes("update") || ops.includes("insert") || ops.includes("upsert"));
 
@@ -78,6 +78,12 @@ interface MutationCase {
   call: (extra: Record<string, unknown>) => Promise<Response>;
   // The same "not allowed" answer the route gave before this change.
   denied: number;
+  // Audit remediation KF-001 (SEC-02): the minimum role an authorized
+  // *session* (not a token — tokens are rejected before role is even
+  // checked, see the shared cases below) must hold for this route to
+  // succeed. hold/timer moved to "owner" — see their own route files for
+  // why. speaker-ready and broadcast dismiss stay at "viewer" on purpose.
+  minRole: "owner" | "viewer";
 }
 
 const params = { params: Promise.resolve({ id: "broadcast-1" }) };
@@ -85,18 +91,21 @@ const cases: MutationCase[] = [
   {
     name: "timer",
     denied: 403,
+    minRole: "owner",
     call: (extra) =>
       timer.PATCH(new Request("http://x/api/display-engine/timer", { ...json({ displayType: "presenter", action: "pause", ...extra }), method: "PATCH" })),
   },
   {
     name: "hold",
     denied: 403,
+    minRole: "owner",
     call: (extra) =>
       hold.PATCH(new Request("http://x/api/display-engine/hold", { ...json({ displayType: "presenter", active: true, ...extra }), method: "PATCH" })),
   },
   {
     name: "speaker-ready",
     denied: 403,
+    minRole: "viewer",
     call: (extra) =>
       speakerReady.PATCH(new Request("http://x/api/display-engine/speaker-ready", { ...json({ programId: "p1", ready: true, ...extra }), method: "PATCH" })),
   },
@@ -105,6 +114,7 @@ const cases: MutationCase[] = [
     // caller may not touch, the same convention as the rest of the app.
     name: "broadcast dismiss",
     denied: 404,
+    minRole: "viewer",
     call: (extra) => dismiss.POST(new Request("http://x/api/display-engine/broadcasts/b1/dismiss", json({ ...extra })), params),
   },
 ];
@@ -116,7 +126,7 @@ beforeEach(() => {
   requireEventAccess.mockReset().mockResolvedValue(unauthenticated());
 });
 
-describe.each(cases)("$name mutation authority", ({ call, denied }) => {
+describe.each(cases)("$name mutation authority", ({ call, denied, minRole }) => {
   it("rejects a valid Share Display token and writes nothing", async () => {
     validToken();
     const res = await call({ token: "tok-a" });
@@ -158,12 +168,21 @@ describe.each(cases)("$name mutation authority", ({ call, denied }) => {
     expect(wrote()).toBe(false);
   });
 
-  it("still works for an authorized operator session", async () => {
-    requireEventAccess.mockResolvedValue(sessionFor("event-a"));
+  it("still works for a session that holds exactly the required role", async () => {
+    requireEventAccess.mockResolvedValue(sessionFor("event-a", minRole));
     const res = await call({ eventId: "event-a" });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true });
-    expect(requireEventAccess).toHaveBeenCalledWith("event-a", "viewer");
+    // Audit remediation KF-001 (SEC-02): this is the wiring assertion —
+    // hold/timer now ask requireEventAccess for "owner", not the old
+    // hard-coded "viewer" floor every route here used to share; speaker-
+    // ready and broadcast dismiss still ask for "viewer" on purpose. The
+    // actual *enforcement* of that role (a real viewer/editor session
+    // getting rejected) is proven against the unmocked requireEventAccess
+    // in lib/server/require-event-access.test.ts — mocking it here, as
+    // this whole file does, can only prove what role is requested, not
+    // that an insufficient one is refused.
+    expect(requireEventAccess).toHaveBeenCalledWith("event-a", minRole);
     expect(wrote()).toBe(true);
   });
 });

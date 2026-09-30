@@ -4,7 +4,17 @@ import { verifySessionAccess } from "@/lib/server/verify-display-access";
 
 // PATCH the speaker-ready toggle. Session only: a Share Display token is
 // read-only and never authorizes this (see verifySessionAccess). Any role
-// with access to the event may toggle it, as the Remote page documents.
+// with access to the event may toggle it, as the Remote page documents
+// (OWNER_ONLY_NOTE there explicitly carves this out: "Only the event owner
+// can control the show from here. You can still watch and mark the speaker
+// ready."). Deliberately left at the default "viewer" floor — reviewed
+// against the audit's SEC-02 finding (which flagged all three of hold,
+// timer, and this route as a blanket "viewer can mutate state" issue) and
+// kept as-is here on purpose: this is presence/check-in, not a show
+// mutation, and restricting it to owner would break real, documented,
+// currently-used product behavior for backstage editor/viewer
+// collaborators. hold and timer moved to "owner" instead — see their own
+// route files.
 export async function PATCH(request: Request) {
   let body: Record<string, unknown>;
   try {

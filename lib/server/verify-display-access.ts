@@ -1,7 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { resolveShareLink, type ShareLinkInvalidReason } from "@/lib/server/share-links";
-import { requireEventAccess } from "@/lib/server/require-event-access";
+import { requireEventAccess, type EventRole } from "@/lib/server/require-event-access";
 
 // The authoritative, server-side gate for the four display pages
 // (general/av/green-room/presenter). proxy.ts's check is optimistic (does
@@ -58,9 +58,23 @@ export type DisplayAccessResult =
 // Anything else that writes belongs on verifySessionAccess. The guard in
 // app/api/display-engine/token-authority.test.ts fails if a new route starts
 // accepting tokens without being added to that list on purpose.
-export async function verifySessionAccess(requestedEventId: string | undefined): Promise<DisplayAccessResult> {
+// minRole defaults to "viewer" — the floor for routes where any
+// authenticated collaborator with real access to the event is meant to
+// succeed (e.g. speaker-ready: the Remote page's own copy tells a
+// viewer/editor "you can still watch and mark the speaker ready", so that
+// route deliberately keeps the default). Routes that mutate operational
+// show/display state pass "owner" explicitly (hold, timer — see their own
+// route files) so a viewer or editor collaborator, despite having *real,
+// legitimate* event access, still gets a 403 for actions the product
+// promises only the owner can perform (event-settings-panel.tsx: "Editors
+// can edit the cue sheet but can't run the live show. Viewers can only
+// look.").
+export async function verifySessionAccess(
+  requestedEventId: string | undefined,
+  minRole: EventRole = "viewer"
+): Promise<DisplayAccessResult> {
   if (requestedEventId) {
-    const auth = await requireEventAccess(requestedEventId, "viewer");
+    const auth = await requireEventAccess(requestedEventId, minRole);
     if (!(auth instanceof NextResponse)) return { ok: true, via: "session", eventId: auth.eventId };
   }
 

@@ -14,9 +14,12 @@ interface TimerState {
 
 const VALID_DISPLAY_TYPES = new Set(["presenter", "green-room", "av", "general"]);
 
-// PATCH every timer action. Session only: a Share Display token is
-// read-only and never authorizes this (see verifySessionAccess), so the
-// caller must be logged in with access to body.eventId.
+// PATCH every timer action. Owner only: the timer is an operational show
+// mutation, the same class of action the Remote page's own OWNER_ONLY_NOTE
+// reserves for the event owner — a viewer or editor collaborator has real
+// access to the event but not to this. A Share Display token is read-only
+// and never authorizes this either (see verifySessionAccess), so the
+// caller must be logged in as the owner with access to body.eventId.
 //
 // display_type_state, not display_state (2026-09 blocker remediation —
 // supabase/migrations/20260909091740_display_type_state.sql): the old shared
@@ -41,7 +44,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const access = await verifySessionAccess(typeof body.eventId === "string" ? body.eventId : undefined);
+  const access = await verifySessionAccess(typeof body.eventId === "string" ? body.eventId : undefined, "owner");
   if (!access.ok) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 403 });
 
   const displayType = body.displayType;
