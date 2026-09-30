@@ -34,5 +34,30 @@ export async function requireAuthUser(): Promise<NextResponse | { user: User }> 
   if (!user) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+  const blocked = requirePasswordCurrent(user);
+  if (blocked) return blocked;
   return { user };
+}
+
+// A collaborator invited via app/api/events/[eventId]/collaborators/
+// route.ts is confirmed immediately with a temporary password and
+// app_metadata.must_change_password=true. proxy.ts redirects flagged
+// *page* navigations to /set-password, but it explicitly exempts every
+// /api/ path (see proxy.ts) — so this is the actual boundary for every
+// route that authenticates through requireAuthUser() or
+// requireEventAccess(), the two shared guards that both call this.
+// app/api/auth/set-password/route.ts and app/api/invites/[token]/accept/
+// route.ts intentionally do their own raw supabase.auth.getUser() instead
+// of going through either guard — they're exactly the narrow set of
+// operations a flagged session must still be able to reach (replace the
+// password; accept an invite already addressed to this exact email), so
+// they're untouched by this check on purpose, not by oversight.
+export function requirePasswordCurrent(user: User): NextResponse | null {
+  if (user.app_metadata?.must_change_password) {
+    return NextResponse.json(
+      { ok: false, error: "Set a new password before continuing.", code: "must_change_password" },
+      { status: 403 }
+    );
+  }
+  return null;
 }

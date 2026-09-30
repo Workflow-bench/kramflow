@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
+import { requirePasswordCurrent } from "@/lib/server/require-auth";
 
 // Minimum-viable role-based permissions — the sole authorization check
 // for every event-scoped route (an earlier, owner-only require-event-
@@ -29,6 +30,11 @@ export async function requireEventAccess(
   if (!user) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+  // Same temporary-password boundary requireAuthUser() enforces (see its
+  // own comment) — this route does its own getUser() rather than calling
+  // requireAuthUser(), so the check is repeated here rather than skipped.
+  const blocked = requirePasswordCurrent(user);
+  if (blocked) return blocked;
 
   const admin = supabaseAdmin();
   const { data: event, error } = await admin.from("events").select("id, owner_id").eq("id", eventId).maybeSingle();
