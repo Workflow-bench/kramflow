@@ -9,26 +9,28 @@ import { useToast } from "@/components/ui/toast";
 
 type Credential = { id: string; label: string; scopes: string[]; created_at: string; last_used_at: string | null; revoked_at: string | null };
 
-// Phase 7c: this was the one file in Settings — and per the Landing ->
-// Product Visual System Audit, in the whole authenticated product — still
-// on raw text-sm/text-xs and rounded-lg instead of the console-scale
-// tokens/radius every sibling section already used, plus a Panel wrapper
-// now redundant with the section-nav workspace shell
-// (app/e/[eventId]/settings/page.tsx) that renders exactly one section at
-// a time. Brought into the same field/row/action grammar as Event
-// Details/Auditoriums/Collaborators — no change to token generation,
-// hashing, API routes, or the one-time-reveal behavior below.
+// Phase 7c originally brought this file into the same field/row/action
+// grammar as Event Details/Auditoriums/Collaborators (console-scale
+// tokens/radius, no more standalone Panel wrapper). That pass's own
+// comment claimed "no change to token generation, hashing, API routes, or
+// the one-time-reveal behavior" — no longer true (Codex Phase 1 review,
+// R-standards): both the POST route and this component changed materially
+// below, per KF-003. Corrected rather than left to mislead the next
+// reader.
 //
-// Audit remediation KF-003: credential creation is disabled server-side
-// (app/api/events/[eventId]/integrations/route.ts's POST always returns
-// 403 coming_soon) because every control action a credential can take
-// (start/hold/resume/next) structurally cannot acquire the controller
-// lease and would always 423 — see that route's own comment. The create
-// form is removed here too, not just left to fail against the API: a
-// disabled-looking button that still 403s on click is exactly the "UI
-// copy doesn't match server behavior" pattern the audit flagged elsewhere.
-// List + revoke stay so an owner can still see and clean up credentials
-// created before this was disabled.
+// Audit remediation KF-003 / R3: credential creation is disabled
+// server-side (app/api/events/[eventId]/integrations/route.ts's POST
+// always returns 403 coming_soon), and every control action an *existing*
+// credential could take is separately, unconditionally gated the same way
+// in app/api/v1/events/[eventId]/actions/[action]/route.ts — see that
+// route's own comment for why "the lease can never be acquired" was an
+// overclaim the Codex review caught, and why the gate now lives before any
+// lease/no-op logic instead of relying on it. The create form (and its
+// one-time token-reveal box) is removed here entirely, not left to fail
+// against the API: a disabled-looking button that still 403s on click is
+// exactly the "UI copy doesn't match server behavior" pattern the original
+// audit flagged elsewhere. List + revoke stay so an owner can still see
+// and clean up credentials created before this was disabled.
 export function IntegrationCredentialsPanel({ eventId }: { eventId: string }) {
   const isOwner = useIsOwner();
   const toast = useToast();
