@@ -81,8 +81,12 @@ interface MutationCase {
   // Audit remediation KF-001 (SEC-02): the minimum role an authorized
   // *session* (not a token — tokens are rejected before role is even
   // checked, see the shared cases below) must hold for this route to
-  // succeed. hold/timer moved to "owner" — see their own route files for
-  // why. speaker-ready and broadcast dismiss stay at "viewer" on purpose.
+  // succeed. All four cases now require "owner" (Codex Phase 1 review,
+  // KF-001/R1: speaker-ready and broadcast dismiss were previously left at
+  // "viewer" — rejected as the same "viewer can only look" contradiction
+  // the original audit flagged, not a legitimate exception). No case is
+  // left at "viewer" by this file anymore; the union type is kept for the
+  // next route that's added here to declare its own reviewed choice.
   minRole: "owner" | "viewer";
 }
 
@@ -105,7 +109,7 @@ const cases: MutationCase[] = [
   {
     name: "speaker-ready",
     denied: 403,
-    minRole: "viewer",
+    minRole: "owner",
     call: (extra) =>
       speakerReady.PATCH(new Request("http://x/api/display-engine/speaker-ready", { ...json({ programId: "p1", ready: true, ...extra }), method: "PATCH" })),
   },
@@ -114,7 +118,7 @@ const cases: MutationCase[] = [
     // caller may not touch, the same convention as the rest of the app.
     name: "broadcast dismiss",
     denied: 404,
-    minRole: "viewer",
+    minRole: "owner",
     call: (extra) => dismiss.POST(new Request("http://x/api/display-engine/broadcasts/b1/dismiss", json({ ...extra })), params),
   },
 ];

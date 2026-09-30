@@ -49,14 +49,23 @@ import { cn } from "@/lib/utils";
 // through either app/api/live/route.ts (start/next/previous/hold/finish/
 // jump/session-switch/alert/notes — all gated requireEventAccess(...,
 // "owner"), no per-action distinction there) or app/api/display-engine/
-// broadcasts/route.ts (send/emergency — also "owner"). The one exception
-// is Speaker Ready (app/api/display-engine/speaker-ready/route.ts), which
-// deliberately has no role check at all — see that route's own comment.
-// Before this fix, none of that was reflected here: every control
-// rendered fully clickable for every role, and a non-owner only found out
-// it was owner-only after pressing it and getting a generic "That didn't
-// work" toast for what the server had already correctly rejected as a 403.
-const OWNER_ONLY_NOTE = "Only the event owner can control the show from here. You can still watch and mark the speaker ready.";
+// broadcasts/route.ts (send/emergency — also "owner"). Before this fix,
+// none of that was reflected here: every control rendered fully clickable
+// for every role, and a non-owner only found out it was owner-only after
+// pressing it and getting a generic "That didn't work" toast for what the
+// server had already correctly rejected as a 403.
+//
+// Speaker Ready used to be a deliberate, documented exception (any role
+// could toggle it) — Codex's Phase 1 review (KF-001/R1) rejected that as
+// the exact "viewer can only look" contradiction the original audit
+// flagged, not a legitimate exception: Settings' own collaborator copy
+// promises viewers are read-only with no carve-out, and the master
+// remediation contract requires owner for every operational mutation.
+// speaker-ready's route now requires "owner" too (see its own comment),
+// so this note and the control below no longer treat it specially — a
+// non-owner still sees the current ready/not-ready state (disabled button
+// text), just can't change it, same as every other control here.
+const OWNER_ONLY_NOTE = "Only the event owner can control the show from here.";
 
 type Panel = "none" | "jump" | "alert" | "notes" | "broadcast";
 type ConfirmKind = "start" | "finish" | { session: string; label: string } | { jump: number } | null;
@@ -487,18 +496,22 @@ export default function RemotePage() {
                 is the readiness toggle — Fitts's Law still reads Next as
                 the dominant target. */}
             {next_ && (
-              <button
-                type="button"
-                onClick={() => setSpeakerReady(next_.id, !nextReady)}
-                className={cn(
-                  "mb-3 w-full min-h-11 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-console-sm font-medium cursor-pointer transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                  nextReady ? "bg-status-green/15 text-status-green" : "bg-white/5 text-muted hover:text-primary"
-                )}
-              >
-                {nextReady ? <CheckCircle2 className="h-4 w-4" strokeWidth={2} /> : <Circle className="h-4 w-4" strokeWidth={2} />}
-                {nextReady ? "Speaker Ready" : "Mark Speaker Ready"}
-              </button>
+              <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
+                <button
+                  type="button"
+                  onClick={() => setSpeakerReady(next_.id, !nextReady)}
+                  disabled={!isOwner}
+                  className={cn(
+                    "mb-3 w-full min-h-11 flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-console-sm font-medium transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    isOwner ? "cursor-pointer" : "cursor-not-allowed opacity-60",
+                    nextReady ? "bg-status-green/15 text-status-green" : "bg-white/5 text-muted hover:text-primary"
+                  )}
+                >
+                  {nextReady ? <CheckCircle2 className="h-4 w-4" strokeWidth={2} /> : <Circle className="h-4 w-4" strokeWidth={2} />}
+                  {nextReady ? "Speaker Ready" : "Mark Speaker Ready"}
+                </button>
+              </MaybeTooltip>
             )}
 
             <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>

@@ -36,6 +36,20 @@ export function BroadcastOverlay({
   const { state, acknowledgeBroadcast, dismissBroadcast } = useDisplayEngine();
   // A Share Display (token) is read-only and cannot dismiss a message for
   // everyone; only an operator's own session preview offers Dismiss.
+  //
+  // Not role-aware, deliberately, not by oversight: the dismiss route now
+  // requires "owner" server-side (KF-001/R1), but useIsOwner()/lib/event-
+  // context.tsx's EventRoleContext defaults to "owner" when no
+  // <EventRoleProvider> wraps the tree — true only under the authenticated
+  // app/e/[eventId] layout, never here (these four display pages render
+  // for anonymous token viewers as their primary case). Calling
+  // useIsOwner() here would silently read that default instead of the
+  // real role and *always* show Dismiss as allowed, which is worse than
+  // today's "visible to any authenticated session, server enforces the
+  // real boundary on click" — this file has no other case where a
+  // control's visibility quietly lies about who's allowed to use it.
+  // Threading a real role into these pages is a larger, separate change
+  // than this batch's scope.
   const canDismiss = !useDisplayEngineIdentity().token;
   const [now, setNow] = useState(() => Date.now());
 

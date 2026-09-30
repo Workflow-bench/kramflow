@@ -2,19 +2,23 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { verifySessionAccess } from "@/lib/server/verify-display-access";
 
-// PATCH the speaker-ready toggle. Session only: a Share Display token is
-// read-only and never authorizes this (see verifySessionAccess). Any role
-// with access to the event may toggle it, as the Remote page documents
-// (OWNER_ONLY_NOTE there explicitly carves this out: "Only the event owner
-// can control the show from here. You can still watch and mark the speaker
-// ready."). Deliberately left at the default "viewer" floor — reviewed
-// against the audit's SEC-02 finding (which flagged all three of hold,
-// timer, and this route as a blanket "viewer can mutate state" issue) and
-// kept as-is here on purpose: this is presence/check-in, not a show
-// mutation, and restricting it to owner would break real, documented,
-// currently-used product behavior for backstage editor/viewer
-// collaborators. hold and timer moved to "owner" instead — see their own
-// route files.
+// PATCH the speaker-ready toggle. Owner only. Session only: a Share
+// Display token is read-only and never authorizes this (see
+// verifySessionAccess).
+//
+// Was previously left at the default "viewer" floor on the theory that
+// this is presence/check-in rather than a show mutation, and that the
+// Remote page's own copy documented it as a deliberate exception. Codex's
+// independent Phase 1 review (KF-001/R1) rejected that reasoning: the
+// master remediation contract is "owner operates live state, editor edits
+// permitted cue data, viewer reads only" with no named exception for this
+// route, and Settings' own collaborator copy makes the same unqualified
+// promise to users ("Viewers can only look."). Inconsistent product copy
+// documenting a gap is exactly what the original audit flagged in the
+// first place, not a basis for carving out an exception unilaterally. See
+// the Remote page's own comment for the corresponding UI change — a
+// non-owner still sees the current ready/not-ready state, just can't
+// change it, matching hold/timer.
 export async function PATCH(request: Request) {
   let body: Record<string, unknown>;
   try {
@@ -23,7 +27,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const access = await verifySessionAccess(typeof body.eventId === "string" ? body.eventId : undefined);
+  const access = await verifySessionAccess(typeof body.eventId === "string" ? body.eventId : undefined, "owner");
   if (!access.ok) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 403 });
 
   const programId = body.programId;
