@@ -4,7 +4,12 @@
   "repository_state": {
     "branch": "fix/audit-remediation-phase1",
     "base_sha_before_this_batch": "6d2586f0403668252455987e51a05f6ed204c299",
-    "commits": "see BATCH_REPORT.md for the exact SHA list, filled in after commit (this file is written before the commits it describes exist, per the same sequencing B002 used)"
+    "commits": [
+      { "sha": "36e078d", "subject": "fix(display-engine): thread real server-derived role to broadcast dismiss" },
+      { "sha": "61d0a5e", "subject": "test(display-engine): dismiss matrix against a real existing broadcast" },
+      { "sha": "c1f34e8", "subject": "docs: B003 source-coverage/ledger rework, validator, and handoff" }
+    ],
+    "final_sha_this_batch": "c1f34e88284cc0c0d1e6e1051f9d1c353523ee20"
   },
   "repository_checks": {
     "vitest": { "command": "npx vitest run", "files": 29, "tests": 308, "result": "PASS", "note": "was 300/29 files at the end of B002; +8 tests in app/api/display-engine/owner-floor-matrix.test.ts for the real-existing-broadcast dismiss matrix (item 2)" },
