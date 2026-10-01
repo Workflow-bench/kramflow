@@ -5,6 +5,7 @@ import { getSessionById } from "@/lib/data/sessions";
 import { effectiveNotes, getLive, getNext, getOnDeck } from "@/lib/types";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
+import type { EventRole } from "@/lib/event-context";
 import { useDisplayTimer, useDisplayClock } from "@/lib/display-engine/use-display-timer";
 import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
 import { deriveProgress, deriveAutoTimerInput, deriveStageStatus } from "@/lib/display-engine/live-progress";
@@ -32,9 +33,17 @@ import { LinkInvalid } from "@/components/auth/link-invalid";
  * DisplayEngineState.speakerReady in lib/display-engine/types.ts); this
  * page only shows the resulting state.
  */
-export default function GreenRoomDisplayClient({ token, eventId }: { token?: string; eventId?: string }) {
+export default function GreenRoomDisplayClient({
+  token,
+  eventId,
+  role,
+}: {
+  token?: string;
+  eventId?: string;
+  role?: EventRole;
+}) {
   return (
-    <DisplayEngineProvider token={token} eventId={eventId} displayType="green-room">
+    <DisplayEngineProvider token={token} eventId={eventId} displayType="green-room" role={role}>
       <GreenRoomDisplayInner token={token} eventId={eventId} />
     </DisplayEngineProvider>
   );

@@ -22,6 +22,7 @@ import { DisplayHeader } from "@/components/display-engine/display-header";
 import { CustomLayoutRenderer } from "@/components/display-engine/custom-layout-renderer";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import type { DisplayProfile } from "@/lib/display-engine/types";
+import type { EventRole } from "@/lib/event-context";
 
 const PROFILE_POLL_MS = 10_000;
 
@@ -45,13 +46,15 @@ export default function CustomDisplayClient({
   token,
   eventId,
   profileId,
+  role,
 }: {
   token?: string;
   eventId?: string;
   profileId?: string;
+  role?: EventRole;
 }) {
   return (
-    <DisplayEngineProvider token={token} eventId={eventId} displayType="general">
+    <DisplayEngineProvider token={token} eventId={eventId} displayType="general" role={role}>
       <CustomDisplayInner token={token} eventId={eventId} profileId={profileId} />
     </DisplayEngineProvider>
   );

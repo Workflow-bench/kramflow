@@ -7,6 +7,8 @@ import { useDisplayEngine, targetMatchesDisplay } from "@/lib/display-engine/sto
 import { useDisplayEngineIdentity } from "@/lib/display-engine/context";
 import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
 import type { BroadcastMessage, DisplayType } from "@/lib/display-engine/types";
+import { MaybeTooltip } from "@/components/ui/tooltip";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 // Container stays fully opaque (bg-card/95 + blur, the same floating-chrome
@@ -34,23 +36,56 @@ export function BroadcastOverlay({
   size?: "default" | "large";
 }) {
   const { state, acknowledgeBroadcast, dismissBroadcast } = useDisplayEngine();
+  const toast = useToast();
   // A Share Display (token) is read-only and cannot dismiss a message for
-  // everyone; only an operator's own session preview offers Dismiss.
+  // everyone; only the event owner can. B002 left this as "visible to any
+  // authenticated session, server enforces the real boundary on click" —
+  // Codex's B002 review (B002-F1) correctly rejected that as a silent
+  // failed interaction: the server denies editor/viewer, but the click
+  // result was never read (see store.tsx's dismissBroadcast — it only
+  // console.errors), so the banner just sat there with no explanation.
   //
-  // Not role-aware, deliberately, not by oversight: the dismiss route now
-  // requires "owner" server-side (KF-001/R1), but useIsOwner()/lib/event-
-  // context.tsx's EventRoleContext defaults to "owner" when no
-  // <EventRoleProvider> wraps the tree — true only under the authenticated
-  // app/e/[eventId] layout, never here (these four display pages render
-  // for anonymous token viewers as their primary case). Calling
-  // useIsOwner() here would silently read that default instead of the
-  // real role and *always* show Dismiss as allowed, which is worse than
-  // today's "visible to any authenticated session, server enforces the
-  // real boundary on click" — this file has no other case where a
-  // control's visibility quietly lies about who's allowed to use it.
-  // Threading a real role into these pages is a larger, separate change
-  // than this batch's scope.
-  const canDismiss = !useDisplayEngineIdentity().token;
+  // Fixed by threading a real, server-derived role down instead of
+  // reading it from lib/event-context.tsx's EventRoleContext (whose
+  // "owner" default, safe under the authenticated app/e/[eventId] layout,
+  // would be silently wrong here — B002's DECISIONS.md already identified
+  // this risk and correctly avoided it, just left the interaction itself
+  // broken). Each of the four display pages' own verifyDisplayAccess()
+  // Server Component call now resolves the real role for a session viewer
+  // (undefined for a token viewer — no role concept applies to them) and
+  // threads it through DisplayEngineProvider as an explicit prop — see
+  // lib/display-engine/context.tsx's DisplayEngineIdentity.role.
+  const { token, role } = useDisplayEngineIdentity();
+  const isOwnerSession = role === "owner";
+  // A session viewer who isn't the owner (editor/viewer) sees Dismiss
+  // disabled with a reason, matching the Remote page's own pattern for
+  // owner-only controls. A token (public) viewer never sees it at all —
+  // there's no "you" to explain a permission to; per-viewer role has no
+  // meaning for an anonymous share-link visit.
+  const showDisabledDismiss = !token && !isOwnerSession;
+  const [dismissing, setDismissing] = useState<string | null>(null);
+
+  async function handleDismiss(messageId: string) {
+    if (dismissing) return;
+    setDismissing(messageId);
+    try {
+      const res = await dismissBroadcast(messageId);
+      // Generic failure text only — this is a public-reachable surface for
+      // token viewers on other messages in the same overlay, and even an
+      // owner's own failed attempt doesn't need (and per the dismiss
+      // route's own anti-enumeration convention, the server doesn't send)
+      // any detail beyond "didn't work." No optimistic removal either way
+      // — the banner's presence is always driven by state.broadcasts.active
+      // from the realtime store, never mutated locally, so a failed write
+      // simply leaves it exactly as it was.
+      if (!res || !res.ok) {
+        toast.error("Couldn't dismiss. Try again.");
+      }
+    } finally {
+      setDismissing(null);
+    }
+  }
+
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -143,17 +178,34 @@ export function BroadcastOverlay({
                       </p>
                     )}
                   </div>
-                  {!message.persistent && canDismiss && (
+                  {!message.persistent && isOwnerSession && (
                     <button
                       type="button"
-                      onClick={() => dismissBroadcast(message.id)}
+                      onClick={() => handleDismiss(message.id)}
+                      disabled={dismissing === message.id}
+                      aria-label={dismissing === message.id ? "Dismissing…" : "Dismiss"}
                       className={cn(
-                        "text-muted hover:text-primary cursor-pointer shrink-0",
+                        "text-muted hover:text-primary cursor-pointer shrink-0 disabled:opacity-60 disabled:cursor-not-allowed",
                         size === "large" ? "text-body" : "text-caption"
                       )}
                     >
-                      Dismiss
+                      {dismissing === message.id ? "Dismissing…" : "Dismiss"}
                     </button>
+                  )}
+                  {!message.persistent && showDisabledDismiss && (
+                    <MaybeTooltip when content="Only the event owner can dismiss this.">
+                      <button
+                        type="button"
+                        disabled
+                        aria-label="Dismiss (only the event owner can dismiss this)"
+                        className={cn(
+                          "text-muted-2 shrink-0 cursor-not-allowed opacity-60",
+                          size === "large" ? "text-body" : "text-caption"
+                        )}
+                      >
+                        Dismiss
+                      </button>
+                    </MaybeTooltip>
                   )}
                 </motion.div>
               );

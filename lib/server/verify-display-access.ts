@@ -32,8 +32,17 @@ import { requireEventAccess, type EventRole } from "@/lib/server/require-event-a
 // Anything else fails closed with a specific reason the page turns into a
 // real "this link is no longer valid" state — not a blank screen or a
 // generic error page.
+// role is populated only for via:"session" — a real collaborator's
+// resolved owner/editor/viewer role from requireEventAccess(), never a
+// client-supplied value. A token viewer has no role at all (undefined),
+// not a default — B003/B002-F1 (Codex review): the one place this was
+// read from context before threading it explicitly, EventRoleContext's
+// own default of "owner", was identified as unsafe to reuse for the
+// public display pages (see broadcast-overlay.tsx's own comment). This
+// field exists so callers that need to know "is this specific viewer the
+// owner" have a real, explicit answer instead of an ambient default.
 export type DisplayAccessResult =
-  | { ok: true; via: "session" | "token"; eventId: string }
+  | { ok: true; via: "session" | "token"; eventId: string; role?: EventRole }
   | { ok: false; reason: ShareLinkInvalidReason | "no_token" };
 
 //
@@ -60,22 +69,24 @@ export type DisplayAccessResult =
 // accepting tokens without being added to that list on purpose.
 // minRole defaults to "viewer" — the floor for routes where any
 // authenticated collaborator with real access to the event is meant to
-// succeed (e.g. speaker-ready: the Remote page's own copy tells a
-// viewer/editor "you can still watch and mark the speaker ready", so that
-// route deliberately keeps the default). Routes that mutate operational
-// show/display state pass "owner" explicitly (hold, timer — see their own
-// route files) so a viewer or editor collaborator, despite having *real,
-// legitimate* event access, still gets a 403 for actions the product
-// promises only the owner can perform (event-settings-panel.tsx: "Editors
-// can edit the cue sheet but can't run the live show. Viewers can only
-// look.").
+// succeed (e.g. display-view's own read access). Routes that mutate
+// operational show/display state pass "owner" explicitly (hold, timer,
+// speaker-ready, broadcast dismiss — see their own route files) so a
+// viewer or editor collaborator, despite having *real, legitimate* event
+// access, still gets a 403 for actions the product promises only the
+// owner can perform (event-settings-panel.tsx: "Editors can edit the cue
+// sheet but can't run the live show. Viewers can only look."). Corrected
+// 2026-09-30 (B003): this comment previously described speaker-ready as a
+// deliberate viewer-floor exception — stale since B002 moved it to
+// owner; left uncorrected here by mistake at the time, caught while
+// threading `role` through for B002-F1.
 export async function verifySessionAccess(
   requestedEventId: string | undefined,
   minRole: EventRole = "viewer"
 ): Promise<DisplayAccessResult> {
   if (requestedEventId) {
     const auth = await requireEventAccess(requestedEventId, minRole);
-    if (!(auth instanceof NextResponse)) return { ok: true, via: "session", eventId: auth.eventId };
+    if (!(auth instanceof NextResponse)) return { ok: true, via: "session", eventId: auth.eventId, role: auth.role };
   }
 
   return { ok: false, reason: "no_token" };
