@@ -1,7 +1,7 @@
 {
-  "$schema_note": "Machine-readable mirror of TASK_LEDGER.md. Full prose/evidence lives there; this file is the structured index. B003: totals are machine-derived from items[] (see build script scratchpad/b003/build_ledger.mjs, re-run as the validator's totals check) rather than hand-maintained. children[] are independently checkable child criteria of a composite parent row — they are counted separately in child_criteria_count/child_criteria_breakdown, never folded into the top-level parent totals.",
+  "$schema_note": "Machine-readable mirror of TASK_LEDGER.md. Full prose/evidence lives there; this file is the structured index. B003: totals are machine-derived from items[] (see build script scratchpad/b003/build_ledger.mjs, re-run as the validator's totals check) rather than hand-maintained. children[] are independently checkable child criteria of a composite parent row \u2014 they are counted separately in child_criteria_count/child_criteria_breakdown, never folded into the top-level parent totals.",
   "generated": "2026-09-30",
-  "batch": "B003",
+  "batch": "B004",
   "items": [
     {
       "id": "KF-001",
@@ -94,7 +94,7 @@
       "implementation_state": "READY_FOR_CODEX",
       "self_test": {
         "unit": "lib/server/require-auth.test.ts, lib/server/require-event-access.test.ts, app/api/invites/[token]/accept/route.test.ts (6 tests)",
-        "live": "NOT OBTAINED — provisioning a flagged live fixture was blocked by the session's own permission classifier; not retried through another path (see DECISIONS.md)"
+        "live": "NOT OBTAINED \u2014 provisioning a flagged live fixture was blocked by the session's own permission classifier; not retried through another path (see DECISIONS.md)"
       },
       "independent_review": "awaiting re-review of B002",
       "evidence_links": [
@@ -103,7 +103,7 @@
       ],
       "environment": "local only for this specific fix (live-runtime sub-criterion explicitly unverified)",
       "reviewer": null,
-      "blockers_owner": "user — decide whether to grant explicit permission for a flagged-account DB fixture in the dev project, or accept unit-level evidence as sufficient",
+      "blockers_owner": "user \u2014 decide whether to grant explicit permission for a flagged-account DB fixture in the dev project, or accept unit-level evidence as sufficient",
       "next_action": "independent review of B002; optionally, explicit user authorization for the blocked live fixture",
       "history": [
         "B001 partial (shared guards only, accept route wrongly exempted)",
@@ -181,12 +181,12 @@
       "desired_behavior": "to be defined: deterministic row initialization, or loud failure + DB readback verification on both activate and deactivate",
       "dependencies": [],
       "acceptance_criteria": [
-        "not yet defined — future batch"
+        "not yet defined \u2014 future batch"
       ],
       "affected_files": [
         "app/api/display-engine/hold/route.ts"
       ],
-      "risk_rollback": "n/a — not fixed yet",
+      "risk_rollback": "n/a \u2014 not fixed yet",
       "implementation_state": "OPEN",
       "self_test": null,
       "independent_review": "confirmed by Codex as consistent with pre-existing source behavior, not introduced by B001 or B002; exact DB row absence not independently queried by the reviewer",
@@ -212,13 +212,14 @@
       "priority": "P1",
       "implementation_state": "OPEN",
       "observation": "FAIL",
-      "desired_behavior": "Finish is enabled and reachable at the final cue; enable Finish when currentOrder === max and call a dedicated completion action; render a concise completion summary (session, cues completed, holds/alerts, elapsed/overrun) with Exit and Run-again actions; rehearsal never writes live state.",
+      "desired_behavior": "Finish is enabled and reachable at the final cue; enable Finish when currentOrder === max and call a dedicated completion action; render a concise completion summary showing ONLY metrics the session actually tracked (e.g. cues completed, elapsed time) \u2014 never an invented hold count, alert count, or overrun figure the data doesn't support, per the master prompt's explicit limit \u2014 with Exit and Run-again actions; rehearsal never writes live state.",
       "acceptance_criteria": [
         "zero-cue, one-cue, and multi-cue sessions have defined behavior",
         "Finish is pointer- and keyboard-operable at the last cue",
         "completion appears once and provides Exit / Run again",
         "no /api/live request or live display update occurs",
-        "automated regression tests cover boundary states"
+        "automated regression tests cover boundary states",
+        "the completion summary never displays a metric (hold count, alert count, overrun) that the session didn't actually track \u2014 verified availability of a metric is itself part of this criterion, checked before any future batch implements the summary UI"
       ],
       "affected_files": [
         "app/e/[eventId]/rehearsal/page.tsx"
@@ -228,19 +229,20 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-004"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
       "history": [
         "carried forward from original audit enumeration (B002)",
-        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
+        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
+        "B004: qualified desired_behavior/acceptance_criteria to match the master prompt's explicit limit \u2014 'show only metrics actually tracked, not invented holds/overruns' (Codex B003 review finding B003-F3)."
       ]
     },
     {
@@ -266,13 +268,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-005"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -286,17 +288,25 @@
       "category": "A",
       "source_refs": [
         "UX-04",
-        "DEV-07"
+        "DEV-07",
+        "master#13 (full numbered item, not just its UX-04/DEV-07 heading)"
       ],
       "priority": "P1",
       "implementation_state": "OPEN",
       "observation": "FAIL",
       "desired_behavior": "one event-scoped transaction covers session upsert and affected program/partition replacement; affected session IDs are derived from parsed sessions (including empty ones), not from programs; after a successful import, the imported/default session is selected and an explicit 'Open Console with [session]' action is offered.",
       "acceptance_criteria": [
-        "New event -> valid XLSX -> confirmation -> session selection -> Console -> Start works without a hidden header action",
-        "refresh preserves a coherent session choice",
-        "invalid/empty/duplicate/oversized files show actionable errors and do not partially mutate data",
-        "empty imported sessions are included in the replacement-ID list so stale programs cannot survive"
+        "New event -> valid XLSX -> confirmation -> explicit session selection -> Console -> Start works without a hidden header action",
+        "when multiple sessions exist, the user must make an explicit choice \u2014 the import path never silently starts a show by guessing which session is active",
+        "session upsert and affected program/partition replacement happen inside ONE event-scoped database transaction, not two separate operations",
+        "affected session IDs are derived from the parsed SESSIONS, including empty ones \u2014 not derived from programs, so an empty imported session still replaces (clears) any stale programs on that session",
+        "authorization and tenant scope are confirmed INSIDE the database operation itself (including any SECURITY DEFINER privileges and search_path on the RPC), not only by the calling route's own guard",
+        "on failure, the client receives a generic error; protected diagnostic detail is logged server-side only, never returned raw to the client",
+        "a foreign session id (belonging to a different event) is rejected, not silently accepted",
+        "invalid, duplicate, and oversized files are all rejected with an actionable error and mutate nothing",
+        "an induced mid-operation failure (e.g. the replacement step failing after the upsert step would otherwise have committed) results in a full rollback, not a partially-committed session",
+        "refresh preserves a coherent session choice after import",
+        "any required migration is additive, verified in staging first, with a recovery plan; no production migration without separate authorization"
       ],
       "affected_files": [
         "app/api/cue-sheet/upload/route.ts",
@@ -308,19 +318,20 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-006"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
       "history": [
         "carried forward from original audit enumeration (B002)",
-        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
+        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
+        "B004: expanded acceptance_criteria to retain every obligation from master#13 and the full FIX_GUIDE paragraph (multi-session explicit choice, transactional scope, RPC-level authorization/search_path, generic client errors, foreign-id rejection, induced-failure rollback) \u2014 previously only the parent-heading-level subset survived (Codex B003 review finding B003-F2). Ledger correction only; import itself is not implemented in this batch."
       ]
     },
     {
@@ -346,13 +357,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-007"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -386,13 +397,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-008"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -424,13 +435,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-009"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -443,7 +454,8 @@
       "id": "KF-010",
       "category": "B",
       "source_refs": [
-        "DEV-04"
+        "DEV-04",
+        "FG-L220 (compound source: 'monitored test exception' half)"
       ],
       "priority": "P1",
       "implementation_state": "OPEN",
@@ -453,7 +465,8 @@
         "a controlled test error in staging is captured from both client and server",
         "alerts reach an owner",
         "tokens/passwords/emails/cue remarks/tenant data are absent from captured context",
-        "source maps and release SHA resolve correctly on the captured event"
+        "source maps and release SHA resolve correctly on the captured event",
+        "KF-014's restore drill exercises this monitoring as its own 'monitored test exception' step \u2014 the two criteria are tested together, not treated as independently satisfiable"
       ],
       "affected_files": [
         "app instrumentation / global error boundary setup"
@@ -463,19 +476,20 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-010"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
       "history": [
         "carried forward from original audit enumeration (B002)",
-        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
+        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
+        "B004: FG-L220 compound-source obligation split correctly across both halves (Codex B003 review finding B003-F2) \u2014 was previously mapped only to KF-014, dropping the monitoring half."
       ]
     },
     {
@@ -505,13 +519,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-011"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -544,13 +558,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-012"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -588,7 +602,7 @@
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-013"
       ],
-      "environment": "n/a — requires production/Supabase dashboard access not yet granted",
+      "environment": "n/a \u2014 requires production/Supabase dashboard access not yet granted",
       "reviewer": null,
       "next_action": "see blockers_owner",
       "history": [],
@@ -598,7 +612,8 @@
       "id": "KF-014",
       "category": "B",
       "source_refs": [
-        "master#21"
+        "master#21",
+        "FG-L220 (compound source: 'backup restore drill' half)"
       ],
       "priority": "P1_gate",
       "implementation_state": "BLOCKED_EXTERNAL",
@@ -609,7 +624,8 @@
         "a dated restore drill succeeds within the defined RTO",
         "data is consistent after restore",
         "secrets are rotated where needed",
-        "the runbook is accessible during a real incident"
+        "the runbook is accessible during a real incident",
+        "the drill's injected/observed failure is captured by KF-010's error monitoring (the 'monitored test exception' half of this same compound source obligation), not exercised in isolation of it"
       ],
       "affected_files": [],
       "evidence_class": [
@@ -622,10 +638,12 @@
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-014"
       ],
-      "environment": "n/a — requires production/Supabase dashboard access not yet granted",
+      "environment": "n/a \u2014 requires production/Supabase dashboard access not yet granted",
       "reviewer": null,
       "next_action": "see blockers_owner",
-      "history": [],
+      "history": [
+        "B004: FG-L220 compound-source obligation split correctly across both halves (Codex B003 review finding B003-F2) \u2014 was previously mapped only to KF-014, dropping the monitoring half."
+      ],
       "applicability": "applicable"
     },
     {
@@ -649,13 +667,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-015"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -688,13 +706,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-016"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -728,13 +746,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-017"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -766,13 +784,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-018"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -790,8 +808,8 @@
       "priority": "P2",
       "implementation_state": "OPEN",
       "observation": "FAIL",
-      "note": "27 desktop raw entries, not 10 — see BASELINE.md",
-      "desired_behavior": "raise every failing color-contrast node to at least 4.5:1 normal-text contrast, measuring the full raw Lighthouse inventory (27 desktop entries, 10 mobile entries per BASELINE.md's reconciliation against the raw JSON — not the narrative reports' 'approximately ten'), or justify any genuinely decorative exception without relabeling meaningful sequence/distance text as decorative purely to evade the audit.",
+      "note": "27 desktop raw entries, not 10 \u2014 see BASELINE.md",
+      "desired_behavior": "raise every failing color-contrast node to at least 4.5:1 normal-text contrast, measuring the full raw Lighthouse inventory (27 desktop entries, 10 mobile entries per BASELINE.md's reconciliation against the raw JSON \u2014 not the narrative reports' 'approximately ten'), or justify any genuinely decorative exception without relabeling meaningful sequence/distance text as decorative purely to evade the audit.",
       "acceptance_criteria": [
         "an automated computed-color audit passes against the full 27-node desktop inventory and the 10-node mobile inventory, not just the narrative's smaller count",
         "labels remain legible at zoom and in high-contrast conditions"
@@ -804,13 +822,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-019"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -842,19 +860,19 @@
         "no keyboard trap; focus returns correctly after modal/menu close"
       ],
       "affected_files": [],
-      "risk_rollback": "n/a — not yet implemented",
+      "risk_rollback": "n/a \u2014 not yet implemented",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-020"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule after the P1 security items in this ledger; full authenticated sweep needs real cue data at every breakpoint",
       "history": [
         "carried forward from original audit enumeration (B002)",
-        "B003: completed master-required fields; corrected its source mapping — several rows previously folded into KF-032 (skip-to-content, sticky headers, keyboard/focus sweep, WCAG AA, alt text, Lighthouse accessibility score) actually belong here (master-prompt item 8), not under KF-032 (master-prompt item 9's UX-08 polish cluster); see SOURCE_COVERAGE.json"
+        "B003: completed master-required fields; corrected its source mapping \u2014 several rows previously folded into KF-032 (skip-to-content, sticky headers, keyboard/focus sweep, WCAG AA, alt text, Lighthouse accessibility score) actually belong here (master-prompt item 8), not under KF-032 (master-prompt item 9's UX-08 polish cluster); see SOURCE_COVERAGE.json"
       ]
     },
     {
@@ -878,13 +896,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-021"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -902,15 +920,15 @@
       "priority": "-",
       "implementation_state": "PRESERVE_PENDING_REVIEW",
       "observation": "PASS",
-      "note": "hash navigation — explicitly not a defect, preserved as PASS",
+      "note": "hash navigation \u2014 explicitly not a defect, preserved as PASS",
       "applicability": "applicable",
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-022"
       ],
       "history": [
-        "B003: reclassified from NOT_APPLICABLE to PRESERVE_PENDING_REVIEW per Codex B002 review — this is a passing behavior that must be re-verified on every batch that could plausibly touch it, not an inapplicable item. applicability stays 'applicable' and observation stays 'PASS'; this state is NOT an independent-review approval (only Codex can set CODEX_VERIFIED)."
+        "B003: reclassified from NOT_APPLICABLE to PRESERVE_PENDING_REVIEW per Codex B002 review \u2014 this is a passing behavior that must be re-verified on every batch that could plausibly touch it, not an inapplicable item. applicability stays 'applicable' and observation stays 'PASS'; this state is NOT an independent-review approval (only Codex can set CODEX_VERIFIED)."
       ],
-      "desired_behavior": "n/a — preserved PASS, not a defect. The #one-cue fragment is standard, accessible, shareable, history-aware in-page navigation.",
+      "desired_behavior": "n/a \u2014 preserved PASS, not a defect. The #one-cue fragment is standard, accessible, shareable, history-aware in-page navigation.",
       "acceptance_criteria": [
         "re-verify this remains PASS whenever landing navigation/anchor code is touched by a future batch"
       ],
@@ -950,13 +968,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-023"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -987,13 +1005,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-024"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -1024,13 +1042,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-025"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -1062,13 +1080,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-026"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -1096,13 +1114,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-027"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -1130,13 +1148,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-028"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -1164,13 +1182,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-029"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -1198,13 +1216,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-030"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -1294,9 +1312,9 @@
       "history": [
         "B003: split into 8 independently checkable child criteria per Codex B002 review (composite row); parent KF id preserved, implementation_state remains OPEN until all children resolve."
       ],
-      "desired_behavior": "composite finding — see children[] for independently checkable criteria and acceptance criteria.",
+      "desired_behavior": "composite finding \u2014 see children[] for independently checkable criteria and acceptance criteria.",
       "acceptance_criteria": [
-        "see children[] — each child has its own acceptance_criterion"
+        "see children[] \u2014 each child has its own acceptance_criterion"
       ],
       "affected_files": [],
       "evidence_class": [
@@ -1304,13 +1322,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented",
+      "risk_rollback": "n/a \u2014 not yet implemented",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-032"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "resolve children[] individually; parent closes only once every child resolves"
@@ -1325,15 +1343,15 @@
       "priority": "-",
       "implementation_state": "PRESERVE_PENDING_REVIEW",
       "observation": "PASS",
-      "note": "regression-tracked PASS set, not N/A — re-verify on every batch that could touch it",
+      "note": "regression-tracked PASS set, not N/A \u2014 re-verify on every batch that could touch it",
       "applicability": "applicable",
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-033"
       ],
       "history": [
-        "B003: reclassified from NOT_APPLICABLE to PRESERVE_PENDING_REVIEW per Codex B002 review — this is a passing behavior that must be re-verified on every batch that could plausibly touch it, not an inapplicable item. applicability stays 'applicable' and observation stays 'PASS'; this state is NOT an independent-review approval (only Codex can set CODEX_VERIFIED)."
+        "B003: reclassified from NOT_APPLICABLE to PRESERVE_PENDING_REVIEW per Codex B002 review \u2014 this is a passing behavior that must be re-verified on every batch that could plausibly touch it, not an inapplicable item. applicability stays 'applicable' and observation stays 'PASS'; this state is NOT an independent-review approval (only Codex can set CODEX_VERIFIED)."
       ],
-      "desired_behavior": "n/a — preserved PASS, regression-tracked set (Lucide icon consistency with appropriate brand-mark exceptions, clear primary CTA, reduced-motion support, desktop Lighthouse 100/LCP 0.6s, HTTPS/HSTS/security-header baseline, canonical/robots/sitemap/favicon/title baseline, branded 404).",
+      "desired_behavior": "n/a \u2014 preserved PASS, regression-tracked set (Lucide icon consistency with appropriate brand-mark exceptions, clear primary CTA, reduced-motion support, desktop Lighthouse 100/LCP 0.6s, HTTPS/HSTS/security-header baseline, canonical/robots/sitemap/favicon/title baseline, branded 404).",
       "acceptance_criteria": [
         "re-verify this remains PASS on every batch that could plausibly touch any item in this set"
       ],
@@ -1377,13 +1395,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented; no code has been written for this item",
+      "risk_rollback": "n/a \u2014 not yet implemented; no code has been written for this item",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-034"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
@@ -1432,9 +1450,9 @@
       "history": [
         "B003: split into 3 independently checkable child criteria per Codex B002 review (composite row); parent KF id preserved, implementation_state remains OPEN until all children resolve."
       ],
-      "desired_behavior": "composite finding — see children[] for independently checkable criteria and acceptance criteria.",
+      "desired_behavior": "composite finding \u2014 see children[] for independently checkable criteria and acceptance criteria.",
       "acceptance_criteria": [
-        "see children[] — each child has its own acceptance_criterion"
+        "see children[] \u2014 each child has its own acceptance_criterion"
       ],
       "affected_files": [],
       "evidence_class": [
@@ -1442,13 +1460,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented",
+      "risk_rollback": "n/a \u2014 not yet implemented",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-035"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "resolve children[] individually; parent closes only once every child resolves"
@@ -1528,14 +1546,23 @@
           "source_ref": "FA checklist: 'Form validation'",
           "implementation_state": "OPEN",
           "acceptance_criterion": "full authenticated-surface form-validation error/success sweep completed; login's native validation already passed."
+        },
+        {
+          "id": "KF-036.9",
+          "title": "Session-identity realtime first-connect gap",
+          "priority": "P2",
+          "source_ref": "batches/B003/BATCH_REPORT.md#remaining-gaps (session-identity realtime first-connect gap)",
+          "implementation_state": "OPEN",
+          "acceptance_criterion": "a fresh session-identity connection to a display page shows an already-active broadcast banner without requiring a second state change to trigger it; the root cause must be independently reproduced and read from the real ensureRemoteConnected()/wasEverConnected code path in lib/display-engine/store.tsx before being called fixed, not asserted from a prior narrative alone (evidence_class: INFERENCE until then)."
         }
       ],
       "history": [
-        "B003: split into 8 independently checkable child criteria per Codex B002 review (composite row); parent KF id preserved, implementation_state remains OPEN until all children resolve."
+        "B003: split into 8 independently checkable child criteria per Codex B002 review (composite row); parent KF id preserved, implementation_state remains OPEN until all children resolve.",
+        "B004: added child KF-036.9 for the session-identity realtime first-connect gap (Codex B003 review finding B003-F4 \u2014 an out-of-ledger observation cannot remain outside the loop) rather than a new top-level KF, per the B004 prompt instruction to keep the accepted 42 parent/28 child structure and add child criteria only where needed."
       ],
-      "desired_behavior": "composite finding — see children[] for independently checkable criteria and acceptance criteria.",
+      "desired_behavior": "composite finding \u2014 see children[] for independently checkable criteria and acceptance criteria.",
       "acceptance_criteria": [
-        "see children[] — each child has its own acceptance_criterion"
+        "see children[] \u2014 each child has its own acceptance_criterion"
       ],
       "affected_files": [],
       "evidence_class": [
@@ -1543,13 +1570,13 @@
       ],
       "applicability": "applicable",
       "dependencies": [],
-      "risk_rollback": "n/a — not yet implemented",
+      "risk_rollback": "n/a \u2014 not yet implemented",
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-036"
       ],
-      "environment": "n/a — not yet implemented",
+      "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
       "next_action": "resolve children[] individually; parent closes only once every child resolves"
@@ -1577,7 +1604,7 @@
         "no secret value appears client-side or in a committed file"
       ],
       "affected_files": [],
-      "risk_rollback": "n/a — monitoring/regression-tracking row, not an implementation row",
+      "risk_rollback": "n/a \u2014 monitoring/regression-tracking row, not an implementation row",
       "implementation_state": "PRESERVE_PENDING_REVIEW",
       "self_test": {
         "unit": "full `npx vitest run` / `npx tsc --noEmit` / `npm run lint` / `npm audit --omit=dev` sweep, re-run every batch"
@@ -1592,7 +1619,7 @@
       "blockers_owner": null,
       "next_action": "re-run the full verification sweep at the end of every batch; flag any new failure immediately rather than suppressing it",
       "history": [
-        "new in B003 — DEV-05 and the FA 'Project and engineering setup' checklist table had no dedicated ledger row before this batch; discovered while building SOURCE_COVERAGE.json"
+        "new in B003 \u2014 DEV-05 and the FA 'Project and engineering setup' checklist table had no dedicated ledger row before this batch; discovered while building SOURCE_COVERAGE.json"
       ]
     },
     {
@@ -1618,7 +1645,7 @@
       "affected_files": [
         "app/layout.tsx"
       ],
-      "risk_rollback": "n/a — not implemented",
+      "risk_rollback": "n/a \u2014 not implemented",
       "implementation_state": "OPEN",
       "self_test": null,
       "independent_review": null,
@@ -1630,7 +1657,7 @@
       "blockers_owner": "product/owner decision on whether to invest in this optional enhancement before or after launch",
       "next_action": "defer; revisit post-launch unless the owner wants it earlier",
       "history": [
-        "new in B003 — explicit decision recorded per the B003 prompt's instruction that optional schema/AI-bot-policy/PRD/operator-inventory items each need a recorded decision even when no implementation is required"
+        "new in B003 \u2014 explicit decision recorded per the B003 prompt's instruction that optional schema/AI-bot-policy/PRD/operator-inventory items each need a recorded decision even when no implementation is required"
       ]
     },
     {
@@ -1654,7 +1681,7 @@
       "affected_files": [
         "public/robots.txt"
       ],
-      "risk_rollback": "n/a — not implemented",
+      "risk_rollback": "n/a \u2014 not implemented",
       "implementation_state": "OPEN",
       "self_test": null,
       "independent_review": null,
@@ -1688,7 +1715,7 @@
         "gaps filled or explicitly deferred with a dated decision"
       ],
       "affected_files": [],
-      "risk_rollback": "n/a — documentation-only",
+      "risk_rollback": "n/a \u2014 documentation-only",
       "implementation_state": "OPEN",
       "self_test": null,
       "independent_review": null,
@@ -1721,7 +1748,7 @@
         "a written operator-tool inventory exists and is verified against a real pre-show setup"
       ],
       "affected_files": [],
-      "risk_rollback": "n/a — documentation-only",
+      "risk_rollback": "n/a \u2014 documentation-only",
       "implementation_state": "OPEN",
       "self_test": null,
       "independent_review": null,
@@ -1748,7 +1775,7 @@
       "observation": "N/A",
       "priority": "-",
       "applicability": "not_applicable",
-      "desired_behavior": "n/a by definition for each child — see children[]",
+      "desired_behavior": "n/a by definition for each child \u2014 see children[]",
       "dependencies": [],
       "acceptance_criteria": [],
       "affected_files": [],
@@ -1762,9 +1789,9 @@
       "environment": "n/a",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "none — re-open only if a future product change makes any child applicable (e.g. adding a FAQ page would make KF-042.1 applicable)",
+      "next_action": "none \u2014 re-open only if a future product change makes any child applicable (e.g. adding a FAQ page would make KF-042.1 applicable)",
       "history": [
-        "new in B003 — bundles 9 checklist rows the original audit each independently and explicitly marked N/A; none warranted its own top-level ledger row, but each is preserved here with its own child id and rationale per the zero-rows-dropped requirement"
+        "new in B003 \u2014 bundles 9 checklist rows the original audit each independently and explicitly marked N/A; none warranted its own top-level ledger row, but each is preserved here with its own child id and rationale per the zero-rows-dropped requirement"
       ],
       "children": [
         {
@@ -1841,9 +1868,9 @@
     "NOT_APPLICABLE": 5
   },
   "parent_task_count": 42,
-  "child_criteria_count": 28,
+  "child_criteria_count": 29,
   "child_criteria_breakdown": {
-    "OPEN": 18,
+    "OPEN": 19,
     "NOT_APPLICABLE": 10
   }
 }

@@ -13,13 +13,13 @@
 
 Verified directly against the raw JSON in the package, not assumed from the summary reports:
 
-| Run | `color-contrast` item count | LCP (numericValue) |
-|---|---|---|
-| Desktop | **27** | 644 ms |
-| Mobile (first) | 10 | 3592 ms |
-| Mobile (rerun) | 10 | 3639 ms |
+| Run | `color-contrast` audit score | `color-contrast` failing-item count | LCP (numericValue) | Performance category score |
+|---|---|---|---|---|
+| Desktop | **0 (FAILING)** | **27** | 644 ms | 1 (100) |
+| Mobile (first) | 0 (FAILING) | 10 | 3592 ms | 0.85 |
+| Mobile (rerun) | 0 (FAILING) | 10 | 3639 ms | 0.90 |
 
-The Fix Summary/Fix Guide's "approximately ten labels" undercounts the desktop raw inventory by 17 nodes. Any future contrast-fix batch (Phase 4, not this batch) must treat the desktop 27 as the real inventory, not the ten repeated across the narrative docs. Recorded here per the master prompt's explicit instruction; **not fixed in B002** — out of this batch's scope (Phase 1 security only).
+The Fix Summary/Fix Guide's "approximately ten labels" undercounts the desktop raw inventory by 17 nodes — **all 27 desktop entries are failing items, not a passing count**; a B003 drafting pass misread this table's omission of the audit `score` column as "desktop contrast passes" and propagated that into `SOURCE_COVERAGE.json` (fixed in B004 per Codex's B003 review finding B003-F1 — see `DECISIONS.md`). Any future contrast-fix batch (Phase 4, not this batch) must treat the desktop 27 as the real, failing inventory, not the ten repeated across the narrative docs. Recorded here per the master prompt's explicit instruction; **not fixed in B002/B003/B004** — out of scope so far (Phase 1 security + evidence/ledger rework only).
 
 Image-savings variability (first mobile run ≈176 KiB estimated hero savings; rerun reported none) is real per the narrative reports; the raw JSON's `uses-responsive-images` audit does not expose a stable `overallSavingsBytes` figure in either run in a form this batch cross-checked further. Recorded as an open reconciliation item for whichever future batch does mobile performance (master prompt item 23) — not investigated further here, since it is unrelated to Phase 1 security scope.
 
