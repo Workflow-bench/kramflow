@@ -1,6 +1,8 @@
 # Task Ledger
 
-Canonical, readable ledger for the KramFlow audit remediation project. See `TASK_LEDGER.json` for the machine-readable mirror, `BASELINE.md` for environment/reconciliation, `DECISIONS.md` for reasoned bounded choices, `REVIEWS/` for verbatim independent reviews, and `batches/` for per-batch review artifacts.
+Canonical, readable ledger for the KramFlow audit remediation project. See `TASK_LEDGER.json` for the machine-readable mirror (now the primary source of truth — all 42 parent rows have complete master-required fields, with totals and cross-references to `SOURCE_COVERAGE.json` machine-verified by `validate_ledger.mjs`), `SOURCE_COVERAGE.md`/`SOURCE_COVERAGE.json` for the full source-report-to-ledger mapping (B003), `BASELINE.md` for environment/reconciliation, `DECISIONS.md` for reasoned bounded choices, `REVIEWS/` for verbatim independent reviews, and `batches/` for per-batch review artifacts.
+
+**B003 update:** `KF-022`/`KF-033` moved from `NOT_APPLICABLE` to a new `PRESERVE_PENDING_REVIEW` state (they are passing behavior to re-verify on touch, not inapplicable items). `KF-032`/`KF-035`/`KF-036` were split into independently checkable child criteria (parent ids preserved, see `TASK_LEDGER.json`). Six new rows were added — `KF-037` (repository/engineering quality-gate preserve-passing baseline), `KF-038` (structured-data/schema, optional), `KF-039` (AI-bot business-policy decision), `KF-040` (PRD completeness), `KF-041` (operator-tool inventory), `KF-042` (a 9-child roll-up of checklist rows the original audit already marked N/A but that had no ledger row before B003). Corrected totals below are machine-derived; run `node validate_ledger.mjs` to reproduce.
 
 **Status vocabulary** — Evidence class: `LIVE` / `SOURCE` / `TEST` / `STANDARD` / `INFERENCE`. Observation: `PASS` / `FAIL` / `PARTIAL` / `UNVERIFIED` / `N/A`. Implementation state: `OPEN` / `INVESTIGATING` / `IN_PROGRESS` / `READY_FOR_CODEX` / `NEEDS_REWORK` / `BLOCKED_EXTERNAL` / `CODEX_VERIFIED` / `NOT_APPLICABLE`. Only an actual returned independent review sets `CODEX_VERIFIED` — nothing in this ledger is self-set to that state.
 
@@ -112,8 +114,14 @@ Status `OPEN` unless noted. Full source citations are in the seven original repo
 | KF-020 | Skip-to-content + full accessibility sweep | master item 8 | P2 |
 | KF-021 | Duplicate responsive headings in the DOM | UX-08 | P3 |
 | KF-032 | Footer copyright year + full loading/error/success/empty-state, hover/touch, destructive-confirm, copy-control, broken-link, cue-sheet print/report, mobile-overflow sweep | UX-08 (master prompt item 9 — explicitly named by the review as missing its own row) | P3 |
-| KF-022 | Homepage `/#one-cue` fragment navigation | master §4 | — | **PASS, N/A — no action.** Standard, accessible, shareable in-page navigation; explicitly not a defect per both the original audit and the master prompt. Preserved as a regression-tracked PASS, not conflated with an unrelated N/A. |
-| KF-033 | Preserve-passing regression set: Lucide icon consistency, custom brand-mark exceptions, labeled responsive menu, clear primary CTA, reduced-motion support, desktop Lighthouse 100/LCP 0.6s, HTTPS/HSTS/security headers, canonical/robots/sitemap/favicon/title baseline, branded 404 | master §4 | — | **PASS, regression-tracked, not N/A** (review's standards finding: "passing anchors are PASS/regression-preservation items, not simultaneously N/A"). No batch has touched these; re-verify on every future batch that could plausibly affect them. |
+| KF-022 | Homepage `/#one-cue` fragment navigation | master §4 | — | **PASS, `PRESERVE_PENDING_REVIEW` (B003; was `NOT_APPLICABLE`).** Standard, accessible, shareable in-page navigation; explicitly not a defect. `applicability` stays `applicable`; this state is not an independent-review approval. |
+| KF-033 | Preserve-passing regression set: Lucide icon consistency, custom brand-mark exceptions, labeled responsive menu, clear primary CTA, reduced-motion support, desktop Lighthouse 100/LCP 0.6s, HTTPS/HSTS/security headers, canonical/robots/sitemap/favicon/title baseline, branded 404 | master §4 | — | **PASS, `PRESERVE_PENDING_REVIEW` (B003; was `NOT_APPLICABLE`).** No batch has touched these; re-verify on every future batch that could plausibly affect them. |
+| KF-037 | Repository & engineering quality-gate baseline (DEV-05 + project/engineering-setup checklist) — new in B003 | DEV-05 | P3 | `PRESERVE_PENDING_REVIEW`, PASS. |
+| KF-038 | Structured data / JSON-LD schema (Organization/SoftwareApplication) — new in B003 | FA checklist | P3 | `OPEN`, optional/truthful-only enhancement. |
+| KF-039 | AI search-bot business policy decision — new in B003 | FA checklist | P3 | `OPEN`, conditional, needs a product/legal decision. |
+| KF-040 | PRD/value-prop/ICP/non-goals completeness audit — new in B003 | FA checklist | P3 | `OPEN`, documentation task. |
+| KF-041 | Operator tool/plugin inventory for release — new in B003 | FA checklist | P3 | `OPEN`, documentation task. |
+| KF-042 | 9-child roll-up: FAQ schema, llms.txt, author bylines, dark-mode toggle, site search, back-to-top, scroll progress, last-updated date, floating contact — new in B003 | FA checklist (multiple rows) | — | `NOT_APPLICABLE` (each child independently and explicitly N/A per the original audit). |
 
 ### B. Development / Function / Security / Performance
 
@@ -141,12 +149,15 @@ Status `OPEN` unless noted. Full source citations are in the seven original repo
 
 ---
 
-## Totals (B002 end-of-batch snapshot)
+## Totals (B003 end-of-batch snapshot — machine-derived, see `validate_ledger.mjs`)
 
 - READY_FOR_CODEX: 3 (KF-001, KF-002, KF-003)
-- OPEN (tracked, not started): 30 rows (KF-004 through KF-030, plus KF-031, KF-032, KF-034, KF-035, KF-036)
-- PASS / regression-tracked (no action needed, re-verify on touch): 2 rows (KF-022, KF-033)
+- OPEN: 29 parent rows
+- PRESERVE_PENDING_REVIEW (passing behavior, re-verify on touch, not independently verified by this state): 3 rows (KF-022, KF-033, KF-037)
+- NOT_APPLICABLE: 5 rows (KF-027, KF-028, KF-029, KF-030, KF-042)
 - BLOCKED_EXTERNAL: 2 (KF-013, KF-014)
-- CODEX_VERIFIED: 0 — no row has ever received an independent approval yet; the one independent review received so far (`REVIEWS/2026-09-30_...`) returned HOLD/NEEDS_REWORK on B001, which B002 responds to.
+- CODEX_VERIFIED: 0 — no row has ever received an independent approval yet.
 
-No row has been deleted, had its priority reduced, or had its acceptance criteria redefined to reach this count. "Everything complete" is not being claimed — see the handoff's Verdict.
+Total parent rows: 42 (36 carried forward from B002 + 6 new: KF-037..KF-042). Separately, 28 child criteria exist under the 3 split composite parents (KF-032: 8, KF-035: 3, KF-036: 8) plus KF-042's 9-child roll-up: 18 `OPEN`, 10 `NOT_APPLICABLE` at the child level — see `TASK_LEDGER.json#child_criteria_breakdown`.
+
+No row has been deleted, had its priority reduced, or had its acceptance criteria redefined to reach this count. "Everything complete" is not being claimed — see `batches/B003/BATCH_REPORT.md`'s Verdict/Pause section.

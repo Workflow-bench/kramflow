@@ -1,0 +1,23 @@
+# B003 Evidence Index
+
+| Claim | Evidence class | Where |
+|---|---|---|
+| Non-owner session sees Dismiss disabled with a reason, not a silent server-rejected click | SOURCE (code) | `components/display-engine/broadcast-overlay.tsx` — `showDisabledDismiss` branch |
+| Owner session sees a working Dismiss that reports failure via toast if the write fails | SOURCE (code) | `components/display-engine/broadcast-overlay.tsx` — `handleDismiss` reads `dismissBroadcast`'s result and calls `toast.error` on `!res.ok` |
+| Token (public share-link) viewer sees no Dismiss control at all | SOURCE (code) | `components/display-engine/broadcast-overlay.tsx` — neither branch renders when `token` is set |
+| Role is real, server-derived, not the unsafe `EventRoleContext` default | SOURCE (code) | `lib/display-engine/context.tsx` (`DisplayEngineIdentity.role`), threaded from `lib/server/verify-display-access.ts`'s `verifySessionAccess()` through all 5 display Server Components -> Client Components -> `DisplayEngineProvider` |
+| Dismiss-matrix test proves role authorization against a REAL existing broadcast, not a 404-before-auth-runs nonexistent id | TEST | `app/api/display-engine/owner-floor-matrix.test.ts` — 5 identities x real broadcast row + 3 explicitly-labeled "not role tests" edge cases, 23/23 pass |
+| Owner's dismiss write is scoped (id AND event_id), not just present | TEST | same file — `writes[0].filters` asserted to contain both `["id", ...]` and `["event_id", ...]` |
+| Denied identity leaves the broadcast row byte-unchanged | TEST | same file — `broadcastRow` equality-asserted against its original value after a denied attempt |
+| UPDATE-as-UPSERT mock bug (Codex B002 standards finding) is fixed | SOURCE (code) + TEST | same file — `??` default-row fallback removed from the `display_type_state`/`display_state` mock handlers; full 23-test suite re-passes |
+| SOURCE_COVERAGE.json maps every heading/table-row/list-item in the 7 original reports + 3 Lighthouse pairs to a stable key + locator, many-to-one to ledger KF ids | SOURCE (mechanical extraction + hand-reviewed classification) | `SOURCE_COVERAGE.json`, `SOURCE_COVERAGE.md`; built via `scratchpad/b003/{extract,classify,build_coverage}.mjs` (not checked in — scratch tooling; the output is) |
+| Zero source rows dropped from the extraction | TEST (self-check) | `SOURCE_COVERAGE.json#entry_count` (517) == `raw_markdown_extraction_count` (512) + `lighthouse_entry_count` (5); `validate_ledger.mjs`'s `UNMAPPED_SOURCE_KEY` check passes with zero findings |
+| Ledger totals are machine-derived, not hand-counted | TEST (self-check) | `validate_ledger.mjs`'s `TOTALS_DRIFT`/`CHILD_TOTALS_DRIFT` checks pass; `TASK_LEDGER.json#totals` = `{READY_FOR_CODEX:3, OPEN:29, BLOCKED_EXTERNAL:2, PRESERVE_PENDING_REVIEW:3, NOT_APPLICABLE:5}` summing to 42 parent rows (36 carried forward + 6 new: KF-037..042), plus 28 child criteria separately (`child_criteria_count`/`child_criteria_breakdown`) under the 3 split composite parents (KF-032, KF-035, KF-036) |
+| KF-022/KF-033 are PRESERVE_PENDING_REVIEW, not NOT_APPLICABLE | SOURCE (ledger) | `TASK_LEDGER.json#KF-022,KF-033` — `applicability: "applicable"`, `observation: "PASS"`, `implementation_state: "PRESERVE_PENDING_REVIEW"` |
+| No duplicate ids, no dangling KF references, no missing required fields across all 42 parent + 28 child ledger entries | TEST (self-check) | `node docs/audit-remediation/validate_ledger.mjs` — exit 0, "PASS" |
+| Historical-metadata correction: the master prompt predates B001; only the tracking *files* postdate it | SOURCE (docs) | `DECISIONS.md#2026-09-30 — B001/contract timeline correction (B003)`; `BASELINE.md` batch-history line corrected to match |
+| Repository quality gates | TEST | `TEST_RESULTS.json#repository_checks` — 308/308 tests, tsc clean, lint 0 errors/6 warnings (unchanged baseline) |
+| `npm run build` (Turbopack) is environment-blocked in this session, not a code regression | TEST (negative control) | `TEST_RESULTS.json#repository_checks.build_turbopack` + `.build_webpack_fallback` — webpack compiles clean, isolating the Turbopack failure to this host's child-process/port permissions, unrelated to any B003 file |
+| Reusable fixture script exists for the owner/editor/viewer live matrix (replaces ad hoc `.tmp-*.mjs` scripts) | SOURCE (code, not yet executed this batch) | `fixtures/owner_floor_live_matrix.mjs` — refuses to run against any project other than the authorized dev project; uses only already-authorized fixture accounts; does not touch the KF-002 blocked scenario |
+
+No `.env`, cookie, secret-credential, production export, or private event data is included anywhere in this directory or referenced files.

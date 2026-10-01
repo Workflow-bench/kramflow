@@ -4,7 +4,11 @@ Evidence conflicts, applicability calls, and bounded implementation decisions, d
 
 ## 2026-09-30 — B002 batch numbering
 
-The B001 work (viewer/editor/owner floor, must_change_password, External API Coming Soon) predates the master-prompt/ledger contract — it was implemented, self-tested, and handed off before this formal structure existed. Rather than discard that history or pretend it never happened, it's recorded here as B001 retroactively, and this rework is B002. No code from B001 was reset or rewritten wholesale — B002 is additive commits on the same branch, continuing from B001's actual head (`b72f0dd...`), per the rework instruction not to reset or discard prior work.
+The B001 work (viewer/editor/owner floor, must_change_password, External API Coming Soon) was implemented, self-tested, and handed off before this project's own `TASK_LEDGER`/`BASELINE`/`DECISIONS` tracking files existed. Rather than discard that history or pretend it never happened, it's recorded here as B001 retroactively, and this rework is B002. No code from B001 was reset or rewritten wholesale — B002 is additive commits on the same branch, continuing from B001's actual head (`b72f0dd...`), per the rework instruction not to reset or discard prior work.
+
+## 2026-09-30 — B001/contract timeline correction (B003)
+
+The wording above, and the matching line in `BASELINE.md`'s batch history, previously said B001 "predates the master-prompt/ledger contract." The B003 review correctly flagged this as backwards: `KRAMFLOW_CLAUDE_MASTER_PROMPT.md` (the governing contract — see `REVIEWS/2026-09-30_KRAMFLOW_CLAUDE_MASTER_PROMPT.md`) existed and was handed over *before* B001 was implemented; B001 was always required to follow it. What actually postdates B001 is only the *retroactive creation of these specific tracking artifacts* (`TASK_LEDGER.json`/`.md`, `BASELINE.md`, `DECISIONS.md`, `batches/B001/BATCH_REPORT.md`) — B001 itself was done without yet having been asked to produce them, not without the contract existing. Corrected here rather than silently rewriting the earlier entry; the original wording is left visible above (struck through in spirit, corrected in substance) so the mistake and its fix are both on the record. `BASELINE.md`'s batch-history line is corrected to match.
 
 ## 2026-09-30 — speaker-ready: reversed from "deliberate exception" to owner-only
 

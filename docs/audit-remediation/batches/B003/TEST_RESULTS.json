@@ -1,0 +1,37 @@
+{
+  "batch": "B003",
+  "generated": "2026-09-30",
+  "repository_state": {
+    "branch": "fix/audit-remediation-phase1",
+    "base_sha_before_this_batch": "6d2586f0403668252455987e51a05f6ed204c299",
+    "commits": "see BATCH_REPORT.md for the exact SHA list, filled in after commit (this file is written before the commits it describes exist, per the same sequencing B002 used)"
+  },
+  "repository_checks": {
+    "vitest": { "command": "npx vitest run", "files": 29, "tests": 308, "result": "PASS", "note": "was 300/29 files at the end of B002; +8 tests in app/api/display-engine/owner-floor-matrix.test.ts for the real-existing-broadcast dismiss matrix (item 2)" },
+    "typecheck": { "command": "npx tsc --noEmit", "result": "PASS" },
+    "lint": { "command": "npm run lint", "result": "PASS", "errors": 0, "warnings": 6, "note": "identical pre-existing set to B001/B002's baseline; none introduced by B003" },
+    "build_turbopack": { "command": "npm run build", "result": "ENVIRONMENT_BLOCKED", "note": "Fails in this session with TurbopackInternalError: 'creating new process / binding to a port / Operation not permitted (os error 1)' inside Turbopack's PostCSS worker, both with and without this session's own command sandbox disabled (dangerouslyDisableSandbox: true) — ruling out Claude Code's own sandbox as the cause. A plain Node http server binds a local port successfully in the same shell, so this is specific to whatever child-process Turbopack's CSS loader spawns on this host. B001 and B002 both reported a clean `npm run build` (see their TEST_RESULTS.json); this is a newly observed environment limitation in this session, not a regression introduced by any B003 code change (confirmed: no B003 commit touches next.config, postcss config, or any CSS). Not claimed as PASS." },
+    "build_webpack_fallback": { "command": "npx next build --webpack", "result": "PARTIAL", "note": "Webpack compiles the application successfully in 8.5s (confirms the Turbopack failure above is tooling/environment, not a code defect), but Next's own generated-route-type-check step then fails on a PRE-EXISTING, unrelated issue: app/api/live/route.ts exports a non-handler helper (`runLiveAction`) that Next 16's typed-route validation rejects. Confirmed pre-existing via `git log -1 -- app/api/live/route.ts` (last touched by an unrelated migration-rename commit, not any B001/B002/B003 commit) and via `git diff --stat` showing zero B003 changes to that file. Recorded as a known, pre-existing, untouched-by-this-project issue, not fixed in B003 (out of this batch's authorized scope — items 1 and 2 only touch the dismiss button/context-threading and its test file)." }
+  },
+  "new_or_changed_test_files": [
+    { "file": "app/api/display-engine/owner-floor-matrix.test.ts", "tests_added": 8, "kind": "real-guard integration (DB mocked, auth/role logic real) — dismiss against a real existing broadcast row, 5 identities x 1 route + 3 edge cases", "covers": "KF-001 (item 2 of the B003 prompt)" }
+  ],
+  "mock_fix": {
+    "finding": "Codex B002 review (standards section): the display_type_state/display_state .then() handlers used `row ?? {defaults}` on UPDATE, which could fabricate a row that should not exist.",
+    "fix": "removed the `??` fallback; the mock now only mutates a row if it already exists, matching real SQL UPDATE semantics (an absent row stays absent).",
+    "verification": "app/api/display-engine/owner-floor-matrix.test.ts full suite re-run after the fix: 23/23 pass."
+  },
+  "dismiss_matrix_added": {
+    "finding": "Codex B002 review: the only existing dismiss test used a nonexistent broadcast id, which 404s before role authorization ever runs — 'that test would pass before the owner-floor fix too.'",
+    "fix": "added a real `display_broadcasts` table case to the mock (select/update with id+event_id filter tracking), seeded a real existing broadcast row in beforeEach, and added a 5-identity x real-broadcast matrix plus 3 explicitly-labeled 'not role tests' edge cases (nonexistent id, wrong event, missing eventId).",
+    "result": "owner succeeds with exactly one scoped write and a non-null dismissed_at; every denied identity leaves zero writes and the broadcast row byte-unchanged."
+  },
+  "live_verification": [
+    {
+      "id": "B003-item1-code-review-only",
+      "status": "NOT ATTEMPTED THIS BATCH",
+      "reason": "Item 1 (role-aware Dismiss button) and item 2 (real-broadcast test matrix) were verified at the unit-test layer in this batch, per repository_checks and new_or_changed_test_files above. New live-browser rendered-UI evidence for the Dismiss button's three states (owner-enabled, non-owner-disabled-with-tooltip, token-absent) was not captured in B003 — see BATCH_REPORT.md 'Remaining gaps' for why, and the new fixtures/owner_floor_live_matrix.mjs script prepared for a future batch to use."
+    }
+  ],
+  "cleanup_performed": ["none — no live/DB state was created or touched in this batch; all B003 work is code, tests, and documentation"]
+}
