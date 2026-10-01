@@ -4,7 +4,13 @@
   "repository_state": {
     "branch": "fix/audit-remediation-phase1",
     "base_sha_before_this_batch": "c6f3b9002ef5fcc825548f5493ee5b4bd2536ad4",
-    "intervening_work_check": "git log/git status at session start showed HEAD exactly at the reviewed SHA with a clean tracked tree (only unrelated untracked tool directories present) — nothing to reconcile before editing."
+    "intervening_work_check": "git log/git status at session start showed HEAD exactly at the reviewed SHA with a clean tracked tree (only unrelated untracked tool directories present) — nothing to reconcile before editing.",
+    "commits": [
+      { "sha": "07eb81c", "subject": "fix(a11y): discoverable non-owner dismiss reason, focus ring, toast live region" },
+      { "sha": "df09a4b", "subject": "fix(fixtures): strict project-URL guard, resumable lifecycle, ownership checks" },
+      { "sha": "2989b88", "subject": "docs: B004 source-coverage corrections, validator hardening, vendored source package" }
+    ],
+    "final_sha_this_batch": "2989b88b350ae6069c1f4e80f0c6c0f0aef2125e"
   },
   "repository_checks": {
     "vitest": { "command": "npx vitest run", "files": 30, "tests": 341, "result": "PASS", "note": "was 308/29 at end of B003; +33 tests in the new docs/audit-remediation/fixtures/owner_floor_live_matrix.test.ts, all against fake in-memory db/fs seams — no real network or credentials" },
