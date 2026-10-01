@@ -7,7 +7,6 @@ import { useDisplayEngine, targetMatchesDisplay } from "@/lib/display-engine/sto
 import { useDisplayEngineIdentity } from "@/lib/display-engine/context";
 import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
 import type { BroadcastMessage, DisplayType } from "@/lib/display-engine/types";
-import { MaybeTooltip } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
@@ -185,7 +184,8 @@ export function BroadcastOverlay({
                       disabled={dismissing === message.id}
                       aria-label={dismissing === message.id ? "Dismissing…" : "Dismiss"}
                       className={cn(
-                        "text-muted hover:text-primary cursor-pointer shrink-0 disabled:opacity-60 disabled:cursor-not-allowed",
+                        "text-muted hover:text-primary cursor-pointer shrink-0 rounded-control disabled:opacity-60 disabled:cursor-not-allowed",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         size === "large" ? "text-body" : "text-caption"
                       )}
                     >
@@ -193,19 +193,21 @@ export function BroadcastOverlay({
                     </button>
                   )}
                   {!message.persistent && showDisabledDismiss && (
-                    <MaybeTooltip when content="Only the event owner can dismiss this.">
-                      <button
-                        type="button"
-                        disabled
-                        aria-label="Dismiss (only the event owner can dismiss this)"
-                        className={cn(
-                          "text-muted-2 shrink-0 cursor-not-allowed opacity-60",
-                          size === "large" ? "text-body" : "text-caption"
-                        )}
-                      >
-                        Dismiss
-                      </button>
-                    </MaybeTooltip>
+                    // Not a disabled <button>: a disabled element is removed
+                    // from the tab order and never fires focus, so wrapping
+                    // one in MaybeTooltip (hover/focus-triggered) left sighted
+                    // keyboard users with no way to discover the reason —
+                    // Codex B003 review (B003-S3). Plain always-visible text
+                    // is legible to sighted keyboard users and screen readers
+                    // alike without pretending a control is operable.
+                    <span
+                      className={cn(
+                        "text-muted-2 shrink-0 text-right",
+                        size === "large" ? "text-body" : "text-caption"
+                      )}
+                    >
+                      Only the owner can dismiss
+                    </span>
                   )}
                 </motion.div>
               );
