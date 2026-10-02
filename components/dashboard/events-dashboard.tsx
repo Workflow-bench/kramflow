@@ -90,6 +90,9 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
         return;
       }
       setEvents((prev) => [{ ...data.event!, role: "owner", sessionCount: 0, itemCount: 0, isLive: false }, ...prev]);
+      // The header's event count is rendered by the server component above
+      // this one; re-run it so the two counts never disagree.
+      router.refresh();
     } catch {
       toast.error("Couldn't reach the server.");
     } finally {
@@ -108,6 +111,7 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
         return;
       }
       setEvents((prev) => prev.filter((e) => e.id !== deleteTarget.id));
+      router.refresh();
       toast.success("Event deleted.");
       setDeleteTarget(null);
     } catch {
@@ -178,8 +182,17 @@ export function EventsDashboard({ initialEvents }: { initialEvents: EventSummary
           // how ready is it, get me in" — the same shape as a queue item,
           // just at the event level instead of the cue level.
           <div className="flex flex-col">
-            {sortedEvents.map((event) => (
-              <EventRow key={event.id} event={event} onRequestDelete={() => setDeleteTarget(event)} />
+            {sortedEvents.map((event, i) => (
+              // Staggered entrance, CSS only: `backwards` fill keeps each row
+              // hidden through its own delay. Capped so a long list never
+              // makes anyone wait. Collapsed by the reduced-motion rule.
+              <div
+                key={event.id}
+                className="animate-rise [animation-fill-mode:backwards]"
+                style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}
+              >
+                <EventRow event={event} onRequestDelete={() => setDeleteTarget(event)} />
+              </div>
             ))}
           </div>
         )}

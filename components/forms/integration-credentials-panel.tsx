@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Copy, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { SectionLabel } from "@/components/ui/section-label";
 import { useIsOwner } from "@/lib/event-context";
@@ -55,6 +56,10 @@ export function IntegrationCredentialsPanel({ eventId }: { eventId: string }) {
       setLoading(false);
     }
   }
+
+  // Revoking cannot be undone and cuts off whatever is using the token, so it
+  // asks first, like every other irreversible delete in the app.
+  const revokeConfirm = useConfirmDialog<{ id: string; label: string }>();
 
   async function revoke(id: string) {
     const res = await fetch(`/api/events/${eventId}/integrations/${id}`, { method: "DELETE" });
@@ -131,7 +136,7 @@ export function IntegrationCredentialsPanel({ eventId }: { eventId: string }) {
                   variant="ghost"
                   square
                   disabled={!isOwner}
-                  onClick={() => revoke(credential.id)}
+                  onClick={() => revokeConfirm.request({ id: credential.id, label: credential.label })}
                   aria-label={`Revoke ${credential.label}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
@@ -141,6 +146,19 @@ export function IntegrationCredentialsPanel({ eventId }: { eventId: string }) {
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={revokeConfirm.isOpen}
+        title={`Revoke "${revokeConfirm.pending?.label}"?`}
+        description="Anything using this token stops working immediately. This can't be undone; create a new credential to reconnect."
+        confirmLabel="Revoke"
+        tone="danger"
+        onConfirm={() => {
+          if (revokeConfirm.pending) revoke(revokeConfirm.pending.id);
+          revokeConfirm.cancel();
+        }}
+        onCancel={revokeConfirm.cancel}
+      />
     </div>
   );
 }

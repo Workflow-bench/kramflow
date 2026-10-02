@@ -85,7 +85,7 @@ function LoginForm() {
 
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
-      <div className="flex flex-col items-center w-full max-w-sm">
+      <div className="flex flex-col items-center w-full max-w-sm animate-rise">
         {/* The one recovery path missing from this page for anyone who
             landed here by accident or a stray bookmark — there was
             previously no way back to the public site short of editing the

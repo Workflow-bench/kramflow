@@ -927,6 +927,8 @@ export function useDisplayEngine() {
   const subscribeFn = useMemo(() => (callback: () => void) => subscribe(inst, callback), [inst]);
   const getSnapshotFn = useMemo(() => () => inst.cachedState, [inst]);
   const state = useSyncExternalStore(subscribeFn, getSnapshotFn, getServerSnapshot);
+  // Only operator identities carry an eventId; token-based displays never send.
+  const refreshBroadcasts = () => (identity.eventId ? fetchBroadcastsSlice(inst, identity.eventId) : undefined);
   return {
     state,
     clientId,
@@ -953,10 +955,15 @@ export function useDisplayEngine() {
     setTimerThresholds: (thresholds: TimerThresholds) => setTimerThresholds(identity, thresholds),
     activateHold: (input: { message: string; subMessage: string | null; continueClock: boolean }) => activateHold(identity, input),
     deactivateHold: () => deactivateHold(identity),
-    sendBroadcast: (draft: BroadcastDraft) => sendBroadcast(identity, draft),
-    scheduleBroadcast: (draft: BroadcastDraft, scheduledFor: string) => scheduleBroadcast(identity, draft, scheduledFor),
-    cancelScheduled: (id: string) => cancelScheduled(identity, id),
-    dismissBroadcast: (id: string) => dismissBroadcast(identity, id),
+    // Each of these re-reads the broadcast rows once the server has answered.
+    // The Broadcast Center used to keep showing "No broadcasts sent yet" (or an
+    // already-dismissed banner as ACTIVE) until a page reload whenever the
+    // realtime push was slow to arrive.
+    sendBroadcast: (draft: BroadcastDraft) => sendBroadcast(identity, draft).finally(refreshBroadcasts),
+    scheduleBroadcast: (draft: BroadcastDraft, scheduledFor: string) =>
+      scheduleBroadcast(identity, draft, scheduledFor).finally(refreshBroadcasts),
+    cancelScheduled: (id: string) => cancelScheduled(identity, id).finally(refreshBroadcasts),
+    dismissBroadcast: (id: string) => dismissBroadcast(identity, id).finally(refreshBroadcasts),
     acknowledgeBroadcast: (id: string, displayId: string) => acknowledgeBroadcast(identity, id, displayId),
     clearEmergencies: () => clearEmergencies(identity, inst),
     saveTemplate,

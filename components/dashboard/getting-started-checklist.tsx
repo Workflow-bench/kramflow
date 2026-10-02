@@ -113,7 +113,7 @@ export function GettingStartedChecklist({ events }: { events: EventSummary[] }) 
         <ChecklistRow n={1} label="Create your first event" done={hasEvent} hint="Use the field above" />
         <ChecklistRow
           n={2}
-          label="Add a section"
+          label="Add a session"
           done={hasSession}
           href={hasEvent && !hasSession ? cueSheetHref : undefined}
           hint={!hasEvent ? "Create an event first" : undefined}
@@ -123,7 +123,7 @@ export function GettingStartedChecklist({ events }: { events: EventSummary[] }) 
           label="Add your first queue item"
           done={hasItem}
           href={hasEvent && hasSession && !hasItem ? cueSheetHref : undefined}
-          hint={!hasEvent || !hasSession ? "Add a section first" : undefined}
+          hint={!hasEvent || !hasSession ? "Add a session first" : undefined}
         />
       </ol>
     </Panel>

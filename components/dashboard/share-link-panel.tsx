@@ -224,13 +224,17 @@ export function ShareLinkPanel({
         {[...activeLinks, ...inactiveLinks].map((link) => {
           const status = linkStatus(link, now);
           const url = `${origin}/screens?token=${link.token}`;
-          const expanded = expandedId === link.id;
+          // With a single link there is nothing to choose between, so show its
+          // URL, QR and TV code straight away instead of behind a click.
+          // expandedId is null until the operator touches it, and "" once they
+          // have collapsed everything on purpose.
+          const expanded = expandedId === null ? (links?.length ?? 0) === 1 : expandedId === link.id;
           return (
             <div key={link.id} className="rounded-control border border-line-soft bg-raised/40">
               <button
                 type="button"
                 onClick={() => {
-                  setExpandedId(expanded ? null : link.id);
+                  setExpandedId(expanded ? "" : link.id);
                   setDirectQrRoute(null);
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"

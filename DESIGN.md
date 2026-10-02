@@ -566,3 +566,41 @@ navigation. A new component or variant should be added there before, or
 as part of, being used in a product surface. The Brand system
 (`components/site/`) has no equivalent catalog yet — flagged, not built
 here.
+
+
+## v4.1 landing motion pass (branch `ui-revamp`)
+
+The landing page gained a layered motion vocabulary in `components/site/motion.tsx`: word-by-word blur headline,
+scroll-linked hero tilt, floating status chips, cursor-lit hero grid, magnetic CTAs, scroll-reveal, count-up figures,
+a capability marquee, a draggable before/after slider, a hairline feature grid of looping mini previews with cursor
+spotlight, an inverted trust section, and a drifting-grid closing CTA. Still dark-only. Rules that came out of it:
+
+- Every primitive reads `useReduced()` (server snapshot `false`, so hydration matches) and entrances wait on
+  `useHydrated()`. Reduced motion means zero-duration transitions and flat scroll ranges, never a different DOM tree.
+- Demos reserve their final size; loops run only on screen and hold the finished frame under reduced motion.
+- Social card is `app/opengraph-image.tsx`; favicon set is `app/icon.svg`, `app/favicon.ico`, `app/apple-icon.png`.
+
+## v4.2 post-login pass (branch `ui-revamp`)
+
+Driven by `docs/UI-AUDIT.md`. What changed in the operator product, so the doc matches the code:
+
+- **Navigation is verbs in workflow order:** Plan (Cue Sheet), Run (Console), Displays, Settings.
+  Screens and Broadcast are one tab with a two-way switch (`DisplaysSubnav`). Routes are unchanged.
+  Cmd-K labels read "Plan (Cue Sheet)" and "Run (Console)".
+- **"Log out", not "Lock".** The padlock button always signed the user out; it is now labelled and iconed that way
+  in every event header, Remote, and Cmd-K.
+- **Starting a show takes control in the same step.** `useSelectSession` claims control, then selects, and reports
+  any failure. The empty Console offers one button per session (`StartShowPrompt`).
+- **Start times live on sections.** A session's start time field creates or updates its section
+  (`POST /api/partitions`); new items default into a session's only section.
+- **Forms disclose progressively.** Add Item shows name, type, session, section, presenter and timing; the rest is
+  under "More details", which opens by itself when editing an item that uses it.
+- **Destructive actions follow one rule.** Reversible deletes (cue-sheet items) use an Undo toast; anything
+  irreversible confirms (events need the typed name; sessions, profiles, auditoriums, invites, API credentials
+  use `ConfirmDialog`).
+- **Lists refresh after their own actions** (Broadcast history, dashboard event count) instead of waiting for a
+  realtime push or a reload.
+- `/dev/*` is a 404 in production; logged-out `/set-password` redirects to `/login`.
+
+Known drift: the product captures in `public/product/` (and so the landing page) still show the old nav labels
+(Console, Cue Sheet). Re-run `npm run capture:product` against a seeded project to refresh them.

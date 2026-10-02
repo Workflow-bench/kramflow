@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Copy, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, X, Copy, RefreshCw, Trash2, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -111,6 +111,8 @@ export function EventSettingsPanel({
   const [savingDetails, setSavingDetails] = useState(false);
   const [newAuditorium, setNewAuditorium] = useState("");
   const [addingAuditorium, setAddingAuditorium] = useState(false);
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const auditoriumDeleteConfirm = useConfirmDialog<{ id: string; name: string }>();
   const tzOptions = useMemo(() => timezoneOptions(), []);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   // Distinct from "loaded, zero rows" — a bare .catch(() => {}) would
@@ -301,6 +303,32 @@ export function EventSettingsPanel({
     }
   }
 
+  async function handleRenameAuditorium() {
+    if (!renaming || !renaming.name.trim()) return;
+    const res = await fetch(`/api/auditoriums/${renaming.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventId, name: renaming.name.trim() }),
+    });
+    if (!res.ok) {
+      toast.error("Couldn't rename the auditorium");
+      return;
+    }
+    setRenaming(null);
+    onAuditoriumsChanged();
+    toast.success("Auditorium renamed");
+  }
+
+  async function handleDeleteAuditorium(id: string) {
+    const res = await fetch(`/api/auditoriums/${id}?eventId=${encodeURIComponent(eventId)}`, { method: "DELETE" });
+    if (!res.ok) {
+      toast.error("Couldn't delete the auditorium");
+      return;
+    }
+    onAuditoriumsChanged();
+    toast.success("Auditorium deleted");
+  }
+
   async function handleAddAuditorium(e: React.FormEvent) {
     e.preventDefault();
     if (!newAuditorium.trim() || !canAddAuditorium) return;
@@ -403,8 +431,56 @@ export function EventSettingsPanel({
           {auditoriums.length > 0 ? (
             <ul className="flex flex-col">
               {auditoriums.map((a) => (
-                <li key={a.id} className="text-console-sm text-primary px-1 py-2.5 border-b border-line-soft">
-                  {a.name}
+                <li key={a.id} className="flex items-center gap-2 text-console-sm text-primary px-1 py-2 border-b border-line-soft">
+                  {renaming?.id === a.id ? (
+                    <form
+                      className="flex flex-1 items-center gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleRenameAuditorium();
+                      }}
+                    >
+                      <Input
+                        autoFocus
+                        value={renaming.name}
+                        onChange={(e) => setRenaming({ id: a.id, name: e.target.value })}
+                        aria-label={`Rename ${a.name}`}
+                        className="flex-1"
+                      />
+                      <Button type="submit" variant="primary" size="sm" disabled={!renaming.name.trim()}>
+                        Save
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setRenaming(null)}>
+                        Cancel
+                      </Button>
+                    </form>
+                  ) : (
+                    <>
+                      <span className="flex-1 truncate">{a.name}</span>
+                      {canAddAuditorium && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            square
+                            aria-label={`Rename ${a.name}`}
+                            onClick={() => setRenaming({ id: a.id, name: a.name })}
+                          >
+                            <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            square
+                            aria-label={`Delete ${a.name}`}
+                            onClick={() => auditoriumDeleteConfirm.request({ id: a.id, name: a.name })}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                          </Button>
+                        </>
+                      )}
+                    </>
+                  )}
                 </li>
               ))}
             </ul>
@@ -582,6 +658,18 @@ export function EventSettingsPanel({
         </div>
       )}
 
+      <ConfirmDialog
+        open={auditoriumDeleteConfirm.isOpen}
+        title={`Delete "${auditoriumDeleteConfirm.pending?.name}"?`}
+        description="Items in this auditorium keep everything else and just lose the auditorium link. This can't be undone."
+        confirmLabel="Delete Auditorium"
+        tone="danger"
+        onConfirm={() => {
+          if (auditoriumDeleteConfirm.pending) handleDeleteAuditorium(auditoriumDeleteConfirm.pending.id);
+          auditoriumDeleteConfirm.cancel();
+        }}
+        onCancel={auditoriumDeleteConfirm.cancel}
+      />
       <ConfirmDialog
         open={deleteEventOpen}
         title={`Delete "${initialDetails.name || name}"?`}
