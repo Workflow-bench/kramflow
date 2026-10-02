@@ -90,6 +90,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(setPasswordUrl);
   }
 
+  // /set-password only makes sense mid-invite, with a session. Logged out, it
+  // rendered "You're logged in with a temporary password" to a stranger.
+  if (pathname === "/set-password" && !user) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
   const isOperatorRoute = OPERATOR_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`));
   const isDisplayRoute = DISPLAY_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`));
 

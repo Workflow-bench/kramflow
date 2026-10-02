@@ -106,8 +106,8 @@ export function CommandPalette() {
       // list meant abandoning the keyboard for EventIdentity's "All
       // events" link. Same LayoutGrid icon that link already uses.
       { id: "dashboard", label: "All events", icon: <LayoutGrid className="h-4 w-4" strokeWidth={2} />, run: nav("/dashboard") },
-      { id: "console", label: "Console", icon: <Gauge className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/operator`) },
-      { id: "cue-sheet", label: "Cue Sheet", icon: <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/operator/cue-sheet`) },
+      { id: "console", label: "Run (Console)", icon: <Gauge className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/operator`) },
+      { id: "cue-sheet", label: "Plan (Cue Sheet)", icon: <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/operator/cue-sheet`) },
       { id: "displays", label: "Displays", icon: <MonitorPlay className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/displays`) },
       { id: "settings", label: "Settings", icon: <SettingsIcon className="h-4 w-4" strokeWidth={2} />, run: nav(`/e/${eventId}/settings`) },
       // Phase 7g: was a local DISPLAY_COMMAND_ICON map that gave AV and
@@ -141,7 +141,7 @@ export function CommandPalette() {
       },
     }));
     const utilityCommands: Command[] = [
-      { id: "lock", label: "Lock", hint: "Sign out of the operator PIN", icon: <Lock className="h-4 w-4" strokeWidth={2} />, run: () => { lock(); setOpen(false); } },
+      { id: "lock", label: "Log out", hint: "End this session", icon: <Lock className="h-4 w-4" strokeWidth={2} />, run: () => { lock(); setOpen(false); } },
     ];
     return [...routes, ...sessionCommands, ...utilityCommands];
   }, [sessions, router, selectSession, lock, eventId]);

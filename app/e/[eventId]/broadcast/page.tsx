@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { AlertTriangle, Copy, Send, Sparkles, Star, Trash2, X } from "lucide-react";
 import { useIsOwner } from "@/lib/event-context";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
+import { DisplaysSubnav } from "@/components/operator/displays-subnav";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
 import { getDisplayStatus, type DisplayHealth } from "@/lib/display-engine/use-register-display";
 import type { TransportStatus } from "@/lib/display-engine/transport";
@@ -341,6 +342,7 @@ export default function BroadcastCenterPage() {
   return (
     <main className="min-h-screen bg-background">
       <EventShellHeader title="Broadcast Center" connectionStatus={toConnectionStatus(transportStatus)} />
+      <DisplaysSubnav />
 
       {/* Phase 7e: bounded workspace width (max-w-6xl), matching the capped
           measure Dashboard/Console/Cue Sheet already use for their own
@@ -695,7 +697,10 @@ export default function BroadcastCenterPage() {
                   <Button
                     variant="secondary"
                     onClick={() => {
-                      if (!draft.title.trim()) return;
+                      if (!draft.title.trim()) {
+                        toast.error("Add a title first.");
+                        return;
+                      }
                       saveDraft(draft);
                       toast.success("Draft saved");
                     }}
@@ -705,7 +710,10 @@ export default function BroadcastCenterPage() {
                   <Button
                     variant="secondary"
                     onClick={() => {
-                      if (!draft.title.trim()) return;
+                      if (!draft.title.trim()) {
+                        toast.error("Add a title first.");
+                        return;
+                      }
                       saveTemplate(draft.title, draft);
                       toast.success("Template saved");
                     }}
@@ -713,6 +721,9 @@ export default function BroadcastCenterPage() {
                     Save as Template
                   </Button>
                 </div>
+                {!readOnly && !draft.title.trim() && (
+                  <p className="text-console-meta text-muted-2">Add a title to send, schedule or save.</p>
+                )}
               </div>
             </div>
 

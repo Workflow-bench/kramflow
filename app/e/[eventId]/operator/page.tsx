@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, FileSpreadsheet, FlaskConical, Users } from "lucide-react";
+import { ChevronDown, FlaskConical, Users } from "lucide-react";
 import { useEventStore, useConnectionStatus } from "@/lib/store";
 import { useSessions, useSessionsLoading } from "@/lib/use-sessions";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -22,7 +22,7 @@ import { ProgressFooter } from "@/components/ui/progress-footer";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import { StartShowPrompt } from "@/components/operator/start-show-prompt";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
@@ -137,17 +137,7 @@ export default function OperatorPage() {
         />
       ) : (
         <div className="flex-1 flex items-center justify-center px-4 sm:px-6 xl:px-12 py-16">
-          <EmptyState
-            title={sessions.length === 0 ? "No sessions yet." : "Select a session to get started."}
-            action={
-              sessions.length === 0 && (
-                <LinkButton href={`/e/${eventId}/operator/cue-sheet`} variant="primary" size="sm">
-                  <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />
-                  Go to Cue Sheet
-                </LinkButton>
-              )
-            }
-          />
+          <StartShowPrompt />
         </div>
       )}
 

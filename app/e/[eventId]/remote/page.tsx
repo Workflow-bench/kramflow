@@ -11,7 +11,7 @@ import {
   Hash,
   X,
   Send,
-  Lock,
+  LogOut,
   Megaphone,
   CheckCircle2,
   Circle,
@@ -296,8 +296,8 @@ export default function RemotePage() {
                 UI/UX audit finding #15). Negative margin keeps the visual
                 footprint from widening the header row now that the hit
                 area is bigger than the icon it wraps. */}
-            <Button type="button" variant="ghost" size="sm" square onClick={lock} aria-label="Lock" className="h-11 w-11 -mr-1.5 -my-1.5">
-              <Lock className="h-4 w-4" strokeWidth={2} />
+            <Button type="button" variant="ghost" size="sm" square onClick={lock} aria-label="Log out" className="h-11 w-11 -mr-1.5 -my-1.5">
+              <LogOut className="h-4 w-4" strokeWidth={2} />
             </Button>
           </div>
         </div>

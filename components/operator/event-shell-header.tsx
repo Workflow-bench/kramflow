@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock as LockIcon } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-context";
 import { EventIdentity } from "@/components/operator/event-identity";
 import { EventNav } from "@/components/operator/event-nav";
@@ -92,9 +92,9 @@ export function EventShellHeader({
           </div>
           {actions}
           <EventNav />
-          <Tooltip content="Lock">
-            <Button variant="ghost" size="sm" square onClick={lock} aria-label="Lock">
-              <LockIcon className="h-4 w-4" strokeWidth={2} />
+          <Tooltip content="Log out">
+            <Button variant="ghost" size="sm" square onClick={lock} aria-label="Log out">
+              <LogOut className="h-4 w-4" strokeWidth={2} />
             </Button>
           </Tooltip>
         </div>

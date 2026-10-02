@@ -4,14 +4,46 @@ import { useEffect, useRef, useState } from "react";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventStore } from "@/lib/store";
 import { useControlLock } from "@/lib/use-control-lock";
+import { useEventRole } from "@/lib/event-context";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
-export function SessionSwitcher() {
+/**
+ * Picks a session as the live one. Every sequencing action, this one
+ * included, needs an active control claim (see LOCKED_ACTIONS in
+ * app/api/live/route.ts). On a fresh event nobody holds the claim yet and the
+ * Take Control button only exists once a session is chosen, so a bare
+ * selectSession() failed with a silent 423 and the show could never start.
+ * This claims control first when nobody else holds it, and says so when
+ * anything fails.
+ */
+export function useSelectSession() {
   const { state, selectSession, claimControl } = useEventStore();
-  const { lockedByOther } = useControlLock(state);
+  const { iHaveControl, lockedByOther } = useControlLock(state);
+  const role = useEventRole();
   const toast = useToast();
+
+  return async function trySelectSession(sessionId: string) {
+    if (role !== "owner") {
+      toast.error("Only the event owner can run the show.");
+      return;
+    }
+    if (lockedByOther) {
+      toast.error("Locked by another operator", { label: "Take Over", onClick: () => claimControl(true) });
+      return;
+    }
+    if (!iHaveControl && !(await claimControl())) {
+      toast.error("Couldn't take control. Try again.");
+      return;
+    }
+    if (!(await selectSession(sessionId))) toast.error("Couldn't switch session. Try again.");
+  };
+}
+
+export function SessionSwitcher() {
+  const { state } = useEventStore();
+  const trySelectSession = useSelectSession();
   const sessions = useSessions();
   const switchConfirm = useConfirmDialog<{ id: string; label: string }>();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -36,19 +68,11 @@ export function SessionSwitcher() {
     };
   }, [sessions.length]);
 
-  const currentSessionHasProgress = state.progressBySession[state.activeSessionId]?.currentOrder !== null;
-
-  // selectSession is one of app/api/live/route.ts's LOCKED_ACTIONS — switching
-  // the active session out from under whoever holds the control lock is
-  // exactly the kind of clobber it exists to prevent. Same escape hatch as
-  // components/operator/controls-panel.tsx's sequencing buttons.
-  function trySelectSession(sessionId: string) {
-    if (lockedByOther) {
-      toast.error("Locked by another operator", { label: "Take Over", onClick: () => claimControl(true) });
-      return;
-    }
-    selectSession(sessionId);
-  }
+  // `?.currentOrder !== null` is true when there is no active session at all
+  // (undefined !== null), which made a fresh event claim "the current session
+  // has already started". Progress exists only when an entry is present.
+  const activeProgress = state.progressBySession[state.activeSessionId];
+  const currentSessionHasProgress = activeProgress != null && activeProgress.currentOrder !== null;
 
   function handleClick(sessionId: string, label: string) {
     if (sessionId === state.activeSessionId) return;

@@ -29,8 +29,8 @@ function destinationFor(pathname: string): Destination {
 // See DESIGN.md's canonical destination-icon table — this is the one
 // entry that changed; every other destination was already consistent.
 const TABS: { id: Destination; label: string; path: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }[] = [
-  { id: "console", label: "Console", path: "/operator", icon: Gauge },
-  { id: "cue-sheet", label: "Cue Sheet", path: "/operator/cue-sheet", icon: FileSpreadsheet },
+  { id: "cue-sheet", label: "Plan", path: "/operator/cue-sheet", icon: FileSpreadsheet },
+  { id: "console", label: "Run", path: "/operator", icon: Gauge },
   { id: "displays", label: "Displays", path: "/displays", icon: MonitorPlay },
   { id: "settings", label: "Settings", path: "/settings", icon: SettingsIcon },
 ];

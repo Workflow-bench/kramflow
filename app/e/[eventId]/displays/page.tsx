@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, ChevronDown, ChevronUp, Eye, Link2, Maximize, Megaphone, RotateCw, Send, Trash2, X } from "lucide-react";
+import { Camera, ChevronDown, ChevronUp, Eye, Link2, Maximize, RotateCw, Send, Trash2, X } from "lucide-react";
 import { useEventId, useIsOwner } from "@/lib/event-context";
 import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
 import { getDisplayStatus, type DisplayHealth } from "@/lib/display-engine/use-register-display";
@@ -9,6 +9,7 @@ import type { TransportStatus } from "@/lib/display-engine/transport";
 import { DISPLAY_TYPES, type DisplayInstance, type DisplayType } from "@/lib/display-engine/types";
 import { DISPLAY_TYPE_META } from "@/lib/display-engine/display-meta";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
+import { DisplaysSubnav } from "@/components/operator/displays-subnav";
 import { ShareLinkPanel } from "@/components/dashboard/share-link-panel";
 import { DisplayProfilePanel, type DisplayProfilePanelHandle } from "@/components/operator/display-profile-panel";
 import { CustomDisplayPreviewMenu } from "@/components/operator/custom-display-preview-menu";
@@ -268,6 +269,7 @@ export default function DisplayManagerPage() {
   return (
     <main className="min-h-screen bg-background">
       <EventShellHeader title="Displays" connectionStatus={toConnectionStatus(transportStatus)} />
+      <DisplaysSubnav />
 
       <div className="px-4 sm:px-6 xl:px-12 py-8">
         <SectionLabel>Preview a display</SectionLabel>
@@ -318,18 +320,6 @@ export default function DisplayManagerPage() {
               <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
               Manage Links
             </Button>
-          </div>
-          <div className="flex items-center justify-between gap-4 flex-wrap py-3 border-b border-line-soft">
-            <div className="flex items-center gap-3 min-w-0">
-              <Megaphone className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
-              <div className="min-w-0">
-                <p className="text-console-sm text-primary">Broadcast Center</p>
-                <p className="text-console-meta text-muted-2">Push alerts, reminders, and emergency overrides to every display.</p>
-              </div>
-            </div>
-            <LinkButton href={`/e/${eventId}/broadcast`} className="shrink-0" variant="secondary" size="sm">
-              Open Broadcast Center
-            </LinkButton>
           </div>
           <DisplayProfilePanel ref={profilePanelRef} eventId={eventId} isOwner={isOwner} onChange={reloadProfileOptions} />
         </div>
