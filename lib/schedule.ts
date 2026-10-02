@@ -19,6 +19,20 @@ export function parseTimeLabel(label: string | null): number | null {
   return hours * 60 + minutes;
 }
 
+/**
+ * Validates and normalises a start time typed into a form. Blank means "no
+ * start time" (null); anything else must parse as "H:MM AM/PM" and comes back
+ * in the canonical label format, so "9:00am" style input is rejected and
+ * "09:00 am" becomes "9:00 AM".
+ */
+export function normalizeStartTime(input: string): { ok: true; label: string | null } | { ok: false } {
+  const trimmed = input.trim();
+  if (!trimmed) return { ok: true, label: null };
+  const minutes = parseTimeLabel(trimmed);
+  if (minutes === null) return { ok: false };
+  return { ok: true, label: formatMinutesToLabel(minutes) };
+}
+
 export function formatMinutesToLabel(totalMinutes: number): string {
   const wrapped = ((totalMinutes % 1440) + 1440) % 1440;
   let hours = Math.floor(wrapped / 60);

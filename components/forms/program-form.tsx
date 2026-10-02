@@ -17,6 +17,9 @@ import { useItemEditingPresence } from "@/lib/use-item-editing-presence";
 import { parseTimeLabel, formatMinutesToLabel } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 
+// The fields a quick add needs. Everything else sits under "More details".
+const ESSENTIAL_KEYS = new Set(["name", "type", "sessionId", "partitionId", "presenter", "startTime", "endTime", "duration"]);
+
 const EMPTY: ProgramInput = {
   sessionId: "",
   sectionLabel: null,
@@ -116,10 +119,21 @@ export function ProgramForm({
   onCancel,
   onDirtyChange,
 }: ProgramFormProps) {
-  const [values, setValues] = useState<ProgramInput>({ ...EMPTY, ...initial, sessionId });
+  // A new item lands in the session's only section, if it has exactly one, so
+  // it picks up a scheduled time without the operator having to know that
+  // times hang off sections. Edits keep whatever the item already has.
+  const soleSectionId = !programId && partitionsBySession[sessionId]?.length === 1 ? partitionsBySession[sessionId][0].id : null;
+  const [values, setValues] = useState<ProgramInput>({
+    ...EMPTY,
+    ...initial,
+    sessionId,
+    partitionId: initial?.partitionId ?? soleSectionId,
+  });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  // null = not toggled yet, so the default (open only when editing an item that uses extras) applies
+  const [moreOpen, setMoreOpen] = useState<boolean | null>(null);
   // Report finding #36 — proactive half of the concurrent-editing warning;
   // the reactive half (a 409 on Save if someone else's edit already landed)
   // already existed below. null for a brand-new item (programId undefined)
@@ -261,25 +275,16 @@ export function ProgramForm({
 
   const auditoriumSet = Boolean(values.auditoriumId);
 
-  return (
-    // h-full so the scrollable region below can size itself against the
-    // Modal's own bounded height (Modal renders this with scrollBody=false
-    // — see its doc comment for why the footer can't just live inside a
-    // sticky-positioned div in the scrolling region below).
-    <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col">
-    <div className="flex flex-1 min-h-0 flex-col gap-8 overflow-y-auto px-6 pb-6">
-      {othersEditing && (
-        <div
-          role="status"
-          className="flex items-center gap-2.5 rounded-panel border border-status-orange/30 bg-status-orange/10 px-4 py-3 text-console-sm text-status-orange"
-        >
-          <Users className="h-4 w-4 shrink-0" strokeWidth={2} />
-          Another operator has this item open right now. If you both save, whoever saves second will be asked to
-          reload and redo their changes.
-        </div>
-      )}
-      {GROUP_ORDER.map((group) => {
-        const fields = visibleFields.filter((f) => f.group === group);
+  const extraFieldCount = visibleFields.filter((f) => !ESSENTIAL_KEYS.has(f.key)).length;
+  const usesExtras = Boolean(
+    values.description || values.presenterContact || values.presenterRequirement || values.auditoriumId || values.remarks || values.colorTag
+  );
+  const extrasHaveError = Object.keys(errors).some((k) => k !== "form" && !ESSENTIAL_KEYS.has(k));
+  const showMore = (moreOpen ?? (Boolean(programId) && usesExtras)) || extrasHaveError;
+
+  const renderGroups = (include: (f: (typeof visibleFields)[number]) => boolean) =>
+    GROUP_ORDER.map((group) => {
+        const fields = visibleFields.filter((f) => f.group === group && include(f));
         if (fields.length === 0) return null;
 
         // Layer 3 of the disclosure grammar: "Production" splits into the
@@ -407,7 +412,52 @@ export function ProgramForm({
             </div>
           </section>
         );
-      })}
+      });
+
+
+  return (
+    // h-full so the scrollable region below can size itself against the
+    // Modal's own bounded height (Modal renders this with scrollBody=false
+    // — see its doc comment for why the footer can't just live inside a
+    // sticky-positioned div in the scrolling region below).
+    <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col">
+    <div className="flex flex-1 min-h-0 flex-col gap-8 overflow-y-auto px-6 pb-6">
+      {othersEditing && (
+        <div
+          role="status"
+          className="flex items-center gap-2.5 rounded-panel border border-status-orange/30 bg-status-orange/10 px-4 py-3 text-console-sm text-status-orange"
+        >
+          <Users className="h-4 w-4 shrink-0" strokeWidth={2} />
+          Another operator has this item open right now. If you both save, whoever saves second will be asked to
+          reload and redo their changes.
+        </div>
+      )}
+      {renderGroups((f) => ESSENTIAL_KEYS.has(f.key))}
+
+      {/* Everything an item can carry beyond name, presenter and timing lives
+          behind one control, so a quick add is five fields, not thirty. It
+          opens by itself when editing an item that already uses any of it,
+          or when a validation error sits inside it. */}
+      {extraFieldCount > 0 && (
+        <div className="rounded-panel border border-line-soft">
+          <button
+            type="button"
+            onClick={() => setMoreOpen(!showMore)}
+            aria-expanded={showMore}
+            aria-controls="program-form-more"
+            className="w-full flex items-center gap-2 px-4 py-3 text-left text-console-sm text-muted cursor-pointer hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <ChevronRight className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-[180ms]", showMore && "rotate-90")} strokeWidth={2} />
+            More details
+            <span className="text-console-meta text-muted-2">description, status, contact, production, remarks</span>
+          </button>
+          {showMore && (
+            <div id="program-form-more" className="flex flex-col gap-8 border-t border-line-soft px-4 py-5">
+              {renderGroups((f) => !ESSENTIAL_KEYS.has(f.key))}
+            </div>
+          )}
+        </div>
+      )}
 
       {errors.form && (
         <p role="alert" className="text-console-meta text-status-red">
