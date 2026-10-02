@@ -396,6 +396,65 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Landing: the cue-light open. A cover holds a STANDBY light, flips to GO,
+   then lifts. Total 1.25s; the hero's entrances are timed to start behind it.
+   Everything here is off under reduced motion (see the block below). */
+.standby-cover {
+  animation: standby-lift 0.6s cubic-bezier(0.7, 0, 0.2, 1) 0.85s forwards;
+}
+.standby-light {
+  background: var(--color-orange);
+  box-shadow: 0 0 18px var(--color-orange);
+  animation: standby-light 0.85s steps(1, end) forwards;
+}
+.standby-word-a {
+  animation: standby-a 0.85s steps(1, end) forwards;
+}
+.standby-word-b {
+  opacity: 0;
+  animation: standby-b 0.85s steps(1, end) forwards;
+}
+@keyframes standby-light {
+  0% {
+    background: var(--color-orange);
+    box-shadow: 0 0 18px var(--color-orange);
+  }
+  55%,
+  100% {
+    background: var(--color-green);
+    box-shadow: 0 0 22px var(--color-green);
+  }
+}
+@keyframes standby-a {
+  0% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes standby-b {
+  0% {
+    opacity: 0;
+  }
+  55%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes standby-lift {
+  to {
+    transform: translateY(-100%);
+    visibility: hidden;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .standby-cover {
+    display: none;
+  }
+}
+
 /* TV safe area — a fixed 48-64px margin, not a proportion of the screen.
    Full-bleed background, content clear of consumer-TV overscan. */
 .tv-safe-area {

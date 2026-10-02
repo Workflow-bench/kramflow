@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, IBM_Plex_Mono, Archivo } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
 import { MotionPreferences } from "@/components/motion-preferences";
@@ -41,12 +41,15 @@ const TITLE = "KramFlow";
 const DESCRIPTION =
   "KramFlow is a live-event operating system for coordinating stage managers, AV operators, and performers across TV displays and mobile control.";
 
-// Phase 8 flagged metadataBase/canonical as absent because no production
-// domain was confirmed to exist yet. Phase 5 confirmed www.kramflow.me is
-// live, so this fills that gap. og:image is still intentionally omitted —
-// no designed 1200x630 social-card asset exists in this repo, and inventing
-// one would be exactly the fabricated brand asset both passes were told not
-// to create.
+// metadataBase/canonical: www.kramflow.me is live. og:image and
+// twitter:image come from app/opengraph-image.tsx (1200x630, typographic,
+// set in the product's own graphite and live green); the favicon set is
+// app/icon.svg, app/favicon.ico and app/apple-icon.png.
+export const viewport: Viewport = {
+  themeColor: "#0c0b09",
+  colorScheme: "dark",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.kramflow.me"),
   title: {
@@ -54,6 +57,8 @@ export const metadata: Metadata = {
     template: "%s · KramFlow",
   },
   description: DESCRIPTION,
+  applicationName: TITLE,
+  keywords: ["run of show", "cue sheet", "stage manager", "live event", "confidence monitor", "event production"],
   alternates: {
     canonical: "/",
   },
@@ -65,7 +70,7 @@ export const metadata: Metadata = {
     url: "/",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
   },

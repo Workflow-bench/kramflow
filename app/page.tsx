@@ -1,9 +1,9 @@
 import { Navbar } from "@/components/site/navbar";
 import { HeroSection } from "@/components/site/hero-section";
+import { PlayableShow } from "@/components/site/playable-show";
+import { CallSheet } from "@/components/site/call-sheet";
+import { StandbyOverlay } from "@/components/site/standby-overlay";
 import { OneCueSection } from "@/components/site/one-cue-section";
-import { RoomSection } from "@/components/site/room-section";
-import { ProblemSection } from "@/components/site/problem-section";
-import { SurfacesSection } from "@/components/site/surfaces-section";
 import { LiveOperationsSection } from "@/components/site/live-operations-section";
 import { CTASection } from "@/components/site/cta-section";
 import { Footer } from "@/components/site/footer";
@@ -25,12 +25,11 @@ import { Footer } from "@/components/site/footer";
 // heading, paragraph, cards" is what made the earlier page read as
 // generated no matter how correct it was:
 //
-//   Hero            full viewport; type set on the console itself
-//   Problem         quiet and editorial, answered by the cue sheet
+//   Hero            full viewport; opens on a STANDBY/GO cue light, headline rises line by line
 //   One cue         pinned cinematic sequence — one cue propagating
-//   Surfaces        one stationary aperture, the endpoint changes
-//   The room        screen topology: four displays at four real distances
-//   Trust           the only section with no product visual at all
+//   Your turn       a playable rundown: Next, +1 min, four screens follow
+//   Call sheet      the details as a cue sheet whose rows go live on scroll
+//   Trust           inverted; the only section with no product visual, counting facts
 //   CTA             one sentence, one action
 //
 // No two consecutive sections share a compositional grammar, which is the
@@ -43,12 +42,12 @@ import { Footer } from "@/components/site/footer";
 export default function Home() {
   return (
     <main className="bg-background">
+      <StandbyOverlay />
       <Navbar />
       <HeroSection />
-      <ProblemSection />
       <OneCueSection />
-      <SurfacesSection />
-      <RoomSection />
+      <PlayableShow />
+      <CallSheet />
       <LiveOperationsSection />
       <CTASection />
       <Footer />
