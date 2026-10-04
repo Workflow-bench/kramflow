@@ -193,19 +193,19 @@ export function SurfacesSection() {
               }}
               className="flex h-[58vh] flex-col justify-center"
             >
-              <p className="tnum text-[11px] uppercase tracking-[0.2em] text-muted-2/60">
+              <p className="tnum text-[11px] uppercase tracking-[0.2em] text-muted-2">
                 {String(i + 1).padStart(2, "0")} / 06
               </p>
               <h3
                 className={`mt-3 font-display transition-all duration-500 ease-out motion-reduce:transition-none ${
-                  active === i ? "text-[clamp(2.25rem,3.4vw,3.5rem)] text-primary" : "text-[1.125rem] text-muted-2/45"
+                  active === i ? "text-[clamp(2.25rem,3.4vw,3.5rem)] text-primary" : "text-[1.125rem] text-muted-2"
                 }`}
               >
                 {surface.name}
               </h3>
               <p
                 className={`mt-4 max-w-[34ch] leading-relaxed transition-opacity duration-500 motion-reduce:transition-none ${
-                  active === i ? "text-muted opacity-100" : "text-muted-2/40 opacity-55"
+                  active === i ? "text-muted opacity-100" : "text-muted-2"
                 }`}
               >
                 {surface.line}
@@ -238,7 +238,7 @@ export function SurfacesSection() {
         {SURFACES.map((surface, i) => (
           <div key={surface.id}>
             <div className="px-6">
-              <p className="tnum text-[11px] uppercase tracking-[0.2em] text-muted-2/60">
+              <p className="tnum text-[11px] uppercase tracking-[0.2em] text-muted-2">
                 {String(i + 1).padStart(2, "0")} / 06
               </p>
               <h3 className="mt-2 font-display text-[1.75rem] text-primary">{surface.name}</h3>

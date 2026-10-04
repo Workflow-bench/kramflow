@@ -151,7 +151,7 @@ export function RoomSection() {
             </div>
             <figcaption className="mt-2.5 flex items-baseline gap-3">
               <span className="text-console-label uppercase text-muted-2">{p.label}</span>
-              <span className="tnum text-[10px] tracking-[0.16em] text-muted-2/55">{p.distance}m from stage</span>
+              <span className="tnum text-[10px] tracking-[0.16em] text-muted-2">{p.distance}m from stage</span>
             </figcaption>
           </figure>
         ))}
@@ -173,7 +173,7 @@ export function RoomSection() {
             </div>
             <figcaption className="mt-2 flex items-baseline justify-between gap-3">
               <span className="text-console-label uppercase text-muted-2">{p.label}</span>
-              <span className="tnum text-[10px] tracking-[0.16em] text-muted-2/55">{p.distance}m</span>
+              <span className="tnum text-[10px] tracking-[0.16em] text-muted-2">{p.distance}m</span>
             </figcaption>
           </figure>
         ))}

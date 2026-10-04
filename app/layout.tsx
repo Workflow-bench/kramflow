@@ -54,15 +54,11 @@ export const metadata: Metadata = {
     template: "%s · KramFlow",
   },
   description: DESCRIPTION,
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
     siteName: TITLE,
     type: "website",
-    url: "/",
   },
   twitter: {
     card: "summary",

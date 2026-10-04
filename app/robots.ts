@@ -4,16 +4,13 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/login", "/signup"],
+      allow: ["/"],
+      // Noindex routes stay crawlable so crawlers can read their noindex meta;
+      // robots disallow only covers private/authenticated paths.
       disallow: [
         "/dashboard",
         "/e/",
         "/invite/",
-        "/general",
-        "/av",
-        "/green-room",
-        "/presenter",
-        "/screens",
         "/api/",
         "/dev/",
       ],

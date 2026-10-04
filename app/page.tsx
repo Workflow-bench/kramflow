@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Navbar } from "@/components/site/navbar";
 import { HeroSection } from "@/components/site/hero-section";
 import { OneCueSection } from "@/components/site/one-cue-section";
@@ -40,6 +41,11 @@ import { Footer } from "@/components/site/footer";
 // the macOS status ramp, `rounded-panel`, `.tnum`) rather than the literal
 // zinc palette it used to carry, so the marketing surface and the app are
 // made of the same material rather than merely described as sharing one.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: { url: "/" },
+};
+
 export default function Home() {
   return (
     <main className="bg-background">
