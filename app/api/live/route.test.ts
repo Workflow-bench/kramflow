@@ -295,4 +295,20 @@ describe("runLiveAction start guard (Lane C live-start invariants)", () => {
     expect(res.status).toBe(400);
     expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(0);
   });
+
+  it.each([
+    ["next", { maxOrder: 1 }],
+    ["finish", { maxOrder: 1 }],
+    ["jumpTo", { order: 1, maxOrder: 1 }],
+  ])("%s on a session with no stored items (foreign to this event) is refused with no write", async (action, extra) => {
+    // The active session's items all belong to event-b, so event-a has none.
+    programRows = [{ id: "foreign", event_id: "event-b", session_id: "session-a", sort_order: 1 }];
+    liveState = activeLiveState({ progress_by_session: { "session-a": { currentOrder: 1, startedAt: "2026-01-01T00:00:00.000Z" } } });
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action, clientId: "client-a", ...extra }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(409);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(0);
+  });
 });

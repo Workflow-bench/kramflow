@@ -307,6 +307,9 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
       if (typeof body.maxOrder !== "number") return NextResponse.json({ ok: false }, { status: 400 });
       const maxOrder = await storedItemCount(supabase, auth.eventId, current.active_session_id);
       if (maxOrder === null) return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
+      // A session with no stored items (empty, or foreign to this event) has no
+      // traversal to advance through, so the request is refused and nothing is written.
+      if (maxOrder === 0) return NextResponse.json({ ok: false, error: "This session has no items." }, { status: 409 });
       const { currentOrder } = activeProgress();
       if (currentOrder === null || currentOrder >= maxOrder) {
         return NextResponse.json({ ok: true, noop: true });
@@ -356,6 +359,9 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
       }
       const maxOrder = await storedItemCount(supabase, auth.eventId, current.active_session_id);
       if (maxOrder === null) return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
+      // A session with no stored items (empty, or foreign to this event) has no
+      // traversal to advance through, so the request is refused and nothing is written.
+      if (maxOrder === 0) return NextResponse.json({ ok: false, error: "This session has no items." }, { status: 409 });
       // Unlike next/previous (which no-op past a boundary a rapid double
       // click can legitimately reach), an out-of-range jump target is
       // invalid input, not a race — reject it outright rather than
@@ -389,6 +395,9 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
       if (typeof body.maxOrder !== "number") return NextResponse.json({ ok: false }, { status: 400 });
       const maxOrder = await storedItemCount(supabase, auth.eventId, current.active_session_id);
       if (maxOrder === null) return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
+      // A session with no stored items (empty, or foreign to this event) has no
+      // traversal to advance through, so the request is refused and nothing is written.
+      if (maxOrder === 0) return NextResponse.json({ ok: false, error: "This session has no items." }, { status: 409 });
       const now = new Date().toISOString();
       const { currentOrder } = activeProgress();
       const departureId = await programIdAtOrder(supabase, auth.eventId, current.active_session_id, currentOrder);
