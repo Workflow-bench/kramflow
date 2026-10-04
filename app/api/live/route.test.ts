@@ -79,7 +79,7 @@ vi.mock("@/lib/supabase/server", () => ({
   supabaseAdmin: () => ({ from: (table: string) => makeQuery(table) }),
 }));
 
-const { runLiveAction } = await import("./route");
+const { runLiveAction } = await import("@/lib/server/live-action");
 
 const actionRequest = (body: Record<string, unknown>) =>
   new Request("http://x/api/live", { method: "PATCH", body: JSON.stringify(body) });

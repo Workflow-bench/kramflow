@@ -13,7 +13,7 @@ const runLiveAction = vi.fn();
 const from = vi.fn();
 
 vi.mock("@/lib/server/integration-credentials", () => ({ requireIntegrationCredential }));
-vi.mock("@/app/api/live/route", () => ({ runLiveAction }));
+vi.mock("@/lib/server/live-action", () => ({ runLiveAction }));
 vi.mock("@/lib/supabase/server", () => ({ supabaseAdmin: () => ({ from }) }));
 
 const { POST } = await import("./route");
