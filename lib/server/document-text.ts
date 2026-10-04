@@ -34,7 +34,9 @@ export async function extractDocumentText(file: File): Promise<string> {
     // xlsx (SheetJS) has open advisories for hostile files; the size cap
     // above and the sheet/row ceilings below bound what it is asked to do,
     // as in lib/parse-cuesheet.ts.
-    const wb = XLSX.read(Buffer.from(await file.arrayBuffer()), { type: "buffer" });
+    // sheetRows bounds decoding per sheet; one row past MAX_ROWS_PER_SHEET is
+    // enough for the row check below to reject an oversized sheet.
+    const wb = XLSX.read(Buffer.from(await file.arrayBuffer()), { type: "buffer", sheetRows: MAX_ROWS_PER_SHEET + 1 });
     if (wb.SheetNames.length > MAX_SHEETS) {
       throw new DocumentTextError(`Too many sheets (${wb.SheetNames.length}). The limit is ${MAX_SHEETS}.`, 400);
     }

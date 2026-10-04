@@ -200,7 +200,8 @@
       "history": [
         "discovered live in B001",
         "confirmed pre-existing by independent review",
-        "tracked as its own row per review instruction, B002"
+        "tracked as its own row per review instruction, B002",
+        "B007: root cause from code: display_type_state was backfilled only for events existing at migration 20260909091740, and event creation never provisioned it, so hold and timer writes matched no row. Hold activate returned ok:true for a zero-row update. Fixed in 7a8d140 (provisioning in event creation, provisioning before hold writes, exactly-one-row update and readback). Unit-tested with fakes; live dev rows were not queried. implementation_state stays OPEN until Codex review."
       ]
     },
     {
@@ -1565,7 +1566,8 @@
       ],
       "history": [
         "B003: split into 8 independently checkable child criteria per Codex B002 review (composite row); parent KF id preserved, implementation_state remains OPEN until all children resolve.",
-        "B004: added child KF-036.9 for the session-identity realtime first-connect gap (Codex B003 review finding B003-F4 \u2014 an out-of-ledger observation cannot remain outside the loop) rather than a new top-level KF, per the B004 prompt instruction to keep the accepted 42 parent/28 child structure and add child criteria only where needed."
+        "B004: added child KF-036.9 for the session-identity realtime first-connect gap (Codex B003 review finding B003-F4 \u2014 an out-of-ledger observation cannot remain outside the loop) rather than a new top-level KF, per the B004 prompt instruction to keep the accepted 42 parent/28 child structure and add child criteria only where needed.",
+        "B007: KF-036.9 (session-identity realtime first connect) investigated from lib/display-engine/store.tsx. The one-time hydrate read and the Supabase channel subscribe are independent, and the refetch on SUBSCRIBED runs only after wasEverConnected is set, so a change between hydrate and first SUBSCRIBED is not replayed. Root cause located in code; not reproduced live and not fixed, because the rule is fix only when confirmed. implementation_state stays OPEN."
       ],
       "desired_behavior": "composite finding \u2014 see children[] for independently checkable criteria and acceptance criteria.",
       "acceptance_criteria": [
@@ -1664,7 +1666,8 @@
       "blockers_owner": "product/owner decision on whether to invest in this optional enhancement before or after launch",
       "next_action": "defer; revisit post-launch unless the owner wants it earlier",
       "history": [
-        "new in B003 \u2014 explicit decision recorded per the B003 prompt's instruction that optional schema/AI-bot-policy/PRD/operator-inventory items each need a recorded decision even when no implementation is required"
+        "new in B003 \u2014 explicit decision recorded per the B003 prompt's instruction that optional schema/AI-bot-policy/PRD/operator-inventory items each need a recorded decision even when no implementation is required",
+        "B007: decision recorded in docs/audit-remediation/DECISIONS_LANE_F.md: no schema added in this batch. Owner decision on timing still required."
       ]
     },
     {
@@ -1700,7 +1703,8 @@
       "blockers_owner": "product/legal decision on AI-crawler policy",
       "next_action": "defer to product owner; not launch-blocking per source",
       "history": [
-        "new in B003, same rationale as KF-038"
+        "new in B003, same rationale as KF-038",
+        "B007: decision recorded in docs/audit-remediation/DECISIONS_LANE_F.md: no change pending owner confirmation of the default. A named AI-crawler rule is a legal and product decision."
       ]
     },
     {
@@ -1734,7 +1738,8 @@
       "blockers_owner": "product owner (not an engineering task)",
       "next_action": "schedule as a documentation task",
       "history": [
-        "new in B003"
+        "new in B003",
+        "B007: PRD gap list written in docs/audit-remediation/DECISIONS_LANE_F.md for the product owner. Not filled in this batch."
       ]
     },
     {
@@ -1767,7 +1772,8 @@
       "blockers_owner": "operations owner",
       "next_action": "schedule before first live production use; not before this security batch",
       "history": [
-        "new in B003"
+        "new in B003",
+        "B007: operator-tool inventory written from code in docs/audit-remediation/OPERATOR_TOOL_INVENTORY.md. Verification against a real pre-show setup is still open."
       ]
     },
     {

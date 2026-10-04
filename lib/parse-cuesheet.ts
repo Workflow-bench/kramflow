@@ -339,7 +339,10 @@ const MAX_SHEETS = 50;
 const MAX_ROWS_PER_SHEET = 5000;
 
 export function parseCueSheet(buffer: Buffer | ArrayBuffer): ParsedCueSheet {
-  const wb = XLSX.read(buffer, { type: "buffer" });
+  // sheetRows bounds how much of each sheet SheetJS decodes. One row past the
+  // limit is enough to detect an oversized sheet below, so a crafted file cannot
+  // make the parser decode every row before the check runs (SheetJS 0.20.3 option).
+  const wb = XLSX.read(buffer, { type: "buffer", sheetRows: MAX_ROWS_PER_SHEET + 1 });
 
   if (wb.SheetNames.length > MAX_SHEETS) {
     throw new Error(`Too many sheets (${wb.SheetNames.length}). The limit is ${MAX_SHEETS}.`);

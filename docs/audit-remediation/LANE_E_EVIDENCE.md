@@ -63,23 +63,27 @@ Desktop (4 runs, after the contrast and skip-link changes):
 
 Desktop LCP varies from 522 to 979 ms across runs. The audit's recorded desktop value was 644 ms. Desktop performance is not a problem here, and single runs are not enough to say more.
 
-Mobile LCP, quality setting compared (3 runs each, same build otherwise):
+Mobile LCP, product-shot quality compared (3 runs each, same build otherwise):
 
-| Product-shot quality | Runs (ms) | Median (ms) | Console image transfer |
+| Product-shot quality (served) | Runs (ms) | Median (ms) | Console image transfer |
 | --- | --- | --- | --- |
-| 90 (before) | 4609, 4590, 3926 | 4590 | 157 KB |
-| 80 (after) | 2418, 3318, 4676 (run set 1); 2737, 2797, 3860 (run set 2) | 2797 to 3318 across sets | 104 KB |
+| 90 | 4609, 4590, 3926 | 4590 | 157 KB |
+| 80 | 4794, 3557, 3238 | 3557 | 118 KB |
 
-The change is `quality={90}` to `quality={80}` in `components/site/product-shot.tsx`, which is one encode setting for the interface screenshots. The console image is 34% smaller. LCP improves in the lab, but the spread is wide, so the size of the gain is not settled.
+Correction to an earlier draft of this file: the first "quality 80" runs were served at quality 75. `next.config.ts` lists the allowed `images.qualities`, and 80 was not on the list, so Next fell back to 75 without warning. 80 is now listed. The runs in the table above are the corrected ones.
+
+The change is `quality={90}` to `quality={80}` in `components/site/product-shot.tsx`. The console image is 25% smaller. The LCP difference between the two groups is inside the run-to-run spread, so the timing gain is not established by these runs. The byte reduction is.
+
+Desktop preload waste (found in the browser, not fixed): the hero console has `priority`, so Next emits one `<link rel="preload">` with `imageSizes="(min-width: 1024px) 96vw, 320vw"`. On a 1440 px desktop the browser fetched `w=3840` (117 KB) for that preload, and the visible `<img>` used `w=1920` (53 KB). The console reported the preload as not used. Removing `priority` or changing the sizes would change the mobile LCP candidate, so it needs measurement before a change.
 
 LCP profile (mobile trace): the LCP candidate is the hero console image (type `image`). Its transfer is the largest single resource, the mobile crop renders the image at 320% of the container width (`CONSOLE_SIZES`), and the `lcp-discovery` audit reports `priorityHinted: false`. Lighthouse's `lcp-breakdown` subparts add up to about 160 ms, while the LCP itself is measured at several seconds, so the simulated-throttle timeline is not fully explained by the subparts. That is a gap in this profile, not an answer.
 
-Mobile run before the quality change: performance 0.85, accessibility 1, FCP 910 ms. The three quality-80 runs recorded LCP only; their performance scores were not kept.
+Mobile run before the quality change: performance 0.85, accessibility 1, FCP 910 ms. The quality-80 runs in the table recorded LCP and transfer size only.
 
 Next steps, not done:
 
 - A pre-cropped mobile asset for the hero console (the crop covers about a third of the image, so it could shrink more than quality alone).
-- Investigate the `priorityHinted: false` result: the hero image has `priority`, but the hidden desktop copy also downloads.
+- Fix the desktop preload waste above: pick a `sizes` value the browser evaluates the same way for the preload and for the image, or scope `priority` to the mobile crop, then re-measure desktop and mobile.
 - Trace-level profile of the remaining LCP gap.
 
 ## 7. Not verified
