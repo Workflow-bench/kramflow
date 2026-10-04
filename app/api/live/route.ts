@@ -128,6 +128,23 @@ async function checkRunnableSession(
   return null;
 }
 
+// Authoritative item count for the active session, read from stored rows. The
+// client's maxOrder is advisory; traversal bounds come from here (KF-007).
+async function storedItemCount(
+  supabase: ReturnType<typeof supabaseAdmin>,
+  eventId: string,
+  sessionId: string | null
+): Promise<number | null> {
+  if (!sessionId) return null;
+  const { data, error } = await supabase
+    .from("programs")
+    .select("sort_order")
+    .eq("event_id", eventId)
+    .eq("session_id", sessionId);
+  if (error || !data) return null;
+  return data.length;
+}
+
 async function programIdAtOrder(
   supabase: ReturnType<typeof supabaseAdmin>,
   eventId: string,
@@ -287,8 +304,9 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
       break;
     }
     case "next": {
-      const maxOrder = body.maxOrder;
-      if (typeof maxOrder !== "number") return NextResponse.json({ ok: false }, { status: 400 });
+      if (typeof body.maxOrder !== "number") return NextResponse.json({ ok: false }, { status: 400 });
+      const maxOrder = await storedItemCount(supabase, auth.eventId, current.active_session_id);
+      if (maxOrder === null) return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
       const { currentOrder } = activeProgress();
       if (currentOrder === null || currentOrder >= maxOrder) {
         return NextResponse.json({ ok: true, noop: true });
@@ -333,10 +351,11 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
     }
     case "jumpTo": {
       const order = body.order;
-      const maxOrder = body.maxOrder;
-      if (typeof order !== "number" || typeof maxOrder !== "number") {
+      if (typeof order !== "number" || typeof body.maxOrder !== "number") {
         return NextResponse.json({ ok: false }, { status: 400 });
       }
+      const maxOrder = await storedItemCount(supabase, auth.eventId, current.active_session_id);
+      if (maxOrder === null) return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
       // Unlike next/previous (which no-op past a boundary a rapid double
       // click can legitimately reach), an out-of-range jump target is
       // invalid input, not a race — reject it outright rather than
@@ -367,8 +386,9 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
       break;
     }
     case "finish": {
-      const maxOrder = body.maxOrder;
-      if (typeof maxOrder !== "number") return NextResponse.json({ ok: false }, { status: 400 });
+      if (typeof body.maxOrder !== "number") return NextResponse.json({ ok: false }, { status: 400 });
+      const maxOrder = await storedItemCount(supabase, auth.eventId, current.active_session_id);
+      if (maxOrder === null) return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
       const now = new Date().toISOString();
       const { currentOrder } = activeProgress();
       const departureId = await programIdAtOrder(supabase, auth.eventId, current.active_session_id, currentOrder);

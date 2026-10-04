@@ -152,8 +152,9 @@ describe("runLiveAction event-scoping regressions", () => {
     );
 
     expect(res.status).toBe(200);
+    // Two landing/departure lookups plus the stored item count that bounds traversal.
     const programQueries = calls.filter((call) => call.table === "programs");
-    expect(programQueries).toHaveLength(2);
+    expect(programQueries).toHaveLength(3);
     for (const query of programQueries) {
       expect(query.filters).toContainEqual(["event_id", "event-a"]);
       expect(query.filters).toContainEqual(["session_id", "session-a"]);
@@ -263,5 +264,35 @@ describe("runLiveAction start guard (Lane C live-start invariants)", () => {
     const res = await startWithOrders([3, 1, 2]);
     expect(res.status).toBe(200);
     expect(writesTo("live_state")).toHaveLength(1);
+  });
+
+  it("ignores a client maxOrder larger than the stored item count: next cannot pass the last item", async () => {
+    // Stored items: 1 and 2 (foreign-program is another event). Client claims 99.
+    liveState = activeLiveState({ progress_by_session: { "session-a": { currentOrder: 2, startedAt: "2026-01-01T00:00:00.000Z" } } });
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action: "next", maxOrder: 99, clientId: "client-a" }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(200);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(0);
+  });
+
+  it("finish sets the position past the stored count, not past a client-claimed maxOrder", async () => {
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action: "finish", maxOrder: 50, clientId: "client-a" }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(200);
+    const update = calls.find((c) => c.table === "live_state" && c.op === "update");
+    expect(update?.update?.progress_by_session).toEqual({ "session-a": { currentOrder: 3, startedAt: null } });
+  });
+
+  it("jumpTo rejects an order beyond the stored count even when the client claims a larger maxOrder", async () => {
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action: "jumpTo", order: 5, maxOrder: 9, clientId: "client-a" }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(400);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(0);
   });
 });
