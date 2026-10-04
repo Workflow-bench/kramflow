@@ -1,0 +1,11 @@
+# KF-036.9 negative controls (real store, fake Supabase client)
+A: sequencer stale check removed (lib/display-engine/first-connect.ts)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [] to deeply equal [ 'b-stale' ]
+      Tests  1 failed | 8 passed (9)
+B: channel removeChannel skipped (lib/display-engine/store.tsx teardownRemote)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [ { …(4) } ] to have a length of +0 but got 1
+AssertionError: expected [ { …(4) } ] to have a length of +0 but got 1
+      Tests  2 failed | 7 passed (9)
+Both files restored and verified byte-identical before commit.

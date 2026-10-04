@@ -15,8 +15,10 @@ import type { DisplayEngineIdentity } from "./context";
 
 type Row = Record<string, unknown>;
 interface Handler { table: string; cb: (payload: unknown) => void }
-interface FakeChannel { name: string; handlers: Handler[]; status: ((s: string) => void) | null }
-interface FakeServer { tables: Record<string, Row[]>; channels: FakeChannel[] }
+interface FakeChannel { name: string; handle: unknown; handlers: Handler[]; status: ((s: string) => void) | null }
+// `deferred`: list reads (`await query`) wait in `pending` until the test releases them,
+// so responses can be delivered out of order. The snapshot is taken at request time.
+interface FakeServer { tables: Record<string, Row[]>; channels: FakeChannel[]; deferred: boolean; pending: Array<() => void> }
 
 function query(server: FakeServer, table: string) {
   const filters: Array<[string, unknown]> = [];
@@ -39,7 +41,14 @@ function query(server: FakeServer, table: string) {
     },
     maybeSingle: async () => ({ data: run()[0] ?? null, error: null }),
     then(resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) {
-      return Promise.resolve({ data: run(), error: null }).then(resolve, reject);
+      const snapshot = run();
+      if (server.deferred) {
+        return new Promise<unknown>((release) => server.pending.push(() => release({ data: snapshot, error: null }))).then(
+          resolve,
+          reject
+        );
+      }
+      return Promise.resolve({ data: snapshot, error: null }).then(resolve, reject);
     },
   };
   return q;
@@ -48,7 +57,7 @@ function query(server: FakeServer, table: string) {
 function fakeClient(server: FakeServer) {
   return {
     channel(name: string) {
-      const entry: FakeChannel = { name, handlers: [], status: null };
+      const entry: FakeChannel = { name, handle: null, handlers: [], status: null };
       server.channels.push(entry);
       const ch = {
         on(_type: string, filter: { table?: string }, cb: (payload: unknown) => void) {
@@ -60,12 +69,21 @@ function fakeClient(server: FakeServer) {
           return ch;
         },
       };
+      entry.handle = ch;
       return ch;
+    },
+    removeChannel(handle: unknown) {
+      server.channels = server.channels.filter((c) => c.handle !== handle);
     },
     from(table: string) {
       return query(server, table);
     },
   };
+}
+
+// Realtime delivers a change to every handler on each channel for that table.
+function emit(server: FakeServer, table: string) {
+  for (const ch of server.channels) for (const h of ch.handlers) if (h.table === table) h.cb({});
 }
 
 function setStatus(server: FakeServer, status: string) {
@@ -100,6 +118,8 @@ function sentBroadcast(id: string, eventId: string): Row {
 function freshServer(eventId: string): FakeServer {
   return {
     channels: [],
+    deferred: false,
+    pending: [],
     tables: {
       display_state: [{ event_id: eventId, hold: { active: false }, timer: {}, timer_version: 0, speaker_ready: {}, updated_at: null }],
       display_registry: [],
@@ -212,5 +232,105 @@ describe("first-connect race through the real store (KF-036.9)", () => {
     const before = inst.listeners.size;
     unsubscribe();
     expect(inst.listeners.size).toBe(before - 1);
+  });
+
+});
+
+describe("stale responses and cleanup (KF-036.9)", () => {
+  it("an older broadcast response that arrives after a newer one does not overwrite it", async () => {
+    const eventId = "11111111-0000-0000-0000-00000000000d";
+    const identity: DisplayEngineIdentity = { eventId, displayType: "presenter" };
+    const server = freshServer(eventId);
+    __testing.setRemoteClient(() => fakeClient(server) as never);
+    __testing.subscribe(__testing.getInstance(identity), () => {});
+    await flush();
+    setStatus(server, "SUBSCRIBED");
+    await flush();
+    server.deferred = true;
+    // Request A: snapshot taken while no broadcast exists. A thenable is read in a
+    // later microtask, so flush before the table changes.
+    emit(server, "display_broadcasts");
+    await flush();
+    // A broadcast is sent; request B: snapshot includes it.
+    server.tables.display_broadcasts.push(sentBroadcast("b-stale", eventId));
+    emit(server, "display_broadcasts");
+    await flush();
+    expect(server.pending).toHaveLength(2);
+    // Deliver B (newer) first, then A (older).
+    server.pending[1]();
+    await flush();
+    expect(activeIds(identity)).toEqual(["b-stale"]);
+    server.pending[0]();
+    await flush();
+    expect(activeIds(identity)).toEqual(["b-stale"]);
+  });
+
+  it("unsubscribe while a request is outstanding: the late response is dropped and the channel is removed", async () => {
+    const eventId = "11111111-0000-0000-0000-00000000000e";
+    const identity: DisplayEngineIdentity = { eventId, displayType: "presenter" };
+    const server = freshServer(eventId);
+    __testing.setRemoteClient(() => fakeClient(server) as never);
+    const inst = __testing.getInstance(identity);
+    const unsubscribe = __testing.subscribe(inst, () => {});
+    await flush();
+    setStatus(server, "SUBSCRIBED");
+    await flush();
+    server.deferred = true;
+    server.tables.display_broadcasts.push(sentBroadcast("b-late", eventId));
+    emit(server, "display_broadcasts");
+    await flush();
+    expect(server.pending).toHaveLength(1);
+    unsubscribe();
+    expect(server.channels).toHaveLength(0);
+    server.pending[0]();
+    await flush();
+    // The response arrived after teardown, so nothing was applied to the instance.
+    expect(inst.remoteSlice.broadcastRows).toEqual([]);
+    expect(inst.closed).toBe(true);
+  });
+
+  it("identity change while a request is outstanding: the old instance's late response does not reach the new identity", async () => {
+    const a = "11111111-0000-0000-0000-00000000000f";
+    const b = "11111111-0000-0000-0000-000000000010";
+    const serverA = freshServer(a);
+    const serverB = freshServer(b);
+    serverB.tables.display_broadcasts.push(sentBroadcast("b-of-B", b));
+    const idA: DisplayEngineIdentity = { eventId: a, displayType: "presenter" };
+    const idB: DisplayEngineIdentity = { eventId: b, displayType: "presenter" };
+    __testing.setRemoteClient(() => fakeClient(serverA) as never);
+    const instA = __testing.getInstance(idA);
+    const unsubA = __testing.subscribe(instA, () => {});
+    await flush();
+    setStatus(serverA, "SUBSCRIBED");
+    await flush();
+    serverA.deferred = true;
+    serverA.tables.display_broadcasts.push(sentBroadcast("b-of-A", a));
+    emit(serverA, "display_broadcasts");
+    await flush();
+    // The viewer moves to event B before A's response returns.
+    unsubA();
+    __testing.setRemoteClient(() => fakeClient(serverB) as never);
+    __testing.subscribe(__testing.getInstance(idB), () => {});
+    await flush();
+    serverA.pending[0]();
+    await flush();
+    expect(activeIds(idB)).toEqual(["b-of-B"]);
+    expect(instA.remoteSlice.broadcastRows).toEqual([]);
+  });
+
+  it("resubscribe after teardown opens one fresh channel and hydrates again", async () => {
+    const eventId = "11111111-0000-0000-0000-000000000011";
+    const identity: DisplayEngineIdentity = { eventId, displayType: "presenter" };
+    const server = freshServer(eventId);
+    __testing.setRemoteClient(() => fakeClient(server) as never);
+    const unsub = __testing.subscribe(__testing.getInstance(identity), () => {});
+    await flush();
+    unsub();
+    expect(server.channels).toHaveLength(0);
+    server.tables.display_broadcasts.push(sentBroadcast("b-again", eventId));
+    __testing.subscribe(__testing.getInstance(identity), () => {});
+    await flush();
+    expect(server.channels).toHaveLength(1);
+    expect(activeIds(identity)).toEqual(["b-again"]);
   });
 });
