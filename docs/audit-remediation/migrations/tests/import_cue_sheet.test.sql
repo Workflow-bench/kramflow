@@ -162,9 +162,10 @@ begin
       ('[{"id":"' || part_a || '","session_id":"s1","label":"stolen","sort_order":0,"start_time":null}]')::jsonb,
       '[]'::jsonb);
     caught := 'none';
-  exception when sqlstate '23503' then caught := '23503';
+  exception when others then caught := sqlstate;
   end;
-  perform _assert(caught = '23503', 'partition owned by another event is rejected');
+  perform _assert(caught = '23503',
+    'partition owned by another event is rejected with 23503 (got ' || caught || ')');
   perform _assert((select count(*) from partitions where event_id = ev_a) = 1, 'event A partition untouched');
 
   -- 9. program linked to a partition that is not in this payload is rejected
