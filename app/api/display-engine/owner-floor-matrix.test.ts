@@ -61,6 +61,10 @@ function tableFor(table: string) {
         return chain;
       },
       single: async () => (displayTypeStateRow ? { data: displayTypeStateRow, error: null } : { data: null, error: { code: "PGRST116" } }),
+      maybeSingle: async () => ({ data: displayTypeStateRow ?? null, error: null }),
+      // Provisioning inserts missing rows with ignoreDuplicates. These tests
+      // keep the row as set in beforeEach, so the upsert is a no-op here.
+      upsert: async () => ({ error: null }),
       // Audit remediation B003 (Codex B002 review, standards/evidence
       // correction): an earlier version of this mock initialized a
       // missing row via `displayTypeStateRow ?? {defaults}` on update —
@@ -94,6 +98,8 @@ function tableFor(table: string) {
       select() {
         return chain;
       },
+      // Provisioning reads the event's shared row to seed display_type_state.
+      maybeSingle: async () => ({ data: { hold: { active: false }, timer: {}, timer_version: 0 }, error: null }),
       update(patch: Record<string, unknown>) {
         chain._op = "update";
         chain._patch = patch;

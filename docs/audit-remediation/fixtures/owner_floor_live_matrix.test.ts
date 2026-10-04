@@ -758,7 +758,7 @@ describe("session-cookie input (B005-S3, fake env)", () => {
   });
 
   it("reads the per-account variable for the owner", () => {
-    expect(cookieFromEnv(OWNER_EMAIL, { KRAMFLOW_LOCAL_COOKIE_OWNER: SECRET })).toBe(SECRET);
+    expect(cookieFromEnv(OWNER_EMAIL, { KRAMFLOW_LOCAL_COOKIE_OWNER: SECRET } as unknown as NodeJS.ProcessEnv)).toBe(SECRET);
   });
 
   it("refuses a cookie that is not a Supabase auth cookie, without echoing its value", () => {
@@ -778,10 +778,10 @@ describe("session-cookie input (B005-S3, fake env)", () => {
   });
 
   it("names the missing variable when the account has no input", () => {
-    expect(() => cookieFromEnv(VIEWER_EMAIL, {})).toThrow(/KRAMFLOW_LOCAL_COOKIE_VIEWER/);
+    expect(() => cookieFromEnv(VIEWER_EMAIL, {} as unknown as NodeJS.ProcessEnv)).toThrow(/KRAMFLOW_LOCAL_COOKIE_VIEWER/);
   });
 
   it("refuses an account that is not a fixture account", () => {
-    expect(() => cookieFromEnv("someone@example.com", { KRAMFLOW_LOCAL_COOKIE_OWNER: SECRET })).toThrow(/No session-cookie input/);
+    expect(() => cookieFromEnv("someone@example.com", { KRAMFLOW_LOCAL_COOKIE_OWNER: SECRET } as unknown as NodeJS.ProcessEnv)).toThrow(/No session-cookie input/);
   });
 });

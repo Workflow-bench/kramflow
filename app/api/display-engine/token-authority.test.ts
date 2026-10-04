@@ -25,19 +25,29 @@ const ROW = {
 
 function builder() {
   const ops: string[] = [];
+  let lastPatch: Record<string, unknown> = {};
   dbCalls.push(ops);
   const q: unknown = new Proxy(
     {},
     {
       get(_target, prop) {
         if (prop === "then") {
+          // An updated-row select echoes the patch back, as the real row would
+          // hold it. The hold route's readback compares that stored value.
           const result =
             ops.includes("update") && ops.includes("select")
-              ? { data: [{ timer_version: 2 }], error: null }
+              ? { data: [{ timer_version: 2, ...lastPatch }], error: null }
               : ops.includes("update")
                 ? { data: null, error: null }
                 : { data: ROW, error: null };
           return (resolve: (v: unknown) => unknown) => resolve(result);
+        }
+        if (prop === "update") {
+          return (patch: Record<string, unknown>) => {
+            ops.push("update");
+            lastPatch = patch;
+            return q;
+          };
         }
         return () => {
           ops.push(String(prop));

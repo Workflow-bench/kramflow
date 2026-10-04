@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { AuthProvider } from "@/components/auth/auth-context";
+
+// Private surface: not for search. Title is static, so no account or event data reaches the head.
+export const metadata: Metadata = {
+  title: "Dashboard",
+  robots: { index: false, follow: false },
+};
 
 // This group now covers /dashboard only — every per-event operator
 // surface (console, cue sheet, remote, broadcast center, display manager)

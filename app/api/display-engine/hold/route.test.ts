@@ -19,8 +19,8 @@ let rows: Row[];
 let sharedRows: Record<string, unknown>[];
 let updateReturnsRows: boolean;
 
-function matches(row: Record<string, unknown>, filters: [string, unknown][]) {
-  return filters.every(([k, v]) => row[k] === v);
+function matches(row: object, filters: [string, unknown][]) {
+  return filters.every(([k, v]) => (row as Record<string, unknown>)[k] === v);
 }
 
 function query(table: string) {

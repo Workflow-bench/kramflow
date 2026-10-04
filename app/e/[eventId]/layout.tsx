@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { AuthProvider } from "@/components/auth/auth-context";
 import { EventProvider, EventRoleProvider, type EventRole } from "@/lib/event-context";
@@ -21,6 +22,13 @@ import { CommandPalette } from "@/components/operator/command-palette";
 // event_collaborators) would be bounced to /dashboard before ever reaching
 // any page under /e/[eventId]/..., regardless of what require-event-
 // access.ts's API-level checks would have allowed them to do once there.
+// Every /e/[eventId] page is private and noindex. The title is static: the
+// event name and id are never placed in the head, so previews leak nothing.
+export const metadata: Metadata = {
+  title: "Event",
+  robots: { index: false, follow: false },
+};
+
 export default async function EventLayout({
   children,
   params,
