@@ -37,6 +37,11 @@ function makeQuery(table: string) {
     limit() {
       return query;
     },
+    // Awaiting a select with no single/maybeSingle returns every matching row.
+    then(resolve: (value: unknown) => unknown) {
+      const rows = table === "programs" ? programRows : sessionRows;
+      return resolve({ data: rows.filter((r) => call.filters.every(([c, v]) => r[c] === v)), error: null });
+    },
     maybeSingle: async () => {
       if (table === "sessions") {
         return { data: findByFilters(sessionRows, call.filters) ?? null, error: null };
@@ -233,5 +238,30 @@ describe("runLiveAction start guard (Lane C live-start invariants)", () => {
     const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
     expect(res.status).toBe(409);
     expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  const startWithOrders = (orders: number[]) => {
+    programRows = orders.map((o, i) => ({ id: `p${i}`, event_id: "event-a", session_id: "session-a", sort_order: o }));
+    liveState = activeLiveState({ progress_by_session: {} });
+    return runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+  };
+
+  it.each([
+    ["gap (1,3)", [1, 3]],
+    ["duplicate (1,1,2)", [1, 1, 2]],
+    ["zero-based (0,1,2)", [0, 1, 2]],
+    ["gap in the middle (1,2,4)", [1, 2, 4]],
+  ])("refuses to start a session with %s, writing nothing", async (_label, orders) => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    const res = await startWithOrders(orders);
+    expect(res.status).toBe(409);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  it("starts a session whose items are exactly 1..n, in any stored order", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    const res = await startWithOrders([3, 1, 2]);
+    expect(res.status).toBe(200);
+    expect(writesTo("live_state")).toHaveLength(1);
   });
 });

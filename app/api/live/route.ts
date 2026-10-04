@@ -107,19 +107,23 @@ async function checkRunnableSession(
     .maybeSingle();
   if (sessionError) return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
   if (!sessionRow) return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
-  // Start sets the live item to order 1, so the session must have that item.
-  // A session whose orders are only 0 or 2+ would otherwise start on nothing
-  // (B007-S1). Next and Previous rely on the same contiguous 1..n sequence.
-  const { data: programRow, error: programError } = await supabase
+  // Next, Previous and Finish step through orders one at a time, so the stored
+  // orders must be exactly 1..n: no zero, no gap, no duplicate (KF-007). Imports
+  // produce that sequence, but console moves and deletes can break it later.
+  // Refusing here keeps every started session traversable with no mutation.
+  const { data: orderRows, error: programError } = await supabase
     .from("programs")
-    .select("id")
+    .select("sort_order")
     .eq("event_id", eventId)
-    .eq("session_id", sessionId)
-    .eq("sort_order", 1)
-    .maybeSingle();
+    .eq("session_id", sessionId);
   if (programError) return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
-  if (!programRow) {
-    return NextResponse.json({ ok: false, error: "This session has no first item. Fix the item order, then start." }, { status: 409 });
+  const orders = (orderRows ?? []).map((r: { sort_order: number }) => r.sort_order).sort((a: number, b: number) => a - b);
+  const contiguous = orders.length > 0 && orders.every((order: number, i: number) => order === i + 1);
+  if (!contiguous) {
+    return NextResponse.json(
+      { ok: false, error: "This session's items are not in order 1 to n. Renumber them, then start." },
+      { status: 409 }
+    );
   }
   return null;
 }
