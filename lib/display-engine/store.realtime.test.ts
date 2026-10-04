@@ -68,10 +68,6 @@ function fakeClient(server: FakeServer) {
   };
 }
 
-// Realtime delivers a change to every handler on a channel for that table.
-function emit(server: FakeServer, table: string) {
-  for (const ch of server.channels) for (const h of ch.handlers) if (h.table === table) h.cb({});
-}
 function setStatus(server: FakeServer, status: string) {
   for (const ch of server.channels) ch.status?.(status);
 }
