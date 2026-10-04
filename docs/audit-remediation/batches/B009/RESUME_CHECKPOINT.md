@@ -54,3 +54,9 @@ The 15-item batch exceeds one session's capacity for real evidence (browser, Lig
 - KF-010 local: commit `937f216`. Provider-neutral redacted reporting with injected sink; nothing transmitted. Provider, source maps, alert owner remain UNVERIFIED external.
 - Suite at `937f216`: 481/481; tsc clean; eslint clean on changed dirs; production build exit 0.
 - Still OPEN, not started: KF-034 production-budget proof, KF-006 Postgres concurrency and UI, KF-036.9 race, KF-001 matrix, KF-004/005 rehearsal, KF-017 recovery, KF-019/020/021 a11y, KF-023 performance, KF-026 metadata.
+
+## Progress, resume 3 (HEAD `c65a60b`)
+- KF-034: commit `e5e3bba`. Stop-after-refusal (fflate swallows ondata exceptions and kept streaming); production-budget tests (accurate oversize refused by declared check; forged 17 MiB incompressible refused as "expands to more data"). Retained-memory bound NOT measured. 488/488 at that commit.
+- KF-006 race: commit `c65a60b`. Real two-connection race reproduced against the pre-fix migration (B_exit=3, B lost on global PK); fixed with sorted per-candidate-key advisory locks; after fix both events stored (`sat-am`, `sat-am~69e2703f`). Evidence: `docs/audit-remediation/evidence/B009/kf006/`. Existing nine-scenario SQL suite still ALL PASSED. Reversed-order multi-session race NOT exercised.
+- Still OPEN, not started: KF-006 UI/order/active-show evidence; KF-036.9 (needs a store test seam — store is a module singleton that is inert under node); KF-001 matrix reconciliation; KF-004/005 rehearsal browser evidence; KF-017 recovery; KF-019/020/021 browser contrast/keyboard/reflow/accessibility-tree; KF-023 Lighthouse runs; KF-026 metadata inventory; KF-010 browser capture of a real thrown client error.
+- Known gap carried: KF-007 mid-session edits to an active session are not covered by tests.
