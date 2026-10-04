@@ -51,8 +51,8 @@ function xmlOf(parts: Map<string, Uint8Array>, name: string): Element {
   if (!bytes) throw fail("This workbook is missing a required part.");
   const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   const doc = new DOMParser({
-    onError(level: string) {
-      if (level !== "warning") throw fail("This workbook could not be inspected.");
+    onError() {
+      throw fail("This workbook could not be inspected.");
     },
   }).parseFromString(text, "text/xml");
   if (!doc.documentElement) throw fail("This workbook could not be inspected.");
@@ -169,8 +169,11 @@ function worksheetExtent(bytes: Uint8Array): number {
   // Any parse error or fatal error refuses the workbook. Warnings are not
   // refusals, because they do not change which elements exist.
   const parser = new DOMParser({
-    onError(level: string) {
-      if (level !== "warning") throw fail("This workbook could not be inspected.");
+    onError() {
+      // Every parser message refuses the workbook, warnings included. A warning
+      // such as an unquoted attribute is a repair the parser makes silently, so
+      // it cannot be read as the author's content (ARCHIVE-S2).
+      throw fail("This workbook could not be inspected.");
     },
   });
   const doc = parser.parseFromString(text, "text/xml");
@@ -205,12 +208,38 @@ function worksheetExtent(bytes: Uint8Array): number {
 
 const EOCD_SIG = 0x06054b50;
 const CENTRAL_SIG = 0x02014b50;
+const LOCAL_SIG = 0x04034b50;
+const DESCRIPTOR_FLAG = 0x0008;
+const ENCRYPTED_FLAG = 0x0001;
 
-// Walks the central directory directly. fflate ignores the encryption flag and
-// decodes what it can, so encryption is refused here from the header bit, and
-// the entry count is cross-checked against the decoder's view. Zip64 archives
-// are refused: they are not needed for a workbook and their sizes are not read.
-function readCentralDirectory(bytes: Uint8Array): number {
+interface ZipRecord {
+  name: string;
+  flags: number;
+  method: number;
+  crc: number;
+  compressed: number;
+  uncompressed: number;
+  localOffset: number;
+}
+
+const zipError = () => fail("This workbook could not be read. Check that it is a valid .xlsx file.");
+
+// Path rules for member names. Aliases that normalise to the same path, backslash
+// or absolute paths, and names that leave the package are refused before any
+// member is read.
+function checkMemberName(name: string): string {
+  if (name === "" || name.includes("\\") || name.includes("\u0000") || name.startsWith("/")) {
+    throw fail("This workbook has a part path that is not allowed.");
+  }
+  for (const seg of name.split("/")) {
+    if (seg === "" || seg === "." || seg === "..") throw fail("This workbook has a part path that is not allowed.");
+  }
+  return name.toLowerCase();
+}
+
+// Walks the central directory and returns every record. Encryption and Zip64 are
+// refused here, from the header itself.
+function readCentralDirectory(bytes: Uint8Array): ZipRecord[] {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const floor = Math.max(0, bytes.length - 22 - 0xffff);
   let eocd = -1;
@@ -220,95 +249,169 @@ function readCentralDirectory(bytes: Uint8Array): number {
       break;
     }
   }
-  if (eocd < 0) throw fail("This workbook could not be read. Check that it is a valid .xlsx file.");
+  if (eocd < 0) throw zipError();
   const count = view.getUint16(eocd + 10, true);
   const offset = view.getUint32(eocd + 16, true);
   if (count === 0xffff || offset === 0xffffffff) throw fail("This workbook uses a format that is not supported.");
+  const records: ZipRecord[] = [];
+  const decoder = new TextDecoder("utf-8", { fatal: true });
   let at = offset;
   for (let n = 0; n < count; n++) {
-    if (at + 46 > bytes.length || view.getUint32(at, true) !== CENTRAL_SIG) {
-      throw fail("This workbook could not be read. Check that it is a valid .xlsx file.");
+    if (at + 46 > bytes.length || view.getUint32(at, true) !== CENTRAL_SIG) throw zipError();
+    const nameLen = view.getUint16(at + 28, true);
+    if (at + 46 + nameLen > bytes.length) throw zipError();
+    let name: string;
+    try {
+      name = decoder.decode(bytes.subarray(at + 46, at + 46 + nameLen));
+    } catch {
+      throw zipError();
     }
     const flags = view.getUint16(at + 8, true);
-    if (flags & 0x0001) throw fail("This workbook is password protected and cannot be read.");
-    at += 46 + view.getUint16(at + 28, true) + view.getUint16(at + 30, true) + view.getUint16(at + 32, true);
+    if (flags & ENCRYPTED_FLAG) throw fail("This workbook is password protected and cannot be read.");
+    records.push({
+      name,
+      flags,
+      method: view.getUint16(at + 10, true),
+      crc: view.getUint32(at + 16, true),
+      compressed: view.getUint32(at + 20, true),
+      uncompressed: view.getUint32(at + 24, true),
+      localOffset: view.getUint32(at + 42, true),
+    });
+    at += 46 + nameLen + view.getUint16(at + 30, true) + view.getUint16(at + 32, true);
   }
-  return count;
+  return records;
 }
 
-export function inspectXlsxArchive(bytes: Uint8Array): XlsxInspection {
-  const b = XLSX_ARCHIVE_BUDGET;
+// Every central record must match the local header it points to: same name,
+// method and flags, and the same sizes and CRC unless the data descriptor flag
+// moves them after the data. A local header that disagrees is an ambiguous view,
+// and different readers could disagree about it (ARCHIVE-F2).
+function checkLocalRecords(bytes: Uint8Array, records: ZipRecord[]): void {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  for (const r of records) {
+    const at = r.localOffset;
+    if (at + 30 > bytes.length || view.getUint32(at, true) !== LOCAL_SIG) throw zipError();
+    const nameLen = view.getUint16(at + 26, true);
+    if (at + 30 + nameLen > bytes.length) throw zipError();
+    let localName: string;
+    try {
+      localName = decoder.decode(bytes.subarray(at + 30, at + 30 + nameLen));
+    } catch {
+      throw zipError();
+    }
+    if (localName !== r.name) throw fail("This workbook's directory does not match its parts.");
+    if (view.getUint16(at + 8, true) !== r.method) throw fail("This workbook's directory does not match its parts.");
+    if (view.getUint16(at + 6, true) !== r.flags) throw fail("This workbook's directory does not match its parts.");
+    if (!(r.flags & DESCRIPTOR_FLAG)) {
+      if (view.getUint32(at + 14, true) !== r.crc) throw fail("This workbook's directory does not match its parts.");
+      if (view.getUint32(at + 18, true) !== r.compressed) throw fail("This workbook's directory does not match its parts.");
+      if (view.getUint32(at + 22, true) !== r.uncompressed) throw fail("This workbook's directory does not match its parts.");
+    }
+  }
+}
+
+// `overrides` exists so tests can cross a budget with small fixtures; the app
+// always calls it with the default budget.
+export function inspectXlsxArchive(
+  bytes: Uint8Array,
+  overrides: Partial<typeof XLSX_ARCHIVE_BUDGET> = {}
+): XlsxInspection {
+  const b = { ...XLSX_ARCHIVE_BUDGET, ...overrides };
   if (bytes.length < 4 || ZIP_MAGIC.some((v, i) => bytes[i] !== v)) {
     throw fail("This file is not a supported .xlsx workbook.");
   }
 
-  const directoryCount = readCentralDirectory(bytes);
+  const records = readCentralDirectory(bytes);
+  if (records.length > b.maxEntries) throw fail("This workbook has too many parts.");
+  const byName = new Map<string, ZipRecord>();
+  for (const r of records) {
+    const key = checkMemberName(r.name);
+    if (byName.has(key)) throw fail("This workbook has duplicate or aliased part names.");
+    byName.set(key, r);
+    if (r.method !== 0 && r.method !== 8) {
+      throw fail("This workbook uses a compression method that is not supported.");
+    }
+  }
+  checkLocalRecords(bytes, records);
+
+  let declaredTotal = 0;
+  for (const r of records) declaredTotal += r.uncompressed;
+  if (declaredTotal > b.maxDeclaredBytes) throw fail("This workbook expands to more data than is allowed.");
+
   const parts = new Map<string, Uint8Array>();
   const seen = new Set<string>();
-  let entries = 0;
-  let declaredTotal = 0;
   let actualTotal = 0;
-
+  // fflate can deliver an error thrown inside ondata as a generic decode error.
+  // The specific refusal is kept here and rethrown after push, so the reason is
+  // reported as it happened, not as "could not be read".
+  let pending: XlsxArchiveError | null = null;
+  const refuse = (message: string): never => {
+    // The first refusal wins: fflate may call ondata again with its own error.
+    if (!pending) pending = fail(message);
+    throw pending;
+  };
   const unzip = new Unzip();
   unzip.register(UnzipInflate);
   unzip.register(UnzipPassThrough);
   unzip.onfile = (file) => {
-    entries += 1;
-    if (entries > b.maxEntries) throw fail("This workbook has too many parts.");
-    if (seen.has(file.name)) throw fail("This workbook has duplicate part names.");
-    seen.add(file.name);
-    if (file.compression !== 0 && file.compression !== 8) {
-      throw fail("This workbook uses a compression method that is not supported.");
+    const key = checkMemberName(file.name);
+    const rec = byName.get(key);
+    if (!rec || seen.has(key)) throw fail("This workbook's directory does not match its parts.");
+    seen.add(key);
+    // The streaming decoder's view must agree with the central record it was
+    // paired with. Any difference means the two views of the package disagree.
+    if (file.compression !== rec.method || file.originalSize !== rec.uncompressed || file.size !== rec.compressed) {
+      throw fail("This workbook's directory does not match its parts.");
     }
-    // Streaming file info types originalSize as optional. A missing declaration
-    // is refused, not treated as zero.
-    const declaredSize = file.originalSize;
-    const compressedSize = file.size;
-    if (declaredSize === undefined || compressedSize === undefined) {
-      throw fail("This workbook could not be inspected.");
-    }
-    declaredTotal += declaredSize;
-    if (declaredTotal > b.maxDeclaredBytes) throw fail("This workbook expands to more data than is allowed.");
+    const declaredSize = rec.uncompressed;
     if (declaredSize > b.maxMemberBytes) throw fail("This workbook has a part that is too large.");
-    if (declaredSize > MiB && compressedSize > 0 && declaredSize / compressedSize > b.maxRatio) {
+    if (declaredSize > MiB && rec.compressed > 0 && declaredSize / rec.compressed > b.maxRatio) {
       throw fail("This workbook is compressed more than is allowed.");
     }
 
     const chunks: Uint8Array[] = [];
     let actual = 0;
     file.ondata = (err, chunk, final) => {
-      if (err) throw fail("This workbook could not be read.");
+      if (err) refuse("This workbook could not be read.");
       actual += chunk.length;
       actualTotal += chunk.length;
-      // Actual bytes are checked as they arrive, so a member that inflates past
-      // its budget is stopped mid-stream, not after the whole member is decoded.
+      // Actual output is checked as it is produced. Feeding is in small pieces
+      // (below), so the output between two checks is bounded.
       if (actual > b.maxMemberBytes || actualTotal > b.maxActualBytes) {
-        throw fail("This workbook expands to more data than is allowed.");
+        refuse("This workbook expands to more data than is allowed.");
       }
-      if (actual > MiB && compressedSize > 0 && actual / compressedSize > b.maxRatio) {
-        throw fail("This workbook is compressed more than is allowed.");
+      if (actual > MiB && rec.compressed > 0 && actual / rec.compressed > b.maxRatio) {
+        refuse("This workbook is compressed more than is allowed.");
       }
       chunks.push(chunk.slice());
       if (final) {
-        // Declared and actual sizes must agree. A mismatch is a forged or damaged
-        // declaration, and the content cannot be trusted.
-        if (actual !== declaredSize) throw fail("This workbook's declared sizes do not match its content.");
+        if (actual !== declaredSize) refuse("This workbook's declared sizes do not match its content.");
         parts.set(file.name, concat(chunks, actual));
       }
     };
     file.start();
   };
 
+  // Bounded peak output. Deflate expands a byte by at most about 1032 times, so
+  // a 1 KiB feed produces at most about 1 MiB before the next check. Feeding the
+  // whole archive at once would let the decoder allocate for every member before
+  // any actual-size check runs (ARCHIVE-S1). The overshoot past the member or
+  // aggregate budget is therefore at most one feed's worth of output.
+  const FEED = 1024;
   try {
-    unzip.push(bytes, true);
+    for (let at = 0; at < bytes.length; at += FEED) {
+      unzip.push(bytes.subarray(at, Math.min(bytes.length, at + FEED)), at + FEED >= bytes.length);
+    }
+    if (bytes.length === 0) unzip.push(bytes, true);
   } catch (err) {
+    if (pending) throw pending;
     if (err instanceof XlsxArchiveError) throw err;
-    // Truncated, malformed, or encrypted packages fail inside fflate. The message
-    // stays generic so no decoder detail reaches the caller.
-    throw fail("This workbook could not be read. Check that it is a valid .xlsx file.");
+    throw zipError();
   }
+  if (pending) throw pending;
 
-  if (entries !== directoryCount) throw fail("This workbook's directory does not match its parts.");
+  if (seen.size !== records.length) throw fail("This workbook's directory does not match its parts.");
 
   // Worksheets are whatever the package relationships say they are, not whatever
   // a filename looks like. SheetJS reads through the same relationships.
@@ -320,7 +423,5 @@ export function inspectXlsxArchive(bytes: Uint8Array): XlsxInspection {
   for (const name of worksheetNames) {
     maxRow = Math.max(maxRow, worksheetExtent(parts.get(name)!));
   }
-  const sheetParts = worksheetNames.length;
-
-  return { sheetParts, maxRow, members: parts.size, actualBytes: actualTotal };
+  return { sheetParts: worksheetNames.length, maxRow, members: parts.size, actualBytes: actualTotal };
 }

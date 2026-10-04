@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { zipSync, strToU8 } from "fflate";
 import { parseCueSheet } from "./parse-cuesheet";
 import { extractDocumentText } from "@/lib/server/document-text";
+import { inspectXlsxArchive } from "./xlsx-archive";
 
 // Hostile and transformed .xlsx packages, written by hand so every byte is ours.
 // Each case must be refused, or read with all populated source data, through
@@ -42,7 +43,11 @@ function sheet(opts: {
   const rows = new Map<number, string[]>();
   for (const [addr, text] of Object.entries(opts.cells)) {
     const row = Number(addr.replace(/^[A-Z]+/, ""));
-    const cell = `<${p}c r=${q}${addr}${q} t=${q}inlineStr${q}><${p}is><${p}t>${text}</${p}t></${p}is></${p}c>`;
+    const numeric = /^-?\d+(\.\d+)?$/.test(text);
+    // Numbers are stored as numbers, as Excel does, so the cue parser sees them as values.
+    const cell = numeric
+      ? `<${p}c r=${q}${addr}${q}><${p}v>${text}</${p}v></${p}c>`
+      : `<${p}c r=${q}${addr}${q} t=${q}inlineStr${q}><${p}is><${p}t>${text}</${p}t></${p}is></${p}c>`;
     rows.set(row, [...(rows.get(row) ?? []), cell]);
   }
   const body = [...rows.keys()]
@@ -255,5 +260,123 @@ describe("worksheets are the ones the package relationships declare (XLSX-R2)", 
   it("a relationship target that escapes the package is refused", async () => {
     const out = await readBoth(relocated({ partPath: "xl/data/sheet1.xml", target: "../../../etc/sheet1.xml", sheetXml: inCap }));
     expect(out.text.ok).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Central/local consistency, aliases, duplicates (ARCHIVE-F2) and strict XML
+// (ARCHIVE-S2). Each fixture is a real zip with one byte-level change, so the
+// refusal can only come from the check named in the expectation.
+// ---------------------------------------------------------------------------
+
+// Rewrites every occurrence of `from` with `to` (equal length) in the zip bytes.
+function renameEverywhere(buf: Buffer, from: string, to: string): Buffer {
+  expect(from.length).toBe(to.length);
+  const out = Buffer.from(buf);
+  const needle = Buffer.from(from);
+  const repl = Buffer.from(to);
+  let at = out.indexOf(needle);
+  while (at >= 0) {
+    repl.copy(out, at);
+    at = out.indexOf(needle, at + 1);
+  }
+  return out;
+}
+
+const SHEET_XML = sheet({ cells: { A1: "Day", B2: "Kept item" }, dimension: "A1:B2" });
+
+describe("central and local records agree (ARCHIVE-F2)", () => {
+  it("local filename changed while the central record is unchanged: refused", async () => {
+    const base = Buffer.from(zipSync({ "xl/worksheets/sheet1.xml": strToU8(SHEET_XML) }));
+    const tampered = renameEverywhere(base, "xl/worksheets/sheet1.xml", "xl/worksheets/sheet2.xml");
+    // Patch only the local copy back: write the central name back but leave the local name changed.
+    const local = Buffer.from(base);
+    const central = base.indexOf(Buffer.from("PK\u0001\u0002"));
+    expect(central).toBeGreaterThan(0);
+    const localName = Buffer.from("xl/worksheets/sheet1.xml");
+    const idx = local.indexOf(localName);
+    Buffer.from("xl/worksheets/sheet2.xml").copy(local, idx, 0, localName.length);
+    const out = await readBoth(local);
+    expect(out.text.ok).toBe(false);
+    if (!out.text.ok) expect(out.text.msg).toMatch(/does not match its parts/);
+    expect(tampered.length).toBe(local.length);
+  });
+
+  it("two members with the same name (duplicate fixture): refused", async () => {
+    // Two real members, then the second one renamed to the first's name in both
+    // its local header and its central record: two records, one name.
+    const base = Buffer.from(zipSync({ "xl/sheet.xmx": strToU8(SHEET_XML), "xl/sheet.xmy": strToU8("ab") }));
+    const dup = renameEverywhere(base, "xl/sheet.xmy", "xl/sheet.xmx");
+    const out = await readBoth(dup);
+    expect(out.text.ok).toBe(false);
+    if (!out.text.ok) expect(out.text.msg).toMatch(/duplicate or aliased|does not match|not allowed/);
+  });
+
+  it("a path alias with an empty segment (xl//worksheets) is refused, not normalised", async () => {
+    const base = Buffer.from(zipSync({ "ab/cdefg": strToU8(SHEET_XML) }));
+    const alias = renameEverywhere(base, "ab/cdefg", "ab//defg");
+    expect(() => inspectXlsxArchive(new Uint8Array(alias))).toThrow(/not allowed|does not match/);
+  });
+
+  it("names that differ only by case are one part to the reader and are refused", async () => {
+    const base = Buffer.from(zipSync({ "xl/Sheet.xml": strToU8("a"), "xl/sheet.xml": strToU8("b") }));
+    expect(() => inspectXlsxArchive(new Uint8Array(base))).toThrow(/duplicate or aliased/);
+  });
+});
+
+describe("XML warnings refuse the workbook through both readers (ARCHIVE-S2)", () => {
+  it("unquoted attribute in an in-cap sheet is refused, not silently repaired, by both readers", async () => {
+    // xmldom reports <c r=B2> as a warning and repairs it. The warning alone refuses.
+    const unquoted = `${DECL}<worksheet xmlns="${NS}"><sheetData><row r="2"><c r=B2 t="inlineStr"><is><t>Kept item</t></is></c></row></sheetData></worksheet>`;
+    const out = await readBoth(pkg(unquoted));
+    expect(out.text.ok).toBe(false);
+    expect(out.cue.ok).toBe(false);
+  });
+
+  it("ordinary quoted, prefixed sheet keeps its actual cue content through the cue parser", async () => {
+    // Real cue layout: title row "Event / Day | Session", a group row, the header row, then items.
+    const cells: Record<string, string> = {
+      A1: "Test Event\nFriday | Evening",
+      A3: "#",
+      B3: "Start Time",
+      C3: "End Time",
+      D3: "Duration (Min)",
+      E3: "Item",
+      F3: "Presenter",
+      A4: "1",
+      B4: "18:00",
+      C4: "18:05",
+      D4: "5",
+      E4: "Opening keynote",
+      F4: "Alex",
+    };
+    const out = await readBoth(pkg(sheet({ q: "'", prefix: "x", cells, dimension: "A1:F4" })));
+    expect(out.cue.ok).toBe(true);
+    if (out.cue.ok) expect(out.cue.r.programs.map((p) => p.name)).toContain("Opening keynote");
+    expect(out.text.ok).toBe(true);
+    if (out.text.ok) expect(out.text.t).toContain("Opening keynote");
+  });
+});
+
+describe("bounded peak output (ARCHIVE-S1), exercised with small budgets", () => {
+  it("a member that inflates past the member budget is stopped, though its declaration is forged small", () => {
+    const big = new Uint8Array(200 * 1024); // 200 KiB of zeros: tiny compressed, large inflated
+    const base = Buffer.from(zipSync({ "xl/worksheets/sheet1.xml": strToU8(SHEET_XML), "xl/sharedStrings.xml": big }));
+    const forged = patchAll(patchAll(base, LOCAL, 22, 4, 1000), CENTRAL, 24, 4, 1000);
+    expect(() => inspectXlsxArchive(new Uint8Array(forged), { maxMemberBytes: 64 * 1024 })).toThrow(/could not be read|expands to more data|do not match/);
+  });
+
+  it("the aggregate actual budget stops two members that together exceed it", () => {
+    const part = new Uint8Array(40 * 1024);
+    const buf = pkg(SHEET_XML, { "xl/a.xml": "", "xl/b.xml": "" });
+    void part;
+    const big = Buffer.from(zipSync({ "xl/worksheets/sheet1.xml": strToU8(SHEET_XML), "xl/a.xml": part, "xl/b.xml": part }));
+    void buf;
+    expect(() => inspectXlsxArchive(new Uint8Array(big), { maxActualBytes: 60 * 1024 })).toThrow(/expands to more data/);
+  });
+
+  it("an honest archive under the same small budgets is accepted", () => {
+    const buf = pkg(SHEET_XML);
+    expect(inspectXlsxArchive(new Uint8Array(buf), { maxMemberBytes: 64 * 1024, maxActualBytes: 64 * 1024 }).maxRow).toBe(2);
   });
 });
