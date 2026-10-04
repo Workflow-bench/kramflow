@@ -380,3 +380,49 @@ describe("bounded peak output (ARCHIVE-S1), exercised with small budgets", () =>
     expect(inspectXlsxArchive(new Uint8Array(buf), { maxMemberBytes: 64 * 1024, maxActualBytes: 64 * 1024 }).maxRow).toBe(2);
   });
 });
+
+// Production budget, no overrides. Declared checks refuse an accurately declared
+// oversize member before any inflation, so the actual-byte path is exercised by a
+// forged small declaration whose real output (17 MiB) crosses the 16 MiB member
+// budget mid-stream. Overshoot bound: feeds are 1 KiB of compressed input, and
+// deflate expands a byte by at most about 1032 times, so the output produced
+// before the check fires is at most about 1 MiB past the member budget.
+// Rewrites the declared uncompressed size only in the local and central headers of
+// the member with this name, so the other members keep honest declarations.
+function patchMemberSize(buf: Buffer, name: string, value: number): Buffer {
+  const out = Buffer.from(buf);
+  const needle = Buffer.from(name);
+  for (let i = 0; i + 4 <= out.length; i++) {
+    const sig = out.readUInt32LE(i);
+    if (sig === LOCAL) {
+      const nameLen = out.readUInt16LE(i + 26);
+      if (out.subarray(i + 30, i + 30 + nameLen).equals(needle)) out.writeUInt32LE(value, i + 22);
+    } else if (sig === CENTRAL) {
+      const nameLen = out.readUInt16LE(i + 28);
+      if (out.subarray(i + 46, i + 46 + nameLen).equals(needle)) out.writeUInt32LE(value, i + 24);
+    }
+  }
+  return out;
+}
+
+describe("production output budget with a forged declaration (ARCHIVE-S1)", () => {
+  it("accurately declared oversize member is refused by the declared check, before inflation", () => {
+    const huge = new Uint8Array(17 * 1024 * 1024);
+    const buf = Buffer.from(zipSync({ "xl/worksheets/sheet1.xml": strToU8(SHEET_XML), "xl/sharedStrings.xml": huge }));
+    expect(() => inspectXlsxArchive(new Uint8Array(buf))).toThrow(/too large/);
+  });
+
+  it("forged small declaration with 17 MiB real output is stopped by the actual-byte check", () => {
+    // Incompressible content keeps the actual ratio near 1, so the member budget
+    // (not the ratio rule) is what stops the stream. Filled in 64 KiB blocks, the
+    // getRandomValues limit.
+    const huge = new Uint8Array(17 * 1024 * 1024);
+    for (let at = 0; at < huge.length; at += 65536) crypto.getRandomValues(huge.subarray(at, Math.min(huge.length, at + 65536)));
+    const base = Buffer.from(zipSync({ "xl/worksheets/sheet1.xml": strToU8(SHEET_XML), "xl/sharedStrings.xml": huge }));
+    const forged = patchMemberSize(base, "xl/sharedStrings.xml", 4096);
+    // The actual-byte budget must be the reason, not the final size mismatch that
+    // follows a full inflation. A refusal stops further output (fflate swallows
+    // exceptions thrown in ondata, so the stop is recorded, not thrown).
+    expect(() => inspectXlsxArchive(new Uint8Array(forged))).toThrow(/expands to more data/);
+  }, 60_000);
+});

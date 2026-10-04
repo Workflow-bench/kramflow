@@ -373,6 +373,9 @@ export function inspectXlsxArchive(
     const chunks: Uint8Array[] = [];
     let actual = 0;
     file.ondata = (err, chunk, final) => {
+      // fflate catches exceptions thrown here and keeps streaming, so a refusal
+      // must stop the work itself: once one is recorded, no more output is kept.
+      if (pending) return;
       if (err) refuse("This workbook could not be read.");
       actual += chunk.length;
       actualTotal += chunk.length;
@@ -400,7 +403,7 @@ export function inspectXlsxArchive(
   // aggregate budget is therefore at most one feed's worth of output.
   const FEED = 1024;
   try {
-    for (let at = 0; at < bytes.length; at += FEED) {
+    for (let at = 0; at < bytes.length && !pending; at += FEED) {
       unzip.push(bytes.subarray(at, Math.min(bytes.length, at + FEED)), at + FEED >= bytes.length);
     }
     if (bytes.length === 0) unzip.push(bytes, true);
