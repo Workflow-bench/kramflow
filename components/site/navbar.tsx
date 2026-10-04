@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
@@ -32,6 +32,21 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const [compact, setCompact] = useState(false);
   const root = useRef<HTMLElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+
+  // Escape closes the open menu and returns focus to the control that opened it
+  // (KF-020: keyboard completeness and focus return).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        toggle.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   useGsap(root, ({ gsap, ScrollTrigger, reduced }) => {
     if (reduced) {
@@ -104,6 +119,7 @@ export function Navbar() {
         </div>
 
         <button
+          ref={toggle}
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
