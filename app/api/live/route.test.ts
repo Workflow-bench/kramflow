@@ -225,4 +225,13 @@ describe("runLiveAction start guard (Lane C live-start invariants)", () => {
     expect(res.status).toBe(400);
     expect(writesTo("live_state")).toHaveLength(0);
   });
+
+  it("refuses to start a session whose items skip order 1, writing nothing", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    programRows = [{ id: "program-2", event_id: "event-a", session_id: "session-a", sort_order: 2 }];
+    liveState = activeLiveState({ progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(409);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
 });

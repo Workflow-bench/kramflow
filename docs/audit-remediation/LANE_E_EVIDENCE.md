@@ -68,9 +68,9 @@ Mobile LCP, product-shot quality compared (3 runs each, same build otherwise):
 | Product-shot quality (served) | Runs (ms) | Median (ms) | Console image transfer |
 | --- | --- | --- | --- |
 | 90 | 4609, 4590, 3926 | 4590 | 157 KB |
-| 80 | 4794, 3557, 3238 | 3557 | 118 KB |
+| 80 (shipped, served 80) | 4794, 3557, 3238 | 3557 | 118 KB |
 
-Correction to an earlier draft of this file: the first "quality 80" runs were served at quality 75. `next.config.ts` lists the allowed `images.qualities`, and 80 was not on the list, so Next fell back to 75 without warning. 80 is now listed. The runs in the table above are the corrected ones.
+Correction to an earlier draft of this file: the first "quality 80" runs were served at quality 75. `next.config.ts` lists the allowed `images.qualities`, and 80 was not on the list, so Next fell back to 75 without warning. 80 is now listed. The table above uses only runs whose served quality is confirmed from the report (see `docs/audit-remediation/evidence/B007/LIGHTHOUSE_INDEX.md`). Runs served at 75 are not used.
 
 The change is `quality={90}` to `quality={80}` in `components/site/product-shot.tsx`. The console image is 25% smaller. The LCP difference between the two groups is inside the run-to-run spread, so the timing gain is not established by these runs. The byte reduction is.
 

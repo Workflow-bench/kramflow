@@ -107,15 +107,20 @@ async function checkRunnableSession(
     .maybeSingle();
   if (sessionError) return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
   if (!sessionRow) return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
+  // Start sets the live item to order 1, so the session must have that item.
+  // A session whose orders are only 0 or 2+ would otherwise start on nothing
+  // (B007-S1). Next and Previous rely on the same contiguous 1..n sequence.
   const { data: programRow, error: programError } = await supabase
     .from("programs")
     .select("id")
     .eq("event_id", eventId)
     .eq("session_id", sessionId)
-    .limit(1)
+    .eq("sort_order", 1)
     .maybeSingle();
   if (programError) return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
-  if (!programRow) return NextResponse.json({ ok: false, error: "This session has no items. Add items before starting." }, { status: 409 });
+  if (!programRow) {
+    return NextResponse.json({ ok: false, error: "This session has no first item. Fix the item order, then start." }, { status: 409 });
+  }
   return null;
 }
 

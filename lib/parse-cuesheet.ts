@@ -6,6 +6,7 @@
 // mapping, per docs/DATA_MODEL.md's original column-by-header-text approach.
 
 import * as XLSX from "xlsx";
+import { XLSX_READ_OPTIONS, workbookLimitViolation } from "./xlsx-limits";
 
 export interface ParsedSession {
   id: string;
@@ -335,26 +336,10 @@ function parseSheet(sheetName: string, sheet: XLSX.WorkSheet, sessionSortOrder: 
 // nowhere close to either limit). Rejecting oversized input here, before
 // row-by-row parsing runs, keeps a crafted small file from doing
 // disproportionate work.
-const MAX_SHEETS = 50;
-const MAX_ROWS_PER_SHEET = 5000;
-
 export function parseCueSheet(buffer: Buffer | ArrayBuffer): ParsedCueSheet {
-  // sheetRows bounds how much of each sheet SheetJS decodes. One row past the
-  // limit is enough to detect an oversized sheet below, so a crafted file cannot
-  // make the parser decode every row before the check runs (SheetJS 0.20.3 option).
-  const wb = XLSX.read(buffer, { type: "buffer", sheetRows: MAX_ROWS_PER_SHEET + 1 });
-
-  if (wb.SheetNames.length > MAX_SHEETS) {
-    throw new Error(`Too many sheets (${wb.SheetNames.length}). The limit is ${MAX_SHEETS}.`);
-  }
-  wb.SheetNames.forEach((name) => {
-    const ref = wb.Sheets[name]["!ref"];
-    const range = ref ? XLSX.utils.decode_range(ref) : null;
-    const rowCount = range ? range.e.r - range.s.r + 1 : 0;
-    if (rowCount > MAX_ROWS_PER_SHEET) {
-      throw new Error(`Sheet "${name}" has too many rows (${rowCount}). The limit is ${MAX_ROWS_PER_SHEET}.`);
-    }
-  });
+  const wb = XLSX.read(buffer, XLSX_READ_OPTIONS);
+  const violation = workbookLimitViolation(wb);
+  if (violation) throw new Error(violation);
 
   const sessions: ParsedSession[] = [];
   const partitions: ParsedPartition[] = [];

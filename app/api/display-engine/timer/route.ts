@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { verifySessionAccess } from "@/lib/server/verify-display-access";
+import { provisionDisplayTypeRows } from "@/lib/server/display-type-state";
 
 interface TimerState {
   mode: string;
@@ -58,6 +59,14 @@ export async function PATCH(request: Request) {
   }
 
   const supabase = supabaseAdmin();
+  // Same repair Hold uses: an event created before this display type's row
+  // existed (or before provisioning shipped) gets its row before the read, so
+  // the first Timer action on an older event works instead of failing (B007-S3).
+  const provisioned = await provisionDisplayTypeRows(supabase, access.eventId);
+  if (!provisioned.ok) {
+    console.error("[timer] provisioning failed:", provisioned.error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   const { data: row, error: fetchError } = await supabase
     .from("display_type_state")
     .select("timer, timer_version")
