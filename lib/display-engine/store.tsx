@@ -506,6 +506,7 @@ function applyRemoteRows(inst: EngineInstance, stateRow: DisplayStateRow, regist
 function ensureRemoteConnected(inst: EngineInstance) {
   if (inst.initialized || typeof window === "undefined") return;
   inst.initialized = true;
+  if (isHarnessIdentity(inst.identity)) return;
 
   if (inst.identity.eventId) {
     const eventId = inst.identity.eventId;
@@ -627,7 +628,7 @@ function subscribe(inst: EngineInstance, callback: () => void): () => void {
       localSlice = stored;
     }
   }
-  if (!inst.remoteHydrated && inst.identity.eventId) {
+  if (!inst.remoteHydrated && inst.identity.eventId && !isHarnessIdentity(inst.identity)) {
     inst.remoteHydrated = true;
     fetchRemoteSliceViaSupabase(inst, inst.identity.eventId).then(callback);
   }
@@ -855,6 +856,9 @@ function runSchedulerCheck(inst: EngineInstance) {
 }
 
 function dismissBroadcast(identity: DisplayEngineIdentity, id: string) {
+  // Harness identity: no network. Reports the same null a transport failure
+  // produces, so the caller's real error path runs (see broadcast-overlay.tsx).
+  if (isHarnessIdentity(identity)) return Promise.resolve(null);
   return postJson(`/api/display-engine/broadcasts/${id}/dismiss`, identityBody(identity));
 }
 
@@ -970,6 +974,55 @@ export function useDisplayEngine() {
 
 export function useTransportStatus(): TransportStatus {
   return useSyncExternalStore(subscribeStatus, getStatusSnapshot, getServerStatusSnapshot);
+}
+
+// ---------------------------------------------------------------------------
+// Dev-only rendered-evidence harness seam (not used by any product code path)
+// ---------------------------------------------------------------------------
+//
+// /dev/components' catalog renders real canonical components with synthetic
+// data — no auth, no live event (see that page's own header comment). Every
+// other catalog entry can do that with plain props; BroadcastOverlay can't,
+// since it reads all of its data from useDisplayEngine()/
+// useDisplayEngineIdentity() rather than accepting it as props. This gives
+// the catalog page exactly one seam to seed a synthetic active broadcast for
+// a single reserved, obviously-fake identity — never a real eventId — so
+// the Dismiss states (owner/non-owner/token) can be captured as real
+// rendered browser evidence (Codex B005 prompt item 3) without creating or
+// touching any live Supabase row. Guarded to only ever touch
+// HARNESS_EVENT_ID's own module-scoped instance; throws otherwise.
+export const HARNESS_EVENT_ID = "00000000-0000-0000-0000-000000000000";
+export const HARNESS_TOKEN = "harness-token-not-a-real-share-link-0000";
+
+export function isHarnessIdentity(identity: DisplayEngineIdentity): boolean {
+  return identity.eventId === HARNESS_EVENT_ID || identity.token === HARNESS_TOKEN;
+}
+
+export function seedHarnessBroadcast(identity: DisplayEngineIdentity, row: Partial<BroadcastRow> & { id: string }) {
+  if (!isHarnessIdentity(identity)) {
+    throw new Error("seedHarnessBroadcast only operates on the reserved HARNESS_EVENT_ID/HARNESS_TOKEN identities — refusing to touch any other instance.");
+  }
+  const inst = getInstance(identity);
+  const fullRow: BroadcastRow = {
+    type: "info",
+    title: "Harness broadcast",
+    message: "Synthetic message for rendered-evidence capture.",
+    icon: null,
+    priority: 2,
+    target: { kind: "all" },
+    created_at: new Date().toISOString(),
+    expires_at: null,
+    duration_seconds: null,
+    acknowledgement_required: false,
+    persistent: false,
+    acknowledged_by: [],
+    scheduled_for: null,
+    status: "sent",
+    dismissed_at: null,
+    ...row,
+  };
+  inst.remoteSlice = { ...inst.remoteSlice, broadcastRows: [fullRow] };
+  rebuild(inst);
 }
 
 export function targetMatchesDisplay(target: BroadcastTarget, display: DisplayInstance, groups: Record<string, DisplayGroup>): boolean {

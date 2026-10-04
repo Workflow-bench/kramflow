@@ -39,6 +39,10 @@ import { useToast } from "@/components/ui/toast";
 import { ActionBar, ActionBarClear, ActionBarCount, ActionBarSeparator, ActionBarButton } from "@/components/ui/action-bar";
 import { MaybeTooltip } from "@/components/ui/tooltip";
 import { StageStatusPill, type StageStatus } from "@/components/display-engine/stage-status-pill";
+import { useEffect } from "react";
+import { DisplayEngineProvider } from "@/lib/display-engine/context";
+import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay";
+import { seedHarnessBroadcast, HARNESS_EVENT_ID, HARNESS_TOKEN } from "@/lib/display-engine/store";
 
 // Minimal synthetic Program — RunPosition only reads .title; the cast
 // avoids hand-filling every cue-sheet field for a catalog swatch.
@@ -70,6 +74,43 @@ function Swatch({ label, children }: { label: string; children: React.ReactNode 
 const ALL_STATUS_KINDS: OperationalStatusKind[] = ["live", "hold", "ready", "online", "rehearsal", "stale", "offline", "warning", "critical"];
 const ALL_CONNECTION_STATES: ConnectionBadgeStatus[] = ["connected", "reconnecting", "disconnected"];
 const ALL_STAGE_STATUSES: StageStatus[] = ["LIVE", "PAUSED", "ON HOLD", "STANDBY"];
+
+// BroadcastOverlay reads everything from useDisplayEngine()/
+// useDisplayEngineIdentity() rather than accepting props, so (unlike every
+// other swatch on this page) it needs a real provider plus one seeded
+// synthetic broadcast — see store.tsx's seedHarnessBroadcast for why this
+// is safe (touches only a reserved, never-real identity; no live Supabase
+// row is created, read, or mutated). Rendered-evidence capture for Codex
+// B005 prompt item 3 (owner-enabled / non-owner-explanation / token-absent
+// Dismiss states) uses exactly this harness, not a mocked/fabricated DOM.
+function BroadcastDismissHarnessSeed({ identity }: { identity: { eventId?: string; token?: string } }) {
+  useEffect(() => {
+    seedHarnessBroadcast(identity, { id: "harness-broadcast-1", title: "Rehearsal starts in 5 minutes", message: "Please take your seats." });
+  }, [identity]);
+  return null;
+}
+
+function BroadcastDismissHarness({ label, role, token }: { label: string; role?: "owner" | "editor" | "viewer"; token?: string }) {
+  const identity = token ? { token } : { eventId: HARNESS_EVENT_ID };
+  return (
+    <div className="flex flex-col gap-2 w-full max-w-md">
+      <span className="text-console-label uppercase text-muted-2">{label}</span>
+      {/* BroadcastOverlay's banner is `fixed`, which normally escapes any
+          plain `relative` ancestor and would stack at the real page
+          viewport edge instead of inside this swatch. `transform` (any
+          non-none value) makes this div a CSS containing block for fixed
+          descendants per spec — translateZ(0) is a visual no-op otherwise. */}
+      <div className="relative h-44 sm:h-24 rounded-panel border border-line-soft bg-background overflow-hidden" style={{ transform: "translateZ(0)" }}>
+        <DisplayEngineProvider eventId={identity.eventId} token={identity.token} displayType="presenter" role={role}>
+          <BroadcastDismissHarnessSeed identity={identity} />
+          <div className="absolute inset-0">
+            <BroadcastOverlay displayId="harness-display" displayType="presenter" />
+          </div>
+        </DisplayEngineProvider>
+      </div>
+    </div>
+  );
+}
 
 const CATALOG_SELECT_OPTIONS = [
   { value: "a", label: "Friday · Evening Session" },
@@ -483,6 +524,16 @@ export default function ComponentCatalogPage() {
           </ActionBarButton>
         </ActionBar>
       )}
+
+      <Row
+        title="Broadcast overlay — Dismiss states"
+        description="The three real Dismiss states (owner-enabled, non-owner-explanation, token-absent), each backed by a seeded synthetic broadcast — see store.tsx's seedHarnessBroadcast. Tab through the owner card to verify the focus-visible ring; the non-owner explanation is plain visible text, not a focusable control."
+      >
+        <BroadcastDismissHarness label="Owner session — Dismiss enabled" role="owner" />
+        <BroadcastDismissHarness label="Editor session — visible explanation" role="editor" />
+        <BroadcastDismissHarness label="Viewer session — visible explanation" role="viewer" />
+        <BroadcastDismissHarness label="Token (share link) — no control at all" token={HARNESS_TOKEN} />
+      </Row>
     </main>
   );
 }

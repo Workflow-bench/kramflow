@@ -1,14 +1,24 @@
 #!/usr/bin/env node
-// Validates TASK_LEDGER.json against itself and against SOURCE_COVERAGE.json.
+// Validates TASK_LEDGER.json against itself, SOURCE_COVERAGE.json, the vendored
+// source-package files, and PACKAGE_MANIFEST.json. Exported as runValidation()
+// so negative tests can point it at altered copies; the CLI runs it on the repo.
 // Run: node docs/audit-remediation/validate_ledger.mjs
-// Exit code 0 = clean, 1 = findings printed below.
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
-const dir = path.dirname(fileURLToPath(import.meta.url));
-const ledger = JSON.parse(fs.readFileSync(path.join(dir, "TASK_LEDGER.json"), "utf8"));
-const coverage = JSON.parse(fs.readFileSync(path.join(dir, "SOURCE_COVERAGE.json"), "utf8"));
+const defaultDir = path.dirname(fileURLToPath(import.meta.url));
+
+export function runValidation({
+  dir = defaultDir,
+  ledgerPath = path.join(dir, "TASK_LEDGER.json"),
+  coveragePath = path.join(dir, "SOURCE_COVERAGE.json"),
+  sourcePkgDir = path.join(dir, "source-package"),
+  manifestPath = path.join(dir, "PACKAGE_MANIFEST.json"),
+} = {}) {
+const ledger = JSON.parse(fs.readFileSync(ledgerPath, "utf8"));
+const coverage = JSON.parse(fs.readFileSync(coveragePath, "utf8"));
 
 const REQUIRED_FIELDS = [
   "id", "category", "source_refs", "evidence_class", "observation", "priority",
@@ -21,6 +31,7 @@ const VALID_STATES = new Set([
   "OPEN", "INVESTIGATING", "IN_PROGRESS", "READY_FOR_CODEX", "NEEDS_REWORK",
   "BLOCKED_EXTERNAL", "CODEX_VERIFIED", "NOT_APPLICABLE", "PRESERVE_PENDING_REVIEW",
 ]);
+
 
 const findings = [];
 function fail(msg) { findings.push(msg); }
@@ -162,7 +173,6 @@ for (const item of ledger.items) {
 //    members are vendored into source-package/ specifically so this check can
 //    run without external access; see source-package/README.md).
 {
-  const sourcePkgDir = path.join(dir, "source-package");
   const lineCountCache = new Map();
   function lineCountOf(file) {
     if (lineCountCache.has(file)) return lineCountCache.get(file);
@@ -199,7 +209,6 @@ for (const item of ledger.items) {
 //     with itself (B004, Codex B003 review finding B003-F1's root cause: the
 //     B003 drafting pass never re-read the raw JSON it claimed to summarize).
 {
-  const sourcePkgDir = path.join(dir, "source-package");
   const LH_FILES = {
     "kramflow-lighthouse-desktop.report.json": { prefix: "LH-DESKTOP" },
     "kramflow-lighthouse-mobile.report.json": { prefix: "LH-MOBILE-1" },
@@ -280,16 +289,97 @@ for (const item of ledger.items) {
   }
 }
 
-if (findings.length === 0) {
-  console.log(
-    "validate_ledger: PASS — no duplicate parent/child/source-key ids or collisions, no missing required fields, " +
-    "totals match items[], no dangling or unmapped source keys, every line-based locator resolves against the " +
-    "vendored source-package files, raw Lighthouse contrast/LCP values agree with SOURCE_COVERAGE.json's own text, " +
-    "no empty acceptance criteria on an open item, and by_kf_index matches a fresh recomputation from entries[]."
-  );
-  process.exit(0);
-} else {
-  console.log(`validate_ledger: ${findings.length} finding(s):`);
-  for (const f of findings) console.log(" -", f);
-  process.exit(1);
+
+// 13. Manifest binding: every vendored source-package member must match its
+//     sha256 in PACKAGE_MANIFEST.json (B004-F1 / B005 item 4). A changed byte
+//     in any vendored file fails here even when every line range still exists.
+{
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  for (const member of manifest.members) {
+    const p = path.join(sourcePkgDir, member.name);
+    if (!fs.existsSync(p)) {
+      // Vendored subset: HTML duplicates intentionally not copied (see source-package/README.md).
+      if (member.name.endsWith(".html")) continue;
+      fail(`MANIFEST_MEMBER_MISSING: ${member.name} listed in PACKAGE_MANIFEST.json is not vendored`);
+      continue;
+    }
+    const actual = crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");
+    if (actual !== member.sha256) {
+      fail(`MANIFEST_HASH_MISMATCH: ${member.name} sha256 ${actual} != manifest ${member.sha256}`);
+    }
+  }
+}
+
+// 14. Excerpt integrity: each line-based entry's stored source_excerpt must
+//     equal the exact text the locator names in the vendored file, and its
+//     source_excerpt_sha256 must match that text. A valid-but-wrong locator
+//     (a real line range whose content differs) fails here, not just a
+//     missing/out-of-range one (B005 item 4 negative cases).
+{
+  const lineCache = new Map();
+  for (const entry of coverage.entries) {
+    const m = /^([^:]+):L(\d+)(?:-L?(\d+))?$/.exec(entry.locator);
+    if (!m) continue;
+    const [, file, s, e] = m;
+    if (!fs.existsSync(path.join(sourcePkgDir, file))) continue; // reported by check 9
+    if (!lineCache.has(file)) lineCache.set(file, fs.readFileSync(path.join(sourcePkgDir, file), "utf8").split("\n"));
+    const start = parseInt(s, 10);
+    const end = e ? parseInt(e, 10) : start;
+    const actualText = lineCache.get(file).slice(start - 1, end).join("\n");
+    if (typeof entry.source_excerpt !== "string" || typeof entry.source_excerpt_sha256 !== "string") {
+      fail(`EXCERPT_MISSING: ${entry.source_key} has no bound source_excerpt/source_excerpt_sha256 (run add_excerpts.mjs)`);
+      continue;
+    }
+    const digest = crypto.createHash("sha256").update(entry.source_excerpt, "utf8").digest("hex");
+    if (digest !== entry.source_excerpt_sha256) {
+      fail(`EXCERPT_DIGEST_MISMATCH: ${entry.source_key} stored excerpt does not hash to its stored source_excerpt_sha256`);
+    }
+    if (actualText !== entry.source_excerpt) {
+      fail(`EXCERPT_CONTENT_MISMATCH: ${entry.source_key} locator '${entry.locator}' now resolves to different text than its stored source_excerpt`);
+    }
+  }
+}
+
+// 15. Lighthouse JSON pointers: every '#audits.<id>' / '#categories.<id>'
+//     token in a LH-* locator must resolve inside its vendored raw JSON.
+{
+  for (const entry of coverage.entries) {
+    if (!entry.source_key.startsWith("LH-") || !/\.json\b/.test(entry.locator)) continue;
+    const jsonFile = entry.locator.split("#")[0].trim();
+    const pointerMatches = [...entry.locator.matchAll(/#((?:audits|categories)\.[A-Za-z0-9_.-]+)/g)].map((m) => m[1]);
+    if (pointerMatches.length === 0) {
+      fail(`BAD_POINTER: ${entry.source_key} has no '#audits.*' or '#categories.*' pointer in locator '${entry.locator}'`);
+      continue;
+    }
+    const jsonPath = path.join(sourcePkgDir, jsonFile.split(" ")[0]);
+    if (!fs.existsSync(jsonPath)) {
+      fail(`BAD_POINTER: ${entry.source_key} points into '${jsonFile}', which is not vendored`);
+      continue;
+    }
+    const raw = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+    for (const ptr of pointerMatches) {
+      // Pointers stop at the first space/paren in the locator; strip any trailing dot.
+      const clean = ptr.replace(/\.$/, "");
+      const resolved = clean.split(".").reduce((o, k) => (o == null ? undefined : o[k]), raw);
+      if (resolved === undefined) {
+        fail(`BAD_POINTER: ${entry.source_key}'s pointer '#${clean}' does not resolve in ${jsonFile}`);
+      }
+    }
+  }
+}
+
+return findings;
+}
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  const findings = runValidation();
+  if (findings.length === 0) {
+    console.log("validate_ledger: PASS — duplicate/collision checks, required fields, totals, dangling/unmapped keys, locator resolution, excerpt digests, manifest hashes, Lighthouse pointers and raw values, empty acceptance, reverse-map consistency.");
+    process.exit(0);
+  } else {
+    console.log(`validate_ledger: ${findings.length} finding(s):`);
+    for (const f of findings) console.log(" -", f);
+    process.exit(1);
+  }
 }

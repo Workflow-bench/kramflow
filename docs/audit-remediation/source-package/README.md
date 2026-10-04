@@ -27,8 +27,10 @@ node docs/audit-remediation/source-package/scripts/extract.mjs
 node docs/audit-remediation/source-package/scripts/classify.mjs
 node docs/audit-remediation/source-package/scripts/build_coverage.mjs
 node docs/audit-remediation/source-package/scripts/add_prose_entries.mjs
+node docs/audit-remediation/source-package/scripts/add_excerpts.mjs   # must run after build_coverage.mjs: binds exact excerpts + sha256
 node docs/audit-remediation/source-package/scripts/build_coverage_md.mjs
-node docs/audit-remediation/validate_ledger.mjs
+node docs/audit-remediation/validate_ledger.mjs                           # manifest hashes, excerpt digests, Lighthouse pointers, locators, ledger totals
+# negative tests for the integrity checks: npx vitest run docs/audit-remediation/validate_ledger.test.ts
 ```
 
 `extract.mjs`'s and `classify.mjs`'s own intermediate JSON output

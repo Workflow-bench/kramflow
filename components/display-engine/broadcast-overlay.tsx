@@ -202,7 +202,7 @@ export function BroadcastOverlay({
                     // alike without pretending a control is operable.
                     <span
                       className={cn(
-                        "text-muted-2 shrink-0 text-right",
+                        "text-muted-2 max-w-[45%] text-right leading-snug",
                         size === "large" ? "text-body" : "text-caption"
                       )}
                     >

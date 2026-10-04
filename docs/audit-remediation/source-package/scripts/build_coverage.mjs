@@ -49,7 +49,7 @@ const lighthouse_evidence = [
   {
     source_key: "LH-MOBILE-2",
     source_file: "kramflow-lighthouse-mobile-rerun.report.json / .html",
-    locator: "kramflow-lighthouse-mobile-rerun.report.json (color-contrast audit, LCP numericValue)",
+    locator: "kramflow-lighthouse-mobile-rerun.report.json#audits.color-contrast (score=0, items=10), #audits.largest-contentful-paint.numericValue (=3639.33)",
     kind: "lighthouse_run",
     text: "Second (rerun) mobile Lighthouse run: 10 color-contrast failing items, LCP 3639ms numericValue. Confirms the mobile LCP miss is stable across two independent runs, not a one-off measurement artifact.",
     mapped_kf_ids: ["KF-019", "KF-023"],

@@ -466,7 +466,7 @@
         "alerts reach an owner",
         "tokens/passwords/emails/cue remarks/tenant data are absent from captured context",
         "source maps and release SHA resolve correctly on the captured event",
-        "KF-014's restore drill exercises this monitoring as its own 'monitored test exception' step \u2014 the two criteria are tested together, not treated as independently satisfiable"
+        "a controlled test error is captured by the monitoring as its own independently checkable test (the 'monitored test exception' half of FG-L220), not dependent on any backup restore drill"
       ],
       "affected_files": [
         "app instrumentation / global error boundary setup"
@@ -489,7 +489,8 @@
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
-        "B004: FG-L220 compound-source obligation split correctly across both halves (Codex B003 review finding B003-F2) \u2014 was previously mapped only to KF-014, dropping the monitoring half."
+        "B004: FG-L220 compound-source obligation split correctly across both halves (Codex B003 review finding B003-F2) \u2014 was previously mapped only to KF-014, dropping the monitoring half.",
+        "B005: removed the invented cross-dependency added in B004 (Codex B004 review B004-F2). Both FG-L220 obligations (backup restore drill; monitored test exception) are now separately checkable; a combined exercise is optional."
       ]
     },
     {
@@ -625,7 +626,7 @@
         "data is consistent after restore",
         "secrets are rotated where needed",
         "the runbook is accessible during a real incident",
-        "the drill's injected/observed failure is captured by KF-010's error monitoring (the 'monitored test exception' half of this same compound source obligation), not exercised in isolation of it"
+        "the backup restore drill is performed as its own dated exercise, independent of any monitoring check; a combined drill-with-monitoring run is optional and never a precondition for either criterion"
       ],
       "affected_files": [],
       "evidence_class": [
@@ -642,7 +643,8 @@
       "reviewer": null,
       "next_action": "see blockers_owner",
       "history": [
-        "B004: FG-L220 compound-source obligation split correctly across both halves (Codex B003 review finding B003-F2) \u2014 was previously mapped only to KF-014, dropping the monitoring half."
+        "B004: FG-L220 compound-source obligation split correctly across both halves (Codex B003 review finding B003-F2) \u2014 was previously mapped only to KF-014, dropping the monitoring half.",
+        "B005: removed the invented cross-dependency added in B004 (Codex B004 review B004-F2). Both FG-L220 obligations (backup restore drill; monitored test exception) are now separately checkable; a combined exercise is optional."
       ],
       "applicability": "applicable"
     },
