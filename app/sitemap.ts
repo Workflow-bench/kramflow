@@ -1,6 +1,8 @@
 import type { MetadataRoute } from "next";
 
-const BASE_URL = "https://www.kramflow.me";
+import { SITE_ORIGIN } from "@/lib/site-origin";
+
+const BASE_URL = SITE_ORIGIN;
 
 // Indexable public routes only. Login and signup are noindex (layouts), so they
 // are not listed here.

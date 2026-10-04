@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
@@ -139,9 +140,8 @@ function LoginForm() {
             <label htmlFor="password" className="text-console-meta text-muted-2">
               Password
             </label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="current-password"
               required
               value={password}
@@ -185,6 +185,11 @@ function LoginForm() {
           <Button type="submit" variant="primary" size="lg" loading={submitting} className="w-full mt-2">
             Log In
           </Button>
+          <p className="text-console-meta text-muted-2 text-center">
+            <Link href="/reset" className="text-primary hover:underline">
+              Forgot password?
+            </Link>
+          </p>
         </form>
         </Panel>
 

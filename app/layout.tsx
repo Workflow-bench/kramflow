@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE_ORIGIN } from "@/lib/site-origin";
 import { Inter, IBM_Plex_Mono, Archivo } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
 import { MotionPreferences } from "@/components/motion-preferences";
@@ -48,7 +49,7 @@ const DESCRIPTION =
 // one would be exactly the fabricated brand asset both passes were told not
 // to create.
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.kramflow.me"),
+  metadataBase: new URL(SITE_ORIGIN),
   title: {
     default: TITLE,
     template: "%s · KramFlow",

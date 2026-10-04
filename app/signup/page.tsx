@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { Wordmark } from "@/components/site/wordmark";
@@ -139,9 +140,8 @@ function SignupForm() {
             <label htmlFor="password" className="text-console-meta text-muted-2">
               Password
             </label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="new-password"
               required
               minLength={8}
@@ -156,9 +156,8 @@ function SignupForm() {
             <label htmlFor="confirmPassword" className="text-console-meta text-muted-2">
               Confirm password
             </label>
-            <Input
+            <PasswordInput
               id="confirmPassword"
-              type="password"
               autoComplete="new-password"
               required
               value={confirmPassword}

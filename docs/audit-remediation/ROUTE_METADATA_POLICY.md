@@ -6,6 +6,7 @@ Enforced by `app/route-metadata-policy.test.ts`, which reads the source files.
 | --- | --- | --- | --- |
 | `/` | indexable, canonical `/` | `app/layout.tsx` + `app/page.tsx` | production HTML: `og:site_name=KramFlow`, `og:type=website`, canonical |
 | `/login`, `/signup`, `/set-password` | noindex, nofollow | own layout | production HTML: `robots noindex, nofollow` |
+| `/reset` (password reset request) | noindex, nofollow | `app/reset/layout.tsx` | source + policy test |
 | `/presenter`, `/general`, `/av`, `/green-room`, `/custom`, `/screens`, `/tv` | noindex, nofollow | own layout | source + policy test |
 | `/dashboard` (`app/(operator)`) | noindex, nofollow; `robots.ts` disallows | group layout | source + policy test; unauthenticated visit redirects to `/login` (307) |
 | `/e/[eventId]/**` | noindex, nofollow; `robots.ts` disallows | `app/e/[eventId]/layout.tsx` | source + policy test; unauthenticated visit redirects (307) |

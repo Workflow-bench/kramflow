@@ -3,7 +3,7 @@ import { requestSignOut } from "@/lib/auth/sign-out";
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { Wordmark } from "@/components/site/wordmark";
@@ -93,9 +93,8 @@ function SetPasswordForm() {
               <label htmlFor="password" className="text-console-meta text-muted-2">
                 New password
               </label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="new-password"
                 required
                 value={password}
@@ -113,9 +112,8 @@ function SetPasswordForm() {
               <label htmlFor="confirmPassword" className="text-console-meta text-muted-2">
                 Confirm new password
               </label>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
-                type="password"
                 autoComplete="new-password"
                 required
                 value={confirmPassword}

@@ -15,7 +15,7 @@ const PRIVATE_SURFACES = ["(operator)", "e/[eventId]", "invite", "(catalog)"];
 const PUBLIC_PAGES = ["page.tsx"];
 
 // Pages that set robots noindex themselves (or through their route layout).
-const NOINDEX_PAGE_DIRS = ["av", "custom", "general", "green-room", "login", "presenter", "screens", "set-password", "signup", "tv"];
+const NOINDEX_PAGE_DIRS = ["av", "custom", "general", "green-room", "login", "presenter", "reset", "screens", "set-password", "signup", "tv"];
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
