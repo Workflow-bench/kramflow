@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FlaskConical, ArrowLeft, Play, Pause, ChevronLeft, ChevronRight, Square } from "lucide-react";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventId } from "@/lib/event-context";
@@ -18,6 +19,8 @@ import { OperationalStatus } from "@/components/ui/operational-status";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { RunPosition } from "@/components/operator/run-position";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { canStartRehearsal, canFinishRehearsal, isRehearsalComplete, shouldConfirmExit, completionSummary } from "@/lib/rehearsal";
 
 const REHEARSAL_INITIAL: LiveState = {
   activeSessionId: "",
@@ -65,7 +68,9 @@ export default function RehearsalPage() {
   const progress = state.progressBySession[activeSessionId];
   const currentOrder = progress?.currentOrder ?? null;
   const max = session?.items.length ?? 0;
-  const isFinished = currentOrder !== null && currentOrder > max;
+  const isFinished = isRehearsalComplete({ currentOrder, max });
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  const router = useRouter();
 
   const live = session && !isFinished ? getLive(session, { ...state, activeSessionId }) : null;
   const next = session ? getNext(session, { ...state, activeSessionId }) : null;
@@ -142,10 +147,17 @@ export default function RehearsalPage() {
             Nothing here reaches a real display, share link, or the real Operator Console.
           </span>
         </div>
-        <LinkButton href={`/e/${eventId}/operator`} variant="secondary" size="sm">
-          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-          Exit Rehearsal
-        </LinkButton>
+        {shouldConfirmExit({ currentOrder, max }) ? (
+          <Button variant="secondary" size="sm" onClick={() => setExitConfirmOpen(true)}>
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+            Exit Rehearsal
+          </Button>
+        ) : (
+          <LinkButton href={`/e/${eventId}/operator`} variant="secondary" size="sm">
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+            Exit Rehearsal
+          </LinkButton>
+        )}
       </div>
 
       {!session ? (
@@ -246,6 +258,20 @@ export default function RehearsalPage() {
                 <p className="text-console-lg font-semibold text-primary mt-1">
                   {isFinished ? "Rehearsal complete" : live ? live.title : "—"}
                 </p>
+                {isFinished && (() => {
+                  const sum = completionSummary({ sessionLabel: session?.sessionLabel ?? "", max });
+                  return (
+                    <div className="mt-4 flex flex-col gap-3">
+                      <p className="text-console-sm text-muted">
+                        {sum.cuesCompleted} of {sum.cuesTotal} cues completed. Nothing was sent to any live screen.
+                      </p>
+                      <div className="flex gap-3">
+                        <Button variant="primary" onClick={reset}>Run again</Button>
+                        <LinkButton href={`/e/${eventId}/operator`} variant="secondary">Exit Rehearsal</LinkButton>
+                      </div>
+                    </div>
+                  );
+                })()}
                 {live?.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
 
                 {live && live.type === "item" && live.durationMinutes > 0 && (() => {
@@ -280,13 +306,18 @@ export default function RehearsalPage() {
               <SectionLabel>Controls</SectionLabel>
               <div className="flex flex-col gap-3">
                 {currentOrder === null ? (
-                  <Button variant="primary" size="lg" onClick={start}>
+                  <Button variant="primary" size="lg" onClick={start} disabled={!canStartRehearsal({ max })}>
                     <Play className="h-4 w-4" strokeWidth={2} />
                     Start Rehearsal
                   </Button>
+                ) : currentOrder >= max ? (
+                  <Button variant="primary" size="lg" onClick={finish} disabled={!canFinishRehearsal({ currentOrder, max }) || isFinished}>
+                    Finish
+                    <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                  </Button>
                 ) : (
-                  <Button variant="primary" size="lg" onClick={next_} disabled={isFinished || currentOrder >= max}>
-                    {currentOrder >= max ? "Finish" : "Next"}
+                  <Button variant="primary" size="lg" onClick={next_} disabled={isFinished}>
+                    Next
                     <ChevronRight className="h-4 w-4" strokeWidth={2} />
                   </Button>
                 )}
@@ -350,6 +381,18 @@ export default function RehearsalPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={exitConfirmOpen}
+        title="Leave rehearsal?"
+        description="Your rehearsal progress will be discarded. Nothing on any live screen was changed."
+        confirmLabel="Leave rehearsal"
+        tone="danger"
+        onConfirm={() => {
+          setExitConfirmOpen(false);
+          router.push(`/e/${eventId}/operator`);
+        }}
+        onCancel={() => setExitConfirmOpen(false)}
+      />
     </main>
   );
 }
