@@ -119,10 +119,10 @@ export function PlayableShow() {
                   <li
                     key={it.title}
                     className={`grid h-12 grid-cols-[1.75rem_minmax(0,1fr)_auto_2.75rem] items-center gap-2 border-b border-line-soft px-3 text-[13px] last:border-b-0 sm:gap-3 sm:px-4 sm:text-[14px] ${
-                      live ? "bg-status-green/10 text-primary" : past ? "text-muted-2/60" : "text-muted"
+                      live ? "bg-status-green/10 text-primary" : past ? "text-muted-2" : "text-muted"
                     }`}
                   >
-                    <span className="tnum text-[11px] text-muted-2">{i + 1}</span>
+                    <span className="tnum text-[11px] text-muted">{i + 1}</span>
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="truncate">{it.title}</span>
                       {live && (
@@ -135,7 +135,7 @@ export function PlayableShow() {
                       )}
                     </span>
                     <SplitFlap value={clock(starts[i])} className="text-[13px] sm:text-[14px]" />
-                    <span className="tnum text-right text-[11px] text-muted-2">{it.min + extra[i]}m</span>
+                    <span className="tnum text-right text-[11px] text-muted">{it.min + extra[i]}m</span>
                   </li>
                 );
               })}

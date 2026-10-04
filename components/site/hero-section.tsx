@@ -82,7 +82,7 @@ export function HeroSection() {
             <span key={value} className={i === 0 ? "text-status-green" : undefined}>
               {i === 0 ? "● " : null}
               {value}
-              <span className="ml-2.5 text-muted-2/35">·</span>
+              <span aria-hidden="true" className="ml-2.5 text-muted-2">·</span>
             </span>
           ))}
           <SplitFlap value={clock} className="text-[11px] tracking-normal text-muted sm:text-[12px]" />

@@ -215,7 +215,7 @@ export function OneCueSection() {
                   </div>
                 </div>
                 <p className="mt-2 text-console-label uppercase text-muted-2">
-                  <span className="tnum mr-2 text-muted-2/60">{String(i + 2).padStart(2, "0")}</span>
+                  <span className="tnum mr-2 text-muted-2">{String(i + 2).padStart(2, "0")}</span>
                   {screen.label}
                 </p>
               </div>
