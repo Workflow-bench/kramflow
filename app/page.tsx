@@ -58,14 +58,25 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <main className="bg-background">
+      {/* Skip link: the first focusable element on the page. Hidden until it
+          takes keyboard focus, then it jumps past the navigation to the content.
+          Its target is the focusable wrapper below, so focus moves there. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-raised focus:border focus:border-line focus:px-4 focus:py-2 focus:text-console-sm focus:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        Skip to content
+      </a>
       <Navbar />
-      <HeroSection />
-      <ProblemSection />
-      <OneCueSection />
-      <SurfacesSection />
-      <RoomSection />
-      <LiveOperationsSection />
-      <CTASection />
+      <div id="main-content" tabIndex={-1} className="focus:outline-none">
+        <HeroSection />
+        <ProblemSection />
+        <OneCueSection />
+        <SurfacesSection />
+        <RoomSection />
+        <LiveOperationsSection />
+        <CTASection />
+      </div>
       <Footer />
     </main>
   );

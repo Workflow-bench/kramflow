@@ -144,9 +144,12 @@ export function RoomSection() {
             key={p.label}
             data-screen
             data-distance={p.distance}
-            className={`absolute ${p.position} ${p.width} ${p.opacity} will-change-transform`}
+            className={`absolute ${p.position} ${p.width} will-change-transform`}
           >
-            <div className="overflow-hidden rounded-[0.35rem] bg-black shadow-[0_40px_100px_-30px_rgba(0,0,0,0.95)] ring-1 ring-line-soft">
+            {/* Depth fades the screen only. The caption stays at full token
+                contrast: opacity on the figure dropped the label to 2.3:1 on
+                the farthest screen (WCAG 1.4.3 needs 4.5:1 for small text). */}
+            <div className={`overflow-hidden rounded-[0.35rem] bg-black shadow-[0_40px_100px_-30px_rgba(0,0,0,0.95)] ring-1 ring-line-soft ${p.opacity}`}>
               <ProductShot shot={p.shot} sizes="34vw" />
             </div>
             <figcaption className="mt-2.5 flex items-baseline gap-3">

@@ -89,10 +89,14 @@ interface ProductShotProps {
   priority?: boolean;
 }
 
+// Quality 80. These are interface screenshots, not photographs: text edges
+// and flat fills dominate, and 80 keeps them sharp while cutting the hero
+// capture's transfer by roughly a third (the LCP image on mobile, see
+// docs/audit-remediation/LCP_PROFILE.md). Set in one place so every shot matches.
 export function ProductShot({ shot, className = "", sizes = "100vw", priority = false }: ProductShotProps) {
   const s = SHOTS[shot];
   return (
-    <Image src={s.img} alt={s.alt} sizes={sizes} priority={priority} quality={90} className={`h-auto w-full ${className}`} />
+    <Image src={s.img} alt={s.alt} sizes={sizes} priority={priority} quality={80} className={`h-auto w-full ${className}`} />
   );
 }
 
