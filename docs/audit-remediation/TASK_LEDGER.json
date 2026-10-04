@@ -280,7 +280,8 @@
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
       "history": [
         "carried forward from original audit enumeration (B002)",
-        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
+        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
+        "B006: meaningful-progress rule for exit confirmation defined as operator action (advance past cue 1, pause/resume, rehearsal alert), not elapsed time on cue 1. Unit-tested in lib/rehearsal.test.ts. Browser evidence for rehearsal requires an authenticated event session: UNVERIFIED."
       ]
     },
     {
@@ -721,7 +722,8 @@
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
-        "B005 review (B005-F2): wording corrected from 'after the server confirms or attempts cookie clearing' to confirmed success only. Code not yet changed; lane D."
+        "B005 review (B005-F2): wording corrected from 'after the server confirms or attempts cookie clearing' to confirmed success only. Code not yet changed; lane D.",
+        "B006: every client logout entry point now routes through lib/auth/sign-out.ts (requestSignOut): dashboard log out, event-shell header, remote page, command palette, invite account-switch, set-password. Each navigates only on server-confirmed success and shows an honest failure otherwise. Unit-tested for the contract and the route; rendered authenticated behavior UNVERIFIED."
       ]
     },
     {
@@ -1382,7 +1384,7 @@
       ],
       "priority": "P2",
       "implementation_state": "OPEN",
-      "observation": "UNVERIFIED",
+      "observation": "PASS_VERSION_CHECK",
       "note": "SheetJS direct-version review; zero npm audit findings does not cover this",
       "desired_behavior": "audit the exact direct-URL SheetJS version and its documented advisories (zero npm-audit findings do not cover a direct-URL dependency, since it is not resolved from the registry); fix any confirmed applicable exposure and add parser/import regression tests.",
       "acceptance_criteria": [
@@ -1394,6 +1396,7 @@
         "package.json (direct-URL SheetJS dependency)"
       ],
       "evidence_class": [
+        "STANDARD",
         "SOURCE"
       ],
       "applicability": "applicable",
@@ -1407,10 +1410,11 @@
       "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
+      "next_action": "independent review of the version evidence; re-check advisories on any SheetJS upgrade",
       "history": [
         "carried forward from original audit enumeration (B002)",
-        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
+        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
+        "2026-10-04 (B006): primary-source check. GHSA-4r6h-8v6p-xvw6 / CVE-2023-30533 affects xlsx < 0.19.3; GHSA-5pgg-2g8v-p4x9 / CVE-2024-22363 affects xlsx < 0.20.2 (both fetched from github.com/advisories). Repo pins https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz, installed 0.20.3, so neither advisory's range applies. Residual: direct-URL dependency is outside npm audit; the route's 10MB byte cap remains the only pre-parse bound. Ongoing monitoring of the CDN release stream is required; independent review pending."
       ]
     },
     {
