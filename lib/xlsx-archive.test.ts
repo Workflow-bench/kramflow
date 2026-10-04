@@ -426,7 +426,7 @@ describe("production output budget with a forged declaration (ARCHIVE-S1)", () =
     }
     const base = Buffer.from(zipSync({ "xl/worksheets/sheet1.xml": strToU8(SHEET_XML), "xl/sharedStrings.xml": huge }));
     const forged = patchMemberSize(base, "xl/sharedStrings.xml", 4096);
-    const probe: XlsxProbe = { fed: 0, retained: 0, produced: 0 };
+    const probe: XlsxProbe = { fed: 0, retained: 0, produced: 0, maxChunk: 0 };
     expect(() => inspectXlsxArchive(new Uint8Array(forged), {}, probe)).toThrow(/expands to more data/);
     expect(probe.refusedFed).toBeDefined();
     // No decoder output after the refusal was recorded (counted before any check).
@@ -435,6 +435,9 @@ describe("production output budget with a forged declaration (ARCHIVE-S1)", () =
     expect(probe.retained).toBe(probe.refusedRetained);
     expect(probe.refusedRetained!).toBeLessThanOrEqual(16 * 1024 * 1024 + 1100000);
     expect(probe.fed).toBeLessThan(forged.length);
+    // Allocation unit: one feed is 1 KiB of input, and deflate expands a byte by at
+    // most 1032 times, so no single decoder callback can exceed 1032 KiB.
+    expect(probe.maxChunk).toBeLessThanOrEqual(1032 * 1024);
   }, 120_000);
 
   it("forged small declaration with 17 MiB real output is stopped by the actual-byte check", () => {
