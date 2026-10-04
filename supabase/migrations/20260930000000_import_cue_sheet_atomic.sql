@@ -47,6 +47,7 @@ declare
   v_dst text;
   v_candidate text;
   v_affected text[];
+  v_key text;
 begin
   if p_event_id is null or p_actor_id is null then
     raise exception 'not_authorized' using errcode = '42501';
@@ -66,6 +67,23 @@ begin
 
   create temp table if not exists _session_map (src text primary key, dst text not null) on commit drop;
   delete from _session_map;
+
+  -- Serialise allocation on every candidate storage id (plain and scoped) before
+  -- any mapping decision. Two concurrent first imports of one workbook otherwise
+  -- both see the plain id as free, and one fails on the global primary key
+  -- (KF-006). Keys are taken in sorted order so two imports cannot deadlock. The
+  -- locks end with the transaction; READ COMMITTED then lets each statement see
+  -- what the earlier transaction committed.
+  for v_key in
+    select distinct k from (
+      select x.id as k from jsonb_to_recordset(p_sessions) as x(id text)
+      union
+      select x.id || v_suffix from jsonb_to_recordset(p_sessions) as x(id text)
+    ) keys
+    order by k
+  loop
+    perform pg_advisory_xact_lock(hashtextextended('cue-session:' || v_key, 0));
+  end loop;
 
   for v_rec in
     select x.id from jsonb_to_recordset(p_sessions) as x(id text)
