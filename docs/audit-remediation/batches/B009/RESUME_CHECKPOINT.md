@@ -8,6 +8,11 @@ Status: INTERRUPTED at baseline. No item is complete. This file is the resume po
 - BASE_SHA: `8a916683caf910a7805b20f4eb72f0905fa0260e` (matches expected start)
 - Working tree: untracked only (`.agents/`, `.claude/`, `.impeccable/`, `brag-output*/`, `data/skills/`, `skills-lock.json`, two REVIEWS copies). No tracked changes. Not touched.
 
+## Progress since baseline (B009 resumed)
+- KF-007 PARTIAL, commit `2123ac4`: Start requires stored orders exactly 1..n; gapped, duplicate, zero-based refused with 409 and no write (16 live-route tests, full suite 469/469).
+- KF-007 remaining: Excel and AI import end-to-end into Start/Next/Previous/Finish on a real database; server-side trust of client `maxOrder`; stale/foreign ID cases beyond Start.
+- All other items: OPEN, not started. KF-034, KF-006 not started in this resume.
+
 ## Reason for interruption
 The 15-item batch exceeds one session's capacity for real evidence (browser, Lighthouse, disposable Postgres, rendered checks). Partial item work was not committed as "complete."
 
