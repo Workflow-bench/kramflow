@@ -73,11 +73,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Validation failed", errors: rowErrors }, { status: 400 });
   }
 
-  const result = await commitCueSheet(
-    auth.eventId,
-    parsed,
-    `Uploaded ${file.name}: ${parsed.sessions.length} sessions, ${parsed.programs.length} programs`
-  );
+  const result = await commitCueSheet(auth.eventId, auth.userId, parsed);
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
 
   return NextResponse.json({

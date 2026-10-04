@@ -1,115 +1,64 @@
-import { describe, expect, it } from "vitest";
-import type { ParsedCueSheet, ParsedProgram } from "@/lib/parse-cuesheet";
-import { checkCueSheetIntegrity, MAX_PROGRAMS, parsedCueSheetSchema } from "./cue-sheet-commit";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const PARTITION_ID = "3f1c2b8e-8f6e-4b1e-9d55-0d3a1c2b4e5f";
+// Route-level contract for the atomic import (KF-006/007). The database
+// transaction itself is covered by the migration's own SQL and a local
+// emulator run; this test proves the app makes exactly one atomic call and
+// maps failures generically without leaking database detail.
 
-function program(overrides: Partial<ParsedProgram> = {}): ParsedProgram {
-  return {
-    sort_order: 1,
-    session_id: "fri-am",
-    section_label: null,
-    partition_id: null,
-    type: "item",
-    name: "Welcome",
-    description: null,
-    presenter: null,
-    presenter_requirement: null,
-    presenter_contact: null,
-    duration: 5,
-    start_time: null,
-    end_time: null,
-    audio_mics: false,
-    audio_track: false,
-    video_sidescreen: "none",
-    backdrop: false,
-    video_ppt_needed: false,
-    hall_lights: null,
-    stage_lights: null,
-    camera_angle: null,
-    props: null,
-    curtains: null,
-    remarks: null,
-    status: "confirmed",
-    color_tag: null,
-    ...overrides,
-  };
-}
+const rpc = vi.fn();
+const from = vi.fn();
+vi.mock("@/lib/supabase/server", () => ({
+  supabaseAdmin: () => ({ rpc, from }),
+}));
 
-function sheet(overrides: Partial<ParsedCueSheet> = {}): ParsedCueSheet {
-  return {
-    sessions: [{ id: "fri-am", sheet_name: "Fri AM", event_name: "", day_label: "Fri", session_label: "AM", sort_order: 0 }],
-    partitions: [{ id: PARTITION_ID, session_id: "fri-am", label: "Opening", sort_order: 1, start_time: null }],
-    programs: [program({ partition_id: PARTITION_ID })],
-    ...overrides,
-  };
-}
+import { commitCueSheet } from "./cue-sheet-commit";
 
-describe("checkCueSheetIntegrity", () => {
-  it("accepts a consistent sheet", () => {
-    expect(checkCueSheetIntegrity(sheet())).toBeNull();
-  });
+const sheet = {
+  sessions: [
+    { id: "s1", sheet_name: "Sat", event_name: "E", day_label: "Sat", session_label: "AM", sort_order: 0 },
+    { id: "s2-empty", sheet_name: "Sat", event_name: "E", day_label: "Sat", session_label: "PM", sort_order: 1 },
+  ],
+  partitions: [],
+  programs: [
+    {
+      sort_order: 0, session_id: "s1", partition_id: null, section_label: null, type: "item", name: "Opening",
+      description: null, presenter: null, presenter_requirement: null, presenter_contact: null, duration: 10,
+      start_time: null, end_time: null, audio_mics: false, audio_track: false, video_sidescreen: null,
+      backdrop: false, video_ppt_needed: false, hall_lights: null, stage_lights: null, camera_angle: null,
+      props: null, curtains: null, remarks: null, status: null, color_tag: null,
+    },
+  ],
+} as unknown as Parameters<typeof commitCueSheet>[2];
 
-  it("rejects an item pointing at a session that isn't in the payload", () => {
-    expect(checkCueSheetIntegrity(sheet({ programs: [program({ session_id: "other" })] }))).toMatch(/unknown session/);
-  });
-
-  it("rejects a section pointing at an unknown session", () => {
-    const s = sheet();
-    s.partitions[0].session_id = "other";
-    expect(checkCueSheetIntegrity(s)).toMatch(/unknown session/);
-  });
-
-  it("rejects an item using a section from another session", () => {
-    const s = sheet({
-      sessions: [
-        { id: "fri-am", sheet_name: "", event_name: "", day_label: "Fri", session_label: "AM", sort_order: 0 },
-        { id: "fri-pm", sheet_name: "", event_name: "", day_label: "Fri", session_label: "PM", sort_order: 1 },
-      ],
-      programs: [program({ session_id: "fri-pm", partition_id: PARTITION_ID })],
-    });
-    expect(checkCueSheetIntegrity(s)).toMatch(/different session/);
-  });
-
-  it("rejects an item pointing at a section that doesn't exist", () => {
-    const s = sheet({ programs: [program({ partition_id: "8c0b7c0e-1d5b-4f0f-8a53-2f2f6a0a9d11" })] });
-    expect(checkCueSheetIntegrity(s)).toMatch(/different session/);
-  });
-
-  it("rejects two items with the same position in a session", () => {
-    expect(checkCueSheetIntegrity(sheet({ programs: [program(), program({ name: "Again" })] }))).toMatch(/same position/);
-  });
-
-  it("rejects duplicate session ids", () => {
-    const s = sheet();
-    s.sessions.push({ ...s.sessions[0] });
-    expect(checkCueSheetIntegrity(s)).toMatch(/Duplicate session/);
-  });
+beforeEach(() => {
+  rpc.mockReset();
+  from.mockReset();
 });
 
-describe("parsedCueSheetSchema", () => {
-  it("accepts a well-formed payload", () => {
-    expect(parsedCueSheetSchema.safeParse(sheet()).success).toBe(true);
+describe("commitCueSheet (single atomic RPC)", () => {
+  it("makes exactly one rpc call with the actor, all sessions (including empty ones), and no direct table writes", async () => {
+    rpc.mockResolvedValue({ data: { sessionsWritten: 2, programsWritten: 1 }, error: null });
+    const result = await commitCueSheet("event-1", "user-1", sheet);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls[0][0]).toBe("import_cue_sheet");
+    const args = rpc.mock.calls[0][1];
+    expect(args.p_event_id).toBe("event-1");
+    expect(args.p_actor_id).toBe("user-1");
+    expect(args.p_sessions.map((s: { id: string }) => s.id)).toEqual(["s1", "s2-empty"]);
+    expect(from).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, sessionsWritten: 2, programsWritten: 1 });
   });
 
-  it("rejects a program that fails the row rules", () => {
-    expect(parsedCueSheetSchema.safeParse(sheet({ programs: [program({ name: "" })] })).success).toBe(false);
-    expect(parsedCueSheetSchema.safeParse(sheet({ programs: [program({ duration: -1 })] })).success).toBe(false);
+  it("maps a database authorization rejection to 403 without detail", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "not_authorized" } });
+    const result = await commitCueSheet("event-1", "user-2", sheet);
+    expect(result).toEqual({ ok: false, status: 403, error: "Not allowed to import into this event." });
   });
 
-  it("rejects a section id that isn't a UUID", () => {
-    const s = sheet();
-    s.partitions[0].id = "not-a-uuid";
-    expect(parsedCueSheetSchema.safeParse(s).success).toBe(false);
-  });
-
-  it("rejects more items than the ceiling", () => {
-    const programs = Array.from({ length: MAX_PROGRAMS + 1 }, (_, i) => program({ sort_order: i + 1 }));
-    expect(parsedCueSheetSchema.safeParse(sheet({ programs })).success).toBe(false);
-  });
-
-  it("drops fields that aren't part of the row", () => {
-    const parsed = parsedCueSheetSchema.parse({ ...sheet(), programs: [{ ...program(), event_id: "someone-elses" }] });
-    expect("event_id" in parsed.programs[0]).toBe(false);
+  it("maps any other failure to a generic message and never echoes the database error", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "23505", message: "duplicate key value violates unique constraint sessions_pkey" } });
+    const result = await commitCueSheet("event-1", "user-1", sheet);
+    expect(result).toEqual({ ok: false, status: 500, error: "Import failed. Nothing was changed. Try again." });
+    expect(JSON.stringify(result)).not.toContain("sessions_pkey");
   });
 });

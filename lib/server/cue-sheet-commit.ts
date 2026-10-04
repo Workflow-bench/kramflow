@@ -84,27 +84,26 @@ export type CommitResult =
   | { ok: true; sessionsWritten: number; programsWritten: number }
   | { ok: false; status: number; error: string };
 
-export async function commitCueSheet(eventId: string, sheet: ParsedCueSheet, activityDetail: string): Promise<CommitResult> {
+// One database call, one transaction: import_cue_sheet (migration
+// 20260930000000) upserts sessions, clears every affected session's programs
+// and partitions (including sessions the file leaves empty), and inserts the
+// new rows. A failure at any step rolls the whole import back. The database
+// enforces the tenant check using actorId; errors are logged here and returned
+// to the client generically.
+export async function commitCueSheet(eventId: string, actorId: string, sheet: ParsedCueSheet): Promise<CommitResult> {
   const supabase = supabaseAdmin();
-
-  const sessionsWithEvent = sheet.sessions.map((s) => ({ ...s, event_id: eventId }));
-  const { error: sessionsError } = await supabase.from("sessions").upsert(sessionsWithEvent, { onConflict: "event_id,id" });
-  if (sessionsError) return { ok: false, status: 500, error: sessionsError.message };
-
-  // Atomic: replace_session_programs (supabase/schema.sql) deletes and
-  // re-inserts in one transaction, so a failure partway through can't leave
-  // a session with zero programs — see the function's own comment.
-  // p_event_id scopes every delete/insert in it to this one event.
-  const sessionIds = [...new Set(sheet.programs.map((p) => p.session_id))];
-  const { error: replaceError } = await supabase.rpc("replace_session_programs", {
+  const { data, error } = await supabase.rpc("import_cue_sheet", {
     p_event_id: eventId,
-    p_session_ids: sessionIds,
+    p_actor_id: actorId,
+    p_sessions: sheet.sessions,
     p_partitions: sheet.partitions,
     p_programs: sheet.programs,
   });
-  if (replaceError) return { ok: false, status: 500, error: replaceError.message };
-
-  await supabase.from("activity_log").insert({ event_id: eventId, action: "cueSheetUpload", detail: activityDetail });
-
-  return { ok: true, sessionsWritten: sheet.sessions.length, programsWritten: sheet.programs.length };
+  if (error) {
+    console.error("[cue-sheet import] rpc failed:", error.message);
+    if (error.code === "42501") return { ok: false, status: 403, error: "Not allowed to import into this event." };
+    return { ok: false, status: 500, error: "Import failed. Nothing was changed. Try again." };
+  }
+  const counts = data as { sessionsWritten: number; programsWritten: number };
+  return { ok: true, sessionsWritten: counts.sessionsWritten, programsWritten: counts.programsWritten };
 }
