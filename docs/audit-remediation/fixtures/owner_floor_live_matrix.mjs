@@ -38,19 +38,20 @@
 //   any assertion fails (Codex B004 review, B004-S3: a prior version printed
 //   `pass:false` results and still exited 0).
 //
-// Obtaining a real session for `run`, without resetting any account's password:
-//   Use `admin.auth.admin.generateLink({ type: "magiclink", email })` to get a
-//   one-time `email_otp`, exchange it with an anon client's
-//   `auth.verifyOtp({ email, token: email_otp, type: "magiclink" })` to get a
-//   real access token for that user, then translate that into this app's
-//   actual session-cookie format (its `@supabase/ssr` cookie name/shape) —
-//   that translation step is app-specific and was not implemented here
-//   without first reading and confirming the exact cookie contract, so `run`'s
-//   default `getSessionCookie` throws a clear "not implemented" error naming
-//   this exact gap rather than fabricating a login flow. See
-//   owner_floor_live_matrix.test.ts's `runMatrix` tests for the fully-exercised
-//   matrix logic against a fake session/fetch seam — labeled there as fake
-//   harness evidence, not remote proof.
+// Obtaining a session for `run`, without creating or resetting any account:
+//   1. Start the dev server locally (`npm run dev`) against the authorized dev
+//      project, and sign in in your own browser as each fixture account. Sign
+//      in as you normally would. This script does not type a password.
+//   2. In that browser's DevTools (Application > Cookies, localhost), copy the
+//      sb-<ref>-auth-token cookies (including any .0/.1 chunks) as a single
+//      "name=value; name.1=value" line.
+//   3. Put each account's line in .env.local (untracked), e.g.
+//      KRAMFLOW_LOCAL_COOKIE_OWNER="sb-<ref>-auth-token=...; ..."
+//      KRAMFLOW_LOCAL_COOKIE_EDITOR=... and KRAMFLOW_LOCAL_COOKIE_VIEWER=...
+//   4. `run` validates each value's cookie names before sending it, sends it
+//      only to a localhost/*.localhost/*.test origin, and never follows redirects.
+//   Missing or non-Supabase cookie names fail before any request is made.
+//   Tests cover this seam with fake env values only (see the test file).
 //
 // Usage:
 //   node --env-file=.env.local fixtures/owner_floor_live_matrix.mjs setup
@@ -137,6 +138,47 @@ export function assertLocalDevOrigin(urlString) {
     throw new Error(`Refusing to send session cookies to '${host}': only localhost/127.0.0.1/*.localhost/*.test dev origins are allowed.`);
   }
   return parsed;
+}
+
+// B005-S3 — executable session-cookie input. The operator signs in as a
+// fixture account in their own local browser on the dev server, copies that
+// browser's Supabase auth cookies, and stores them in an untracked env file.
+// No password is typed by this script, no account is created or reset, and no
+// session is minted here. The value is only ever sent to a validated local
+// origin (runMatrix calls assertLocalDevOrigin first) and is never logged.
+export const SESSION_COOKIE_ENV = {
+  [OWNER_EMAIL]: "KRAMFLOW_LOCAL_COOKIE_OWNER",
+  [EDITOR_EMAIL]: "KRAMFLOW_LOCAL_COOKIE_EDITOR",
+  [VIEWER_EMAIL]: "KRAMFLOW_LOCAL_COOKIE_VIEWER",
+};
+
+// @supabase/ssr names its auth cookie sb-<project-ref>-auth-token, and splits
+// large values into .0, .1, ... chunks. Anything else is refused, so a value
+// copied from the wrong cookie is caught before it is sent.
+const SUPABASE_AUTH_COOKIE = /^sb-[a-z0-9]+-auth-token(\.[0-9]+)?$/;
+
+export function parseSessionCookie(raw) {
+  const pairs = raw.split(";").map((p) => p.trim()).filter(Boolean);
+  if (pairs.length === 0) throw new Error("Session cookie input is empty.");
+  for (const pair of pairs) {
+    const eq = pair.indexOf("=");
+    const name = eq > 0 ? pair.slice(0, eq) : "";
+    if (!SUPABASE_AUTH_COOKIE.test(name)) {
+      throw new Error("Session cookie input has a cookie that is not a Supabase auth cookie (expected sb-<ref>-auth-token[.N]).");
+    }
+    if (eq === pair.length - 1) throw new Error("Session cookie input has a cookie with no value.");
+  }
+  return pairs.join("; ");
+}
+
+export function cookieFromEnv(email, env = process.env) {
+  const name = SESSION_COOKIE_ENV[email];
+  if (!name) throw new Error(`No session-cookie input is defined for fixture account ${email}.`);
+  const raw = env[name];
+  if (!raw) {
+    throw new Error(`Missing ${name}. Copy the local dev browser's Supabase auth cookies for this account into it (see the header).`);
+  }
+  return parseSessionCookie(raw);
 }
 
 function requireEnv(name) {
@@ -540,13 +582,7 @@ export async function runMatrix({
   baseUrl,
   state,
   db,
-  getSessionCookie = async () => {
-    throw new Error(
-      "No session-cookie source configured. This script will not fabricate a login flow it hasn't verified against " +
-      "this app's exact @supabase/ssr cookie contract — see this file's header comment for the real, non-password-reset " +
-      "mechanism (generateLink + verifyOtp) and wire a getSessionCookie implementation before calling runMatrix for real."
-    );
-  },
+  getSessionCookie = async (email) => cookieFromEnv(email),
   fetchImpl = fetch,
 }) {
   assertLocalDevOrigin(baseUrl);

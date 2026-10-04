@@ -15,6 +15,8 @@ import {
   VIEWER_EMAIL,
   EDITOR_EMAIL,
   ACTIONS,
+  cookieFromEnv,
+  parseSessionCookie,
 } from "./owner_floor_live_matrix.mjs";
 import * as holdRoute from "../../../app/api/display-engine/hold/route";
 import * as timerRoute from "../../../app/api/display-engine/timer/route";
@@ -592,8 +594,14 @@ describe("runMatrix (fake fetch + fake session seam — NOT remote proof)", () =
     expect(sessionCalled).toBe(false);
   });
 
-  it("the default getSessionCookie throws a named error rather than fabricate a login flow", async () => {
-    await expect(runMatrix({ baseUrl: "http://localhost:3000", state })).rejects.toThrow(/No session-cookie source configured/);
+  it("the default getSessionCookie names the missing operator input instead of minting a session", async () => {
+    const saved = process.env.KRAMFLOW_LOCAL_COOKIE_OWNER;
+    delete process.env.KRAMFLOW_LOCAL_COOKIE_OWNER;
+    try {
+      await expect(runMatrix({ baseUrl: "http://localhost:3000", state })).rejects.toThrow(/KRAMFLOW_LOCAL_COOKIE_OWNER/);
+    } finally {
+      if (saved !== undefined) process.env.KRAMFLOW_LOCAL_COOKIE_OWNER = saved;
+    }
   });
 });
 
@@ -736,5 +744,44 @@ describe("runSetup resume parent validation (zero writes on failure)", () => {
     const before = snapshotWrites(db);
     await expect(runSetup({ db, fs, statePath: "/state.json", log: () => {} })).rejects.toThrow(/do not match the live accounts/);
     expect(snapshotWrites(db)).toBe(before);
+  });
+});
+
+// B005-S3: the session-cookie input seam. These use fake env values only; no
+// request is made and no real account is touched.
+describe("session-cookie input (B005-S3, fake env)", () => {
+  const SECRET = "sb-abcdefghijklmnop-auth-token=base64-SUPERSECRETVALUE";
+
+  it("accepts Supabase SSR auth cookies, including chunked ones", () => {
+    const raw = "sb-abcdefghijklmnop-auth-token.0=aaa; sb-abcdefghijklmnop-auth-token.1=bbb";
+    expect(parseSessionCookie(raw)).toBe(raw);
+  });
+
+  it("reads the per-account variable for the owner", () => {
+    expect(cookieFromEnv(OWNER_EMAIL, { KRAMFLOW_LOCAL_COOKIE_OWNER: SECRET })).toBe(SECRET);
+  });
+
+  it("refuses a cookie that is not a Supabase auth cookie, without echoing its value", () => {
+    let message = "";
+    try {
+      parseSessionCookie("session=SUPERSECRETVALUE");
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toMatch(/not a Supabase auth cookie/);
+    expect(message).not.toContain("SUPERSECRETVALUE");
+  });
+
+  it("refuses an empty value and an empty input", () => {
+    expect(() => parseSessionCookie("sb-abcdefghijklmnop-auth-token=")).toThrow(/no value/);
+    expect(() => parseSessionCookie(" ; ")).toThrow(/empty/);
+  });
+
+  it("names the missing variable when the account has no input", () => {
+    expect(() => cookieFromEnv(VIEWER_EMAIL, {})).toThrow(/KRAMFLOW_LOCAL_COOKIE_VIEWER/);
+  });
+
+  it("refuses an account that is not a fixture account", () => {
+    expect(() => cookieFromEnv("someone@example.com", { KRAMFLOW_LOCAL_COOKIE_OWNER: SECRET })).toThrow(/No session-cookie input/);
   });
 });
