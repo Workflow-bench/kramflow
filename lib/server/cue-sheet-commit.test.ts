@@ -37,7 +37,7 @@ beforeEach(() => {
 
 describe("commitCueSheet (single atomic RPC)", () => {
   it("makes exactly one rpc call with the actor, all sessions (including empty ones), and no direct table writes", async () => {
-    rpc.mockResolvedValue({ data: { sessionsWritten: 2, programsWritten: 1 }, error: null });
+    rpc.mockResolvedValue({ data: { sessionsWritten: 2, programsWritten: 1, sessionIds: { "sat-am": "sat-am~1a2b3c4d" } }, error: null });
     const result = await commitCueSheet("event-1", "user-1", sheet);
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc.mock.calls[0][0]).toBe("import_cue_sheet");
@@ -46,7 +46,7 @@ describe("commitCueSheet (single atomic RPC)", () => {
     expect(args.p_actor_id).toBe("user-1");
     expect(args.p_sessions.map((s: { id: string }) => s.id)).toEqual(["s1", "s2-empty"]);
     expect(from).not.toHaveBeenCalled();
-    expect(result).toEqual({ ok: true, sessionsWritten: 2, programsWritten: 1 });
+    expect(result).toEqual({ ok: true, sessionsWritten: 2, programsWritten: 1, sessionIds: { "sat-am": "sat-am~1a2b3c4d" } });
   });
 
   it("maps a database authorization rejection to 403 without detail", async () => {

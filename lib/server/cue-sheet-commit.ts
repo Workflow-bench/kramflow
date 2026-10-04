@@ -81,7 +81,7 @@ export function checkCueSheetIntegrity(sheet: ParsedCueSheet): string | null {
 }
 
 export type CommitResult =
-  | { ok: true; sessionsWritten: number; programsWritten: number }
+  | { ok: true; sessionsWritten: number; programsWritten: number; sessionIds: Record<string, string> }
   | { ok: false; status: number; error: string };
 
 // One database call, one transaction: import_cue_sheet (migration
@@ -104,6 +104,14 @@ export async function commitCueSheet(eventId: string, actorId: string, sheet: Pa
     if (error.code === "42501") return { ok: false, status: 403, error: "Not allowed to import into this event." };
     return { ok: false, status: 500, error: "Import failed. Nothing was changed. Try again." };
   }
-  const counts = data as { sessionsWritten: number; programsWritten: number };
-  return { ok: true, sessionsWritten: counts.sessionsWritten, programsWritten: counts.programsWritten };
+  // sessionIds maps each submitted session id to the id it was stored under.
+  // Repeat imports of the same workbook into another event store under a
+  // scoped id, so callers must use this map instead of the parsed id.
+  const counts = data as { sessionsWritten: number; programsWritten: number; sessionIds: Record<string, string> };
+  return {
+    ok: true,
+    sessionsWritten: counts.sessionsWritten,
+    programsWritten: counts.programsWritten,
+    sessionIds: counts.sessionIds,
+  };
 }
