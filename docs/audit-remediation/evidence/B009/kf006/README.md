@@ -20,3 +20,12 @@ stranger refusal, accepted editor).
 
 Not covered here: reversed-order multi-session races (deadlock avoidance is argued from
 sorted lock order, not exercised), and a Supabase-hosted run (not authorised).
+
+## Multi-session races (B009 resume 3)
+`multi_session_races.txt`: real two-connection races via `race_multi.sh`, each in a fresh
+disposable database with the real migration and the schema mirror.
+- REVERSED: A=[sat-am sat-pm], B=[sat-pm sat-am]. Both succeed. Sorted lock order avoids deadlock.
+- OVERLAPPING: A=[sat-am sat-pm], B=[sat-pm fri-am]. Both succeed; B's shared session is scoped.
+- ROLLBACK: B references a foreign session while A holds. B exits 3 with zero stored rows; A intact.
+Every run prints cross-tenant row count (0 in all runs).
+Not covered: deadlock under adversarial lock timing beyond these orders; a hosted run.
