@@ -995,6 +995,9 @@ export const HARNESS_EVENT_ID = "00000000-0000-0000-0000-000000000000";
 export const HARNESS_TOKEN = "harness-token-not-a-real-share-link-0000";
 
 export function isHarnessIdentity(identity: DisplayEngineIdentity): boolean {
+  // Development/test only: in production the reserved sentinels are ordinary
+  // identities, so product behavior is never altered by this seam (B005-S4).
+  if (process.env.NODE_ENV === "production") return false;
   return identity.eventId === HARNESS_EVENT_ID || identity.token === HARNESS_TOKEN;
 }
 

@@ -693,12 +693,12 @@
       "priority": "P2",
       "implementation_state": "OPEN",
       "observation": "FAIL",
-      "desired_behavior": "after the server confirms or attempts cookie clearing, both logout entry points replace location with the public '/' home page rather than '/login'; a failed logout attempt never leaves a misleadingly-authenticated UI.",
+      "desired_behavior": "only after the server confirms the session is removed does the UI redirect to the public '/'; a logout request that fails or cannot be confirmed shows an honest error, keeps the authenticated UI truthful, and never redirects as if signed out (B005 review B005-F2: a redirect after the cookie clear is merely attempted is a false success).",
       "acceptance_criteria": [
         "both logout entry points clear the session and land on home",
         "the browser Back button cannot reveal a usable authenticated surface afterward",
         "a direct request to a protected URL after logout safely returns to auth",
-        "a failed logout request does not show a false signed-out success"
+        "a failed or unconfirmed logout shows an honest error and does not navigate as if the session ended"
       ],
       "affected_files": [
         "components/auth/auth-context.tsx"
@@ -720,7 +720,8 @@
       "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
       "history": [
         "carried forward from original audit enumeration (B002)",
-        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
+        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
+        "B005 review (B005-F2): wording corrected from 'after the server confirms or attempts cookie clearing' to confirmed success only. Code not yet changed; lane D."
       ]
     },
     {
@@ -1125,7 +1126,7 @@
       "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
+      "next_action": "Product decision pending (measurement and consent plan). OPEN is correct; not a completed fix.",
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
@@ -1159,7 +1160,7 @@
       "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
+      "next_action": "Conditional exclusion: no non-essential tracking exists today. Not a completed fix. Reopen if analytics, ads, embeds or non-essential storage are added.",
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
@@ -1193,7 +1194,7 @@
       "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
+      "next_action": "Conditional exclusion: transactional invites only. Not a completed fix. Reopen before any bulk or marketing mail is sent.",
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
@@ -1227,7 +1228,7 @@
       "environment": "n/a \u2014 not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
+      "next_action": "Conditional exclusion: no phone/SMS flow exists. Not a completed fix. Reopen if a phone or SMS flow is added.",
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."

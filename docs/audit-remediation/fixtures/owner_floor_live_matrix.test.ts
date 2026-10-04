@@ -14,7 +14,12 @@ import {
   OWNER_EMAIL,
   VIEWER_EMAIL,
   EDITOR_EMAIL,
+  ACTIONS,
 } from "./owner_floor_live_matrix.mjs";
+import * as holdRoute from "../../../app/api/display-engine/hold/route";
+import * as timerRoute from "../../../app/api/display-engine/timer/route";
+import * as speakerReadyRoute from "../../../app/api/display-engine/speaker-ready/route";
+import * as dismissRoute from "../../../app/api/display-engine/broadcasts/[id]/dismiss/route";
 
 // Codex B003 review (B003-S1): the URL guard previously used `.includes()`,
 // so any hostname/path/query merely containing the allowed host string
@@ -350,7 +355,7 @@ describe("runSetup", () => {
   // Codex B004 review (B004-S1): the real display_broadcasts insert used to
   // omit required columns and would have failed against this exact schema.
   it("fails with a clear not-null error if a future edit ever drops message/target from the broadcast insert again (regression guard)", async () => {
-    const db = makeFakeDb();
+    const db = makeFakeDb({ events: [{ id: "e1", name: `${FIXTURE_NAME_PREFIX} live-matrix fixture event`, owner_id: "owner-1" }], display_type_state: [{ id: "d1", event_id: "e1", display_type: FIXTURE_DISPLAY_TYPE }] });
     const fs = makeFakeFs({
       "/state.json": JSON.stringify({ runId: FIXTURE_RUN_ID, phase: "display_state_created", eventId: "e1", ownerId: "owner-1", viewerId: "viewer-1", editorId: "editor-1", displayTypeStateId: "d1" }),
     });
@@ -543,7 +548,7 @@ describe("runMatrix (fake fetch + fake session seam — NOT remote proof)", () =
   }
 
   it("covers hold, timer, speaker-ready, and dismiss for all three identities (12 assertions)", async () => {
-    const { fakeFetch } = makeFakeFetch((identity) => (identity === OWNER_EMAIL ? 200 : 403));
+    const { fakeFetch } = makeFakeFetch((identity, url) => (identity === OWNER_EMAIL ? 200 : url.includes("/dismiss") ? 404 : 403));
     const { ok, results } = await runMatrix({ baseUrl: "http://localhost:3000", state, getSessionCookie: fakeGetSessionCookie, fetchImpl: fakeFetch });
     expect(results).toHaveLength(12);
     expect(new Set(results.map((r) => r.action))).toEqual(new Set(["hold", "timer", "speaker-ready", "dismiss"]));
@@ -623,7 +628,7 @@ describe("runMatrix with db readback (fake fetch + fake db — NOT remote proof)
         if (url.includes("/dismiss")) db.tables.display_broadcasts[0].dismissed_at = new Date().toISOString();
         return { status: 200 } as Response;
       }
-      return { status: 403 } as Response;
+      return { status: url.includes("/dismiss") ? 404 : 403 } as Response;
     };
     const state = { eventId: "e1", broadcastId: "b1" };
     const { ok, results } = await runMatrix({ baseUrl: "http://localhost:3000", state, db, getSessionCookie: fakeGetSessionCookie, fetchImpl: fakeFetch });
@@ -652,7 +657,7 @@ describe("runMatrix with db readback (fake fetch + fake db — NOT remote proof)
         // must not.
         db.tables.display_type_state[0].hold = { active: true };
       }
-      return { status: cookie.includes(OWNER_EMAIL) ? 200 : 403 } as Response;
+      return { status: cookie.includes(OWNER_EMAIL) ? 200 : url.includes("/dismiss") ? 404 : 403 } as Response;
     };
     const state = { eventId: "e1", broadcastId: "b1" };
     const { ok, results } = await runMatrix({ baseUrl: "http://localhost:3000", state, db, getSessionCookie: fakeGetSessionCookie, fetchImpl: fakeFetch });
@@ -663,13 +668,73 @@ describe("runMatrix with db readback (fake fetch + fake db — NOT remote proof)
   });
 
   it("falls back to status-only assertions (no mutation field) when no db is supplied", async () => {
-    const fakeFetch = async (_url: string, init: RequestInit) => {
+    const fakeFetch = async (url: string, init: RequestInit) => {
       const cookie = (init.headers as Record<string, string>)?.Cookie ?? "";
-      return { status: cookie.includes(OWNER_EMAIL) ? 200 : 403 } as Response;
+      return { status: cookie.includes(OWNER_EMAIL) ? 200 : url.includes("/dismiss") ? 404 : 403 } as Response;
     };
     const state = { eventId: "e1", broadcastId: "b1" };
     const { ok, results } = await runMatrix({ baseUrl: "http://localhost:3000", state, getSessionCookie: fakeGetSessionCookie, fetchImpl: fakeFetch });
     expect(ok).toBe(true);
     expect(results.every((r) => !("mutation" in r))).toBe(true);
+  });
+});
+
+// B005-S1: the runner's per-action method and truthful denied status must
+// match the handlers that actually exist. Checked against the real route
+// modules, not a fake transport.
+describe("runner route contracts vs real handlers", () => {
+  const modules: Record<string, Record<string, unknown>> = {
+    hold: holdRoute,
+    timer: timerRoute,
+    "speaker-ready": speakerReadyRoute,
+    dismiss: dismissRoute,
+  };
+  for (const action of ACTIONS) {
+    it(`${action.name}: ${action.method} is exported by its real route file`, () => {
+      expect(typeof modules[action.name][action.method]).toBe("function");
+    });
+  }
+  it("dismiss uses POST and a 404 denial; the others use PATCH and 403", () => {
+    const byName = Object.fromEntries(ACTIONS.map((a) => [a.name, a]));
+    expect(byName.dismiss.method).toBe("POST");
+    expect(byName.dismiss.deniedExpect).toBe(404);
+    for (const n of ["hold", "timer", "speaker-ready"]) {
+      expect(byName[n].method).toBe("PATCH");
+      expect(byName[n].deniedExpect).toBe(403);
+    }
+  });
+});
+
+// B005-S2: resumed setup must prove parent ownership before any write.
+describe("runSetup resume parent validation (zero writes on failure)", () => {
+  function snapshotWrites(db: ReturnType<typeof makeFakeDb>) {
+    return JSON.stringify(db.tables);
+  }
+  it("refuses to resume a saved event that does not exist, with zero writes", async () => {
+    const db = makeFakeDb({});
+    const fs = makeFakeFs({
+      "/state.json": JSON.stringify({ runId: FIXTURE_RUN_ID, phase: "event_created", eventId: "gone", ownerId: "owner-1", viewerId: "viewer-1", editorId: "editor-1" }),
+    });
+    const before = snapshotWrites(db);
+    await expect(runSetup({ db, fs, statePath: "/state.json", log: () => {} })).rejects.toThrow(/does not exist/);
+    expect(snapshotWrites(db)).toBe(before);
+  });
+  it("refuses to resume an event owned by someone other than the fixture owner, with zero writes", async () => {
+    const db = makeFakeDb({ events: [{ id: "e1", name: `${FIXTURE_NAME_PREFIX} x`, owner_id: "someone-else" }] });
+    const fs = makeFakeFs({
+      "/state.json": JSON.stringify({ runId: FIXTURE_RUN_ID, phase: "event_created", eventId: "e1", ownerId: "owner-1", viewerId: "viewer-1", editorId: "editor-1" }),
+    });
+    const before = snapshotWrites(db);
+    await expect(runSetup({ db, fs, statePath: "/state.json", log: () => {} })).rejects.toThrow(/not owned by the fixture owner/);
+    expect(snapshotWrites(db)).toBe(before);
+  });
+  it("refuses to resume when saved account ids do not match the live accounts, with zero writes", async () => {
+    const db = makeFakeDb({ events: [{ id: "e1", name: `${FIXTURE_NAME_PREFIX} x`, owner_id: "owner-1" }] });
+    const fs = makeFakeFs({
+      "/state.json": JSON.stringify({ runId: FIXTURE_RUN_ID, phase: "event_created", eventId: "e1", ownerId: "owner-1", viewerId: "stale-viewer", editorId: "editor-1" }),
+    });
+    const before = snapshotWrites(db);
+    await expect(runSetup({ db, fs, statePath: "/state.json", log: () => {} })).rejects.toThrow(/do not match the live accounts/);
+    expect(snapshotWrites(db)).toBe(before);
   });
 });

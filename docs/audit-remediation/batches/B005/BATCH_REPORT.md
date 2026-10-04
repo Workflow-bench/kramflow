@@ -55,7 +55,7 @@ Limits (explicit):
 - Pointer check found a real gap: `LH-MOBILE-2` locator had no pointer. Fixed in `build_coverage.mjs`.
 - B004-F2: removed the invented KF-010/KF-014 coupling. Each FG-L220 obligation is independently checkable; combined exercise optional (history recorded on both entries).
 
-Totals unchanged: 42 parent / 29 child (`READY_FOR_CODEX` 3, `OPEN` 30, `PRESERVE_PENDING_REVIEW` 3, `NOT_APPLICABLE` 5, `BLOCKED_EXTERNAL` 2). Validator: PASS.
+Totals unchanged: 42 parent / 29 child (`READY_FOR_CODEX` 3, `OPEN` 29, `PRESERVE_PENDING_REVIEW` 3, `NOT_APPLICABLE` 5, `BLOCKED_EXTERNAL` 2). Validator: PASS.
 
 ## Preserved (not redone)
 Exact Supabase URL guard, visible non-owner explanation, owner focus ring, toast live-region markup, Lighthouse desktop FAIL/27 mapping, KF-006 expanded criteria, KF-004 metric qualification, KF-036.9 tracking.

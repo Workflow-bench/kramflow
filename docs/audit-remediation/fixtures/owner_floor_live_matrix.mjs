@@ -350,6 +350,38 @@ async function ensureBroadcast({ db, fs, statePath, log, state }) {
   return nextState;
 }
 
+/**
+ * Before any resumed write, re-derive the fixture accounts from the live auth
+ * directory (never from the state file) and verify the saved parent event is
+ * still the fixture's own: owner matches the independently resolved owner
+ * account and the name carries this run's marker. Missing or unrelated events
+ * fail here with zero writes (Codex B005 review, B005-S2). Child lookups
+ * scoped by event_id are not parent-ownership proof on their own.
+ */
+async function assertResumableParent({ db, state }) {
+  const users = await checked(db.listUsers(), "re-resolving fixture accounts");
+  const byEmail = (email) => users.users.find((u) => u.email === email);
+  const owner = byEmail(OWNER_EMAIL);
+  const viewer = byEmail(VIEWER_EMAIL);
+  const editor = byEmail(EDITOR_EMAIL);
+  if (!owner || !viewer || !editor) {
+    throw new Error("Cannot resume: one or more pre-existing fixture accounts are missing. No writes performed.");
+  }
+  if (state.ownerId !== owner.id || state.viewerId !== viewer.id || state.editorId !== editor.id) {
+    throw new Error("Cannot resume: saved fixture account ids do not match the live accounts for these emails. No writes performed.");
+  }
+  const event = await checked(
+    db.from("events").select("id,owner_id,name").eq("id", state.eventId).maybeSingle(),
+    "re-reading the saved parent event before resuming"
+  );
+  if (!event) {
+    throw new Error(`Cannot resume: saved event ${state.eventId} does not exist. No writes performed; re-run after recovery review.`);
+  }
+  if (event.owner_id !== owner.id || !String(event.name ?? "").startsWith(FIXTURE_NAME_PREFIX)) {
+    throw new Error(`Cannot resume: event ${state.eventId} is not owned by the fixture owner or lacks the run marker. No writes performed.`);
+  }
+}
+
 /** @param {{db: any, fs?: FsLike, statePath?: string, log?: (...args: any[]) => void}} opts */
 export async function runSetup({ db, fs = nodeFs, statePath = DEFAULT_STATE_PATH, log = console.log }) {
   const existing = await readState(fs, statePath);
@@ -366,6 +398,8 @@ export async function runSetup({ db, fs = nodeFs, statePath = DEFAULT_STATE_PATH
 
   let state = existing.ok ? existing.state : null;
   const ctx = { db, fs, statePath, log };
+
+  if (state) await assertResumableParent({ db, state });
 
   if (!state) state = await ensureEvent(ctx);
   if (state.phase === "event_created") state = await ensureCollaborators({ ...ctx, state });
@@ -430,32 +464,53 @@ export async function runCleanup({ db, fs = nodeFs, statePath = DEFAULT_STATE_PA
   log(`cleanup complete for event ${state.eventId}${ownership.alreadyGone ? " (was already gone)" : ""}`);
 }
 
-const ACTIONS = [
+// Per-action route contracts, taken from the real handlers (B005 review
+// B005-S1). method must match the export the route file actually provides;
+// the test in owner_floor_live_matrix.test.ts asserts that against the
+// imported modules. Denied expectations follow each handler's own guard:
+// hold/timer/speaker-ready return 403 "Unauthorized"; dismiss uses
+// requireBroadcastSessionAccess, which returns 404 "Broadcast not found" for
+// any non-owner (anti-enumeration by design, not a bug).
+export const ACTIONS = [
   {
     name: "hold",
+    method: "PATCH",
+    routeFile: "app/api/display-engine/hold/route.ts",
     path: "/api/display-engine/hold",
     body: (state) => ({ eventId: state.eventId, displayType: FIXTURE_DISPLAY_TYPE, active: true }),
     readback: (db, state) => checked(db.from("display_type_state").select("hold").eq("event_id", state.eventId).eq("display_type", FIXTURE_DISPLAY_TYPE).maybeSingle(), "reading hold readback"),
+    ownerExpect: 200,
+    deniedExpect: 403,
   },
   {
     name: "timer",
+    method: "PATCH",
+    routeFile: "app/api/display-engine/timer/route.ts",
     path: "/api/display-engine/timer",
-    body: (state) => ({ eventId: state.eventId, displayType: FIXTURE_DISPLAY_TYPE, mode: "program" }),
+    body: (state) => ({ eventId: state.eventId, displayType: FIXTURE_DISPLAY_TYPE, action: "setMode", mode: "countdown" }),
     readback: (db, state) => checked(db.from("display_type_state").select("timer").eq("event_id", state.eventId).eq("display_type", FIXTURE_DISPLAY_TYPE).maybeSingle(), "reading timer readback"),
+    ownerExpect: 200,
+    deniedExpect: 403,
   },
   {
     name: "speaker-ready",
+    method: "PATCH",
+    routeFile: "app/api/display-engine/speaker-ready/route.ts",
     path: "/api/display-engine/speaker-ready",
     body: (state) => ({ eventId: state.eventId, programId: `${FIXTURE_NAME_PREFIX}-program`, ready: true }),
     readback: (db, state) => checked(db.from("display_state").select("speaker_ready").eq("event_id", state.eventId).maybeSingle(), "reading speaker_ready readback"),
+    ownerExpect: 200,
+    deniedExpect: 403,
   },
   {
     name: "dismiss",
+    method: "POST",
+    routeFile: "app/api/display-engine/broadcasts/[id]/dismiss/route.ts",
     path: (state) => `/api/display-engine/broadcasts/${state.broadcastId}/dismiss`,
     body: (state) => ({ eventId: state.eventId }),
     readback: (db, state) => checked(db.from("display_broadcasts").select("dismissed_at").eq("id", state.broadcastId).maybeSingle(), "reading dismissed_at readback"),
     ownerExpect: 200,
-    deniedExpect: 403,
+    deniedExpect: 404,
   },
 ];
 
@@ -496,10 +551,10 @@ export async function runMatrix({
 }) {
   assertLocalDevOrigin(baseUrl);
 
-  async function call(path, body, email) {
+  async function call(method, path, body, email) {
     const cookie = await getSessionCookie(email);
     return fetchImpl(`${baseUrl}${path}`, {
-      method: "PATCH",
+      method,
       headers: { "Content-Type": "application/json", Cookie: cookie },
       body: JSON.stringify(body),
       redirect: "manual", // never follow a redirect with an authenticated cookie attached to an unvalidated destination
@@ -516,11 +571,11 @@ export async function runMatrix({
 
   for (const identity of identities) {
     for (const action of ACTIONS) {
-      const expect = identity.isOwner ? (action.ownerExpect ?? 200) : (action.deniedExpect ?? 403);
+      const expect = identity.isOwner ? action.ownerExpect : action.deniedExpect;
       const path = typeof action.path === "function" ? action.path(state) : action.path;
 
       const before = db ? await action.readback(db, state) : null;
-      const res = await call(path, action.body(state), identity.email);
+      const res = await call(action.method, path, action.body(state), identity.email);
       const after = db ? await action.readback(db, state) : null;
 
       const statusPass = res.status === expect;

@@ -40,6 +40,7 @@ import { ActionBar, ActionBarClear, ActionBarCount, ActionBarSeparator, ActionBa
 import { MaybeTooltip } from "@/components/ui/tooltip";
 import { StageStatusPill, type StageStatus } from "@/components/display-engine/stage-status-pill";
 import { useEffect } from "react";
+import { notFound } from "next/navigation";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
 import { BroadcastOverlay } from "@/components/display-engine/broadcast-overlay";
 import { seedHarnessBroadcast, HARNESS_EVENT_ID, HARNESS_TOKEN } from "@/lib/display-engine/store";
@@ -119,6 +120,11 @@ const CATALOG_SELECT_OPTIONS = [
 ];
 
 export default function ComponentCatalogPage() {
+  if (process.env.NODE_ENV === "production") notFound();
+  return <ComponentCatalog />;
+}
+
+function ComponentCatalog() {
   const [inputValue, setInputValue] = useState("");
   const [checkboxValue, setCheckboxValue] = useState(false);
   const [selectValue, setSelectValue] = useState("a");
