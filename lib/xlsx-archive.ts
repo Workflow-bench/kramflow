@@ -318,6 +318,9 @@ function checkLocalRecords(bytes: Uint8Array, records: ZipRecord[]): void {
 export interface XlsxProbe {
   fed: number;
   retained: number;
+  // Output bytes the decoder delivered to ondata, counted before any check.
+  produced: number;
+  refusedProduced?: number;
   // Snapshot taken when the first refusal is recorded.
   refusedFed?: number;
   refusedRetained?: number;
@@ -364,6 +367,7 @@ export function inspectXlsxArchive(
       if (probe) {
         probe.refusedFed = probe.fed;
         probe.refusedRetained = probe.retained;
+        probe.refusedProduced = probe.produced;
       }
     }
     throw pending;
@@ -390,6 +394,7 @@ export function inspectXlsxArchive(
     const chunks: Uint8Array[] = [];
     let actual = 0;
     file.ondata = (err, chunk, final) => {
+      if (probe && chunk) probe.produced += chunk.length;
       // fflate catches exceptions thrown here and keeps streaming, so a refusal
       // must stop the work itself: once one is recorded, no more output is kept.
       if (pending) return;

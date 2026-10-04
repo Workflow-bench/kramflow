@@ -426,9 +426,11 @@ describe("production output budget with a forged declaration (ARCHIVE-S1)", () =
     }
     const base = Buffer.from(zipSync({ "xl/worksheets/sheet1.xml": strToU8(SHEET_XML), "xl/sharedStrings.xml": huge }));
     const forged = patchMemberSize(base, "xl/sharedStrings.xml", 4096);
-    const probe: XlsxProbe = { fed: 0, retained: 0 };
+    const probe: XlsxProbe = { fed: 0, retained: 0, produced: 0 };
     expect(() => inspectXlsxArchive(new Uint8Array(forged), {}, probe)).toThrow(/expands to more data/);
     expect(probe.refusedFed).toBeDefined();
+    // No decoder output after the refusal was recorded (counted before any check).
+    expect(probe.produced).toBe(probe.refusedProduced);
     expect(probe.fed - probe.refusedFed!).toBeLessThanOrEqual(1024);
     expect(probe.retained).toBe(probe.refusedRetained);
     expect(probe.refusedRetained!).toBeLessThanOrEqual(16 * 1024 * 1024 + 1100000);
