@@ -34,7 +34,7 @@ function firstConnect(refetch: (status: "SUBSCRIBED") => boolean) {
 
 describe("first-connect race (KF-036.9)", () => {
   it("reproduces the gap under the old policy: the active banner is missing on first connect", () => {
-    const oldPolicy = (_status: "SUBSCRIBED") => false; // refetch only after a prior connection
+    const oldPolicy = () => false; // refetch only after a prior connection
     // The defect, asserted: the sent broadcast is not shown without another mutation.
     expect(firstConnect(oldPolicy)).toEqual([]);
   });
