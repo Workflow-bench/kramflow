@@ -209,3 +209,51 @@ describe("hostile archives are refused before or during inflation (actual-byte b
     await expect(readBoth(base.subarray(0, base.length - 30)).then((o) => o.text)).resolves.toMatchObject({ ok: false });
   });
 });
+
+// A package whose worksheet lives at a chosen part path, referenced by a chosen
+// relationship target. Used to test relocated and mis-referenced worksheets.
+function relocated(opts: { partPath: string; target: string; sheetXml: string; declare?: boolean; extraWorksheet?: string }): Buffer {
+  const declare = opts.declare ?? true;
+  const ct = `${DECL}<Types xmlns="${CT}"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${declare ? `<Override PartName="/${opts.partPath}" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` : ""}${opts.extraWorksheet ? `<Override PartName="/${opts.extraWorksheet}" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` : ""}</Types>`;
+  const files: Record<string, Uint8Array> = {
+    "[Content_Types].xml": strToU8(ct),
+    "_rels/.rels": strToU8(`${DECL}<Relationships xmlns="${PKG}"><Relationship Id="rId1" Type="${RNS}/officeDocument" Target="xl/workbook.xml"/></Relationships>`),
+    "xl/workbook.xml": strToU8(`${DECL}<workbook xmlns="${NS}" xmlns:r="${RNS}"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>`),
+    "xl/_rels/workbook.xml.rels": strToU8(`${DECL}<Relationships xmlns="${PKG}"><Relationship Id="rId1" Type="${RNS}/worksheet" Target="${opts.target}"/></Relationships>`),
+    [opts.partPath]: strToU8(opts.sheetXml),
+  };
+  if (opts.extraWorksheet) files[opts.extraWorksheet] = strToU8(opts.sheetXml);
+  return Buffer.from(zipSync(files));
+}
+
+describe("worksheets are the ones the package relationships declare (XLSX-R2)", () => {
+  const late = sheet({ cells: { A6000: "Late required cue" }, dimension: "A6000:A6000" });
+  const inCap = sheet({ cells: { A1: "Day", B2: "Relocated item" }, dimension: "A1:B2" });
+
+  it("late data in a relocated worksheet (xl/data/sheet1.xml) is refused by both readers", async () => {
+    const out = await readBoth(relocated({ partPath: "xl/data/sheet1.xml", target: "data/sheet1.xml", sheetXml: late }));
+    expect(out.text.ok).toBe(false);
+    expect(out.cue.ok).toBe(false);
+  });
+
+  it("an in-cap relocated worksheet keeps all its data through extraction", async () => {
+    const out = await readBoth(relocated({ partPath: "xl/data/sheet1.xml", target: "data/sheet1.xml", sheetXml: inCap }));
+    expect(out.text.ok).toBe(true);
+    if (out.text.ok) expect(out.text.t).toContain("Relocated item");
+  });
+
+  it("a sheet whose relationship target does not exist is refused", async () => {
+    const out = await readBoth(relocated({ partPath: "xl/data/sheet1.xml", target: "missing/sheet9.xml", sheetXml: late, declare: true }));
+    expect(out.text.ok).toBe(false);
+  });
+
+  it("a worksheet no sheet refers to is refused as ambiguous", async () => {
+    const out = await readBoth(relocated({ partPath: "xl/data/sheet1.xml", target: "data/sheet1.xml", sheetXml: inCap, extraWorksheet: "xl/worksheets/orphan.xml" }));
+    expect(out.text.ok).toBe(false);
+  });
+
+  it("a relationship target that escapes the package is refused", async () => {
+    const out = await readBoth(relocated({ partPath: "xl/data/sheet1.xml", target: "../../../etc/sheet1.xml", sheetXml: inCap }));
+    expect(out.text.ok).toBe(false);
+  });
+});

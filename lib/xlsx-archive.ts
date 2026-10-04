@@ -1,5 +1,5 @@
 import { Unzip, UnzipInflate, UnzipPassThrough } from "fflate";
-import { DOMParser } from "@xmldom/xmldom";
+import { DOMParser, type Element } from "@xmldom/xmldom";
 
 // Preparse inspection of an .xlsx package, run before SheetJS reads it.
 //
@@ -30,7 +30,6 @@ export const XLSX_ARCHIVE_BUDGET = {
 export class XlsxArchiveError extends Error {}
 
 const ZIP_MAGIC = [0x50, 0x4b, 0x03, 0x04];
-const SHEET_PART = /^xl\/worksheets\/[^/]+\.xml$/;
 const CELL_REF = /^([A-Z]{1,3})([1-9][0-9]*)$/;
 const RANGE_REF = /^([A-Z]{1,3})([1-9][0-9]*)(?::([A-Z]{1,3})([1-9][0-9]*))?$/;
 
@@ -39,6 +38,105 @@ export interface XlsxInspection {
   maxRow: number;
   members: number;
   actualBytes: number;
+}
+
+const REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+const PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships";
+const CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types";
+const WORKSHEET_CT = "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
+const WORKBOOK_CT = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml";
+
+function xmlOf(parts: Map<string, Uint8Array>, name: string): Element {
+  const bytes = parts.get(name);
+  if (!bytes) throw fail("This workbook is missing a required part.");
+  const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  const doc = new DOMParser({
+    onError(level: string) {
+      if (level !== "warning") throw fail("This workbook could not be inspected.");
+    },
+  }).parseFromString(text, "text/xml");
+  if (!doc.documentElement) throw fail("This workbook could not be inspected.");
+  return doc.documentElement;
+}
+
+// Resolves a relationship Target against the part that owns it, rejecting any
+// path that leaves the package. Absolute and backslash targets are refused.
+// `baseDir` is the directory the relationship is relative to: "" for the package
+// root, "xl/" for relationships of xl/workbook.xml.
+function resolveTarget(baseDir: string, target: string): string {
+  if (target.includes("\\") || target.includes("\u0000")) throw fail("This workbook has an unsupported part path.");
+  const segments = target.startsWith("/") ? [] : baseDir.split("/").filter((x) => x !== "");
+  for (const seg of target.replace(/^\//, "").split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") {
+      if (segments.length === 0) throw fail("This workbook has a part path that leaves the package.");
+      segments.pop();
+    } else {
+      segments.push(seg);
+    }
+  }
+  return segments.join("/");
+}
+
+// The worksheet parts the workbook declares, in workbook order. Every sheet must
+// resolve to exactly one worksheet part with the worksheet content type, and every
+// worksheet part in the package must be one of them. Anything else is refused.
+export function resolveWorksheetParts(parts: Map<string, Uint8Array>): string[] {
+  const rootRels = parts.has("_rels/.rels") ? xmlOf(parts, "_rels/.rels") : null;
+  let workbookPath: string | null = null;
+  if (rootRels) {
+    for (const rel of Array.from(rootRels.getElementsByTagNameNS(PKG_REL_NS, "Relationship"))) {
+      if (rel.getAttribute("Type") === `${REL_NS}/officeDocument`) {
+        if (workbookPath !== null) throw fail("This workbook declares more than one main part.");
+        workbookPath = resolveTarget("", rel.getAttribute("Target") ?? "");
+      }
+    }
+  }
+  if (workbookPath === null) workbookPath = "xl/workbook.xml";
+  if (!parts.has(workbookPath)) throw fail("This workbook is missing its workbook part.");
+
+  const contentTypes = new Map<string, string>();
+  if (parts.has("[Content_Types].xml")) {
+    const ct = xmlOf(parts, "[Content_Types].xml");
+    for (const o of Array.from(ct.getElementsByTagNameNS(CT_NS, "Override"))) {
+      const part = o.getAttribute("PartName") ?? "";
+      if (contentTypes.has(part.replace(/^\//, ""))) throw fail("This workbook declares a part type twice.");
+      contentTypes.set(part.replace(/^\//, ""), o.getAttribute("ContentType") ?? "");
+    }
+  }
+
+  const workbookDir = workbookPath.includes("/") ? workbookPath.slice(0, workbookPath.lastIndexOf("/") + 1) : "";
+  const relsPath = `${workbookDir}_rels/${workbookPath.slice(workbookDir.length)}.rels`;
+  const rels = new Map<string, string>();
+  if (parts.has(relsPath)) {
+    for (const rel of Array.from(xmlOf(parts, relsPath).getElementsByTagNameNS(PKG_REL_NS, "Relationship"))) {
+      const id = rel.getAttribute("Id") ?? "";
+      if (rels.has(id)) throw fail("This workbook declares a relationship twice.");
+      rels.set(id, resolveTarget(workbookDir, rel.getAttribute("Target") ?? ""));
+    }
+  }
+
+  const sheetPaths: string[] = [];
+  const workbook = xmlOf(parts, workbookPath);
+  for (const sheet of Array.from(workbook.getElementsByTagNameNS("*", "sheet"))) {
+    const rid = sheet.getAttributeNS(REL_NS, "id") ?? sheet.getAttribute("r:id");
+    const target = rid ? rels.get(rid) : undefined;
+    if (!target || !parts.has(target)) throw fail("This workbook has a sheet that cannot be found.");
+    if (contentTypes.get(target) !== WORKSHEET_CT) throw fail("This workbook has a sheet with an unexpected part type.");
+    if (sheetPaths.includes(target)) throw fail("This workbook has two sheets that share a part.");
+    sheetPaths.push(target);
+  }
+  if (contentTypes.get(workbookPath) !== WORKBOOK_CT && contentTypes.size > 0) {
+    throw fail("This workbook's main part has an unexpected type.");
+  }
+
+  // Any other worksheet-typed part is unreferenced and ambiguous: refuse it.
+  for (const [part, type] of contentTypes) {
+    if (type === WORKSHEET_CT && !sheetPaths.includes(part)) {
+      throw fail("This workbook has a worksheet that no sheet refers to.");
+    }
+  }
+  return sheetPaths;
 }
 
 const fail = (message: string) => new XlsxArchiveError(message);
@@ -212,16 +310,17 @@ export function inspectXlsxArchive(bytes: Uint8Array): XlsxInspection {
 
   if (entries !== directoryCount) throw fail("This workbook's directory does not match its parts.");
 
-  let sheetParts = 0;
-  let maxRow = 0;
-  for (const [name, content] of parts) {
-    if (!SHEET_PART.test(name)) continue;
-    sheetParts += 1;
-    if (sheetParts > b.maxSheetParts) {
-      throw fail(`Too many sheets (${sheetParts}). The limit is ${b.maxSheetParts}.`);
-    }
-    maxRow = Math.max(maxRow, worksheetExtent(content));
+  // Worksheets are whatever the package relationships say they are, not whatever
+  // a filename looks like. SheetJS reads through the same relationships.
+  const worksheetNames = resolveWorksheetParts(parts);
+  if (worksheetNames.length > b.maxSheetParts) {
+    throw fail(`Too many sheets (${worksheetNames.length}). The limit is ${b.maxSheetParts}.`);
   }
+  let maxRow = 0;
+  for (const name of worksheetNames) {
+    maxRow = Math.max(maxRow, worksheetExtent(parts.get(name)!));
+  }
+  const sheetParts = worksheetNames.length;
 
   return { sheetParts, maxRow, members: parts.size, actualBytes: actualTotal };
 }
