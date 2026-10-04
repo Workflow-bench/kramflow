@@ -47,3 +47,10 @@ The 15-item batch exceeds one session's capacity for real evidence (browser, Lig
 ## Carried forward (must appear in every handoff)
 - Final `ui-revamp` integration is gated on all applicable criteria being independently complete. Not started.
 - External, not performed: shared migration apply, provider/DNS/account changes, remote matrix, real authenticated sessions, push, deploy.
+
+## Progress, later in B009 (resume 2)
+- KF-007 traversal bounds: commit `2769bbe`. next/jumpTo/finish derive maxOrder from stored item count; client value advisory. Tests: inflated client maxOrder, finish landing, jumpTo refusal.
+- KF-031 timer: commit `e691711`. Genuine concurrent-write 409 test; stored state unchanged.
+- KF-010 local: commit `937f216`. Provider-neutral redacted reporting with injected sink; nothing transmitted. Provider, source maps, alert owner remain UNVERIFIED external.
+- Suite at `937f216`: 481/481; tsc clean; eslint clean on changed dirs; production build exit 0.
+- Still OPEN, not started: KF-034 production-budget proof, KF-006 Postgres concurrency and UI, KF-036.9 race, KF-001 matrix, KF-004/005 rehearsal, KF-017 recovery, KF-019/020/021 a11y, KF-023 performance, KF-026 metadata.
