@@ -1,4 +1,5 @@
 "use client";
+import { requestSignOut } from "@/lib/auth/sign-out";
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -21,9 +22,15 @@ function SetPasswordForm() {
   const [submitting, setSubmitting] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
+  // Navigates to login only after the server confirms sign-out (KF-016 contract).
   async function handleLogout() {
     setLoggingOut(true);
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    setError(null);
+    if (!(await requestSignOut())) {
+      setLoggingOut(false);
+      setError("Couldn't sign you out. Try again.");
+      return;
+    }
     window.location.href = "/login";
   }
 

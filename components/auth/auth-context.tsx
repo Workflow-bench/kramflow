@@ -1,4 +1,5 @@
 "use client";
+import { requestSignOut } from "@/lib/auth/sign-out";
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
@@ -61,13 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // was, so the caller can say so instead of acting as if the user was
   // signed out (KF-016, B005-F2).
   async function lock(): Promise<boolean> {
-    try {
-      const res = await fetch("/api/auth/logout", { method: "POST" });
-      const body = (await res.json().catch(() => null)) as { ok?: boolean } | null;
-      if (!res.ok || body?.ok !== true) return false;
-    } catch {
-      return false;
-    }
+    if (!(await requestSignOut())) return false;
     setStatus("locked");
     window.location.href = "/";
     return true;
