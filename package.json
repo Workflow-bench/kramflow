@@ -19,6 +19,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.6",
+    "@xmldom/xmldom": "0.9.8",
     "clsx": "^2.1.1",
     "fflate": "0.8.2",
     "framer-motion": "^13.1.1",
