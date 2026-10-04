@@ -6,7 +6,8 @@
 // mapping, per docs/DATA_MODEL.md's original column-by-header-text approach.
 
 import * as XLSX from "xlsx";
-import { XLSX_READ_OPTIONS, workbookLimitViolation } from "./xlsx-limits";
+import { XLSX_READ_OPTIONS, rowsLimitMessage, workbookLimitViolation, MAX_ROWS_PER_SHEET } from "./xlsx-limits";
+import { inspectXlsxArchive } from "./xlsx-archive";
 
 export interface ParsedSession {
   id: string;
@@ -337,6 +338,11 @@ function parseSheet(sheetName: string, sheet: XLSX.WorkSheet, sessionSortOrder: 
 // row-by-row parsing runs, keeps a crafted small file from doing
 // disproportionate work.
 export function parseCueSheet(buffer: Buffer | ArrayBuffer): ParsedCueSheet {
+  const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  // Preparse first: reads the absolute extent and enforces decompression budgets
+  // before SheetJS decodes anything (B008-F1).
+  const inspection = inspectXlsxArchive(bytes);
+  if (inspection.maxRow > MAX_ROWS_PER_SHEET) throw new Error(rowsLimitMessage(inspection.maxRow));
   const wb = XLSX.read(buffer, XLSX_READ_OPTIONS);
   const violation = workbookLimitViolation(wb);
   if (violation) throw new Error(violation);

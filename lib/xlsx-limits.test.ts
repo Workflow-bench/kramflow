@@ -87,3 +87,30 @@ describe("document-text reader on the same files (B007-F1)", () => {
     expect(await extractDocumentText(file)).toContain("Doors");
   });
 });
+
+describe("only-late-row sheets (B008-F1)", () => {
+  function onlyRow(addr: string): Buffer {
+    const wb = XLSX.utils.book_new();
+    const ws: XLSX.WorkSheet = { [addr]: { t: "s", v: "Late item" }, "!ref": `${addr}:${addr}` };
+    XLSX.utils.book_append_sheet(wb, ws, "S");
+    return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
+  }
+
+  it("rejects a sheet whose only populated cell is A6000 (reference A6000:A6000)", () => {
+    expect(() => parseCueSheet(onlyRow("A6000"))).toThrow(/has too many rows \(6000\)/);
+  });
+
+  it("rejects the same sheet through the document-text reader", async () => {
+    const file = new File([new Uint8Array(onlyRow("A6000"))], "run.xlsx");
+    await expect(extractDocumentText(file)).rejects.toThrow(/has too many rows \(6000\)/);
+  });
+
+  it("rejects a late-start cue sheet: header and items all below the cap", () => {
+    const wb = XLSX.utils.book_new();
+    const ws: XLSX.WorkSheet = { "!ref": "A5990:F6000" };
+    HEADER.forEach((h, c) => (ws[`${String.fromCharCode(65 + c)}5990`] = { t: "s", v: h }));
+    ws["A6000"] = { t: "s", v: "Friday" };
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    expect(() => parseCueSheet(Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" })))).toThrow(/has too many rows/);
+  });
+});

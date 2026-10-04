@@ -1,6 +1,7 @@
 import "server-only";
 import * as XLSX from "xlsx";
-import { XLSX_READ_OPTIONS, workbookLimitViolation } from "@/lib/xlsx-limits";
+import { XLSX_READ_OPTIONS, rowsLimitMessage, workbookLimitViolation, MAX_ROWS_PER_SHEET } from "@/lib/xlsx-limits";
+import { XlsxArchiveError, inspectXlsxArchive } from "@/lib/xlsx-archive";
 
 // Turns an uploaded document into plain text for the AI import. Spreadsheets
 // are flattened to CSV per sheet so the model sees rows and columns; text
@@ -33,7 +34,16 @@ export async function extractDocumentText(file: File): Promise<string> {
     // xlsx (SheetJS) has open advisories for hostile files; the size cap
     // above and the sheet/row ceilings below bound what it is asked to do,
     // as in lib/parse-cuesheet.ts.
-    const wb = XLSX.read(Buffer.from(await file.arrayBuffer()), XLSX_READ_OPTIONS);
+    const data = Buffer.from(await file.arrayBuffer());
+    // Preparse first: absolute extent and decompression budgets (B008-F1).
+    try {
+      const inspection = inspectXlsxArchive(new Uint8Array(data));
+      if (inspection.maxRow > MAX_ROWS_PER_SHEET) throw new DocumentTextError(rowsLimitMessage(inspection.maxRow), 400);
+    } catch (err) {
+      if (err instanceof XlsxArchiveError) throw new DocumentTextError(err.message, 400);
+      throw err;
+    }
+    const wb = XLSX.read(data, XLSX_READ_OPTIONS);
     const violation = workbookLimitViolation(wb);
     if (violation) throw new DocumentTextError(violation, 400);
     const parts: string[] = [];
