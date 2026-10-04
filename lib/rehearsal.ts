@@ -21,11 +21,15 @@ export function canFinishRehearsal({ currentOrder, max }: RehearsalPosition): bo
   return currentOrder !== null && max > 0 && currentOrder === max;
 }
 
-// Exit confirmation only when there is progress that would be discarded: an
-// active run past its first cue and not yet complete. No prompt before start
-// or after a clean completion.
-export function shouldConfirmExit({ currentOrder, max }: RehearsalPosition): boolean {
-  return currentOrder !== null && currentOrder > 1 && currentOrder <= max;
+// Exit confirmation when a run has progress it would discard. Progress means
+// the operator did something: advanced past cue 1, paused or resumed, or raised
+// a rehearsal alert. Time spent on cue 1 with no action is not progress, so
+// elapsed time alone never prompts. `interacted` is set by those actions in the
+// page; `currentOrder` alone is not enough, since a single-cue run with a pause
+// or alert also has discardable work.
+export function shouldConfirmExit({ currentOrder, max, interacted }: RehearsalPosition & { interacted: boolean }): boolean {
+  if (currentOrder === null || currentOrder > max) return false;
+  return currentOrder > 1 || interacted;
 }
 
 // Summary metrics limited to what the rehearsal actually tracks: the cue

@@ -70,6 +70,7 @@ export default function RehearsalPage() {
   const max = session?.items.length ?? 0;
   const isFinished = isRehearsalComplete({ currentOrder, max });
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  const [interacted, setInteracted] = useState(false);
   const router = useRouter();
 
   const live = session && !isFinished ? getLive(session, { ...state, activeSessionId }) : null;
@@ -100,6 +101,7 @@ export default function RehearsalPage() {
   }
   function next_() {
     if (currentOrder === null || currentOrder >= max) return;
+    setInteracted(true);
     setProgress(currentOrder + 1);
   }
   function previous() {
@@ -110,10 +112,12 @@ export default function RehearsalPage() {
     setProgress(max + 1);
   }
   function togglePause() {
+    setInteracted(true);
     setState((s) => ({ ...s, pausedAt: s.pausedAt ? null : new Date().toISOString() }));
   }
   function reset() {
     setState({ ...REHEARSAL_INITIAL, activeSessionId });
+    setInteracted(false);
   }
   const [alertDraft, setAlertDraft] = useState("");
   const [alertSeverity, setAlertSeverity] = useState<AlertSeverity>("warning");
@@ -121,6 +125,7 @@ export default function RehearsalPage() {
     if (!alertDraft.trim()) return;
     const alert: AlertType = { message: alertDraft.trim(), severity: alertSeverity };
     setState((s) => ({ ...s, alert }));
+    setInteracted(true);
     setAlertDraft("");
   }
 
@@ -147,7 +152,7 @@ export default function RehearsalPage() {
             Nothing here reaches a real display, share link, or the real Operator Console.
           </span>
         </div>
-        {shouldConfirmExit({ currentOrder, max }) ? (
+        {shouldConfirmExit({ currentOrder, max, interacted }) ? (
           <Button variant="secondary" size="sm" onClick={() => setExitConfirmOpen(true)}>
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
             Exit Rehearsal

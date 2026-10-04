@@ -23,19 +23,25 @@ describe("rehearsal boundaries", () => {
   });
 });
 
-describe("exit confirmation", () => {
+describe("exit confirmation (progress = action taken, not elapsed time)", () => {
   it("no prompt before start", () => {
-    expect(shouldConfirmExit({ currentOrder: null, max: 3 })).toBe(false);
+    expect(shouldConfirmExit({ currentOrder: null, max: 3, interacted: false })).toBe(false);
   });
-  it("no prompt on the first cue (no meaningful progress yet)", () => {
-    expect(shouldConfirmExit({ currentOrder: 1, max: 3 })).toBe(false);
+  it("no prompt on cue 1 with no action, however long it has been running", () => {
+    expect(shouldConfirmExit({ currentOrder: 1, max: 3, interacted: false })).toBe(false);
   });
-  it("prompt once progress past the first cue would be discarded", () => {
-    expect(shouldConfirmExit({ currentOrder: 2, max: 3 })).toBe(true);
-    expect(shouldConfirmExit({ currentOrder: 3, max: 3 })).toBe(true);
+  it("prompt on cue 1 once the operator paused, resumed or raised an alert", () => {
+    expect(shouldConfirmExit({ currentOrder: 1, max: 3, interacted: true })).toBe(true);
   });
-  it("no prompt after clean completion", () => {
-    expect(shouldConfirmExit({ currentOrder: 4, max: 3 })).toBe(false);
+  it("prompt once past cue 1", () => {
+    expect(shouldConfirmExit({ currentOrder: 2, max: 3, interacted: false })).toBe(true);
+    expect(shouldConfirmExit({ currentOrder: 3, max: 3, interacted: false })).toBe(true);
+  });
+  it("no prompt after clean completion, even if interacted", () => {
+    expect(shouldConfirmExit({ currentOrder: 4, max: 3, interacted: true })).toBe(false);
+  });
+  it("zero-cue session never prompts", () => {
+    expect(shouldConfirmExit({ currentOrder: null, max: 0, interacted: false })).toBe(false);
   });
 });
 
