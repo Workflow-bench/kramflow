@@ -12,6 +12,8 @@ type Row = Record<string, unknown>;
 let typeRows: Row[];
 let sharedRow: Row | null;
 let writes: { table: string; patch: Row }[];
+// When set, the next conditional update finds the row already moved by another writer.
+let concurrentBump: boolean;
 
 function matches(row: Row, filters: [string, unknown][]) {
   return filters.every(([k, v]) => row[k] === v);
@@ -24,6 +26,10 @@ function query(table: string) {
   const list = () => (table === "display_type_state" ? typeRows : sharedRow ? [sharedRow] : []);
 
   function runUpdate() {
+    if (concurrentBump) {
+      concurrentBump = false;
+      for (const row of typeRows) if (matches(row, [["event_id", "event-old"], ["display_type", "presenter"]])) row.timer_version = (row.timer_version as number) + 1;
+    }
     const matched = typeRows.filter((r) => matches(r, filters));
     for (const row of matched) Object.assign(row, patch);
     writes.push({ table, patch });
@@ -74,6 +80,7 @@ const baseTimer = { mode: "program", source: "auto", startedAt: null, durationSe
 
 beforeEach(() => {
   writes = [];
+  concurrentBump = false;
   verifySessionAccess.mockReset();
   verifySessionAccess.mockResolvedValue({ ok: true, eventId: "event-old" });
   // An older event: display_state exists, display_type_state has no rows.
@@ -111,5 +118,20 @@ describe("timer route on an event with no display_type_state rows (B007-S3)", ()
     const res = await PATCH(req({ eventId: "event-old", displayType: "presenter", action: "setMode", mode: "countdown" }));
     expect(res.status).toBe(500);
     expect(writes).toHaveLength(0);
+  });
+
+  it("a concurrent write between read and conditional update returns 409 and leaves the stored state unchanged", async () => {
+    // Seed the presenter row so the route reads version N, then the fake moves
+    // the row to N+1 before the route's conditional update runs.
+    await PATCH(req({ eventId: "event-old", displayType: "presenter", action: "setMode", mode: "program" }));
+    const before = typeRows.find((r) => r.display_type === "presenter")!;
+    const storedBefore = { timer: before.timer, timer_version: before.timer_version };
+    concurrentBump = true;
+    const res = await PATCH(req({ eventId: "event-old", displayType: "presenter", action: "setMode", mode: "countdown" }));
+    expect(res.status).toBe(409);
+    const after = typeRows.find((r) => r.display_type === "presenter")!;
+    // The other writer's bump is the only change; this request's timer value was not written.
+    expect(after.timer).toEqual(storedBefore.timer);
+    expect(after.timer_version).toBe((storedBefore.timer_version as number) + 1);
   });
 });
