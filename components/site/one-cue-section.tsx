@@ -233,15 +233,11 @@ export function OneCueSection() {
         <div className="mt-10 space-y-9">
           <div>
             <p className="tnum mb-3 text-[11px] uppercase tracking-[0.18em] text-status-green">01 · Operator presses Next</p>
-            {/* A full 1680px-wide 3-column console squeezed to ~350px is an
-                unreadable grey ghost — same crop technique the hero uses
-                on mobile: a hard crop of the live column at a scale where
-                item names, the countdown and NEXT/ON DECK are legible,
-                rather than the whole console illegibly. */}
+            {/* A full 3-column console squeezed to ~350px is an unreadable grey
+                ghost, so mobile shows only the live column, as the hero does. */}
+            {/* The same live-column crop as the hero, cut at build time (consoleMobile). */}
             <div className="relative h-[70vw] max-h-[300px] overflow-hidden rounded-[0.35rem] border border-line-soft bg-black">
-              <div style={{ width: "320%", marginLeft: "-160%", marginTop: "-18%" }}>
-                <ProductShot shot="console" sizes="320vw" />
-              </div>
+              <ProductShot shot="consoleMobile" sizes="100vw" />
             </div>
           </div>
           {SCREENS.map((screen, i) => (

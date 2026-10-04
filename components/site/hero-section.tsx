@@ -49,13 +49,10 @@ import { useGsap } from "./use-gsap";
  * schedule"; the 13:51 countdown; NEXT and ON DECK.
  */
 
-// The desktop band and the mobile crop are two <img> elements pointing at
-// the same capture, and a CSS-hidden image still downloads. With separate
-// `sizes` strings they resolved to different srcset candidates, so the
-// page fetched the console five times at 1440 (w=1920, w=3840, w=750 ×2)
-// and three times at 390. One shared breakpoint-aware string makes both
-// elements pick the identical candidate, so the second is a cache hit.
-const CONSOLE_SIZES = "(min-width: 1024px) 96vw, 320vw";
+// The desktop band is the only element that uses the full console capture now.
+// The mobile crop is its own asset (console-mobile-crop.png), so it no longer
+// shares a srcset with this band. Desktop-only, so the width is the band's.
+const CONSOLE_SIZES = "(min-width: 1024px) 96vw, 96vw";
 
 const TELEMETRY = ["LIVE", "DAY 1 MORNING", "4 / 7", "1M BEHIND", "4 SCREENS SYNCED"];
 
@@ -175,20 +172,21 @@ export function HeroSection() {
       <div className="relative mt-12 hidden overflow-hidden lg:block lg:h-full">
         <div data-hero-console className="mx-auto w-full max-w-[1600px] px-6 will-change-transform sm:px-10">
           <AppWindow label="/e/northwind-summit-2026/operator">
-            <ProductShot shot="console" sizes={CONSOLE_SIZES} priority />
+            {/* Not priority: this band is display:none below lg, and a priority image
+                downloads even when hidden. Lazy loading still fetches it at once on desktop,
+                where it is in the first viewport. */}
+            <ProductShot shot="console" sizes={CONSOLE_SIZES} />
           </AppWindow>
         </div>
       </div>
 
-      {/* Mobile: a hard crop of the live column at a scale it can actually
-          be read at. A shrunk full console is an unreadable grey ghost —
-          the offsets are percentages of this container's width so the crop
-          holds from 320px up to the lg breakpoint. */}
+      {/* Mobile: the live column, cropped at build time into its own asset
+          (see consoleMobile in product-shot.tsx). The image fills the container
+          width; the container clips it to 70vw tall. The visible region is the
+          same as the old 320% CSS crop, at the pixels a phone can show. */}
       <figure className="mt-10 lg:hidden">
         <div className="relative h-[70vw] max-h-[300px] overflow-hidden border-y border-line-soft bg-black">
-          <div style={{ width: "320%", marginLeft: "-160%", marginTop: "-18%" }}>
-            <ProductShot shot="console" sizes={CONSOLE_SIZES} priority />
-          </div>
+          <ProductShot shot="consoleMobile" sizes="100vw" priority />
         </div>
         <figcaption className="mt-3 px-6 text-console-label uppercase text-muted-2">Operator Console · live</figcaption>
       </figure>
