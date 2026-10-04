@@ -1,6 +1,7 @@
 "use client";
 
-import { Lock as LockIcon } from "lucide-react";
+import { LogOut } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/components/auth/auth-context";
 import { EventIdentity } from "@/components/operator/event-identity";
 import { EventNav } from "@/components/operator/event-nav";
@@ -55,6 +56,7 @@ export function EventShellHeader({
   actions?: React.ReactNode;
 }) {
   const { lock } = useAuth();
+  const toast = useToast();
   const clock = useClock();
 
   return (
@@ -92,9 +94,9 @@ export function EventShellHeader({
           </div>
           {actions}
           <EventNav />
-          <Tooltip content="Lock">
-            <Button variant="ghost" size="sm" square onClick={lock} aria-label="Lock">
-              <LockIcon className="h-4 w-4" strokeWidth={2} />
+          <Tooltip content="Log out">
+            <Button variant="ghost" size="sm" square onClick={async () => { const ok = await lock(); if (!ok) toast.error("Couldn't log out. Try again."); }} aria-label="Log out">
+              <LogOut className="h-4 w-4" strokeWidth={2} />
             </Button>
           </Tooltip>
         </div>

@@ -26,7 +26,7 @@ type Status = "checking" | "locked" | "unlocked";
 
 interface AuthContextValue {
   status: Status;
-  lock: () => void;
+  lock: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -56,16 +56,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  function lock() {
+  // Redirects home only after the server confirms the session was removed.
+  // A failed or unconfirmed sign-out returns false and leaves the UI as it
+  // was, so the caller can say so instead of acting as if the user was
+  // signed out (KF-016, B005-F2).
+  async function lock(): Promise<boolean> {
+    try {
+      const res = await fetch("/api/auth/logout", { method: "POST" });
+      const body = (await res.json().catch(() => null)) as { ok?: boolean } | null;
+      if (!res.ok || body?.ok !== true) return false;
+    } catch {
+      return false;
+    }
     setStatus("locked");
-    // Server-side sign-out (clears the httpOnly session cookie proxy.ts
-    // and every API route's requireAuth() check depend on) plus a hard
-    // navigation to /login — not router.push, so proxy.ts re-evaluates
-    // fresh rather than a client transition racing ahead of the cookie
-    // actually being cleared.
-    fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-      window.location.href = "/login";
-    });
+    window.location.href = "/";
+    return true;
   }
 
   return <AuthContext.Provider value={{ status, lock }}>{children}</AuthContext.Provider>;
