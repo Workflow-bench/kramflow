@@ -313,9 +313,20 @@ function checkLocalRecords(bytes: Uint8Array, records: ZipRecord[]): void {
 
 // `overrides` exists so tests can cross a budget with small fixtures; the app
 // always calls it with the default budget.
+// Optional probe, for tests only: `fed` counts compressed input handed to the
+// decoder, `retained` counts output bytes kept. Production callers omit it.
+export interface XlsxProbe {
+  fed: number;
+  retained: number;
+  // Snapshot taken when the first refusal is recorded.
+  refusedFed?: number;
+  refusedRetained?: number;
+}
+
 export function inspectXlsxArchive(
   bytes: Uint8Array,
-  overrides: Partial<typeof XLSX_ARCHIVE_BUDGET> = {}
+  overrides: Partial<typeof XLSX_ARCHIVE_BUDGET> = {},
+  probe?: XlsxProbe
 ): XlsxInspection {
   const b = { ...XLSX_ARCHIVE_BUDGET, ...overrides };
   if (bytes.length < 4 || ZIP_MAGIC.some((v, i) => bytes[i] !== v)) {
@@ -348,7 +359,13 @@ export function inspectXlsxArchive(
   let pending: XlsxArchiveError | null = null;
   const refuse = (message: string): never => {
     // The first refusal wins: fflate may call ondata again with its own error.
-    if (!pending) pending = fail(message);
+    if (!pending) {
+      pending = fail(message);
+      if (probe) {
+        probe.refusedFed = probe.fed;
+        probe.refusedRetained = probe.retained;
+      }
+    }
     throw pending;
   };
   const unzip = new Unzip();
@@ -388,6 +405,7 @@ export function inspectXlsxArchive(
         refuse("This workbook is compressed more than is allowed.");
       }
       chunks.push(chunk.slice());
+      if (probe) probe.retained += chunk.length;
       if (final) {
         if (actual !== declaredSize) refuse("This workbook's declared sizes do not match its content.");
         parts.set(file.name, concat(chunks, actual));
@@ -404,7 +422,9 @@ export function inspectXlsxArchive(
   const FEED = 1024;
   try {
     for (let at = 0; at < bytes.length && !pending; at += FEED) {
-      unzip.push(bytes.subarray(at, Math.min(bytes.length, at + FEED)), at + FEED >= bytes.length);
+      const piece = bytes.subarray(at, Math.min(bytes.length, at + FEED));
+      if (probe) probe.fed += piece.length;
+      unzip.push(piece, at + FEED >= bytes.length);
     }
     if (bytes.length === 0) unzip.push(bytes, true);
   } catch (err) {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { zipSync, strToU8 } from "fflate";
 import { parseCueSheet } from "./parse-cuesheet";
 import { extractDocumentText } from "@/lib/server/document-text";
-import { inspectXlsxArchive } from "./xlsx-archive";
+import { inspectXlsxArchive, type XlsxProbe } from "./xlsx-archive";
 
 // Hostile and transformed .xlsx packages, written by hand so every byte is ours.
 // Each case must be refused, or read with all populated source data, through
@@ -411,6 +411,29 @@ describe("production output budget with a forged declaration (ARCHIVE-S1)", () =
     const buf = Buffer.from(zipSync({ "xl/worksheets/sheet1.xml": strToU8(SHEET_XML), "xl/sharedStrings.xml": huge }));
     expect(() => inspectXlsxArchive(new Uint8Array(buf))).toThrow(/too large/);
   });
+
+  it("after a refusal, no further input is fed and no output is retained (instrumented, streaming fixture)", () => {
+    // 17 MiB drawn from a 40-symbol alphabet: deflate ratio near 1.6, so output
+    // streams with input and the budget is crossed with input still unfed.
+    // Incompressible data would emit all output at the end, and a 32 KiB repeat
+    // compresses above the ratio rule, so neither can test the stop.
+    const huge = new Uint8Array(17 * 1024 * 1024);
+    for (let at = 0; at < huge.length; at += 65536) {
+      const chunk = new Uint8Array(Math.min(65536, huge.length - at));
+      crypto.getRandomValues(chunk);
+      for (let k = 0; k < chunk.length; k++) chunk[k] = 65 + (chunk[k] % 40);
+      huge.set(chunk, at);
+    }
+    const base = Buffer.from(zipSync({ "xl/worksheets/sheet1.xml": strToU8(SHEET_XML), "xl/sharedStrings.xml": huge }));
+    const forged = patchMemberSize(base, "xl/sharedStrings.xml", 4096);
+    const probe: XlsxProbe = { fed: 0, retained: 0 };
+    expect(() => inspectXlsxArchive(new Uint8Array(forged), {}, probe)).toThrow(/expands to more data/);
+    expect(probe.refusedFed).toBeDefined();
+    expect(probe.fed - probe.refusedFed!).toBeLessThanOrEqual(1024);
+    expect(probe.retained).toBe(probe.refusedRetained);
+    expect(probe.refusedRetained!).toBeLessThanOrEqual(16 * 1024 * 1024 + 1100000);
+    expect(probe.fed).toBeLessThan(forged.length);
+  }, 120_000);
 
   it("forged small declaration with 17 MiB real output is stopped by the actual-byte check", () => {
     // Incompressible content keeps the actual ratio near 1, so the member budget
