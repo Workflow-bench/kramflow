@@ -5,6 +5,10 @@ import { useMemo, useSyncExternalStore } from "react";
 import type { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import { getTransport, type TransportStatus } from "./transport";
 import { supabaseBrowser } from "@/lib/supabase/client";
+
+// Every remote call goes through this factory. Product code uses the browser
+// client; tests replace it through __testing.setRemoteClient (KF-036.9 seam).
+let remoteClientFactory: () => ReturnType<typeof supabaseBrowser> = () => supabaseBrowser();
 import { fetchDisplayViewPolled } from "@/lib/shared-display-view-poll";
 import { isDefinitiveAccessDenial, whileAccessValid } from "./access-gate";
 import { createInitialEngineState } from "./defaults";
@@ -331,7 +335,7 @@ async function fetchDisplayTypeStateRow(
   displayType: Exclude<DisplayType, "custom"> | undefined
 ): Promise<{ hold: HoldState; timer: TimerState } | null> {
   if (!displayType) return null;
-  const client = supabaseBrowser();
+  const client = remoteClientFactory();
   const { data, error } = await client
     .from("display_type_state")
     .select("hold, timer")
@@ -352,7 +356,7 @@ async function fetchDisplayTypeStateRow(
 }
 
 async function fetchRemoteSliceViaSupabase(inst: EngineInstance, eventId: string) {
-  const client = supabaseBrowser();
+  const client = remoteClientFactory();
   const [stateRes, registryRes, broadcastsRes, typeStateRow] = await Promise.all([
     client.from("display_state").select("*").eq("event_id", eventId).single(),
     client.from("display_registry").select("*").eq("event_id", eventId),
@@ -390,7 +394,7 @@ async function fetchRemoteSliceViaSupabase(inst: EngineInstance, eventId: string
 // hadn't actually changed. Each of these only re-fetches the one table
 // its own listener fired for, merging into the existing remoteSlice.
 async function fetchDisplayStateSlice(inst: EngineInstance, eventId: string) {
-  const client = supabaseBrowser();
+  const client = remoteClientFactory();
   const { data, error } = await client.from("display_state").select("*").eq("event_id", eventId).single();
   if (error) {
     console.error("[display-engine] fetch display_state failed:", error);
@@ -413,7 +417,7 @@ async function fetchDisplayTypeStateSlice(inst: EngineInstance, eventId: string)
 }
 
 async function fetchRegistrySlice(inst: EngineInstance, eventId: string) {
-  const client = supabaseBrowser();
+  const client = remoteClientFactory();
   const { data, error } = await client.from("display_registry").select("*").eq("event_id", eventId);
   if (error) {
     console.error("[display-engine] fetch display_registry failed:", error);
@@ -427,7 +431,7 @@ async function fetchRegistrySlice(inst: EngineInstance, eventId: string) {
 }
 
 async function fetchBroadcastsSlice(inst: EngineInstance, eventId: string) {
-  const client = supabaseBrowser();
+  const client = remoteClientFactory();
   const { data, error } = await client
     .from("display_broadcasts")
     .select("*")
@@ -511,7 +515,7 @@ function ensureRemoteConnected(inst: EngineInstance) {
 
   if (inst.identity.eventId) {
     const eventId = inst.identity.eventId;
-    const channel = supabaseBrowser()
+    const channel = remoteClientFactory()
       .channel(`display-engine-sync:${eventId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "display_state", filter: `event_id=eq.${eventId}` }, () =>
         fetchDisplayStateSlice(inst, eventId)
@@ -1043,3 +1047,15 @@ export function targetMatchesDisplay(target: BroadcastTarget, display: DisplayIn
       return false;
   }
 }
+
+// Test seam for the real store logic (KF-036.9). Not used by product code.
+export const __testing = {
+  setRemoteClient(factory: () => ReturnType<typeof supabaseBrowser>) {
+    remoteClientFactory = factory;
+  },
+  getInstance,
+  subscribe,
+  reset() {
+    instances.clear();
+  },
+};

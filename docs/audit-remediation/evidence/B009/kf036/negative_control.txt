@@ -1,0 +1,4 @@
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [] to deeply equal [ 'b-1' ]
+      Tests  1 failed | 4 passed (5)
+negative control: pre-fix policy inside the real store; test 'a broadcast sent between hydrate and the first SUBSCRIBED...' fails as shown; restored afterwards
