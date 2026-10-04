@@ -156,7 +156,7 @@ export function OneCueSection() {
   });
 
   return (
-    <section ref={root} id="one-cue" className="relative border-b border-line-soft">
+    <section data-cue="One cue" ref={root} id="one-cue" className="relative border-b border-line-soft">
       {/* ---------------------------------------------------------- desktop */}
       <div ref={stage} className="hidden h-screen flex-col justify-center overflow-hidden lg:flex">
         <div className="mx-auto w-full max-w-[1680px] px-10">
@@ -215,7 +215,7 @@ export function OneCueSection() {
                   </div>
                 </div>
                 <p className="mt-2 text-console-label uppercase text-muted-2">
-                  <span className="tnum mr-2 text-muted-2">{String(i + 2).padStart(2, "0")}</span>
+                  <span className="tnum mr-2 text-muted-2/60">{String(i + 2).padStart(2, "0")}</span>
                   {screen.label}
                 </p>
               </div>
@@ -225,29 +225,16 @@ export function OneCueSection() {
       </div>
 
       {/* ----------------------------------------------------------- mobile */}
-      <div className="px-6 py-20 lg:hidden">
+      <div className="px-6 py-16 lg:hidden">
         <h2 className="font-display text-[clamp(1.875rem,7vw,2.5rem)] text-primary">One cue. The room responds.</h2>
-        <p className="mt-5 max-w-[46ch] leading-relaxed text-muted">
-          The operator presses Next once. Every screen in the building changes together.
-        </p>
-        <div className="mt-10 space-y-9">
-          <div>
-            <p className="tnum mb-3 text-[11px] uppercase tracking-[0.18em] text-status-green">01 · Operator presses Next</p>
-            {/* A full 3-column console squeezed to ~350px is an unreadable grey
-                ghost, so mobile shows only the live column, as the hero does. */}
-            {/* The same live-column crop as the hero, cut at build time (consoleMobile). */}
-            <div className="relative h-[70vw] max-h-[300px] overflow-hidden rounded-[0.35rem] border border-line-soft bg-black">
-              <ProductShot shot="consoleMobile" sizes="100vw" />
-            </div>
+        <div className="relative mt-8 h-[70vw] max-h-[300px] overflow-hidden rounded-[0.35rem] border border-line-soft bg-black">
+          <div style={{ width: "320%", marginLeft: "-160%", marginTop: "-18%" }}>
+            <ProductShot shot="console" sizes="320vw" />
           </div>
-          {SCREENS.map((screen, i) => (
-            <div key={screen.label}>
-              <p className="tnum mb-3 text-[11px] uppercase tracking-[0.18em] text-muted-2">
-                {String(i + 2).padStart(2, "0")} · {screen.label}
-              </p>
-              <VenueScreen shot={screen.after} label="" sizes="100vw" />
-              <p className="mt-1 max-w-[44ch] text-console-meta text-muted-2">{screen.note}</p>
-            </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {SCREENS.map((screen) => (
+            <VenueScreen key={screen.label} shot={screen.after} label={screen.label} sizes="50vw" />
           ))}
         </div>
       </div>

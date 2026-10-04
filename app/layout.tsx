@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { SITE_ORIGIN } from "@/lib/site-origin";
 import { Inter, IBM_Plex_Mono, Archivo } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
@@ -42,12 +42,15 @@ const TITLE = "KramFlow";
 const DESCRIPTION =
   "KramFlow is a live-event operating system for coordinating stage managers, AV operators, and performers across TV displays and mobile control.";
 
-// Phase 8 flagged metadataBase/canonical as absent because no production
-// domain was confirmed to exist yet. Phase 5 confirmed www.kramflow.me is
-// live, so this fills that gap. og:image is still intentionally omitted —
-// no designed 1200x630 social-card asset exists in this repo, and inventing
-// one would be exactly the fabricated brand asset both passes were told not
-// to create.
+// metadataBase/canonical: www.kramflow.me is live. og:image and
+// twitter:image come from app/opengraph-image.tsx (1200x630, typographic,
+// set in the product's own graphite and live green); the favicon set is
+// app/icon.svg, app/favicon.ico and app/apple-icon.png.
+export const viewport: Viewport = {
+  themeColor: "#0c0b09",
+  colorScheme: "dark",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
   title: {
@@ -55,6 +58,10 @@ export const metadata: Metadata = {
     template: "%s · KramFlow",
   },
   description: DESCRIPTION,
+  applicationName: TITLE,
+  keywords: ["run of show", "cue sheet", "stage manager", "live event", "confidence monitor", "event production"],
+  // No root canonical: a root canonical would be inherited by every private route.
+  // The homepage sets its own canonical in app/page.tsx (B006-F2 policy).
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
@@ -62,7 +69,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
   },

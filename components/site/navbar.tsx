@@ -26,6 +26,7 @@ import { useGsap } from "./use-gsap";
 const NAV_LINKS = [
   { label: "One cue", href: "#one-cue" },
   { label: "Product", href: "#product" },
+  { label: "Features", href: "#features" },
 ];
 
 export function Navbar() {
@@ -80,7 +81,7 @@ export function Navbar() {
       ref={root}
       data-compact={compact}
       className={`fixed inset-x-0 top-0 z-50 border-b transition-colors duration-300 ${
-        compact ? "glass-chrome border-line-soft" : "border-transparent"
+        compact ? "glass-chrome bg-background/90! border-line-soft" : "border-transparent"
       }`}
     >
       <div data-nav-inner className="mx-auto flex max-w-[1600px] items-center justify-between px-6 py-[22px] sm:px-10">
