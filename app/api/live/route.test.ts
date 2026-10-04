@@ -311,4 +311,49 @@ describe("runLiveAction start guard (Lane C live-start invariants)", () => {
     expect(res.status).toBe(409);
     expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(0);
   });
+
+  // Edits to the active session, after a valid start, that leave a gap or a duplicate.
+  it("next refuses when an edit leaves a gap at the landing order, writing nothing", async () => {
+    // Stored orders are now 1 and 3 (order 2 was deleted). Position is at 1.
+    programRows = [
+      { id: "p1", event_id: "event-a", session_id: "session-a", sort_order: 1 },
+      { id: "p3", event_id: "event-a", session_id: "session-a", sort_order: 3 },
+    ];
+    liveState = activeLiveState({ progress_by_session: { "session-a": { currentOrder: 1, startedAt: "2026-01-01T00:00:00.000Z" } } });
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action: "next", maxOrder: 2, clientId: "client-a" }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(409);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(0);
+  });
+
+  it("previous refuses when an edit leaves a gap below the position, writing nothing", async () => {
+    programRows = [
+      { id: "p1", event_id: "event-a", session_id: "session-a", sort_order: 1 },
+      { id: "p3", event_id: "event-a", session_id: "session-a", sort_order: 3 },
+    ];
+    liveState = activeLiveState({ progress_by_session: { "session-a": { currentOrder: 3, startedAt: "2026-01-01T00:00:00.000Z" } } });
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action: "previous", minOrder: 1, clientId: "client-a" }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(409);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(0);
+  });
+
+  it("next still advances across a contiguous 1..n sequence after the same kind of edit fixes the gap", async () => {
+    programRows = [
+      { id: "p1", event_id: "event-a", session_id: "session-a", sort_order: 1 },
+      { id: "p2", event_id: "event-a", session_id: "session-a", sort_order: 2 },
+      { id: "p3", event_id: "event-a", session_id: "session-a", sort_order: 3 },
+    ];
+    liveState = activeLiveState({ progress_by_session: { "session-a": { currentOrder: 1, startedAt: "2026-01-01T00:00:00.000Z" } } });
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action: "next", maxOrder: 3, clientId: "client-a" }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(200);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(1);
+  });
 });

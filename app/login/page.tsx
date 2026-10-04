@@ -15,6 +15,10 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const rawNext = searchParams.get("next");
   const next = safeNext(rawNext);
+  // Set by the auth callback when an emailed link could not be used. The text is
+  // deliberately generic: it does not say whether an account exists or which
+  // failure happened (expired, already used, or invalid).
+  const linkExpired = searchParams.get("link") === "expired";
 
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
@@ -154,6 +158,13 @@ function LoginForm() {
               aria-describedby={error ? "login-error" : undefined}
             />
           </div>
+
+          {linkExpired && (
+            <p role="status" className="text-console-meta text-muted">
+              That link has expired or was already used.{" "}
+              <Link href="/reset" className="text-primary hover:underline">Request a new link</Link>.
+            </p>
+          )}
 
           {/* Persistent (not a toast) and tied to both fields via
               aria-describedby — previously a failed login rendered this

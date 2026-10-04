@@ -319,6 +319,11 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
         programIdAtOrder(supabase, auth.eventId, current.active_session_id, currentOrder),
         programIdAtOrder(supabase, auth.eventId, current.active_session_id, currentOrder + 1),
       ]);
+      // An edit mid-session can leave a gap in the stored orders. Moving onto a
+      // missing item would put live state on nothing, so the request is refused.
+      if (landingId === null) {
+        return NextResponse.json({ ok: false, error: "The next item is missing from this session." }, { status: 409 });
+      }
       patch = {
         progress_by_session: {
           ...current.progress_by_session,
@@ -339,6 +344,9 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
       }
       const now = new Date().toISOString();
       const landingId = await programIdAtOrder(supabase, auth.eventId, current.active_session_id, currentOrder - 1);
+      if (landingId === null) {
+        return NextResponse.json({ ok: false, error: "The previous item is missing from this session." }, { status: 409 });
+      }
       patch = {
         progress_by_session: {
           ...current.progress_by_session,
