@@ -1,5 +1,6 @@
 "use client";
 
+import { refetchOnSubscribe, type ChannelStatus } from "./first-connect";
 import { useMemo, useSyncExternalStore } from "react";
 import type { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import { getTransport, type TransportStatus } from "./transport";
@@ -554,16 +555,16 @@ function ensureRemoteConnected(inst: EngineInstance) {
     // poll path (fetchRemoteSliceViaPoll, below) has no such floor — it
     // picked up the same change within one 2.5s poll cycle regardless of
     // blip length.
-    let wasEverConnected = false;
+    // Every SUBSCRIBED refetches, the first one included. The hydrate snapshot
+    // can predate the subscription, and Realtime does not replay a change made in
+    // between, so a first-connect refetch is what closes the gap (KF-036.9).
+    // Policy: refetchOnSubscribe in first-connect.ts, reproduced in its tests.
     channel.subscribe((status: `${REALTIME_SUBSCRIBE_STATES}`) => {
-      if (status === "SUBSCRIBED") {
-        if (wasEverConnected) {
-          fetchDisplayStateSlice(inst, eventId);
-          fetchRegistrySlice(inst, eventId);
-          fetchBroadcastsSlice(inst, eventId);
-          if (displayType) fetchDisplayTypeStateSlice(inst, eventId);
-        }
-        wasEverConnected = true;
+      if (refetchOnSubscribe(status as ChannelStatus)) {
+        fetchDisplayStateSlice(inst, eventId);
+        fetchRegistrySlice(inst, eventId);
+        fetchBroadcastsSlice(inst, eventId);
+        if (displayType) fetchDisplayTypeStateSlice(inst, eventId);
       }
     });
   } else if (inst.identity.token) {
