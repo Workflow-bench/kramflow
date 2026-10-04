@@ -11,6 +11,14 @@ describe("isSafeRedirect", () => {
       expect(isSafeRedirect(p)).toBe(false);
     }
   });
+
+  // Browsers drop tab and newline before parsing, so these look relative but
+  // resolve off-site. Each one was accepted before this check existed.
+  it("rejects control characters that browsers strip into a protocol-relative URL", () => {
+    for (const p of ["/\t/evil.com", "/\n/evil.com", "/\r/evil.com", "/\t\t/evil.com", "/\u0000/evil.com", "/\\/evil.com", "/dash\tboard"]) {
+      expect(isSafeRedirect(p)).toBe(false);
+    }
+  });
 });
 
 describe("safeNext", () => {
