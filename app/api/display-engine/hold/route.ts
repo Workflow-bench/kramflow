@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { verifySessionAccess } from "@/lib/server/verify-display-access";
+import { provisionDisplayTypeRows } from "@/lib/server/display-type-state";
 
 const VALID_DISPLAY_TYPES = new Set(["presenter", "green-room", "av", "general"]);
 
@@ -32,6 +33,13 @@ export async function PATCH(request: Request) {
   }
 
   const supabase = supabaseAdmin();
+  // Events created before a display type's row existed have none. Provisioning
+  // first means a hold write always has a row to land on (KF-031).
+  const provisioned = await provisionDisplayTypeRows(supabase, access.eventId);
+  if (!provisioned.ok) {
+    console.error("[hold] provisioning failed:", provisioned.error);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  }
   const hold =
     body.active === true
       ? {
@@ -43,36 +51,54 @@ export async function PATCH(request: Request) {
         }
       : null;
 
+  const nextHold = hold ?? null;
+  let stored: { hold: { active?: boolean } | null } | null = null;
   if (hold) {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("display_type_state")
       .update({ hold })
       .eq("event_id", access.eventId)
-      .eq("display_type", displayType);
+      .eq("display_type", displayType)
+      .select("hold");
     if (error) {
       console.error(error);
       return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
     }
+    stored = data && data.length === 1 ? data[0] : null;
   } else {
     const { data: current, error: fetchError } = await supabase
       .from("display_type_state")
       .select("hold")
       .eq("event_id", access.eventId)
       .eq("display_type", displayType)
-      .single();
+      .maybeSingle();
     if (fetchError) {
       console.error(fetchError);
       return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
     }
-    const { error } = await supabase
+    if (!current) {
+      console.error("[hold] no display_type_state row after provisioning", access.eventId, displayType);
+      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+    }
+    const { data, error } = await supabase
       .from("display_type_state")
       .update({ hold: { ...current.hold, active: false, activatedAt: null } })
       .eq("event_id", access.eventId)
-      .eq("display_type", displayType);
+      .eq("display_type", displayType)
+      .select("hold");
     if (error) {
       console.error(error);
       return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
     }
+    stored = data && data.length === 1 ? data[0] : null;
+  }
+
+  // Readback: the write counts only if the row now holds the requested state.
+  // A write that matched no row must not report success (KF-031).
+  const expectedActive = nextHold?.active === true;
+  if (!stored || (stored.hold?.active === true) !== expectedActive) {
+    console.error("[hold] readback mismatch", access.eventId, displayType, expectedActive);
+    return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });
