@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus, Clock, RotateCcw, ClipboardList } from "lucide-react";
 import {
   DndContext,
@@ -23,6 +24,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useSessions, refetchSessions } from "@/lib/use-sessions";
 import { useEventId, useCanEdit, useIsOwner } from "@/lib/event-context";
 import { useConnectionStatus, useEventStore } from "@/lib/store";
+import { useControlLock } from "@/lib/use-control-lock";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -50,6 +52,7 @@ import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/toast";
 import type { ProgramInput } from "@/lib/validation/program";
 import type { ParsedProgram, ParsedSession } from "@/lib/parse-cuesheet";
+import { importedSessionChoices, replacedSessions, type ImportDone, type ImportedSessionChoice } from "@/lib/cue-sheet-import-result";
 import type { Partition, Session } from "@/lib/types";
 import { colorTagLabel, colorTagTone } from "@/lib/color-tags";
 import { cn } from "@/lib/utils";
@@ -222,10 +225,15 @@ export default function CueSheetPage() {
   // gates it "owner", the same tier every sequencing action requires), not
   // a content-edit — canEdit ("editor" or above) isn't sufficient here.
   const canResetSession = useIsOwner();
-  const { state, resetSession } = useEventStore();
+  const { state, resetSession, selectSession, claimControl } = useEventStore();
+  const { lockedByOther } = useControlLock(state);
+  const router = useRouter();
   const sessions = useSessions();
   const toast = useToast();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  // Set after a successful import. Lists every session the import wrote, under
+  // the id it was stored under, so the operator picks which one to open.
+  const [importResult, setImportResult] = useState<ImportedSessionChoice[] | null>(null);
   const activeSessionId = selectedSessionId ?? sessions[0]?.id ?? "";
 
   const [rows, setRows] = useState<ProgramRow[] | null>(null);
@@ -281,6 +289,32 @@ export default function CueSheetPage() {
   // rows with the wrong session's items (real network jitter can reorder
   // responses relative to request order).
   const latestRequestedSessionId = useRef<string | null>(null);
+
+  // Opens the console on a chosen session. A session that is not live is made
+  // live only when no other session has started, so a running show is never
+  // switched by an import. If one has started, the console opens unchanged and
+  // the operator switches from its session switcher, which asks first.
+  async function openConsole(choice: ImportedSessionChoice) {
+    const liveId = state.activeSessionId;
+    if (choice.storedId !== liveId) {
+      if (lockedByOther) {
+        toast.error("Locked by another operator", { label: "Take Over", onClick: () => claimControl(true) });
+        return;
+      }
+      const liveHasStarted = (state.progressBySession[liveId]?.currentOrder ?? null) !== null;
+      if (liveHasStarted) {
+        toast.info(`${choice.dayLabel} • ${choice.sessionLabel} is not live. Switch sessions in the console.`);
+      } else {
+        const ok = await selectSession(choice.storedId);
+        if (!ok) {
+          toast.error("Couldn't make that session live. Take control in the console, then try again.");
+          return;
+        }
+      }
+    }
+    setImportResult(null);
+    router.push(`/e/${eventId}/operator`);
+  }
 
   async function loadRows(sessionId: string) {
     latestRequestedSessionId.current = sessionId;
@@ -797,14 +831,18 @@ export default function CueSheetPage() {
             </div>
           )}
           {(() => {
-            const handleImported = () => {
+            const handleImported = (done: ImportDone) => {
               setPanel("none");
-              toast.success("Cue sheet imported");
-              // An import can create new sessions, not just items in an
-              // existing one — same refetch-race reasoning as session
-              // creation above.
+              const choices = importedSessionChoices(done.sessionIds, done.sessions, done.programs);
+              // Refetch first: an import can create sessions, not just items.
               refetchSessions(eventId);
-              if (activeSessionId) loadRows(activeSessionId);
+              setImportResult(choices);
+              // The cue-sheet view follows the import. Only the view moves here;
+              // what displays show changes only when the operator picks a session.
+              if (choices[0]) {
+                setSelectedSessionId(choices[0].storedId);
+                loadRows(choices[0].storedId);
+              }
             };
             return aiEnabled && importMode === "ai" ? (
               <AiImportPanel eventId={eventId} sessions={sessions} onDone={handleImported} onCancel={() => setPanel("none")} />
@@ -812,6 +850,38 @@ export default function CueSheetPage() {
               <UploadPanel eventId={eventId} sessions={sessions} onDone={handleImported} onCancel={() => setPanel("none")} />
             );
           })()}
+        </Modal>
+
+        {/* Post-import step. Lists the sessions the import wrote and makes the
+            live session an explicit choice: "Open console" is the only action
+            that changes what displays show, and it asks the server to make the
+            chosen session live before it navigates. */}
+        <Modal open={importResult !== null} onClose={() => setImportResult(null)} title="Import complete" size="md">
+          {importResult && (
+            <div className="flex flex-col gap-4">
+              <p className="text-console-sm text-muted">
+                {importResult.length === 0
+                  ? "The import wrote no sessions."
+                  : `The import wrote ${importResult.length} session${importResult.length === 1 ? "" : "s"}. Pick one to open in the console. Nothing goes live until you choose.`}
+              </p>
+              <ul className="flex flex-col gap-2">
+                {importResult.map((choice) => (
+                  <li key={choice.storedId} className="flex items-center justify-between gap-3 rounded-panel border border-line-soft px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-console-sm text-primary truncate">{choice.dayLabel} • {choice.sessionLabel}</p>
+                      <p className="text-console-meta text-muted-2">{choice.itemCount} item{choice.itemCount === 1 ? "" : "s"}</p>
+                    </div>
+                    <Button variant="secondary" size="sm" onClick={() => openConsole(choice)} disabled={choice.itemCount === 0}>
+                      Open console
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" onClick={() => setImportResult(null)}>Stay in cue sheet</Button>
+              </div>
+            </div>
+          )}
         </Modal>
 
         {/* Add/Edit Item is a genuinely multi-step configuration task the
@@ -1727,7 +1797,7 @@ function UploadPanel({
 }: {
   eventId: string;
   sessions: Session[];
-  onDone: () => void;
+  onDone: (done: ImportDone) => void;
   onCancel: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
@@ -1769,7 +1839,7 @@ function UploadPanel({
         setError(data.error ?? "Failed to import");
         return;
       }
-      onDone();
+      onDone({ sessionIds: data.sessionIds ?? {}, sessions: preview?.sessions ?? [], programs: preview?.programs ?? [] });
     } finally {
       setBusy(false);
     }
@@ -1783,10 +1853,9 @@ function UploadPanel({
   // exists *will* land on that same id and silently delete its current
   // items. The preview never said so — this makes the real consequence
   // visible before Confirm rather than after.
-  const existingIds = new Set(sessions.map((s) => s.id));
   const sessionVerdicts = preview?.sessions.map((s) => ({
     session: s,
-    replaces: existingIds.has(s.id),
+    replaces: replacedSessions(sessions, [s]).length > 0,
     itemCount: preview.programs.filter((p) => p.session_id === s.id).length,
   }));
 

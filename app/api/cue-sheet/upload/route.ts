@@ -81,5 +81,6 @@ export async function POST(request: Request) {
     dryRun: false,
     sessionsWritten: result.sessionsWritten,
     programsWritten: result.programsWritten,
+    sessionIds: result.sessionIds,
   });
 }

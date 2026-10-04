@@ -32,5 +32,10 @@ export async function POST(request: Request) {
 
   const result = await commitCueSheet(auth.eventId, auth.userId, sheet);
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
-  return NextResponse.json({ ok: true, sessionsWritten: result.sessionsWritten, programsWritten: result.programsWritten });
+  return NextResponse.json({
+    ok: true,
+    sessionsWritten: result.sessionsWritten,
+    programsWritten: result.programsWritten,
+    sessionIds: result.sessionIds,
+  });
 }

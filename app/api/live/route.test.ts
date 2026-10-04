@@ -34,6 +34,9 @@ function makeQuery(table: string) {
       call.filters.push([column, value]);
       return query;
     },
+    limit() {
+      return query;
+    },
     maybeSingle: async () => {
       if (table === "sessions") {
         return { data: findByFilters(sessionRows, call.filters) ?? null, error: null };
@@ -166,5 +169,60 @@ describe("runLiveAction event-scoping regressions", () => {
     expect(res.status).toBe(423);
     expect(await res.json()).toMatchObject({ ok: false, error: "locked" });
     expect(calls.find((call) => call.table === "live_state" && call.op === "update")).toBeUndefined();
+  });
+});
+
+describe("runLiveAction start guard (Lane C live-start invariants)", () => {
+  const writesTo = (table: string) => calls.filter((c) => c.table === table && c.op === "update");
+
+  it("starts a runnable session of this event", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    liveState = activeLiveState({ progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(200);
+    expect(writesTo("live_state")).toHaveLength(1);
+  });
+
+  it("refuses to start a deleted session, writing nothing", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    sessionRows = [];
+    liveState = activeLiveState({ progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(404);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  it("refuses to start a session that belongs to another event, writing nothing", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    sessionRows = [{ id: "session-a", event_id: "event-b" }];
+    liveState = activeLiveState({ progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(404);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  it("refuses to start a session with no items, writing nothing", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    programRows = programRows.filter((p) => p.event_id !== "event-a");
+    liveState = activeLiveState({ progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(409);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  it("refuses to start with no active session", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    liveState = activeLiveState({ active_session_id: null, progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(409);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  it("refuses a malformed session id, writing nothing", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    liveState = activeLiveState({ active_session_id: " session-a ", progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(400);
+    expect(writesTo("live_state")).toHaveLength(0);
   });
 });

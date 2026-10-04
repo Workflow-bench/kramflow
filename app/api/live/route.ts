@@ -86,6 +86,39 @@ function isControllerActive(row: LiveStateRow): boolean {
 // than threading program ids through every client call site (several of
 // them, e.g. components/operator/jump-control.tsx, only ever have a
 // hand-typed order number, never the Program row it resolves to).
+// Live-start guard (Lane C). `start` writes progress for whatever session is
+// active, so it must confirm that session is still a runnable session of this
+// event: a deleted or foreign session is a 404, a malformed id is a 400, and a
+// session with no items is a 409. Returns null when the start may proceed.
+async function checkRunnableSession(
+  supabase: ReturnType<typeof supabaseAdmin>,
+  eventId: string,
+  sessionId: string | null
+): Promise<NextResponse | null> {
+  if (!sessionId) return NextResponse.json({ ok: false, error: "Select a session before starting." }, { status: 409 });
+  if (sessionId.length > 200 || sessionId.trim() !== sessionId) {
+    return NextResponse.json({ ok: false, error: "Session id is malformed." }, { status: 400 });
+  }
+  const { data: sessionRow, error: sessionError } = await supabase
+    .from("sessions")
+    .select("id")
+    .eq("id", sessionId)
+    .eq("event_id", eventId)
+    .maybeSingle();
+  if (sessionError) return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  if (!sessionRow) return NextResponse.json({ ok: false, error: "Session not found" }, { status: 404 });
+  const { data: programRow, error: programError } = await supabase
+    .from("programs")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("session_id", sessionId)
+    .limit(1)
+    .maybeSingle();
+  if (programError) return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+  if (!programRow) return NextResponse.json({ ok: false, error: "This session has no items. Add items before starting." }, { status: 409 });
+  return null;
+}
+
 async function programIdAtOrder(
   supabase: ReturnType<typeof supabaseAdmin>,
   eventId: string,
@@ -229,6 +262,8 @@ export async function runLiveAction(request: Request, trustedActor?: LiveActionA
       break;
     }
     case "start": {
+      const blocked = await checkRunnableSession(supabase, auth.eventId, current.active_session_id);
+      if (blocked) return blocked;
       const now = new Date().toISOString();
       const landingId = await programIdAtOrder(supabase, auth.eventId, current.active_session_id, 1);
       patch = {
