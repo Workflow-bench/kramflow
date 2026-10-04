@@ -41,9 +41,18 @@ import { Footer } from "@/components/site/footer";
 // the macOS status ramp, `rounded-panel`, `.tnum`) rather than the literal
 // zinc palette it used to carry, so the marketing surface and the app are
 // made of the same material rather than merely described as sharing one.
+// Next.js replaces a nested metadata object as a whole, not field by field, so
+// openGraph must repeat the root fields or the homepage loses siteName and type.
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
-  openGraph: { url: "/" },
+  openGraph: {
+    url: "/",
+    title: "KramFlow",
+    description:
+      "KramFlow is a live-event operating system for coordinating stage managers, AV operators, and performers across TV displays and mobile control.",
+    siteName: "KramFlow",
+    type: "website",
+  },
 };
 
 export default function Home() {
