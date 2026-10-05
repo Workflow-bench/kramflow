@@ -475,3 +475,73 @@ Target 2500 ms not met (simulated median 3012 ms). Negative results retained: fr
 - 200% browser zoom: the browser tool cannot set zoom. Viewport reflow at 320 CSS px is a substitute and is labelled as one.
 - Password-manager autofill: not testable with the available tools.
 - Screen-reader speech output: no screen reader here. AX-tree names, roles and states are verified.
+
+---
+
+# Update r7 (supersedes r6 where they conflict)
+
+Status: SELF-VERIFIED, PENDING CODEX REVIEW. No CODEX_VERIFIED. No self-approval, no acceptance-method change, no push, no deployment, no shared-resource operation.
+Final revision: the commit that adds this section (hash in the final message).
+
+## Final checks
+- `npm test`: 55 files, 606 passed. `npx eslint .`: 0 errors, 6 warnings (outside changed files). `npx tsc --noEmit`: clean before and after both builds. Archive subset: 67 passed. `validate_ledger.mjs`: PASS.
+- Production build: Turbopack PASS, webpack PASS. Catalog or harness strings in build output: 0 (scan of `.next/static`; a landing control string is found, so the scan is valid).
+- Production HTTP (Node client): `/dev/components`, `/dev/modal`, `/dev/realtime`, `/dev/import`, `/dev/import/console`, `/dev/rehearsal` → 404; `/` → 200.
+
+## 1. KF-023 LCP crop critical path: profiled, experiments negative, target not met
+- Profile (`lcp-critical-path/lcp-probe.json`, CDP throttled 1.6 Mbps / 150 ms / 4x CPU): the crop is in the server HTML and preloaded from `<head>`. Discovery is correct: request starts ~220 ms. Competing at 220 ms: 5 next/font woff2 (High, ~120 KB), 2 stylesheets, ~15 landing scripts. The crop completes ~1330 ms.
+- Experiments (simulated, n=3, median): baseline 3012. `fetchPriority="high"` on the crop: 3088 (negative, reverted). `preload: false` on the three fonts: 3389, runs 3797 / 3389 / 2181 (negative and unstable, reverted). Null control (no-op edit): 3013 (stability reference).
+- Earlier negatives unchanged: hero server component 3161; LazyMotion 3158; framer removal 3009 / 3011.
+- Result: the LCP path is bandwidth-bound by required fonts and landing JS. Not solved. KF-023 OPEN against its 2500 ms target (shipped simulated median 3012 ms). Observed devtools series remains supplementary.
+
+## 2. Hold concurrency: beyond the fake
+- Real PostgREST client syntax: `lib/hold-postgrest-syntax.test.ts` runs `@supabase/postgrest-js` (node_modules) with a capturing fetch. Emitted: `PATCH …/display_type_state?…&hold->>rev=eq.<value>`, `hold->>activatedAt=is.null`, `select=hold`.
+- Same-timestamp conflict (the timestamp witness is insufficient): `migrations/tests/hold/hold_same_ts.sh ts` lost the committed M2 (final M1, active false). `… rev` kept M2 (stale write matched zero rows; retry then deactivates).
+- Decision: each activation writes `rev` (`crypto.randomUUID()`); deactivation witness is `hold->>rev`, falling back to `activatedAt` only for legacy rows without a rev. No migration (`hold` is free-form jsonb). Route tests: 13 (4 new for revision handling, 2 for the predicate actually sent, 1 legacy fallback).
+- Remaining limits: legacy rows keep the timestamp weakness; concurrent activations are last-writer-wins (activation does not read-modify-write); no live PostgREST server (no binary; the sandbox blocks the registry), so the server-side `->>` translation is PostgREST behaviour, checked only as the same SQL predicate.
+
+## 3. Rehearsal persistence under auth-event ordering (controlled seams)
+- Policy extracted and tested: `lib/auth/auth-events.ts` (`authEventEffect`, `lockEffect`; 7 tests). The auth provider now calls these functions instead of inline conditions.
+- Browser seam (`rehearsal-auth-ordering/auth-ordering.json`, synthetic harness, dev only; the harness applies the same policy and the same clearing function): token refresh and reload keep A's run; signed in as B clears A's run and starts B fresh; a failed sign-out keeps B's identity and run, and B's run is restored after reload; a confirmed sign-out clears all; signing back in as A restores nothing; changed cues after re-login show the notice and merge no progress.
+- Limit: the seam replaces Supabase events; the rendered provider running real Supabase auth events was not exercised (needs an authenticated session, external).
+
+## 4. Modal unmount, browser (`modal-stack/modal-unmount.json`)
+- Lower Modal alone, unmounted while open (app-code unmount; the background control is correctly inert behind the backdrop): inert 9 → 0, background restored and clickable, focus returns to the Manage links trigger.
+- Lower Modal unmounted while the upper ConfirmDialog is open: background stays excluded (inert 9, background hidden from the tree) and the upper keeps focus; closing the upper restores everything (inert 0).
+- Known limit: when the upper dialog's own trigger was unmounted with the lower, focus lands on BODY. No trap, no leftover inert. Logged for Codex.
+
+## 5. Next-batch reconciliation (prior commits and evidence checked)
+- KF-025 (dev routes): the earlier state was incorrect. Production returned 404, but the catalog chunk was still served at HTTP 200 by its hashed URL. Now excluded at build time (NODE_ENV-gated dynamic import). Acceptance criteria met locally: 0 catalog chunks in output; production 404. Source obligation is the OR in the ledger (exclude from build OR require authorization); this batch took the exclude option. No robots-based control was added. Ledger: READY_FOR_CODEX.
+- KF-015 (logout icon and label): implemented on dashboard lock button, event-shell header, remote page and command palette (LogOut, "Log out"). Rendered consistency not verified. Ledger: IN_PROGRESS.
+- KF-016 (logout redirect only after confirmation): implemented across entry points through `requestSignOut`; `lock()` navigates only on confirmed success. Unit-tested. Rendered redirect and Back behaviour not verified. Ledger: IN_PROGRESS.
+- KF-024 (OG image): implemented (1200×630 route; absolute `og:image` through `metadataBase`). Social debugger retrieval not verified (external). Ledger: IN_PROGRESS.
+- KF-008 (host alias canonicalization): not implemented in the repository (no `redirects()`, no `vercel.json`, no host rule in `proxy.ts`; only the `SITE_ORIGIN` constant). Ledger: OPEN. Alias handling may be a Vercel domain setting; not verifiable here.
+
+## Remaining B009 work and open items
+- KF-023 performance: OPEN against target (3012 ms simulated). Not closed.
+- KF-031 real PostgREST server run, legacy-row witness, activation LWW: IN_PROGRESS.
+- KF-005 in-app navigation confirmation (product decision), focus-to-BODY case: IN_PROGRESS.
+- KF-020 remaining: real screen-reader names, 200% zoom (tool limit), keyboard completeness across cue controls.
+- KF-036.9 authenticated display page with real Realtime: external.
+- KF-017 and KF-010: external or tool-limited items as before.
+
+## Next remaining audit items (after B009; the wider audit is not complete)
+1. KF-008 host-alias canonicalization (P1, OPEN, missing in repo; check Vercel domain configuration).
+2. KF-009 CSP enforcement evidence (P1, Report-Only present; violation review not done).
+3. KF-011 privacy and terms routes (P1, needs approved text).
+4. KF-012 Resend SPF and return-path DNS (P1, external DNS).
+5. KF-015 rendered logout consistency (P2, IN_PROGRESS).
+6. KF-016 rendered logout redirect and Back behaviour (P2, IN_PROGRESS).
+7. KF-018 event shell navigation and labeled menu (P2).
+8. KF-024 social debugger retrieval (P2, external).
+9. KF-038 truthful JSON-LD, if added (P3).
+10. KF-039 AI-crawler robots policy (P3, business decision).
+11. KF-040 PRD completeness (P3).
+12. KF-041 release-operator inventory (P3).
+13. KF-036 children .1–.8, starting with .4 realtime burst.
+14. KF-032 and KF-035 composite findings (children in the ledger).
+
+## Tool limitations, not authorization blockers
+- 200% browser zoom (tool cannot set zoom; 320 CSS px reflow is a labelled substitute).
+- Password-manager autofill (not testable here).
+- Screen-reader speech (no screen reader; AX names, roles and states verified).

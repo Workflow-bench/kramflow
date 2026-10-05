@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { setSessionUserId } from "@/lib/auth/session-identity";
 import { resetRehearsalRuns } from "@/components/rehearsal/persisted-run";
+import { authEventEffect, lockEffect, type AuthEventName } from "@/lib/auth/auth-events";
 import Link from "next/link";
 import { RehearsalView } from "@/components/rehearsal/rehearsal-view";
 import type { Program, Session } from "@/lib/types";
@@ -81,7 +82,11 @@ export function RehearsalHarness({
         Synthetic harness, development only. Fixture: {fixture}-cue. Not event data.
       </p>
       <p className="px-6 text-[12px] flex gap-4">
-        <button type="button" data-signout onClick={() => { resetRehearsalRuns(); setSessionUserId(null); }}>Sign out (synthetic)</button>
+        <button type="button" data-signout onClick={() => { const e = lockEffect(true); if (e) { resetRehearsalRuns(); setSessionUserId(e.identity); } }}>Sign out (synthetic, confirmed)</button>
+        <button type="button" data-signout-failed onClick={() => { const e = lockEffect(false); if (e) { resetRehearsalRuns(); setSessionUserId(e.identity); } }}>Sign out (synthetic, server did not confirm)</button>
+        <button type="button" data-auth="TOKEN_REFRESHED" onClick={() => { const e = authEventEffect("TOKEN_REFRESHED" as AuthEventName, "synthetic-user-a"); setSessionUserId(e.identity); if (e.clearRuns) resetRehearsalRuns(); }}>Token refreshed (A)</button>
+        <button type="button" data-auth="SIGNED_IN-B" onClick={() => { const e = authEventEffect("SIGNED_IN" as AuthEventName, "synthetic-user-b"); setSessionUserId(e.identity); if (e.clearRuns) resetRehearsalRuns(); }}>Signed in as B</button>
+        <button type="button" data-auth="SIGNED_IN-A" onClick={() => { const e = authEventEffect("SIGNED_IN" as AuthEventName, "synthetic-user-a"); setSessionUserId(e.identity); if (e.clearRuns) resetRehearsalRuns(); }}>Signed in as A</button>
       </p>
       <p className="px-6 text-[12px]"><Link data-in-app-link href="/dev/import?live=none" className="underline">In-app link (router navigation)</Link></p>
       {exited && <p data-harness-exit role="status" className="px-6 text-[12px] text-status-green">Exit confirmed. Navigation suppressed in harness.</p>}

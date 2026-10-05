@@ -201,12 +201,13 @@
         "docs/audit-remediation/migrations/tests/hold/hold_persistence.out",
         "docs/audit-remediation/migrations/tests/hold/CONCURRENCY_RESULTS.md",
         "docs/audit-remediation/migrations/tests/hold/hold_lost_update.sh",
-        "app/api/display-engine/hold/route.test.ts"
+        "app/api/display-engine/hold/route.test.ts",
+        "lib/hold-postgrest-syntax.test.ts"
       ],
       "environment": "dev Supabase qofggbarsdiovzqwgkpz",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "schedule before Hold/Timer gets real UI wiring",
+      "next_action": "Complete remaining criteria; see batches/B009/REVIEW_HANDOFF.md",
       "history": [
         "discovered live in B001",
         "confirmed pre-existing by independent review",
@@ -214,7 +215,8 @@
         "B007: root cause from code: display_type_state was backfilled only for events existing at migration 20260909091740, and event creation never provisioned it, so hold and timer writes matched no row. Hold activate returned ok:true for a zero-row update. Fixed in 7a8d140 (provisioning in event creation, provisioning before hold writes, exactly-one-row update and readback). Unit-tested with fakes; live dev rows were not queried. implementation_state stays OPEN until Codex review.",
         "B009 r4 local: OPEN -> IN_PROGRESS. Timer provisioning, conditional-version 409 test, real-database version race (second writer 0 rows). Hold readback guard tested; real-DB hold path not run.",
         "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. Hold persistence on disposable local Postgres mirror: activation, deactivation, missing-row provisioning, tenant boundary, unknown type. ALL PASSED (local mirror, not Supabase runtime).",
-        "B009 r6 local: IN_PROGRESS -> IN_PROGRESS. Lost update on hold deactivation reproduced on local Postgres (stale merge overwrote a committed activation). Fixed: conditional write on activatedAt witness with bounded retry, 409 on sustained conflict. Unit tests (4 new) and negative control recorded. Live API path not run."
+        "B009 r6 local: IN_PROGRESS -> IN_PROGRESS. Lost update on hold deactivation reproduced on local Postgres (stale merge overwrote a committed activation). Fixed: conditional write on activatedAt witness with bounded retry, 409 on sustained conflict. Unit tests (4 new) and negative control recorded. Live API path not run.",
+        "B009 r7 local: IN_PROGRESS -> IN_PROGRESS. Same-timestamp conflict: timestamp witness reproduced a lost update; per-activation rev witness verified on local Postgres. Real PostgREST client syntax verified by captured request (node_modules client). Live PostgREST server not run (no binary; sandbox blocks registry)."
       ]
     },
     {
@@ -303,12 +305,13 @@
         "docs/audit-remediation/evidence/B009/modal-stack/modal-stack.json",
         "docs/audit-remediation/evidence/B009/rehearsal-persistence/rehearsal-persistence.json",
         "docs/audit-remediation/evidence/B009/rehearsal-persistence/completion-and-nav.json",
-        "lib/rehearsal-run.test.ts"
+        "lib/rehearsal-run.test.ts",
+        "docs/audit-remediation/evidence/B009/modal-stack/modal-unmount.json"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "Complete the remaining criteria listed in batches/B009/REVIEW_HANDOFF.md",
+      "next_action": "Complete remaining criteria; see batches/B009/REVIEW_HANDOFF.md",
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
@@ -317,7 +320,8 @@
         "B009 r3 local: IN_PROGRESS -> IN_PROGRESS. B009 r3: initial focus on Cancel; Tab stays inside the alertdialog; background point is the backdrop and cue unchanged; Escape and Enter-on-Cancel close without exit; focus returns to Exit Rehearsal. In-app exit with no progress is a plain link (not intercepted). Browser back navigation not verified.",
         "B009 r4: browser back/forward verified (fresh state, no beforeunload prompt, no /api/live); background excluded from AX tree via inert while dialog open.",
         "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. In-app Link and Back keep progress (sessionStorage per viewer); Reset is the explicit discard; confirmed Exit clears. In-app navigation shows no confirmation (open product decision).",
-        "B009 r6 local: IN_PROGRESS -> IN_PROGRESS. Storage keyed by user, event and session; cue fingerprint invalidates stale runs; sign-out and account changes clear runs; Reset asks when progress would be lost; confirmed Exit clears; completion survives reload with no prompt. Open: in-app navigation away from a run has no confirmation (product decision)."
+        "B009 r6 local: IN_PROGRESS -> IN_PROGRESS. Storage keyed by user, event and session; cue fingerprint invalidates stale runs; sign-out and account changes clear runs; Reset asks when progress would be lost; confirmed Exit clears; completion survives reload with no prompt. Open: in-app navigation away from a run has no confirmation (product decision).",
+        "B009 r7 local: IN_PROGRESS -> IN_PROGRESS. Modal unmount teardown verified in browser (alone and with upper dialog open). Reset confirmation and persistence verified earlier."
       ]
     },
     {
@@ -452,15 +456,17 @@
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
-        "docs/audit-remediation/SOURCE_COVERAGE.json#KF-008"
+        "docs/audit-remediation/SOURCE_COVERAGE.json#KF-008",
+        "batches/B009/REVIEW_HANDOFF.md"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
+      "next_action": "Complete remaining criteria; see batches/B009/REVIEW_HANDOFF.md",
       "history": [
         "carried forward from original audit enumeration (B002)",
-        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
+        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
+        "B009 r7 local: OPEN -> OPEN. Re-checked: no host-alias redirect in repo (no redirects(), no vercel.json, no host rule in proxy.ts). Only the SITE_ORIGIN constant. Missing implementation in repo; alias canonicalization may be Vercel project configuration (external, not verifiable here)."
       ]
     },
     {
@@ -708,7 +714,7 @@
         "UX-03"
       ],
       "priority": "P2",
-      "implementation_state": "OPEN",
+      "implementation_state": "IN_PROGRESS",
       "observation": "FAIL",
       "desired_behavior": "every event-shell surface uses the Lucide LogOut icon and a consistent 'Log out' label/tooltip/accessible name, matching the dashboard's already-correct usage. Lock is reserved for a real future session-preserving lock feature.",
       "acceptance_criteria": [
@@ -726,15 +732,17 @@
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
-        "docs/audit-remediation/SOURCE_COVERAGE.json#KF-015"
+        "docs/audit-remediation/SOURCE_COVERAGE.json#KF-015",
+        "batches/B009/REVIEW_HANDOFF.md"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
+      "next_action": "Complete remaining criteria; see batches/B009/REVIEW_HANDOFF.md",
       "history": [
         "carried forward from original audit enumeration (B002)",
-        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
+        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
+        "B009 r7 local: OPEN -> IN_PROGRESS. Implementation present: LogOut icon with \"Log out\" label/tooltip/aria-label on dashboard lock-button, event-shell header, remote page, command palette. Rendered authenticated consistency not verified."
       ]
     },
     {
@@ -744,7 +752,7 @@
         "UX-03"
       ],
       "priority": "P2",
-      "implementation_state": "OPEN",
+      "implementation_state": "IN_PROGRESS",
       "observation": "FAIL",
       "desired_behavior": "only after the server confirms the session is removed does the UI redirect to the public '/'; a logout request that fails or cannot be confirmed shows an honest error, keeps the authenticated UI truthful, and never redirects as if signed out (B005 review B005-F2: a redirect after the cookie clear is merely attempted is a false success).",
       "acceptance_criteria": [
@@ -765,17 +773,20 @@
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
-        "docs/audit-remediation/SOURCE_COVERAGE.json#KF-016"
+        "docs/audit-remediation/SOURCE_COVERAGE.json#KF-016",
+        "docs/audit-remediation/evidence/B009/rehearsal-auth-ordering/auth-ordering.json",
+        "batches/B009/REVIEW_HANDOFF.md"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
+      "next_action": "Complete remaining criteria; see batches/B009/REVIEW_HANDOFF.md",
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
         "B005 review (B005-F2): wording corrected from 'after the server confirms or attempts cookie clearing' to confirmed success only. Code not yet changed; lane D.",
-        "B006: every client logout entry point now routes through lib/auth/sign-out.ts (requestSignOut): dashboard log out, event-shell header, remote page, command palette, invite account-switch, set-password. Each navigates only on server-confirmed success and shows an honest failure otherwise. Unit-tested for the contract and the route; rendered authenticated behavior UNVERIFIED."
+        "B006: every client logout entry point now routes through lib/auth/sign-out.ts (requestSignOut): dashboard log out, event-shell header, remote page, command palette, invite account-switch, set-password. Each navigates only on server-confirmed success and shows an honest failure otherwise. Unit-tested for the contract and the route; rendered authenticated behavior UNVERIFIED.",
+        "B009 r7 local: OPEN -> IN_PROGRESS. Implementation present: every logout entry point uses requestSignOut; lock() navigates only on confirmed success (lib/auth/auth-events.ts lockEffect, tests). Authenticated redirect and Back-button behaviour not verified."
       ]
     },
     {
@@ -938,19 +949,21 @@
         "docs/audit-remediation/evidence/B009/modal-exclusion/ax-modal.json",
         "docs/audit-remediation/evidence/B009/modal-stack/modal-stack.json",
         "docs/audit-remediation/evidence/B009/modal-stack/modal-alone.json",
-        "components/ui/use-dialog-focus.test.ts"
+        "components/ui/use-dialog-focus.test.ts",
+        "docs/audit-remediation/evidence/B009/modal-stack/modal-unmount.json"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "Complete the remaining criteria listed in batches/B009/REVIEW_HANDOFF.md",
+      "next_action": "Complete remaining criteria; see batches/B009/REVIEW_HANDOFF.md",
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields; corrected its source mapping — several rows previously folded into KF-032 (skip-to-content, sticky headers, keyboard/focus sweep, WCAG AA, alt text, Lighthouse accessibility score) actually belong here (master-prompt item 8), not under KF-032 (master-prompt item 9's UX-08 polish cluster); see SOURCE_COVERAGE.json",
         "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: skip link focus and target, reflow 320-1440 without horizontal scroll (viewport approximation), login main/heading via AX tree. Real browser zoom, screen-reader names and modal focus return not verified.",
         "B009 r4: modal background excluded from the AX tree and from keyboard focus (inert). Modal primitive shares the hook; browser check only on ConfirmDialog.",
         "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. Shared Modal and ConfirmDialog stack: background excluded from the AX tree while any dialog is open; restored in any close order; focus returns to trigger.",
-        "B009 r6 local: IN_PROGRESS -> IN_PROGRESS. Modal registry: idempotent release, pre-existing inert preserved, teardown releases marks, overlapping dialogs in both close orders (unit). Browser unmount-while-open not separately run."
+        "B009 r6 local: IN_PROGRESS -> IN_PROGRESS. Modal registry: idempotent release, pre-existing inert preserved, teardown releases marks, overlapping dialogs in both close orders (unit). Browser unmount-while-open not separately run.",
+        "B009 r7 local: IN_PROGRESS -> IN_PROGRESS. Unmount-while-open verified in browser: background restored when alone; kept excluded while the upper dialog is open. Known limit: focus falls to BODY when the upper dialog trigger was itself unmounted."
       ]
     },
     {
@@ -1064,12 +1077,15 @@
         "docs/audit-remediation/evidence/B009/final-revision-measurements",
         "docs/audit-remediation/evidence/B009/perf-lazymotion/NEGATIVE_RESULT.md",
         "docs/audit-remediation/evidence/B009/perf-framer-negative/NEGATIVE_RESULT.md",
-        "docs/audit-remediation/evidence/B009/hero-server-component/NEGATIVE_RESULT.md"
+        "docs/audit-remediation/evidence/B009/hero-server-component/NEGATIVE_RESULT.md",
+        "docs/audit-remediation/evidence/B009/lcp-critical-path/NEGATIVE_RESULTS.md",
+        "docs/audit-remediation/evidence/B009/lcp-fetchpriority",
+        "docs/audit-remediation/evidence/B009/font-preload-experiment"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "Complete the remaining criteria listed in batches/B009/REVIEW_HANDOFF.md",
+      "next_action": "Complete remaining criteria; see batches/B009/REVIEW_HANDOFF.md",
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
@@ -1077,7 +1093,8 @@
         "B009 r3 local: IN_PROGRESS -> IN_PROGRESS. B009 r3: GSAP deferred after first paint; simulated mobile median 3310 -> 3012 ms (3 runs; target 2500 ms NOT met). Observed mobile 2339 ms (n=3, supplementary). Framer-motion stack remains the next lever (design decision needed). Acceptance method unchanged.",
         "B009 r4: LazyMotion experiment reverted (negative, 3158 ms simulated). GSAP-only deferral retained. Target still missed.",
         "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. Framer removal upper bound (landing and root MotionConfig): simulated median 3011 ms, no gain. Negative. Remaining bottleneck not in the animation library. Target still missed.",
-        "B009 r6 local: IN_PROGRESS -> IN_PROGRESS. Hero as server component with CSS motion: simulated mobile median 3161 ms vs 3012 ms baseline. Negative, reverted. Target still missed."
+        "B009 r6 local: IN_PROGRESS -> IN_PROGRESS. Hero as server component with CSS motion: simulated mobile median 3161 ms vs 3012 ms baseline. Negative, reverted. Target still missed.",
+        "B009 r7 local: IN_PROGRESS -> IN_PROGRESS. LCP crop profiled: discovery and preload correct; bottleneck is shared bandwidth with fonts and landing JS. fetchPriority and font preload experiments negative; reverted. Target 2500 ms not met (simulated 3012 ms)."
       ]
     },
     {
@@ -1087,7 +1104,7 @@
         "master#26"
       ],
       "priority": "P2",
-      "implementation_state": "OPEN",
+      "implementation_state": "IN_PROGRESS",
       "observation": "FAIL",
       "desired_behavior": "add a branded OG/Twitter social-preview image at an absolute canonical HTTPS URL, with correct dimensions and legibility in common social-platform crops.",
       "acceptance_criteria": [
@@ -1106,15 +1123,17 @@
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
-        "docs/audit-remediation/SOURCE_COVERAGE.json#KF-024"
+        "docs/audit-remediation/SOURCE_COVERAGE.json#KF-024",
+        "batches/B009/REVIEW_HANDOFF.md"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
+      "next_action": "Complete remaining criteria; see batches/B009/REVIEW_HANDOFF.md",
       "history": [
         "carried forward from original audit enumeration (B002)",
-        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
+        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
+        "B009 r7 local: OPEN -> IN_PROGRESS. Implementation present: OG image route (1200x630), og:image absolute via metadataBase SITE_ORIGIN. Social debugger retrieval not verified (external)."
       ]
     },
     {
@@ -1124,7 +1143,7 @@
         "master#25"
       ],
       "priority": "P2",
-      "implementation_state": "OPEN",
+      "implementation_state": "READY_FOR_CODEX",
       "observation": "FAIL",
       "desired_behavior": "exclude /dev/components from production builds, or require genuine authorization to view it; a robots.txt disallow entry is not treated as access control.",
       "acceptance_criteria": [
@@ -1143,15 +1162,18 @@
       "self_test": null,
       "independent_review": null,
       "evidence_links": [
-        "docs/audit-remediation/SOURCE_COVERAGE.json#KF-025"
+        "docs/audit-remediation/SOURCE_COVERAGE.json#KF-025",
+        "docs/audit-remediation/evidence/B009/dev-route-exclusion/README.md",
+        "batches/B009/REVIEW_HANDOFF.md"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "schedule in a future batch; not in B003's authorized scope (B003 = evidence/ledger rework + items 1-2's code fix, not new Phase-2 implementation)",
+      "next_action": "Codex review of B009 batch handoff",
       "history": [
         "carried forward from original audit enumeration (B002)",
-        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented."
+        "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
+        "B009 r7 local: OPEN -> READY_FOR_CODEX. Dev routes excluded from the production build by a NODE_ENV-gated dynamic import (0 catalog/harness chunks; catalog chunk previously HTTP 200). Production 404 on all dev routes. Acceptance criteria met locally; not independently reviewed."
       ]
     },
     {
@@ -1980,11 +2002,11 @@
   ],
   "totals": {
     "BLOCKED_EXTERNAL": 2,
-    "IN_PROGRESS": 11,
+    "IN_PROGRESS": 14,
     "NOT_APPLICABLE": 5,
-    "OPEN": 16,
+    "OPEN": 12,
     "PRESERVE_PENDING_REVIEW": 3,
-    "READY_FOR_CODEX": 5
+    "READY_FOR_CODEX": 6
   },
   "parent_task_count": 42,
   "child_criteria_count": 29,

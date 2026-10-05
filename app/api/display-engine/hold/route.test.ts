@@ -34,6 +34,8 @@ function matches(row: object, filters: [string, unknown][]) {
 // Concurrent writes that land between the route's read and its conditional update.
 // Each entry runs once, immediately before the next update executes.
 let interleaves: Array<() => void> = [];
+// Filters of every update the route issued, in order (to check the conditional predicate).
+let updateFilters: Array<Array<[string, unknown]>> = [];
 
 function query(table: string) {
   const filters: [string, unknown][] = [];
@@ -42,6 +44,7 @@ function query(table: string) {
   const list = () => (table === "display_type_state" ? rows : sharedRows);
 
   function updateResult() {
+    updateFilters.push([...filters]);
     const concurrent = interleaves.shift();
     if (concurrent) concurrent();
     if (!updateReturnsRows) return { data: [], error: null };
@@ -92,6 +95,7 @@ const req = (body: Record<string, unknown>) =>
 
 beforeEach(() => {
   interleaves = [];
+  updateFilters = [];
   updateReturnsRows = true;
   verifySessionAccess.mockReset();
   verifySessionAccess.mockResolvedValue({ ok: true, eventId: "event-a" });
@@ -175,6 +179,42 @@ describe("hold route row guard (KF-031)", () => {
       const res = await PATCH(req({ eventId: "event-a", displayType: "presenter", active: false }));
       expect(res.status).toBe(200);
       expect(rows[0].hold).toMatchObject({ active: false, message: "M0", activatedAt: null });
+    });
+  });
+
+  describe("activation revision (same-timestamp conflict)", () => {
+    it("an activation writes a unique revision alongside activatedAt", async () => {
+      await PATCH(req({ eventId: "event-a", displayType: "presenter", active: true, message: "A" }));
+      await PATCH(req({ eventId: "event-a", displayType: "presenter", active: true, message: "B" }));
+      expect(typeof rows[0].hold.rev).toBe("string");
+      expect(rows[0].hold.rev).not.toBe(undefined);
+    });
+
+    it("two activations with the SAME activatedAt: a stale deactivation is detected by rev and does not overwrite the newer message", async () => {
+      const T = "2026-10-04T10:00:00.000Z";
+      rows[0].hold = { active: true, message: "M1", subMessage: null, continueClock: false, activatedAt: T, rev: "rev-1" };
+      // A concurrent activation lands with the same timestamp and a new revision.
+      interleaves = [() => {
+        rows[0].hold = { active: true, message: "M2", subMessage: null, continueClock: false, activatedAt: T, rev: "rev-2" };
+      }];
+      const res = await PATCH(req({ eventId: "event-a", displayType: "presenter", active: false }));
+      expect(res.status).toBe(200);
+      expect(rows[0].hold).toMatchObject({ active: false, message: "M2", rev: null });
+    });
+
+    it("the witness is the revision when present: the conditional predicate uses hold->>rev", async () => {
+      rows[0].hold = { active: true, message: "M1", activatedAt: "2026-10-04T10:00:00.000Z", rev: "rev-9" };
+      const res = await PATCH(req({ eventId: "event-a", displayType: "presenter", active: false }));
+      expect(res.status).toBe(200);
+      const conditional = updateFilters[0];
+      expect(conditional).toContainEqual(["hold->>rev", "rev-9"]);
+      expect(conditional.some(([k]) => k === "hold->>activatedAt")).toBe(false);
+    });
+
+    it("a legacy row without rev falls back to the activatedAt witness", async () => {
+      rows[0].hold = { active: true, message: "M1", activatedAt: "2026-10-04T10:00:00.000Z" };
+      await PATCH(req({ eventId: "event-a", displayType: "presenter", active: false }));
+      expect(updateFilters[0]).toContainEqual(["hold->>activatedAt", "2026-10-04T10:00:00.000Z"]);
     });
   });
 });

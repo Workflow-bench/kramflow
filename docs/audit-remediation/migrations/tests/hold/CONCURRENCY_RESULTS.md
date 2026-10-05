@@ -25,3 +25,13 @@ Negative control: the previous route (git HEAD) fails the two concurrency tests 
 Tenant boundary: every hold write and conditional write filters by `event_id` and `display_type` (unchanged). `hold_persistence.sql` checks that a write for event A never touches event B.
 
 Limits: this is a local mirror of the statements. Not the Supabase runtime; no PostgREST path-filter verification against the live API; no RLS. The `->>` path filter in supabase-js is covered by the unit fake only.
+
+## Same-timestamp conflict (B009 r7): timestamp witness is insufficient, revision witness works
+Script: `hold_same_ts.sh <db> <ts|rev>`. Hold M1 (rev r1, activatedAt T). Session A deactivates from a stale read. Session B commits activation M2 (rev r2) with the SAME activatedAt T.
+- `ts` (witness = activatedAt): `A_exit=0 B_exit=0`, final `{"active": false, "message": "M1", "activatedAt": null}`. The stale deactivation overwrote the committed M2. Lost update confirmed for same-millisecond activations.
+- `rev` (witness = hold->>rev): `A_exit=0 B_exit=0`, final `{"active": true, "message": "M2", "rev": "r2"}`. The stale write matched zero rows and changed nothing; the route's bounded retry then deactivates the current hold.
+
+Decision: the activation writes a per-activation revision (`crypto.randomUUID()`), and the deactivation witness is `hold->>rev`. Rows written before this change carry no rev and keep the activatedAt witness, so same-millisecond conflicts on those legacy rows remain possible. No migration: `hold` is free-form jsonb.
+
+## Real PostgREST client syntax (not the unit fake)
+`lib/hold-postgrest-syntax.test.ts` uses `@supabase/postgrest-js` from node_modules with a capturing fetch. Verified emitted requests: `PATCH …/display_type_state?…&hold->>rev=eq.<value>` and `hold->>activatedAt=is.null`, with `select=hold` for row counting. Server-side translation of `col->>key` filters is PostgREST behaviour; the same predicate is verified as SQL above. No PostgREST binary is installed and the sandbox blocks the registry, so a live PostgREST run was not possible here (external, local-tooling gap).

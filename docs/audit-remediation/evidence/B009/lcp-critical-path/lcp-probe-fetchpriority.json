@@ -1,0 +1,249 @@
+{
+ "lcp": {
+  "t": 1404,
+  "id": "Kramflow Operator Console runn",
+  "size": 103673
+ },
+ "cropRequest": {
+  "url": "/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fconsole-mobile-crop.25980614.png&w=1200&q=80",
+  "type": "Image",
+  "prio": "High",
+  "startMs": 233,
+  "endMs": 1382
+ },
+ "requestsBeforeCrop": 9,
+ "totalRequests": 33,
+ "timeline": [
+  {
+   "url": "/",
+   "type": "Document",
+   "prio": "VeryHigh",
+   "startMs": 0,
+   "endMs": 223
+  },
+  {
+   "url": "/_next/static/media/1a4aa50920b5315c-s.p.woff2",
+   "type": "Font",
+   "prio": "High",
+   "startMs": 229,
+   "endMs": 1133
+  },
+  {
+   "url": "/_next/static/media/98e207f02528a563-s.p.woff2",
+   "type": "Font",
+   "prio": "High",
+   "startMs": 232,
+   "endMs": 667
+  },
+  {
+   "url": "/_next/static/media/d3ebbfd689654d3a-s.p.woff2",
+   "type": "Font",
+   "prio": "High",
+   "startMs": 232,
+   "endMs": 681
+  },
+  {
+   "url": "/_next/static/media/db96af6b531dc71f-s.p.woff2",
+   "type": "Font",
+   "prio": "High",
+   "startMs": 233,
+   "endMs": 675
+  },
+  {
+   "url": "/_next/static/media/e4af272ccee01ff0-s.p.woff2",
+   "type": "Font",
+   "prio": "High",
+   "startMs": 233,
+   "endMs": 1618
+  },
+  {
+   "url": "/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fconsole-mobile-crop.25980614.png&w=1200&q=80",
+   "type": "Image",
+   "prio": "High",
+   "startMs": 233,
+   "endMs": 1382
+  },
+  {
+   "url": "/_next/static/css/22fde6c335ab1de2.css",
+   "type": "Stylesheet",
+   "prio": "VeryHigh",
+   "startMs": 233,
+   "endMs": 459
+  },
+  {
+   "url": "/_next/static/css/e9f887467955b70c.css",
+   "type": "Stylesheet",
+   "prio": "VeryHigh",
+   "startMs": 233,
+   "endMs": 782
+  },
+  {
+   "url": "/_next/static/chunks/webpack-407e886d04d0dfe8.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 234,
+   "endMs": 889
+  },
+  {
+   "url": "/_next/static/chunks/4bd1b696-8a4ab4fdf0ae305a.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 234,
+   "endMs": 2240
+  },
+  {
+   "url": "/_next/static/chunks/3794-6cecce02b123eb1f.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 234,
+   "endMs": 2340
+  },
+  {
+   "url": "/_next/static/chunks/main-app-cfaaee2413dbf7cd.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 234,
+   "endMs": 1118
+  },
+  {
+   "url": "/_next/static/chunks/422-0b1b290f66fd5b1a.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 234,
+   "endMs": 1425
+  },
+  {
+   "url": "/_next/static/chunks/8505-c268d2aa5c350d42.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 234,
+   "endMs": 1532
+  },
+  {
+   "url": "/_next/static/chunks/2070-802e172aa198535f.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 234,
+   "endMs": 2484
+  },
+  {
+   "url": "/_next/static/chunks/app/layout-5835f54f644d9dce.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 235,
+   "endMs": 1862
+  },
+  {
+   "url": "/_next/static/chunks/app/error-9324d90c3ba6c3cc.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 235,
+   "endMs": 1954
+  },
+  {
+   "url": "/_next/static/chunks/6650-d70d497cb0a487f6.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 235,
+   "endMs": 2212
+  },
+  {
+   "url": "/_next/static/chunks/app/page-ef127f3680896874.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 235,
+   "endMs": 2305
+  },
+  {
+   "url": "/_next/static/chunks/app/global-error-7fd7b9baa7cde11c.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 235,
+   "endMs": 2184
+  },
+  {
+   "url": "/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fdisplay-presenter.28a6a8b5.png&w=640&q=80",
+   "type": "Image",
+   "prio": "Low",
+   "startMs": 937,
+   "endMs": 1753
+  },
+  {
+   "url": "/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fdisplay-av.eaac0718.png&w=640&q=80",
+   "type": "Image",
+   "prio": "Low",
+   "startMs": 937,
+   "endMs": 1812
+  },
+  {
+   "url": "/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fdisplay-speaker-ready.c10ee00a.png&w=640&q=80",
+   "type": "Image",
+   "prio": "Low",
+   "startMs": 937,
+   "endMs": 2498
+  },
+  {
+   "url": "/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fdisplay-general.f9422d10.png&w=640&q=80",
+   "type": "Image",
+   "prio": "Low",
+   "startMs": 937,
+   "endMs": 2491
+  },
+  {
+   "url": "/_next/static/chunks/c15bf2b0.4c82aff2c0532eb2.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 2560,
+   "endMs": 2984
+  },
+  {
+   "url": "/_next/static/chunks/5911.897e7955e4f2a7e6.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 2562,
+   "endMs": 2863
+  },
+  {
+   "url": "/_next/static/chunks/3018.dfc345853f53b6a1.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 2563,
+   "endMs": 2976
+  },
+  {
+   "url": "/?_rsc=5CB68i4pnAekjehf",
+   "type": "Fetch",
+   "prio": "Low",
+   "startMs": 2610,
+   "endMs": 2785
+  },
+  {
+   "url": "/signup?_rsc=5CB68i4pnAekjehf",
+   "type": "Fetch",
+   "prio": "Low",
+   "startMs": 2611,
+   "endMs": 2791
+  },
+  {
+   "url": "/?_rsc=8nTjltbQWvg6NcbE",
+   "type": "Fetch",
+   "prio": "Low",
+   "startMs": 2791,
+   "endMs": 3021
+  },
+  {
+   "url": "/signup?_rsc=yB9Omo-b93p9G0DB",
+   "type": "Fetch",
+   "prio": "Low",
+   "startMs": 2794,
+   "endMs": 3013
+  },
+  {
+   "url": "/_next/static/chunks/app/signup/page-bc7fa33c8df068fa.js",
+   "type": "Script",
+   "prio": "Low",
+   "startMs": 3029,
+   "endMs": 3206
+  }
+ ]
+}

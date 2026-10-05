@@ -48,6 +48,9 @@ export async function PATCH(request: Request) {
           subMessage: typeof body.subMessage === "string" ? body.subMessage : null,
           continueClock: body.continueClock === true,
           activatedAt: new Date().toISOString(),
+          // Unique per activation. A timestamp alone can repeat within a millisecond, so it
+          // cannot prove that the hold a deactivation read is still the one in the row.
+          rev: crypto.randomUUID(),
         }
       : null;
 
@@ -89,16 +92,20 @@ export async function PATCH(request: Request) {
         console.error("[hold] no display_type_state row after provisioning", access.eventId, displayType);
         return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
       }
-      const witness = (current.hold as { activatedAt?: string | null } | null)?.activatedAt ?? null;
+      // The witness is the activation revision (`rev`). Rows written before revisions
+      // existed carry only activatedAt, so that is the fallback witness for them.
+      const read = (current.hold ?? {}) as { rev?: string | null; activatedAt?: string | null };
+      const witnessKey = read.rev ? "rev" : "activatedAt";
+      const witness = read.rev ?? read.activatedAt ?? null;
       const conditional = supabase
         .from("display_type_state")
-        .update({ hold: { ...current.hold, active: false, activatedAt: null } })
+        .update({ hold: { ...current.hold, active: false, activatedAt: null, rev: null } })
         .eq("event_id", access.eventId)
         .eq("display_type", displayType);
       const { data, error } =
         witness === null
-          ? await conditional.is("hold->>activatedAt", null).select("hold")
-          : await conditional.eq("hold->>activatedAt", witness).select("hold");
+          ? await conditional.is(`hold->>${witnessKey}`, null).select("hold")
+          : await conditional.eq(`hold->>${witnessKey}`, witness).select("hold");
       if (error) {
         console.error(error);
         return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });

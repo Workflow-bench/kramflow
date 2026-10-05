@@ -1,6 +1,7 @@
 "use client";
 import { requestSignOut } from "@/lib/auth/sign-out";
 import { setSessionUserId } from "@/lib/auth/session-identity";
+import { authEventEffect, lockEffect, type AuthEventName } from "@/lib/auth/auth-events";
 import { resetRehearsalRuns } from "@/components/rehearsal/persisted-run";
 
 import { createContext, useContext, useEffect, useState } from "react";
@@ -48,10 +49,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      setSessionUserId(session?.user?.id ?? null);
-      // Account boundary: a different identity must not see this one's rehearsal runs.
-      // INITIAL_SESSION and TOKEN_REFRESHED (a reload, a refreshed token) keep them.
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") resetRehearsalRuns();
+      // Account boundary policy lives in lib/auth/auth-events.ts (tested there).
+      const effect = authEventEffect(event as AuthEventName, session?.user?.id ?? null);
+      setSessionUserId(effect.identity);
+      if (effect.clearRuns) resetRehearsalRuns();
       setStatus(session ? "unlocked" : "locked");
       // A session that changes *after* a channel already joined (sign-in
       // on this tab with no reload, a token refresh, sign-out) needs its
@@ -69,9 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // was, so the caller can say so instead of acting as if the user was
   // signed out (KF-016, B005-F2).
   async function lock(): Promise<boolean> {
-    if (!(await requestSignOut())) return false;
+    const confirmed = await requestSignOut();
+    const effect = lockEffect(confirmed);
+    if (!effect) return false;
     resetRehearsalRuns();
-    setSessionUserId(null);
+    setSessionUserId(effect.identity);
     setStatus("locked");
     window.location.href = "/";
     return true;
