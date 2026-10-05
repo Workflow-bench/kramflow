@@ -1,0 +1,22 @@
+{
+ "importOpenThenReload": {
+  "afterOpen": "Live session: sat-pm~harness",
+  "afterReload": "Live session: sat-pm~harness",
+  "coherent": true,
+  "realApiRequests": []
+ },
+ "refreshThenOpenOther": {
+  "storeOnReload": "store: active=sat-pm~harness started=false locked=false",
+  "afterOpenAM": "Live session: sat-am",
+  "note": "PM was live, not started: AM opens by explicit click (selectSession path)"
+ },
+ "runningGuard": {
+  "storeAtStart": "store: active=sat-pm~harness started=true locked=false",
+  "afterOpenAM": "Live session: sat-pm~harness",
+  "note": "PM running: console opens without switching; the console shows PM"
+ },
+ "lockedRefusal": {
+  "stillOnImport": true,
+  "outcome": "SYNTHETIC Sat • AM: refused: locked by another operator; stays on the cue sheet"
+ }
+}

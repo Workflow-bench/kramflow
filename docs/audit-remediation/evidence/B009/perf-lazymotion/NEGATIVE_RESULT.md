@@ -1,0 +1,1 @@
+NEGATIVE RESULT: LazyMotion domAnimation loaded async on landing (m.* components). Simulated mobile n=3 median 3158 ms (vs 3012 GSAP-only, 3310 baseline); desktop 649 ms; observed mobile 2330 ms. No clear gain; reverted. Raw runs retained.

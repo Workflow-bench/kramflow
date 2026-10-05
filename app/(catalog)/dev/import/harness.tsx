@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { UploadPanel, type UploadApi } from "@/components/cue-sheet/upload-panel";
 import { ImportCompleteStep } from "@/components/cue-sheet/import-complete";
 import { planOpenConsole, type OpenConsolePlan } from "@/lib/cue-sheet-open";
@@ -38,16 +39,77 @@ function syntheticApi(fail: "none" | "parse" | "commit", log: string[]): UploadA
   };
 }
 
+// Controlled local store. Holds the live session and control lock for the harness
+// only. Persisted in sessionStorage so a reload (refresh coherence) reads the same
+// state the console stub reads. Not the real store: no server, no Realtime, no lease.
+export const HARNESS_STORE_KEY = "kf-harness-store";
+export interface HarnessStore { activeSessionId: string; started: boolean; lockedByOther: boolean }
+
+export function seedStore(live: "none" | "started" | "locked"): HarnessStore {
+  if (live === "started") return { activeSessionId: "sat-pm~harness", started: true, lockedByOther: false };
+  if (live === "locked") return { activeSessionId: "", started: false, lockedByOther: true };
+  return { activeSessionId: "", started: false, lockedByOther: false };
+}
+
+// useSyncExternalStore needs a stable snapshot: the same raw string returns the same object.
+let cachedRaw: string | null | undefined;
+let cachedStore: HarnessStore | null = null;
+export function readStore(fallback: HarnessStore): HarnessStore {
+  let raw: string | null = null;
+  try {
+    raw = window.sessionStorage.getItem(HARNESS_STORE_KEY);
+  } catch {
+    return fallback;
+  }
+  if (raw === cachedRaw && cachedStore) return cachedStore;
+  cachedRaw = raw;
+  cachedStore = raw ? (JSON.parse(raw) as HarnessStore) : fallback;
+  return cachedStore;
+}
+
+const STORE_EVENT = "kf-harness-store-change";
+
+function writeStore(next: HarnessStore) {
+  try {
+    window.sessionStorage.setItem(HARNESS_STORE_KEY, JSON.stringify(next));
+  } catch {
+    // Storage unavailable (private window): the harness still runs for this page view.
+  }
+  window.dispatchEvent(new Event(STORE_EVENT));
+}
+
+function subscribeStore(onChange: () => void) {
+  window.addEventListener(STORE_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(STORE_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
 export function ImportHarness({ live, fail }: { live: "none" | "started" | "locked"; fail: "none" | "parse" | "commit" }) {
+  const router = useRouter();
   const [log] = useState<string[]>([]);
   const [choices, setChoices] = useState<ImportedSessionChoice[] | null>(null);
   const [outcome, setOutcome] = useState<{ plan: OpenConsolePlan; chosen: string } | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const api = useMemo(() => syntheticApi(fail, log), [fail, log]);
-  // Synthetic store state for the console decision: nothing live, or another session started, or control held elsewhere.
-  const liveId = live === "started" ? "sat-pm" : "";
-  const liveHasStarted = live === "started";
-  const lockedByOther = live === "locked";
+  // Read through useSyncExternalStore: the fixture seed on the server and during
+  // hydration, then whatever the last Open console wrote (survives a reload).
+  const seed = useMemo(() => seedStore(live), [live]);
+  const store = useSyncExternalStore(subscribeStore, () => readStore(seed), () => seed);
+  // First visit: write the fixture seed so the Console stub reads the same state the
+  // import page does. Only when nothing is stored yet, so a reload keeps the last choice.
+  useEffect(() => {
+    try {
+      if (window.sessionStorage.getItem(HARNESS_STORE_KEY) === null) writeStore(seed);
+    } catch {
+      // Storage unavailable: the page still runs on the fixture seed.
+    }
+  }, [seed]);
+  const liveId = store.activeSessionId;
+  const liveHasStarted = store.started;
+  const lockedByOther = store.lockedByOther;
   const sessions: Session[] = [];
 
   function onDone(done: ImportDone) {
@@ -64,10 +126,18 @@ export function ImportHarness({ live, fail }: { live: "none" | "started" | "lock
       dayLabel: choice.dayLabel,
       sessionLabel: choice.sessionLabel,
     });
-    // The real page would call selectSession() here for kind "select-then-navigate".
-    // The harness records the call instead of making the session live.
-    if (plan.kind === "select-then-navigate") setSelected((s) => [...s, choice.storedId]);
+    // The real page calls selectSession() for "select-then-navigate". The harness does
+    // the same against the controlled store, then navigates like the page does.
+    let next = store;
+    if (plan.kind === "select-then-navigate") {
+      next = { ...store, activeSessionId: choice.storedId, started: false };
+      setSelected((s) => [...s, choice.storedId]);
+      writeStore(next);
+    }
     setOutcome({ plan, chosen: `${choice.dayLabel} • ${choice.sessionLabel}` });
+    if (plan.kind === "navigate" || plan.kind === "toast-then-navigate" || plan.kind === "select-then-navigate") {
+      router.push("/dev/import/console");
+    }
   }
 
   return (
@@ -89,6 +159,7 @@ export function ImportHarness({ live, fail }: { live: "none" | "started" | "lock
       )}
       <pre data-harness-log className="text-[11px] text-muted-2">{log.join("\n")}</pre>
       <pre data-harness-selected className="text-[11px] text-muted-2">{`selectSession calls: ${selected.join(", ") || "none"}`}</pre>
+      <p data-harness-store className="text-[11px] text-muted-2">{`store: active=${store.activeSessionId || "none"} started=${store.started} locked=${store.lockedByOther}`}</p>
     </div>
   );
 }

@@ -20,13 +20,33 @@ const FOCUSABLE_SELECTOR =
 // currently has focus, so the inner (topmost) dialog's own listener is the
 // only one that ever sees it.
 //
-// No `inert` on the rest of the page — deliberately out of scope here.
-// Every caller already renders a full-viewport backdrop with
-// `onClick={onClose}` in front of the rest of the page, so a pointer click
-// "through" the dialog was never actually reachable; the real gap this
-// closes is keyboard-only (Tab escaping the dialog, focus lost on open,
-// focus stranded on close), which is what a focus trap + restoration
-// actually fixes.
+// The page behind an open dialog is made `inert` (see inertOutside below), so
+// pointer, keyboard and assistive-technology access are all excluded, not only
+// the Tab sequence. The backdrop (`onClick={onClose}`) remains the pointer dismiss.
+// Full modal exclusion (WCAG 2.4.3 / 4.1.2 for AT users): while a dialog is open,
+// everything outside its ancestor chain is made `inert`. The backdrop stops pointer
+// input and the focus trap stops Tab, but without `inert` the page behind stays in the
+// accessibility tree and can be reached by screen-reader navigation. Walks from the
+// dialog up to <body>, marking each ancestor's siblings. Returns a restore function
+// that puts back exactly what it changed (a sibling that was already inert stays so).
+export function inertOutside(target: HTMLElement): () => void {
+  const changed: { el: HTMLElement; wasInert: boolean }[] = [];
+  let node: HTMLElement | null = target;
+  while (node && node !== document.body && node.parentElement) {
+    for (const sib of Array.from(node.parentElement.children) as HTMLElement[]) {
+      if (sib === node || sib.tagName === "SCRIPT" || sib.tagName === "STYLE") continue;
+      changed.push({ el: sib, wasInert: sib.hasAttribute("inert") });
+      sib.setAttribute("inert", "");
+    }
+    node = node.parentElement;
+  }
+  return () => {
+    for (const { el, wasInert } of changed) {
+      if (!wasInert) el.removeAttribute("inert");
+    }
+  };
+}
+
 export function useDialogFocus(open: boolean, containerRef: React.RefObject<HTMLElement | null>) {
   const triggerRef = useRef<Element | null>(null);
 
@@ -36,6 +56,7 @@ export function useDialogFocus(open: boolean, containerRef: React.RefObject<HTML
 
     const container = containerRef.current;
     if (!container) return;
+    const restoreBackground = inertOutside(container);
 
     const focusable = () =>
       Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((el) => el.offsetParent !== null);
@@ -73,6 +94,7 @@ export function useDialogFocus(open: boolean, containerRef: React.RefObject<HTML
     return () => {
       cancelAnimationFrame(raf);
       container.removeEventListener("keydown", onKeyDown);
+      restoreBackground();
       if (triggerRef.current instanceof HTMLElement) triggerRef.current.focus();
     };
   }, [open, containerRef]);

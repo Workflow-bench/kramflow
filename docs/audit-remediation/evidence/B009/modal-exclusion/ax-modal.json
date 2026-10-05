@@ -1,0 +1,24 @@
+{
+ "backgroundInAxBeforeOpen": [
+  "button:Exit Rehearsal",
+  "button:Next",
+  "button:Open Next.js Dev Tools"
+ ],
+ "axWhileOpen": [
+  "alertdialog:Leave rehearsal?",
+  "button:Leave rehearsal",
+  "button:Cancel",
+  "button:Open Next.js Dev Tools"
+ ],
+ "inertElementsBefore": 0,
+ "inertElementsWhileOpen": 6,
+ "inertElementsAfterClose": 0,
+ "keyboardTabEscapedDialog": false,
+ "backgroundFocusWhileOpen": "blocked",
+ "focusAfterEscape": "Exit Rehearsal",
+ "axAfterClose": [
+  "button:Exit Rehearsal",
+  "button:Next",
+  "button:Open Next.js Dev Tools"
+ ]
+}

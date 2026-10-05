@@ -267,3 +267,64 @@ Final revision: the commit that adds this section (hash in the final message).
 3. Confirm destructive ConfirmDialogs opening on Cancel is the intended product behaviour.
 4. Confirm the import harness scope (synthetic components, real UploadPanel/ImportCompleteStep/planner) as evidence for KF-006 UI criteria, with refresh coherence and real route left external.
 5. Confirm the Turbopack build passes at this revision; the earlier failure is unexplained.
+
+---
+
+# Update r4 (supersedes r3 where they conflict)
+
+Status: SELF-VERIFIED, PENDING CODEX REVIEW. No CODEX_VERIFIED anywhere. No push, no deployment, no shared-resource change. Ledger items outside B009 were not reviewed and still require later batches.
+
+## Final checks (exact revision: the commit adding this section)
+- `npm test`: 51 files, 574 passed. `npx eslint .`: 0 errors, 6 warnings (outside changed files). `npx tsc --noEmit`: clean, also after both production builds. `validate_ledger.mjs`: PASS.
+- Production build, default Turbopack: PASS. Production build, webpack: PASS.
+- Production (Turbopack build): `/dev/import`, `/dev/import/console`, `/dev/rehearsal` return 404; landing 200.
+
+## Work this pass
+1. **Modal exclusion (shared hook).** `components/ui/use-dialog-focus.ts` now marks everything outside the dialog's ancestor chain `inert` while open and restores exactly on close. The backdrop plus focus trap alone did not exclude the background from the accessibility tree (the old comment said "no inert, deliberately out of scope"; that is corrected). Verified with the real browser AX tree (`evidence/B009/modal-exclusion/ax-modal.json`): background button and link nodes leave the tree while open; 6 elements become inert; 12 Tab presses never leave the dialog; a direct `.focus()` on a background control is blocked; on Escape, the inert set returns to 0 and focus returns to the trigger. Limit: verified on ConfirmDialog. Modal uses the same hook but has no separate browser check here.
+2. **Rehearsal browser back (harness).** `evidence/B009/rehearsal-browser-back/browser-back.json`: progress is not carried across a history visit; back returns to a fresh "Not started" state; back with the exit dialog open returns fresh with no dialog and no beforeunload prompt; forward works; no `/api/live` or mutating requests. Limit: full page navigations; in-app `router.push` was not exercised separately.
+3. **Import refresh coherence and Open Console (controlled store).** Harness store is sessionStorage with a `useSyncExternalStore` read; console stub at `/dev/import/console`. `evidence/B009/import-harness/import-coherence.json`:
+   - Import, Open console on the second session, reload the console: same live session, coherent; no real API requests.
+   - Reload the import page: store shows the session chosen earlier; opening the other session (not started) selects it explicitly.
+   - Running session (fixture started): opening another session leaves the running one live.
+   - Control held elsewhere: refused, no navigation.
+   Two render-loop bugs found in the harness during this pass (unstable snapshot) and fixed. Limit: this is a controlled store, not the real store; real route persistence, refresh on a real event and real selectSession remain external.
+4. **Performance (KF-023).**
+   - Kept: GSAP deferred after first paint (simulated mobile 3310 → 3012 ms, n=3; observed unchanged).
+   - Negative and reverted: LazyMotion with `domAnimation` on the landing (`evidence/B009/perf-lazymotion/NEGATIVE_RESULT.md`): simulated mobile 3158 ms, desktop 649 ms, observed 2330 ms. No clear gain; raw runs kept.
+   - Target 2500 ms (simulated) still missed. Remaining cost: framer-motion feature code and the React/Next runtime on the main thread during load. Further gains need either a broader replacement of the landing's `motion.*` usage (navbar, hero, split-flap, reveal, playable-show) with CSS/IntersectionObserver, or a decision to change the acceptance method. Neither is done.
+   - Observed mobile is supplementary (n=3, median 2330 ms), not the acceptance series.
+5. **Reconciliation** (below). No criterion is marked accepted.
+
+## Reconciliation of the B009 backlog (15 items)
+Columns: implementation (code exists), local evidence (reproducible here), independent acceptance (Codex), external proof still needed. None is CODEX_VERIFIED.
+
+| ID | Ledger state | Implementation | Local evidence | Independent acceptance | External proof still needed |
+|---|---|---|---|---|---|
+| KF-001 owner floor | READY_FOR_CODEX | owner-only hold/timer/speaker-ready/broadcast cancel | owner-floor.test.ts (25) + owner-floor-matrix.test.ts (15) | pending | real-session persistence (remote, prior batch) |
+| KF-004 rehearsal completion | IN_PROGRESS | RehearsalView + synthetic harness | harness-rehearsal/results.json; rehearsal.test.ts 13 | pending | authenticated real-route run; pointer Finish click not separately captured |
+| KF-005 rehearsal exit | IN_PROGRESS | alertdialog, Cancel-first focus, inert background | exit-verify.json; browser-back.json; ax-modal.json | pending | none local; in-app router exit not separately captured |
+| KF-006 import | IN_PROGRESS | atomic RPC, UploadPanel/ImportCompleteStep/planner | race-results.txt, import_cue_sheet SQL ALL PASSED, import-coherence.json | pending | real route refresh coherence; migration staging (external) |
+| KF-007 traversal | IN_PROGRESS | stored-count bounds, gap refusal, explicit session | live/route.test.ts; explicit-session.test.ts | pending | import UI into Start/Next on a real event |
+| KF-010 reporting | IN_PROGRESS | redacted local sink, bounded endpoint | report tests; earlier browser boundary capture | pending | provider, source maps, alert owner, staging capture |
+| KF-017 recovery | IN_PROGRESS | set-password 8 tests; reset route tests; toggle | set-password/route.test.ts; login-ax-toggle.json | pending | password-manager autofill; real reset provider (prohibited) |
+| KF-019 contrast | IN_PROGRESS | landing token changes | oklab-aware 496/491 nodes 0 failing; Lighthouse 0; inventory reconciliation | pending | node-for-node replay impossible (source not in repo); zoom/high-contrast labels |
+| KF-020 keyboard/focus/reflow | IN_PROGRESS | skip link, Escape focus return, inert modal, login landmark | a11y-pass.out; ax-modal.json; ax-tree | pending | real browser zoom 200%; screen-reader names |
+| KF-021 duplicated headings | READY_FOR_CODEX | hidden twin remains in DOM | AX tree: 11 headings, 0 duplicates | pending | none; DOM twin is a code-quality item |
+| KF-023 performance | IN_PROGRESS | GSAP deferred; LazyMotion reverted | perf-gsap-deferred; perf-lazymotion (negative) | pending | target not met (simulated 3012 ms) |
+| KF-026 metadata | READY_FOR_CODEX | PRIVATE_OPEN_GRAPH; robots; policy test | HTTP checks; route-metadata-policy.test.ts | pending | none local; search-engine effects not in scope |
+| KF-031 hold/timer | IN_PROGRESS | provisioning, conditional update, 409 | timer/hold tests; race-results.txt (version race) | pending | real-DB hold path; shared dev DB not touched |
+| KF-034 archive | IN_PROGRESS | inspector and limits | 67-test archive/reporting subset | pending | retained-memory bound not measured |
+| KF-036.9 realtime race | carried (earlier batch) | store sequencer and teardown | store.realtime.test.ts (9) | pending | browser reproduction through the real store |
+
+## Genuinely unresolved
+- KF-023: simulated mobile median 3012 ms vs 2500 ms.
+- KF-036.9: browser reproduction through the real store not done.
+- KF-031: real-DB hold path not exercised.
+- Modal primitive: no separate browser exclusion check.
+- DOM twin of the One-cue section still present in the landing DOM.
+- Ledger rows outside B009 not reviewed.
+
+## Requested from Codex
+1. Accept or reject the `inert` background exclusion as the corrected shared modal pattern.
+2. Decide whether KF-023 requires a further landing motion rewrite or a change of method (acceptance is still the simulated series).
+3. Confirm reconciliation states above, especially READY_FOR_CODEX for KF-001, KF-021, KF-026.
