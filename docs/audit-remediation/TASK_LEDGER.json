@@ -196,7 +196,9 @@
         "BASELINE.md#known-open-not-fixed-here-findings",
         "docs/audit-remediation/evidence/B009/db/race-results.txt",
         "app/api/display-engine/timer/route.test.ts",
-        "batches/B009/REVIEW_HANDOFF.md"
+        "batches/B009/REVIEW_HANDOFF.md",
+        "docs/audit-remediation/migrations/tests/hold/hold_persistence.sql",
+        "docs/audit-remediation/migrations/tests/hold/hold_persistence.out"
       ],
       "environment": "dev Supabase qofggbarsdiovzqwgkpz",
       "reviewer": null,
@@ -207,7 +209,8 @@
         "confirmed pre-existing by independent review",
         "tracked as its own row per review instruction, B002",
         "B007: root cause from code: display_type_state was backfilled only for events existing at migration 20260909091740, and event creation never provisioned it, so hold and timer writes matched no row. Hold activate returned ok:true for a zero-row update. Fixed in 7a8d140 (provisioning in event creation, provisioning before hold writes, exactly-one-row update and readback). Unit-tested with fakes; live dev rows were not queried. implementation_state stays OPEN until Codex review.",
-        "B009 r4 local: OPEN -> IN_PROGRESS. Timer provisioning, conditional-version 409 test, real-database version race (second writer 0 rows). Hold readback guard tested; real-DB hold path not run."
+        "B009 r4 local: OPEN -> IN_PROGRESS. Timer provisioning, conditional-version 409 test, real-database version race (second writer 0 rows). Hold readback guard tested; real-DB hold path not run.",
+        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. Hold persistence on disposable local Postgres mirror: activation, deactivation, missing-row provisioning, tenant boundary, unknown type. ALL PASSED (local mirror, not Supabase runtime)."
       ]
     },
     {
@@ -290,7 +293,10 @@
         "docs/audit-remediation/evidence/B009/harness-rehearsal/exit-verify.json",
         "docs/audit-remediation/evidence/B009/harness-rehearsal/exit-verify.cjs",
         "docs/audit-remediation/evidence/B009/rehearsal-browser-back/browser-back.json",
-        "docs/audit-remediation/evidence/B009/modal-exclusion/ax-modal.json"
+        "docs/audit-remediation/evidence/B009/modal-exclusion/ax-modal.json",
+        "docs/audit-remediation/evidence/B009/rehearsal-navigation/rehearsal-navigation.json",
+        "docs/audit-remediation/evidence/B009/rehearsal-navigation/README.md",
+        "docs/audit-remediation/evidence/B009/modal-stack/modal-stack.json"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
@@ -302,7 +308,8 @@
         "B006: meaningful-progress rule for exit confirmation defined as operator action (advance past cue 1, pause/resume, rehearsal alert), not elapsed time on cue 1. Unit-tested in lib/rehearsal.test.ts. Browser evidence for rehearsal requires an authenticated event session: UNVERIFIED.",
         "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: alertdialog name, focus inside, Escape returns focus to Exit, confirm exits via onExit verified in the harness. Navigation exit without progress is a plain link (not intercepted).",
         "B009 r3 local: IN_PROGRESS -> IN_PROGRESS. B009 r3: initial focus on Cancel; Tab stays inside the alertdialog; background point is the backdrop and cue unchanged; Escape and Enter-on-Cancel close without exit; focus returns to Exit Rehearsal. In-app exit with no progress is a plain link (not intercepted). Browser back navigation not verified.",
-        "B009 r4: browser back/forward verified (fresh state, no beforeunload prompt, no /api/live); background excluded from AX tree via inert while dialog open."
+        "B009 r4: browser back/forward verified (fresh state, no beforeunload prompt, no /api/live); background excluded from AX tree via inert while dialog open.",
+        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. In-app Link and Back keep progress (sessionStorage per viewer); Reset is the explicit discard; confirmed Exit clears. In-app navigation shows no confirmation (open product decision)."
       ]
     },
     {
@@ -363,7 +370,8 @@
         "B004: expanded acceptance_criteria to retain every obligation from master#13 and the full FIX_GUIDE paragraph (multi-session explicit choice, transactional scope, RPC-level authorization/search_path, generic client errors, foreign-id rejection, induced-failure rollback) — previously only the parent-heading-level subset survived (Codex B003 review finding B003-F2). Ledger correction only; import itself is not implemented in this batch.",
         "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: import_cue_sheet SQL scenarios ALL PASSED; four two-connection races on local Postgres 16.15 (first import, same-event, version, multi-session, forced-failure rollback). Import UI not browser-tested.",
         "B009 r3 local: IN_PROGRESS -> IN_PROGRESS. B009 r3: import/Open Console harness with the real UploadPanel, ImportCompleteStep and planOpenConsole: explicit per-session choice, no selectSession before a click, running-session and locked guards, parse and commit error states announced (role=alert). Refresh coherence on the real route and migration staging not done (external).",
-        "B009 r4: refresh coherence and Open Console verified against a controlled sessionStorage store and console stub. Real route persistence not verified (external)."
+        "B009 r4: refresh coherence and Open Console verified against a controlled sessionStorage store and console stub. Real route persistence not verified (external).",
+        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. No change in state this pass; synthetic store evidence remains labelled synthetic and does not close real selectSession or persistence."
       ]
     },
     {
@@ -919,7 +927,9 @@
         "docs/audit-remediation/evidence/B009/browser-pass2/a11y-pass.out",
         "docs/audit-remediation/evidence/B009/ax-tree/README.md",
         "batches/B009/REVIEW_HANDOFF.md",
-        "docs/audit-remediation/evidence/B009/modal-exclusion/ax-modal.json"
+        "docs/audit-remediation/evidence/B009/modal-exclusion/ax-modal.json",
+        "docs/audit-remediation/evidence/B009/modal-stack/modal-stack.json",
+        "docs/audit-remediation/evidence/B009/modal-stack/modal-alone.json"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
@@ -929,7 +939,8 @@
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields; corrected its source mapping — several rows previously folded into KF-032 (skip-to-content, sticky headers, keyboard/focus sweep, WCAG AA, alt text, Lighthouse accessibility score) actually belong here (master-prompt item 8), not under KF-032 (master-prompt item 9's UX-08 polish cluster); see SOURCE_COVERAGE.json",
         "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: skip link focus and target, reflow 320-1440 without horizontal scroll (viewport approximation), login main/heading via AX tree. Real browser zoom, screen-reader names and modal focus return not verified.",
-        "B009 r4: modal background excluded from the AX tree and from keyboard focus (inert). Modal primitive shares the hook; browser check only on ConfirmDialog."
+        "B009 r4: modal background excluded from the AX tree and from keyboard focus (inert). Modal primitive shares the hook; browser check only on ConfirmDialog.",
+        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. Shared Modal and ConfirmDialog stack: background excluded from the AX tree while any dialog is open; restored in any close order; focus returns to trigger."
       ]
     },
     {
@@ -1041,7 +1052,8 @@
         "batches/B009/REVIEW_HANDOFF.md",
         "docs/audit-remediation/evidence/B009/perf-gsap-deferred",
         "docs/audit-remediation/evidence/B009/final-revision-measurements",
-        "docs/audit-remediation/evidence/B009/perf-lazymotion/NEGATIVE_RESULT.md"
+        "docs/audit-remediation/evidence/B009/perf-lazymotion/NEGATIVE_RESULT.md",
+        "docs/audit-remediation/evidence/B009/perf-framer-negative/NEGATIVE_RESULT.md"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
@@ -1052,7 +1064,8 @@
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
         "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: simulated mobile median 3309 ms (misses 2500); observed devtools mobile median 2317 ms (n=3). Reported separately; acceptance method unchanged; not CODEX_VERIFIED.",
         "B009 r3 local: IN_PROGRESS -> IN_PROGRESS. B009 r3: GSAP deferred after first paint; simulated mobile median 3310 -> 3012 ms (3 runs; target 2500 ms NOT met). Observed mobile 2339 ms (n=3, supplementary). Framer-motion stack remains the next lever (design decision needed). Acceptance method unchanged.",
-        "B009 r4: LazyMotion experiment reverted (negative, 3158 ms simulated). GSAP-only deferral retained. Target still missed."
+        "B009 r4: LazyMotion experiment reverted (negative, 3158 ms simulated). GSAP-only deferral retained. Target still missed.",
+        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. Framer removal upper bound (landing and root MotionConfig): simulated median 3011 ms, no gain. Negative. Remaining bottleneck not in the animation library. Target still missed."
       ]
     },
     {
@@ -1631,8 +1644,17 @@
           "title": "Session-identity realtime first-connect gap",
           "priority": "P2",
           "source_ref": "batches/B003/BATCH_REPORT.md#remaining-gaps (session-identity realtime first-connect gap)",
-          "implementation_state": "OPEN",
-          "acceptance_criterion": "a fresh session-identity connection to a display page shows an already-active broadcast banner without requiring a second state change to trigger it; the root cause must be independently reproduced and read from the real ensureRemoteConnected()/wasEverConnected code path in lib/display-engine/store.tsx before being called fixed, not asserted from a prior narrative alone (evidence_class: INFERENCE until then)."
+          "implementation_state": "IN_PROGRESS",
+          "acceptance_criterion": "a fresh session-identity connection to a display page shows an already-active broadcast banner without requiring a second state change to trigger it; the root cause must be independently reproduced and read from the real ensureRemoteConnected()/wasEverConnected code path in lib/display-engine/store.tsx before being called fixed, not asserted from a prior narrative alone (evidence_class: INFERENCE until then).",
+          "evidence_links": [
+            "docs/audit-remediation/evidence/B009/realtime-browser/kf036-9-browser.json",
+            "docs/audit-remediation/evidence/B009/realtime-browser/kf036-9-negative-control.json",
+            "lib/display-engine/fake-transport.ts",
+            "lib/display-engine/store.realtime.test.ts"
+          ],
+          "history": [
+            "B009 r5 local: OPEN -> IN_PROGRESS. Real store, controlled transport, browser: first-connect race reproduced and fixed path verified; negative control (refetch disabled) fails for the right reason. Authenticated display-page proof is external."
+          ]
         }
       ],
       "history": [
@@ -1955,7 +1977,8 @@
   "parent_task_count": 42,
   "child_criteria_count": 29,
   "child_criteria_breakdown": {
-    "OPEN": 19,
-    "NOT_APPLICABLE": 10
+    "IN_PROGRESS": 1,
+    "NOT_APPLICABLE": 10,
+    "OPEN": 18
   }
 }

@@ -29,22 +29,47 @@ const FOCUSABLE_SELECTOR =
 // accessibility tree and can be reached by screen-reader navigation. Walks from the
 // dialog up to <body>, marking each ancestor's siblings. Returns a restore function
 // that puts back exactly what it changed (a sibling that was already inert stays so).
+// Reference-counted. Each open dialog marks the siblings of its ancestor chain. An
+// element is made inert once and stays inert until EVERY dialog that marked it has
+// closed, in any order. So closing an upper dialog never reactivates background that
+// a lower dialog still excludes, and closing a lower dialog while an upper one is open
+// keeps the content beneath the upper one excluded. `wasInert` is the state before the
+// first dialog touched the element; it is restored only when the count reaches zero.
+const inertMarks = new Map<HTMLElement, { count: number; wasInert: boolean }>();
+
 export function inertOutside(target: HTMLElement): () => void {
-  const changed: { el: HTMLElement; wasInert: boolean }[] = [];
+  const marked: HTMLElement[] = [];
   let node: HTMLElement | null = target;
   while (node && node !== document.body && node.parentElement) {
     for (const sib of Array.from(node.parentElement.children) as HTMLElement[]) {
       if (sib === node || sib.tagName === "SCRIPT" || sib.tagName === "STYLE") continue;
-      changed.push({ el: sib, wasInert: sib.hasAttribute("inert") });
-      sib.setAttribute("inert", "");
+      const mark = inertMarks.get(sib);
+      if (mark) {
+        mark.count += 1;
+      } else {
+        inertMarks.set(sib, { count: 1, wasInert: sib.hasAttribute("inert") });
+        sib.setAttribute("inert", "");
+      }
+      marked.push(sib);
     }
     node = node.parentElement;
   }
   return () => {
-    for (const { el, wasInert } of changed) {
-      if (!wasInert) el.removeAttribute("inert");
+    for (const el of marked) {
+      const mark = inertMarks.get(el);
+      if (!mark) continue;
+      mark.count -= 1;
+      if (mark.count === 0) {
+        inertMarks.delete(el);
+        if (!mark.wasInert) el.removeAttribute("inert");
+      }
     }
   };
+}
+
+// Test seam: the number of elements currently held inert by open dialogs.
+export function __inertMarkCount(): number {
+  return inertMarks.size;
 }
 
 export function useDialogFocus(open: boolean, containerRef: React.RefObject<HTMLElement | null>) {

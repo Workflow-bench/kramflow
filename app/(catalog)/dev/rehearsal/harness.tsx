@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { RehearsalView } from "@/components/rehearsal/rehearsal-view";
 import type { Program, Session } from "@/lib/types";
 
@@ -64,6 +65,7 @@ export function RehearsalHarness({ fixture }: { fixture: "none" | "zero" | "one"
       <p data-harness-banner className="px-6 py-2 text-[12px] uppercase tracking-[0.16em] text-status-orange">
         Synthetic harness, development only. Fixture: {fixture}-cue. Not event data.
       </p>
+      <p className="px-6 text-[12px]"><Link data-in-app-link href="/dev/import?live=none" className="underline">In-app link (router navigation)</Link></p>
       {exited && <p data-harness-exit role="status" className="px-6 text-[12px] text-status-green">Exit confirmed. Navigation suppressed in harness.</p>}
       <RehearsalView eventId="synthetic-harness" sessions={sessions} onExit={() => setExited(true)} />
     </div>

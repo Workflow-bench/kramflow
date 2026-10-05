@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { clearRun, usePersistedRun } from "@/components/rehearsal/persisted-run";
 import { useRouter } from "next/navigation";
 import { FlaskConical, ArrowLeft, Play, Pause, ChevronLeft, ChevronRight, Square } from "lucide-react";
 import { getLive, getNext, getOnDeck, type LiveState, type Session, type Alert as AlertType, type AlertSeverity } from "@/lib/types";
@@ -56,8 +57,11 @@ const REHEARSAL_INITIAL: LiveState = {
 // rehearsing against fabricated content wouldn't be useful — only the
 // *progress/hold/alert* state is local and disposable.
 export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; sessions: Session[]; onExit?: () => void }) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [state, setState] = useState<LiveState>(REHEARSAL_INITIAL);
+  // Run state persists per viewer across in-app history navigation (persisted-run.ts).
+  const { run, setSessionId, setState, setInteracted } = usePersistedRun(eventId);
+  const sessionId = run.sessionId;
+  const state = run.state;
+  const interacted = run.interacted;
 
   const session = useMemo(() => sessions.find((s) => s.id === (sessionId ?? sessions[0]?.id)) ?? null, [sessions, sessionId]);
   const activeSessionId = session?.id ?? "";
@@ -66,7 +70,21 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
   const max = session?.items.length ?? 0;
   const isFinished = isRehearsalComplete({ currentOrder, max });
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
-  const [interacted, setInteracted] = useState(false);
+  // Reload, tab close and external navigation while a run has discardable progress:
+  // the browser asks before leaving. Same rule as the in-app Exit confirmation
+  // (lib/rehearsal.ts shouldConfirmExit), so the two cannot disagree. In-app history
+  // and Link navigation are not intercepted here; see the rehearsal evidence README.
+  const hasProgress = shouldConfirmExit({ currentOrder, max, interacted });
+  useEffect(() => {
+    if (!hasProgress) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasProgress]);
+
   const router = useRouter();
 
   const live = session && !isFinished ? getLive(session, { ...state, activeSessionId }) : null;
@@ -390,6 +408,7 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
         tone="danger"
         onConfirm={() => {
           setExitConfirmOpen(false);
+          clearRun(eventId); // a confirmed Exit is an explicit discard
           if (onExit) onExit();
           else router.push(`/e/${eventId}/operator`);
         }}

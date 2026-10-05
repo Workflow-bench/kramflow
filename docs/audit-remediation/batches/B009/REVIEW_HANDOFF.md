@@ -328,3 +328,68 @@ Columns: implementation (code exists), local evidence (reproducible here), indep
 1. Accept or reject the `inert` background exclusion as the corrected shared modal pattern.
 2. Decide whether KF-023 requires a further landing motion rewrite or a change of method (acceptance is still the simulated series).
 3. Confirm reconciliation states above, especially READY_FOR_CODEX for KF-001, KF-021, KF-026.
+
+---
+
+# Update r5 (supersedes r4 where they conflict)
+
+Status: SELF-VERIFIED, PENDING CODEX REVIEW. No CODEX_VERIFIED. No self-approval, no acceptance-method change, no push, no deployment, no shared-resource operation. Ledger items outside B009 remain for later batches.
+Final revision: the commit that adds this section (hash in the final message).
+
+## Final checks
+- `npm test`: 52 files, 579 passed. `npx eslint .`: 0 errors, 6 warnings (outside changed files). `npx tsc --noEmit`: clean (also after both builds). Archive/reporting subset: 67 passed. `validate_ledger.mjs`: PASS.
+- Production build, default Turbopack: PASS. Production build, webpack: PASS.
+- Production 404: `/dev/modal`, `/dev/realtime`, `/dev/import`, `/dev/import/console`, `/dev/rehearsal`, `/dev/components`. Landing 200.
+
+## 1. Shared Modal and nested stacks (KF-020, KF-005)
+- Registry rewritten (`components/ui/use-dialog-focus.ts`): reference-counted inert marks. An element stays inert until every open dialog releases it, in any close order. Earlier version restored per dialog and could reactivate background that a lower dialog still excluded when the lower closed first. Fixed.
+- Unit tests (`components/ui/use-dialog-focus.test.ts`, 5): nested upper-closes-first, nested lower-closes-first, sibling upper/lower, restore of pre-inert elements, zero marks after any order.
+- Browser (`evidence/B009/modal-stack/`): lower Modal alone (open, background excluded, Escape closes, background restored, focus back to trigger). Lower + upper ConfirmDialog as DOM siblings: upper closed by Escape, Cancel and Revoke leaves lower open and background excluded; focus returns to upper trigger; closing lower restores background and focus.
+- Limit: browser run used the pre-existing dev server on port 3000 (serves this tree; not started by this session; not stopped).
+
+## 2. KF-036.9 through the real store, controlled transport (synthetic)
+- Shared transport extracted to `lib/display-engine/fake-transport.ts`. The node test (`store.realtime.test.ts`, 9 tests) imports it.
+- Production-excluded harness `/dev/realtime` mounts the real `__testing`/store with the controlled transport.
+- Browser (`evidence/B009/realtime-browser/kf036-9-browser.json`): broadcast sent after hydrate and before first SUBSCRIBED is visible after that SUBSCRIBED without another mutation. Reconnect refetches. Unsubscribe removes the channel.
+- Negative control (`kf036-9-negative-control.json`): refetch-on-SUBSCRIBED disabled makes the race fail (`afterFirstSubscribed: none`). Source restored (no diff).
+- Remote proof (authenticated display page, real Supabase Realtime) remains UNVERIFIED and external.
+
+## 3. Hold persistence on disposable local Postgres (KF-031)
+- `docs/audit-remediation/migrations/tests/hold/hold_persistence.sql` on database `b9_hold`. Mirrors the hold route statements and keys (not the production migration; no PostgREST, no RLS). 10 checks, all PASSED: activation (one row), deactivation (message kept, active cleared), missing-row provisioning (four rows, idempotent), hold after provisioning, missing event matches zero rows, tenant boundary (A does not touch B; cross-tenant predicate zero rows), display types independent, unknown type writes nothing.
+- Risk recorded, not changed: deactivation is read-then-write (`{...current, active:false}`) with no version guard. A concurrent message update between read and write could be lost.
+
+## 4. Rehearsal history through actual in-app navigation (KF-005)
+- Before: in-app Link navigation with progress discarded it silently; Back returned a fresh state. Confirmed by `rehearsal-navigation.json` (C: progress lost, no prompt).
+- Change: run kept per viewer in sessionStorage (`components/rehearsal/persisted-run.ts`, `useSyncExternalStore`), keyed by event. Cleared only by confirmed Exit. Reset rehearsal is the explicit discard. `beforeunload` prompt while progress is discardable (same rule as the Exit confirmation).
+- After (`rehearsal-navigation.json`): in-app Link with progress: route changes, no confirmation, progress retained; Back: progress restored ("SYNTHETIC cue 1", rehearsing); Reset after Back: "Not started"; Exit Cancel keeps progress; confirmed Exit removes the stored run; reload with progress prompts, dismissing keeps progress.
+- Open product decision (not closed): in-app navigation away from an in-progress rehearsal shows no confirmation, although nothing is lost. An app-wide navigation guard is out of scope here.
+
+## 5. Import sessionStorage/stub evidence
+- Labelled synthetic. `evidence/B009/import-harness/` covers the controlled store and console stub only. It does not close the real selectSession or real persistence criteria, which remain external.
+
+## Performance (KF-023): negative results retained, target still missed
+- Acceptance method unchanged: simulated Lighthouse 13.5.0, mobile, median of 3, target 2500 ms.
+- Current landing sources equal `a782580` (verified: no landing source diff since), so the a782580 series (median 3012 ms) is the current state.
+- Framer-motion removal upper bound (`perf-framer-negative/NEGATIVE_RESULT.md`): framer removed from every landing section, then also from the root `MotionConfig`. Medians 3009 and 3011 ms. No gain. The animation library is not the simulated bottleneck. CSS/IntersectionObserver rewrites would not reach 2500 ms by themselves.
+- LazyMotion (async features): 3158 ms, reverted (`perf-lazymotion/NEGATIVE_RESULT.md`).
+- Remaining cost, from profiling (critical-path script time and main-thread breakdown): script evaluation of the Next/React runtime chunks (~240 KB and ~200 KB, both multiplied by the 4x simulated CPU throttle) and hydration of the landing's client components. Reducing that means converting non-interactive landing sections to server components or otherwise shrinking the client bundle. That is a structural change, not an animation-internals change, and it has not been done or authorized here.
+
+## Reconciliation changes in this pass
+- KF-036.9 (child of KF-036): OPEN -> IN_PROGRESS (browser reproduction; remote proof external). KF-036 parent remains OPEN (other children open).
+- KF-005, KF-020, KF-031, KF-023, KF-006: evidence links and history added; states unchanged or moved as recorded in the ledger history.
+- Totals and child breakdown recomputed; validator PASS.
+
+## Genuinely unresolved
+- KF-023 simulated mobile median 3012 ms vs 2500 ms. Remaining cost is the Next/React runtime and landing client hydration (not the animation library).
+- In-app navigation away from an in-progress rehearsal: no confirmation (product decision).
+- Hold deactivation read-then-write without a version guard (possible lost update; not exercised concurrently).
+- KF-036.4 (realtime burst), KF-036.1–.8 and all other OPEN children: not started.
+
+## External (not local)
+- Authenticated display page with real Supabase Realtime; real selectSession; real persistence of hold/rehearsal/import on an event; shared dev database; Supabase RLS policies; migration staging; remote reset; password-manager autofill; browser zoom 200%; screen-reader speech; KF-010 provider and alerts.
+
+## Requested from Codex
+1. Accept the reference-counted inert registry as the shared modal pattern (tests and browser evidence above).
+2. Decide whether in-app navigation away from an in-progress rehearsal needs a confirmation; current protection is persistence, not a prompt.
+3. Decide whether KF-023 proceeds to a structural client-bundle change (server components for non-interactive landing sections), which is outside animation internals.
+4. Decide whether the hold deactivation read-then-write needs a conditional update, and whether to exercise it concurrently.
