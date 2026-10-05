@@ -24,9 +24,8 @@ import { useGsap } from "./use-gsap";
  */
 
 const NAV_LINKS = [
-  { label: "One cue", href: "#one-cue" },
-  { label: "Product", href: "#product" },
-  { label: "Features", href: "#features" },
+  { label: "How it works", href: "#one-cue" },
+  { label: "Try the demo", href: "#demo" },
 ];
 
 export function Navbar() {

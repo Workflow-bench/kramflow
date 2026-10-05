@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Variant = "primary" | "secondary" | "ghost" | "warning" | "danger" | "danger-minor" | "danger-solid";
-type Size = "sm" | "md" | "lg" | "xl";
+type Size = "sm" | "md" | "lg" | "xl" | "public" | "hero";
 
 // Shared with LinkButton below so the two never drift into two different
 // "button-shaped thing" visual languages — see that component's own comment
@@ -51,6 +51,12 @@ function buttonClasses({
         ? "h-9 w-9 rounded-control [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
         : "h-9 px-3.5 text-console-sm rounded-control [@media(pointer:coarse)]:min-h-11"),
     size === "lg" && (square ? "h-14 w-14 rounded-card" : "h-14 px-6 text-lg rounded-card"),
+    // Public (marketing and auth) actions. Named roles, not console sizes: 48px for form
+    // actions, 52px for the hero action, 44px nav action (landing-auth design review D02/D08).
+    size === "public" &&
+      (square ? "h-12 w-12 rounded-control" : "h-12 px-5 text-[16px] font-medium rounded-control [@media(pointer:coarse)]:min-h-12"),
+    size === "hero" &&
+      (square ? "h-13 w-13 rounded-control" : "h-[52px] px-6 text-[17px] font-medium rounded-control"),
     size === "xl" && (square ? "h-20 w-20 rounded-card" : "h-20 px-8 text-xl rounded-card"),
     variant === "primary" && "bg-primary text-background hover:bg-white",
     variant === "secondary" && "bg-raised text-primary border border-line hover:bg-card-hover hover:border-white/20",

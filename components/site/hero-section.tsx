@@ -5,7 +5,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { ProductShot } from "./product-shot";
 import { AppWindow } from "./app-window";
 import { GoLink } from "./go-link";
-import { EASE, useHydrated, useReduced } from "./motion";
+import { EASE, useReduced } from "./motion";
 import { SplitFlap } from "./split-flap";
 
 /**
@@ -23,8 +23,6 @@ import { SplitFlap } from "./split-flap";
 // elements resolve to the same srcset candidate and the second is a cache hit.
 const CONSOLE_SIZES = "(min-width: 1024px) 96vw, 320vw";
 
-// The overlay owns the first ~1.4s; entrances start behind it.
-const AFTER_STANDBY = 1.25;
 
 const TELEMETRY = ["LIVE", "DAY 1 MORNING", "4 / 7", "1M BEHIND", "4 SCREENS SYNCED"];
 
@@ -47,7 +45,6 @@ function useWallClock() {
 export function HeroSection() {
   const root = useRef<HTMLElement>(null);
   const reduce = useReduced();
-  const hydrated = useHydrated();
   const clock = useWallClock();
   const { scrollYProgress } = useScroll({ target: root, offset: ["start start", "end start"] });
 
@@ -57,15 +54,15 @@ export function HeroSection() {
   const copyOpacity = useTransform(scrollYProgress, [0, 0.58], reduce ? [1, 1] : [1, 0]);
   const copyY = useTransform(scrollYProgress, [0, 0.58], reduce ? [0, 0] : [0, -40]);
 
+  // The headline, support and actions are visible in the server HTML: no hydration gate,
+  // no full-screen cover (landing-auth design D04). A short settle is the only motion here.
   const enter = (delay: number) => ({
-    initial: { opacity: 0, y: 16 },
-    animate: hydrated ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 },
-    transition: reduce ? { duration: 0 } : { duration: 0.8, delay: AFTER_STANDBY + delay, ease: EASE },
+    animate: { opacity: 1, y: 0 },
+    transition: reduce ? { duration: 0 } : { duration: 0.4, delay, ease: EASE },
   });
   const line = (delay: number) => ({
-    initial: { y: "105%" },
-    animate: hydrated ? { y: "0%" } : { y: "105%" },
-    transition: reduce ? { duration: 0 } : { duration: 0.9, delay: AFTER_STANDBY + delay, ease: EASE },
+    animate: { y: "0%" },
+    transition: reduce ? { duration: 0 } : { duration: 0.5, delay, ease: EASE },
   });
 
   return (
@@ -107,7 +104,15 @@ export function HeroSection() {
               The live operations system for stage managers, AV operators and presenters.
             </motion.p>
             <motion.div {...enter(0.65)} className="mt-6">
-              <GoLink href="/signup">Start free</GoLink>
+              <div className="flex flex-wrap items-center gap-4">
+                <GoLink href="/signup">Start free</GoLink>
+                <a
+                  href="#demo"
+                  className="min-h-11 rounded-control px-2 text-[15px] text-muted underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  Try a cue
+                </a>
+              </div>
             </motion.div>
           </div>
         </div>
@@ -116,9 +121,8 @@ export function HeroSection() {
       {/* Desktop: the console in a window frame, cropped by the viewport. */}
       <div className="relative mt-12 hidden overflow-hidden lg:block lg:h-full">
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={hydrated ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
-          transition={reduce ? { duration: 0 } : { duration: 1, delay: AFTER_STANDBY + 0.4, ease: EASE }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={reduce ? { duration: 0 } : { duration: 0.6, delay: 0.2, ease: EASE }}
           className="mx-auto w-full max-w-[1600px] px-6 sm:px-10"
         >
           <motion.div style={{ y: lift }} className="will-change-transform">

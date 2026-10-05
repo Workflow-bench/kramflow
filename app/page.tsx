@@ -3,7 +3,6 @@ import { Navbar } from "@/components/site/navbar";
 import { HeroSection } from "@/components/site/hero-section";
 import { PlayableShow } from "@/components/site/playable-show";
 import { CallSheet } from "@/components/site/call-sheet";
-import { StandbyOverlay } from "@/components/site/standby-overlay";
 import { OneCueSection } from "@/components/site/one-cue-section";
 import { LiveOperationsSection } from "@/components/site/live-operations-section";
 import { CTASection } from "@/components/site/cta-section";
@@ -66,12 +65,11 @@ export default function Home() {
       >
         Skip to content
       </a>
-      <StandbyOverlay />
       <Navbar />
       <div id="main-content" tabIndex={-1} className="focus:outline-none">
         <HeroSection />
-        <OneCueSection />
         <PlayableShow />
+        <OneCueSection />
         <CallSheet />
         <LiveOperationsSection />
         <CTASection />

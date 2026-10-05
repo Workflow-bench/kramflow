@@ -6,8 +6,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/auth/password-input";
 import { Button, LinkButton } from "@/components/ui/button";
-import { Panel } from "@/components/ui/card";
-import { Wordmark } from "@/components/site/wordmark";
+import { AuthShell } from "@/components/auth/auth-shell";
 
 function SignupForm() {
   const searchParams = useSearchParams();
@@ -67,125 +66,110 @@ function SignupForm() {
 
   if (confirmationSent) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
-        <Panel className="w-full max-w-sm text-center p-6">
-          {/* The one real heading on this screen, so it gets the same
-              display voice as every other heading on the site
-              (font-display) instead of the product console's own
-              operational type scale — that scale is right for a label
-              inside a running show, not for the one sentence a brand-new
-              visitor reads here. */}
-          <h1 className="font-display text-[1.75rem] text-primary">Check your email</h1>
-          <p className="text-console-sm text-muted mt-3">
-            We sent a confirmation link to <span className="text-primary">{email}</span>. Click it to activate your
-            account, then come back and log in.
-          </p>
-          <LinkButton href={`/login?next=${encodeURIComponent(next)}`} className="mt-8" variant="secondary" size="lg">
-            Back to Log In
-          </LinkButton>
-        </Panel>
-      </div>
+      <AuthShell
+        title="Check your email"
+        support={`We sent a confirmation link to ${email}. Click it to activate your account, then log in.`}
+        showArt={false}
+      >
+        <LinkButton href={`/login?next=${encodeURIComponent(next)}`} variant="secondary" size="public" className="w-full">
+          Back to log in
+        </LinkButton>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
-      <div className="flex flex-col items-center w-full max-w-sm">
-        {/* Matches app/login/page.tsx's Wordmark treatment — see that
-            file's comment for why the plain "KramFlow" text was wrong on
-            both counts (wrong case, wrong type scale). */}
-        <Link
-          href="/"
-          className="-my-3 rounded-chip py-3 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          <Wordmark />
-        </Link>
-        <p className="text-console-sm text-muted mt-2">Create your operator account</p>
-
-        {/* Matches app/login/page.tsx's own Panel treatment — see that
-            file's comment for why. Field anatomy untouched. */}
-        <Panel className="w-full mt-8 p-6">
-        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="name" className="text-console-meta text-muted-2">
-              Name
-            </label>
-            <Input
-              id="name"
-              type="text"
-              autoComplete="name"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={submitting}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-console-meta text-muted-2">
-              Email
-            </label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={submitting}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-console-meta text-muted-2">
-              Password
-            </label>
-            <PasswordInput
-              id="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={submitting}
-            />
-            <p className="text-console-meta text-muted-2">At least 8 characters.</p>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="confirmPassword" className="text-console-meta text-muted-2">
-              Confirm password
-            </label>
-            <PasswordInput
-              id="confirmPassword"
-              autoComplete="new-password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={submitting}
-            />
-          </div>
-
-          {error && (
-            <p className="text-console-meta text-status-red" role="alert">
-              {error}
-            </p>
-          )}
-
-          <Button type="submit" variant="primary" size="lg" loading={submitting} className="w-full mt-2">
-            Sign Up
-          </Button>
-        </form>
-        </Panel>
-
-        <p className="text-console-meta text-muted-2 mt-6">
+    <AuthShell
+      title="Create your Kramflow account"
+      support="Plan your cues. Run your show."
+      footer={
+        <>
           Already have an account?{" "}
           <Link href={`/login?next=${encodeURIComponent(next)}`} className="text-primary hover:underline">
             Log in
           </Link>
-        </p>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="flex w-full flex-col gap-5">
+        <div className="flex flex-col gap-2">
+          <label htmlFor="name" className="text-[14px] leading-5 text-muted">
+            Name
+          </label>
+          <Input
+            id="name"
+            size="public"
+            type="text"
+            autoComplete="name"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={submitting}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label htmlFor="email" className="text-[14px] leading-5 text-muted">
+            Email
+          </label>
+          <Input
+            id="email"
+            size="public"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={submitting}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label htmlFor="password" className="text-[14px] leading-5 text-muted">
+            Password
+          </label>
+          <PasswordInput
+            id="password"
+            size="public"
+            autoComplete="new-password"
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={submitting}
+            aria-describedby="password-help"
+          />
+          <p id="password-help" className="text-[13px] leading-5 text-muted-2">
+            At least 8 characters.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label htmlFor="confirmPassword" className="text-[14px] leading-5 text-muted">
+            Confirm password
+          </label>
+          <PasswordInput
+            id="confirmPassword"
+            size="public"
+            autoComplete="new-password"
+            required
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            disabled={submitting}
+          />
+        </div>
+
+        {error && (
+          <p className="text-[14px] leading-5 text-status-red" role="alert">
+            {error}
+          </p>
+        )}
+
+        <Button type="submit" variant="primary" size="public" loading={submitting} className="w-full">
+          Sign Up
+        </Button>
+      </form>
+    </AuthShell>
   );
 }
 
@@ -193,7 +177,7 @@ export default function SignupPage() {
   return (
     // useSearchParams requires a Suspense boundary during static
     // generation — matches app/login/page.tsx's own wrapper exactly.
-    <Suspense fallback={<div className="h-screen w-screen bg-background" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-background" />}>
       <SignupForm />
     </Suspense>
   );

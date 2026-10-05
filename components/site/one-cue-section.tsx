@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { ProductShot, VenueScreen, type ShotKey } from "./product-shot";
 import { AppWindow } from "./app-window";
 import { useGsap } from "./use-gsap";
@@ -56,6 +56,13 @@ interface Screen {
   connector: "h" | "v";
 }
 
+const MOBILE_OUTPUTS = [
+  { short: "Stage" },
+  { short: "AV" },
+  { short: "Speaker" },
+  { short: "Lobby" },
+] as const;
+
 const SCREENS: Screen[] = [
   {
     before: "presenterPrev",
@@ -94,6 +101,7 @@ const SCREENS: Screen[] = [
 export function OneCueSection() {
   const root = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
+  const [mobileOutput, setMobileOutput] = useState(0);
 
   useGsap(root, ({ gsap, reduced }) => {
     if (reduced) {
@@ -116,13 +124,13 @@ export function OneCueSection() {
     gsap.set("[data-fired]", { opacity: 0 });
 
     const tl = gsap.timeline({
+      // No pin: the cue advances with scroll while the section is in view, without holding
+      // the viewport (landing-auth design D13: no scroll hijacking).
       scrollTrigger: {
         trigger: root.current,
-        start: "top top",
-        end: "+=220%",
-        pin: stage.current,
+        start: "top 65%",
+        end: "bottom 45%",
         scrub: 0.6,
-        anticipatePin: 1,
       },
     });
 
@@ -232,10 +240,41 @@ export function OneCueSection() {
               at build time so the browser fetches ~1050 px, not the 3840 px variant (KF-023). */}
           <ProductShot shot="consoleMobile" sizes="100vw" priority />
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {SCREENS.map((screen) => (
-            <VenueScreen key={screen.label} shot={screen.after} label={screen.label} sizes="50vw" />
+        {/* One readable output at a time (landing-auth design D06). Explicit controls let the
+            visitor compare destinations; the four are not shrunk onto one phone screen. */}
+        <div role="tablist" aria-label="Output" className="mt-4 grid grid-cols-4 gap-2">
+          {MOBILE_OUTPUTS.map((out, i) => (
+            <button
+              key={out.short}
+              id={`output-tab-${i}`}
+              type="button"
+              role="tab"
+              aria-selected={mobileOutput === i}
+              aria-controls="output-panel"
+              tabIndex={mobileOutput === i ? 0 : -1}
+              onClick={() => setMobileOutput(i)}
+              onKeyDown={(e) => {
+                if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+                e.preventDefault();
+                const next = (mobileOutput + (e.key === "ArrowRight" ? 1 : -1) + MOBILE_OUTPUTS.length) % MOBILE_OUTPUTS.length;
+                setMobileOutput(next);
+                document.getElementById(`output-tab-${next}`)?.focus();
+              }}
+              className={`min-h-11 rounded-control border px-2 text-[13px] transition-colors duration-150 ${
+                mobileOutput === i ? "border-line bg-raised text-primary" : "border-line-soft text-muted hover:text-primary"
+              }`}
+            >
+              {out.short}
+            </button>
           ))}
+        </div>
+        <div id="output-panel" role="tabpanel" aria-labelledby={`output-tab-${mobileOutput}`} className="mt-3">
+          <VenueScreen
+            key={SCREENS[mobileOutput].label}
+            shot={SCREENS[mobileOutput].after}
+            label={SCREENS[mobileOutput].label}
+            sizes="100vw"
+          />
         </div>
       </div>
     </section>

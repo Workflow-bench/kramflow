@@ -1,0 +1,13 @@
+{
+ "tabs": [
+  "Stage",
+  "AV",
+  "Speaker",
+  "Lobby"
+ ],
+ "selectedAfterSpeakerClick": "Speaker",
+ "selectedAfterArrowRight": "Lobby",
+ "panelWidth": 327,
+ "demoBeforeOneCue": true,
+ "demoTop": 430
+}

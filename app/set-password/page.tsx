@@ -5,8 +5,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PasswordInput } from "@/components/auth/password-input";
 import { Button } from "@/components/ui/button";
-import { Panel } from "@/components/ui/card";
-import { Wordmark } from "@/components/site/wordmark";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { safeNext } from "@/lib/safe-redirect";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -79,21 +78,28 @@ function SetPasswordForm() {
   }
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
-      <div className="flex flex-col items-center w-full max-w-sm">
-        <Wordmark />
-        <p className="text-console-sm text-muted mt-2">Set your password</p>
-        <p className="text-console-meta text-muted-2 mt-1 text-center">
-          You&rsquo;re logged in with a temporary password. Choose a new one to continue.
-        </p>
-
-        <Panel className="w-full mt-8 p-6">
-          <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
+    <AuthShell
+      title="Set your password"
+      support="You are logged in with a temporary password. Choose a new one to continue."
+      showArt={false}
+      footer={
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Not you? Log out
+        </button>
+      }
+    >
+      <form onSubmit={handleSubmit} className="flex w-full flex-col gap-5">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="password" className="text-console-meta text-muted-2">
+              <label htmlFor="password" className="text-[14px] leading-5 text-muted">
                 New password
               </label>
               <PasswordInput
+                size="public"
                 id="password"
                 autoComplete="new-password"
                 required
@@ -109,10 +115,11 @@ function SetPasswordForm() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="confirmPassword" className="text-console-meta text-muted-2">
+              <label htmlFor="confirmPassword" className="text-[14px] leading-5 text-muted">
                 Confirm new password
               </label>
               <PasswordInput
+                size="public"
                 id="confirmPassword"
                 autoComplete="new-password"
                 required
@@ -128,35 +135,22 @@ function SetPasswordForm() {
             </div>
 
             {error && (
-              <p id="set-password-error" className="text-console-meta text-status-red" role="alert">
+              <p id="set-password-error" className="text-[14px] leading-5 text-status-red" role="alert">
                 {error}
               </p>
             )}
 
-            <Button type="submit" variant="primary" size="lg" loading={submitting} className="w-full mt-2">
+            <Button type="submit" variant="primary" size="public" loading={submitting} className="w-full">
               Set Password &amp; Continue
             </Button>
           </form>
-        </Panel>
-
-        <p className="text-console-meta text-muted-2 mt-6">
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Not you? Log out
-          </button>
-        </p>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
 
 export default function SetPasswordPage() {
   return (
-    <Suspense fallback={<div className="h-screen w-screen bg-background" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-background" />}>
       <SetPasswordForm />
     </Suspense>
   );
