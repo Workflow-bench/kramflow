@@ -81,7 +81,7 @@ export function CallSheet() {
                     ● Live
                   </span>
                 </h3>
-                <p className={`col-start-2 text-[15px] leading-relaxed transition-colors duration-500 md:col-start-auto text-muted`}>
+                <p className={`col-start-2 text-[15px] leading-relaxed transition-colors duration-500 md:col-start-auto ${on ? "text-muted" : "text-muted-2/70"}`}>
                   {body}
                 </p>
                 <span className="tnum hidden pt-1.5 text-right text-[10px] uppercase tracking-[0.12em] text-muted-2 md:block">{dur}</span>

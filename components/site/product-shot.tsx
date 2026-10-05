@@ -1,7 +1,6 @@
 import Image, { type StaticImageData } from "next/image";
 
 import consoleShot from "../../public/product/console.png";
-import consoleMobileShot from "../../public/product/console-mobile-crop.png";
 import consolePrevShot from "../../public/product/console-prev.png";
 import cueSheetShot from "../../public/product/cue-sheet.png";
 import displaysShot from "../../public/product/displays.png";
@@ -61,14 +60,6 @@ export const SHOTS = {
     img: consoleShot,
     alt: "Kramflow Operator Console running Northwind Summit 2026: the rundown on the left, the live item and its countdown in the centre, and the show controls on the right.",
   },
-  // The mobile hero's live column, cropped from the console capture at build time
-  // (1050x735 from x 1680, y 189 of 3360x2100). The mobile hero used to scale the
-  // full capture to 320% and clip it in CSS, so the browser fetched a 3840 px
-  // image to show a third of it. Same content, same alt text.
-  consoleMobile: {
-    img: consoleMobileShot,
-    alt: "Kramflow Operator Console running Northwind Summit 2026: the rundown on the left, the live item and its countdown in the centre, and the show controls on the right.",
-  },
   consolePrev: { img: consolePrevShot, alt: "The same Operator Console one cue earlier, with the Opening Keynote live." },
   cueSheet: {
     img: cueSheetShot,
@@ -98,14 +89,10 @@ interface ProductShotProps {
   priority?: boolean;
 }
 
-// Quality 80. These are interface screenshots, not photographs: text edges
-// and flat fills dominate, and 80 keeps them sharp while cutting the hero
-// capture's transfer by roughly a third (the LCP image on mobile, see
-// docs/audit-remediation/LCP_PROFILE.md). Set in one place so every shot matches.
 export function ProductShot({ shot, className = "", sizes = "100vw", priority = false }: ProductShotProps) {
   const s = SHOTS[shot];
   return (
-    <Image src={s.img} alt={s.alt} sizes={sizes} priority={priority} quality={80} className={`h-auto w-full ${className}`} />
+    <Image src={s.img} alt={s.alt} sizes={sizes} priority={priority} quality={90} className={`h-auto w-full ${className}`} />
   );
 }
 

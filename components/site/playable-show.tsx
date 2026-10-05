@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { useReduced } from "./motion";
+import { Reveal, useReduced } from "./motion";
 import { SplitFlap } from "./split-flap";
 
 /**
@@ -99,16 +99,14 @@ export function PlayableShow() {
   const done = cue >= ITEMS.length - 1;
 
   return (
-    <section ref={root} id="demo" data-cue="Try a cue" className="scroll-mt-24 border-b border-line-soft">
+    <section ref={root} id="product" data-cue="Your turn" className="border-b border-line-soft">
       <div className="mx-auto max-w-[1600px] px-6 py-16 sm:px-10 lg:py-28">
-        {/* Not wrapped in <Reveal>: the heading is server-rendered visible, so no
-            opacity or translate gate sits between the page and its LCP (CD-F4). */}
-        <div>
+        <Reveal>
           <h2 className="max-w-[14ch] font-display text-[clamp(2.25rem,5.5vw,4.75rem)] text-primary">
             Now you call the cue.
           </h2>
           <p className="mt-5 max-w-[40ch] text-base leading-relaxed text-muted">Press Next. Four screens follow.</p>
-        </div>
+        </Reveal>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14">
           {/* ---------------------------------------------- the rundown */}
@@ -121,10 +119,10 @@ export function PlayableShow() {
                   <li
                     key={it.title}
                     className={`grid h-12 grid-cols-[1.75rem_minmax(0,1fr)_auto_2.75rem] items-center gap-2 border-b border-line-soft px-3 text-[13px] last:border-b-0 sm:gap-3 sm:px-4 sm:text-[14px] ${
-                      live ? "bg-status-green/10 text-primary" : past ? "text-muted-2" : "text-muted"
+                      live ? "bg-status-green/10 text-primary" : past ? "text-muted-2/60" : "text-muted"
                     }`}
                   >
-                    <span className="tnum text-[11px] text-muted">{i + 1}</span>
+                    <span className="tnum text-[11px] text-muted-2">{i + 1}</span>
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="truncate">{it.title}</span>
                       {live && (
@@ -137,7 +135,7 @@ export function PlayableShow() {
                       )}
                     </span>
                     <SplitFlap value={clock(starts[i])} className="text-[13px] sm:text-[14px]" />
-                    <span className="tnum text-right text-[11px] text-muted">{it.min + extra[i]}m</span>
+                    <span className="tnum text-right text-[11px] text-muted-2">{it.min + extra[i]}m</span>
                   </li>
                 );
               })}

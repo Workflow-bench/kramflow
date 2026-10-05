@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
-import { LinkButton } from "@/components/ui/button";
 import { Wordmark } from "./wordmark";
+import { SiteAction, SiteTextLink } from "./site-action";
 import { useGsap } from "./use-gsap";
 
 /**
@@ -24,35 +24,25 @@ import { useGsap } from "./use-gsap";
  * reduced motion the bar simply starts compact.
  */
 
+// Familiar names for the sections that already exist, not new nomenclature:
+// `#one-cue` (OneCueSection), `#product` (PlayableShow) and `#features`
+// (CallSheet). "One cue"/"Product" described the page's internal vocabulary
+// rather than telling a first-time visitor what they would get by clicking.
 const NAV_LINKS = [
   { label: "How it works", href: "#one-cue" },
-  { label: "Try the demo", href: "#demo" },
+  { label: "Try the demo", href: "#product" },
+  { label: "Features", href: "#features" },
 ];
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
   const [compact, setCompact] = useState(false);
   const root = useRef<HTMLElement>(null);
-  const toggle = useRef<HTMLButtonElement>(null);
-
-  // Escape closes the open menu and returns focus to the control that opened it
-  // (KF-020: keyboard completeness and focus return).
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        toggle.current?.focus();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
 
   useGsap(root, ({ gsap, ScrollTrigger, reduced }) => {
     if (reduced) {
       setCompact(true);
-      gsap.set("[data-nav-inner]", { paddingTop: 10, paddingBottom: 10 });
+      gsap.set("[data-nav-inner]", { paddingTop: 8, paddingBottom: 8 });
       return;
     }
 
@@ -67,8 +57,8 @@ export function Navbar() {
         // bar that was supposedly glass.
         setCompact(self.isActive);
         gsap.to("[data-nav-inner]", {
-          paddingTop: self.isActive ? 10 : 22,
-          paddingBottom: self.isActive ? 10 : 22,
+          paddingTop: self.isActive ? 8 : 16,
+          paddingBottom: self.isActive ? 8 : 16,
           duration: 0.35,
           ease: "power2.out",
         });
@@ -84,7 +74,7 @@ export function Navbar() {
         compact ? "glass-chrome bg-background/90! border-line-soft" : "border-transparent"
       }`}
     >
-      <div data-nav-inner className="mx-auto flex max-w-[1600px] items-center justify-between px-6 py-[22px] sm:px-10">
+      <div data-nav-inner className="mx-auto flex max-w-[1440px] items-center justify-between gap-8 px-6 py-4 sm:px-10">
         <Link
           href="/"
           className="-my-3 shrink-0 rounded-chip py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -92,32 +82,26 @@ export function Navbar() {
           <Wordmark />
         </Link>
 
-        <div className="hidden items-center gap-9 lg:flex">
+        <div className="hidden items-center gap-8 lg:flex">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="-my-3 rounded-chip py-3 text-console-label uppercase text-muted-2 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="inline-flex h-11 items-center rounded-control px-1 text-[15px] text-muted transition-colors duration-200 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {link.label}
             </a>
           ))}
         </div>
 
-        <div className="hidden items-center gap-5 lg:flex">
-          <Link
-            href="/login"
-            className="-my-3 rounded-chip py-3 text-console-label uppercase text-muted-2 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            Log in
-          </Link>
-          <LinkButton href="/signup" variant="primary" size="nav">
+        <div className="hidden items-center gap-3 lg:flex">
+          <SiteTextLink href="/login">Log in</SiteTextLink>
+          <SiteAction href="/signup" role="primary" size="nav">
             Start free
-          </LinkButton>
+          </SiteAction>
         </div>
 
         <button
-          ref={toggle}
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
@@ -161,9 +145,15 @@ export function Navbar() {
               <Link href="/login" onClick={() => setOpen(false)} className="py-4 text-base text-primary">
                 Log in
               </Link>
-              <LinkButton href="/signup" variant="primary" size="public" onClick={() => setOpen(false)} className="my-3 w-full">
+              <SiteAction
+                href="/signup"
+                role="primary"
+                size="hero"
+                onClick={() => setOpen(false)}
+                className="my-3 w-full"
+              >
                 Start free
-              </LinkButton>
+              </SiteAction>
             </div>
           </motion.div>
         )}

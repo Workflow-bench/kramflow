@@ -1,0 +1,226 @@
+[
+  {
+    "width": 1440,
+    "name": "hero label",
+    "fontSize": 13,
+    "large": false,
+    "color": "rgb(138, 128, 112)",
+    "brightestBackground": [
+      21,
+      18,
+      12
+    ],
+    "ratio": 4.81,
+    "required": 4.5,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1440,
+    "name": "hero h1",
+    "fontSize": 89.28,
+    "large": true,
+    "color": "rgb(244, 239, 229)",
+    "brightestBackground": [
+      61,
+      48,
+      29
+    ],
+    "ratio": 11.18,
+    "required": 3,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1440,
+    "name": "hero support",
+    "fontSize": 21,
+    "large": false,
+    "color": "rgb(167, 157, 139)",
+    "brightestBackground": [
+      34,
+      25,
+      15
+    ],
+    "ratio": 6.46,
+    "required": 4.5,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1440,
+    "name": "hero caption",
+    "fontSize": 13,
+    "large": false,
+    "color": "rgb(138, 128, 112)",
+    "brightestBackground": [
+      12,
+      11,
+      9
+    ],
+    "ratio": 5.06,
+    "required": 4.5,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1440,
+    "name": "nav link",
+    "fontSize": 15,
+    "large": false,
+    "color": "rgb(167, 157, 139)",
+    "brightestBackground": [
+      13,
+      12,
+      10
+    ],
+    "ratio": 7.3,
+    "required": 4.5,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1440,
+    "name": "nav log in",
+    "fontSize": 15,
+    "large": false,
+    "color": "rgb(167, 157, 139)",
+    "brightestBackground": [
+      12,
+      11,
+      9
+    ],
+    "ratio": 7.34,
+    "required": 4.5,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1440,
+    "name": "hero quiet action",
+    "fontSize": 16,
+    "large": false,
+    "color": "rgb(244, 239, 229)",
+    "brightestBackground": [
+      14,
+      13,
+      11
+    ],
+    "ratio": 16.95,
+    "required": 4.5,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1920,
+    "name": "hero label",
+    "fontSize": 13,
+    "large": false,
+    "color": "rgb(138, 128, 112)",
+    "brightestBackground": [
+      21,
+      18,
+      12
+    ],
+    "ratio": 4.81,
+    "required": 4.5,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1920,
+    "name": "hero h1",
+    "fontSize": 104,
+    "large": true,
+    "color": "rgb(244, 239, 229)",
+    "brightestBackground": [
+      65,
+      50,
+      29
+    ],
+    "ratio": 10.79,
+    "required": 3,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1920,
+    "name": "hero support",
+    "fontSize": 21,
+    "large": false,
+    "color": "rgb(167, 157, 139)",
+    "brightestBackground": [
+      33,
+      25,
+      15
+    ],
+    "ratio": 6.47,
+    "required": 4.5,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1920,
+    "name": "hero caption",
+    "fontSize": 13,
+    "large": false,
+    "color": "rgb(138, 128, 112)",
+    "brightestBackground": [
+      12,
+      11,
+      9
+    ],
+    "ratio": 5.06,
+    "required": 4.5,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1920,
+    "name": "nav link",
+    "fontSize": 15,
+    "large": false,
+    "color": "rgb(167, 157, 139)",
+    "brightestBackground": [
+      13,
+      12,
+      10
+    ],
+    "ratio": 7.3,
+    "required": 4.5,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1920,
+    "name": "nav log in",
+    "fontSize": 15,
+    "large": false,
+    "color": "rgb(167, 157, 139)",
+    "brightestBackground": [
+      12,
+      11,
+      9
+    ],
+    "ratio": 7.34,
+    "required": 4.5,
+    "pass": true,
+    "shaderMounted": true
+  },
+  {
+    "width": 1920,
+    "name": "hero quiet action",
+    "fontSize": 16,
+    "large": false,
+    "color": "rgb(244, 239, 229)",
+    "brightestBackground": [
+      17,
+      16,
+      13
+    ],
+    "ratio": 16.6,
+    "required": 4.5,
+    "pass": true,
+    "shaderMounted": true
+  }
+]

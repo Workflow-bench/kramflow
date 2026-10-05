@@ -1,0 +1,181 @@
+{
+  "label": "after",
+  "measured": [
+    {
+      "view": "1280x800",
+      "innerWidth": 1280,
+      "innerHeight": 800,
+      "scrollWidth": 1280,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "h1FontSize": "79.36px",
+      "h1Top": 195.5
+    },
+    {
+      "view": "1440x900",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "h1FontSize": "89.28px",
+      "h1Top": 195.5
+    },
+    {
+      "view": "1920x1080",
+      "innerWidth": 1920,
+      "innerHeight": 1080,
+      "scrollWidth": 1920,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "h1FontSize": "104px",
+      "h1Top": 195.5
+    },
+    {
+      "view": "1280x600-short",
+      "innerWidth": 1280,
+      "innerHeight": 600,
+      "scrollWidth": 1280,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "h1FontSize": "79.36px",
+      "h1Top": 195.5
+    },
+    {
+      "view": "375x812-regression",
+      "innerWidth": 375,
+      "innerHeight": 812,
+      "scrollWidth": 375,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "h1FontSize": "44px",
+      "h1Top": 159.5
+    }
+  ],
+  "checks": {
+    "reducedMotionHeadlineVisible": {
+      "opacity": "1",
+      "visible": true
+    },
+    "keyboardOrder": [
+      {
+        "tag": "A",
+        "text": "Kramflow",
+        "href": "/",
+        "outline": true,
+        "top": 14,
+        "height": 48
+      },
+      {
+        "tag": "A",
+        "text": "How it works",
+        "href": "#one-cue",
+        "outline": true,
+        "top": 16,
+        "height": 44
+      },
+      {
+        "tag": "A",
+        "text": "Try the demo",
+        "href": "#product",
+        "outline": true,
+        "top": 16,
+        "height": 44
+      },
+      {
+        "tag": "A",
+        "text": "Features",
+        "href": "#features",
+        "outline": true,
+        "top": 16,
+        "height": 44
+      },
+      {
+        "tag": "A",
+        "text": "Log in",
+        "href": "/login",
+        "outline": true,
+        "top": 16,
+        "height": 44
+      },
+      {
+        "tag": "A",
+        "text": "Start free",
+        "href": "/signup",
+        "outline": true,
+        "top": 16,
+        "height": 44
+      },
+      {
+        "tag": "A",
+        "text": "Start free",
+        "href": "/signup",
+        "outline": true,
+        "top": 497,
+        "height": 52
+      },
+      {
+        "tag": "A",
+        "text": "See it in action",
+        "href": "#product",
+        "outline": true,
+        "top": 497,
+        "height": 52
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Next",
+        "href": null,
+        "outline": true,
+        "top": 432,
+        "height": 36
+      }
+    ],
+    "anchors": {
+      "one-cue": {
+        "exists": true,
+        "top": 96,
+        "navBottom": 67,
+        "obscured": false
+      },
+      "product": {
+        "exists": true,
+        "top": 96,
+        "navBottom": 67,
+        "obscured": false
+      },
+      "features": {
+        "exists": true,
+        "top": 96,
+        "navBottom": 67,
+        "obscured": false
+      }
+    }
+  },
+  "contrast": {
+    "nodes": [
+      {
+        "text": "Run the showfrom one screen.",
+        "fontSize": 89.28,
+        "large": true,
+        "color": "rgb(244, 239, 229)",
+        "fgLum": 0.8662324332861235
+      },
+      {
+        "text": "Live event operations",
+        "fontSize": 13,
+        "large": false,
+        "color": "rgb(138, 128, 112)",
+        "fgLum": 0.22011468585733832
+      },
+      {
+        "text": "Run your cue sheet, timers, and ",
+        "fontSize": 21,
+        "large": false,
+        "color": "rgb(167, 157, 139)",
+        "fgLum": 0.3419351170866317
+      }
+    ]
+  },
+  "errors": []
+}

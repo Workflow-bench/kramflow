@@ -399,8 +399,13 @@ body {
 /* ── Landing: the cue-light open. A cover holds a STANDBY light, flips to GO,
    then lifts. Total 1.25s; the hero's entrances are timed to start behind it.
    Everything here is off under reduced motion (see the block below). */
-.standby-cover {
-  animation: standby-lift 0.6s cubic-bezier(0.7, 0, 0.2, 1) 0.85s forwards;
+/* The show-start cue light is an accent, not a gate. It used to be an opaque
+   full-screen cover that hid the whole first screen for ~1.45s (0.85s hold plus
+   a 0.6s lift), so the headline, explanation and actions were unreadable until
+   it finished. Now it is a small chip that runs the same amber -> green cue and
+   fades out, over content that is readable from the first frame. */
+.standby-accent {
+  animation: standby-accent-out 0.5s ease 1.15s forwards;
 }
 .standby-light {
   background: var(--color-orange);
@@ -443,30 +448,95 @@ body {
     opacity: 1;
   }
 }
-@keyframes standby-lift {
+@keyframes standby-accent-out {
   to {
-    transform: translateY(-100%);
+    opacity: 0;
     visibility: hidden;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .standby-cover {
+  .standby-accent {
     display: none;
   }
 }
-/* One-cue initial states. GSAP now loads after first paint (use-gsap.ts), so the
-   hidden starting state of the scrubbed screens is set here as well, for motion-
-   allowed visitors only. The GSAP setup sets the same values when it arrives. */
-@media (prefers-reduced-motion: no-preference) {
-  [data-after],
-  [data-console-after],
-  [data-fired] {
+
+/* ── Landing hero ────────────────────────────────────────────────────────────
+   The hero's background light, as plain CSS. This layer is always present in the
+   server HTML and is never swapped out: the WebGL mesh (components/site/
+   hero-gradient.tsx) only ever fades in on top of it, so reduced motion, missing
+   WebGL, a lost context or a failed chunk all resolve to this same image.
+
+   Masked to the band around the capture's top edge and kept off the reading
+   column: the brightest point sits below and right of the headline, and the
+   screenshot itself renders above this layer, never over it. */
+.hero-light {
+  background:
+    /* Main warm pool: right of the reading column, just above the capture's top
+       edge, so the product appears to sit in light rather than on a flat field. */
+    radial-gradient(52% 40% at 74% 46%, rgba(138, 94, 34, 0.42) 0%, rgba(138, 94, 34, 0) 70%),
+    /* A deeper brown behind the headline's right shoulder, for depth only. */
+    radial-gradient(40% 32% at 46% 28%, rgba(61, 42, 22, 0.34) 0%, rgba(61, 42, 22, 0) 72%),
+    /* A dim cream lift along the capture's top edge. */
+    radial-gradient(64% 26% at 56% 66%, rgba(110, 99, 84, 0.16) 0%, rgba(110, 99, 84, 0) 74%);
+}
+/* The shader sits inside the same box and is faded to the static layer's own
+   intensity, so switching between them is not a visible step change. */
+.hero-light-shader {
+  opacity: 0.4;
+  mask-image: radial-gradient(60% 46% at 72% 48%, #000 0%, transparent 76%);
+  -webkit-mask-image: radial-gradient(60% 46% at 72% 48%, #000 0%, transparent 76%);
+  animation: hero-shader-in 0.8s ease both;
+}
+@keyframes hero-shader-in {
+  from {
     opacity: 0;
   }
-  [data-wire] {
-    transform: scaleX(0);
-    transform-origin: left center;
-    opacity: 0.9;
+  to {
+    opacity: 0.4;
+  }
+}
+
+/* The three in-page nav destinations clear the fixed header when jumped to.
+   Without this a native anchor jump lands the section's top edge underneath the
+   bar (measured: section top 0, header bottom 69). Set here rather than on the
+   section components so the lower-page sections themselves stay untouched by
+   this pass. */
+#one-cue,
+#product,
+#features {
+  scroll-margin-top: 96px;
+}
+
+/* Hero entrance. Transform only — opacity is never animated, so every element is
+   painted and readable on the first frame and the LCP text is never gated. */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-rise {
+    animation: hero-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .hero-rise-1 {
+    animation-delay: 0.06s;
+  }
+  .hero-rise-2 {
+    animation-delay: 0.12s;
+  }
+  .hero-settle {
+    animation: hero-settle 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
+  }
+}
+@keyframes hero-rise {
+  from {
+    transform: translateY(10px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes hero-settle {
+  from {
+    transform: translateY(16px);
+  }
+  to {
+    transform: none;
   }
 }
 
@@ -487,20 +557,5 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-}
-
-/* Hero entrance (CD-F4/WIP-F3): transform only, no opacity, CSS-driven, so the copy paints from the
-   server HTML at once and is never held hidden waiting for hydration. Off under reduced motion. */
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes hero-rise {
-    from { transform: translateY(10px); }
-    to { transform: none; }
-  }
-  .hero-rise {
-    animation: hero-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  .hero-rise-late {
-    animation-delay: 0.15s;
   }
 }

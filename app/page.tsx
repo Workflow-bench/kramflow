@@ -3,6 +3,7 @@ import { Navbar } from "@/components/site/navbar";
 import { HeroSection } from "@/components/site/hero-section";
 import { PlayableShow } from "@/components/site/playable-show";
 import { CallSheet } from "@/components/site/call-sheet";
+import { StandbyOverlay } from "@/components/site/standby-overlay";
 import { OneCueSection } from "@/components/site/one-cue-section";
 import { LiveOperationsSection } from "@/components/site/live-operations-section";
 import { CTASection } from "@/components/site/cta-section";
@@ -42,6 +43,10 @@ import { Footer } from "@/components/site/footer";
 // Homepage metadata (B006-F1, B006-F2). Next merges nested metadata shallowly, so
 // openGraph must repeat the root fields or the homepage loses siteName and type.
 // The canonical is set here, not at the root, so private routes do not inherit it.
+//
+// Restored with the ui-revamp landing: that branch predates the audit fix, so
+// bringing its page.tsx across dropped this block and with it the homepage's
+// openGraph identity (caught by app/route-metadata-policy.test.ts).
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
   openGraph: {
@@ -57,23 +62,14 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <main className="bg-background">
-      {/* Skip link: the first focusable element. Hidden until keyboard focus, then it
-          jumps past the navigation to the content (KF-020). Target: #main-content. */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-raised focus:border focus:border-line focus:px-4 focus:py-2 focus:text-console-sm focus:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-      >
-        Skip to content
-      </a>
+      <StandbyOverlay />
       <Navbar />
-      <div id="main-content" tabIndex={-1} className="focus:outline-none">
-        <HeroSection />
-        <PlayableShow />
-        <OneCueSection />
-        <CallSheet />
-        <LiveOperationsSection />
-        <CTASection />
-      </div>
+      <HeroSection />
+      <OneCueSection />
+      <PlayableShow />
+      <CallSheet />
+      <LiveOperationsSection />
+      <CTASection />
       <Footer />
     </main>
   );
