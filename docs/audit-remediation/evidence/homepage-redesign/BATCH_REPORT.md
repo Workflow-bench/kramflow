@@ -7,10 +7,11 @@ Implementation of the supplied homepage design direction. Not self-approved; pen
 | Item | Value |
 |---|---|
 | `BASE_SHA` | `b383b3ef07e0e2ca5114ce8fbefdd8f07d1eff99` |
-| `FINAL_SHA` | recorded in the commit that carries this file |
+| `FINAL_SHA` | `3bf1ae7a180a582506a133313a41b67988f53031` (plus the follow-up commit recording this SHA) |
 | Branch | `integrate/ui-revamp-landing` |
 | Dirty state at start | Clean tracked tree at `b383b3e`; nine pre-existing untracked paths preserved and excluded |
 | Dirty state at finish | Clean after commit; the same untracked paths untouched |
+| HawkScan | Not run: `HAWK_API_KEY` and the hawk runtime are absent in this session |
 
 Intervening changes: none. HEAD matched the research baseline exactly, so nothing had to be preserved beyond the untracked paths.
 
