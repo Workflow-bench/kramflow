@@ -198,7 +198,10 @@
         "app/api/display-engine/timer/route.test.ts",
         "batches/B009/REVIEW_HANDOFF.md",
         "docs/audit-remediation/migrations/tests/hold/hold_persistence.sql",
-        "docs/audit-remediation/migrations/tests/hold/hold_persistence.out"
+        "docs/audit-remediation/migrations/tests/hold/hold_persistence.out",
+        "docs/audit-remediation/migrations/tests/hold/CONCURRENCY_RESULTS.md",
+        "docs/audit-remediation/migrations/tests/hold/hold_lost_update.sh",
+        "app/api/display-engine/hold/route.test.ts"
       ],
       "environment": "dev Supabase qofggbarsdiovzqwgkpz",
       "reviewer": null,
@@ -210,7 +213,8 @@
         "tracked as its own row per review instruction, B002",
         "B007: root cause from code: display_type_state was backfilled only for events existing at migration 20260909091740, and event creation never provisioned it, so hold and timer writes matched no row. Hold activate returned ok:true for a zero-row update. Fixed in 7a8d140 (provisioning in event creation, provisioning before hold writes, exactly-one-row update and readback). Unit-tested with fakes; live dev rows were not queried. implementation_state stays OPEN until Codex review.",
         "B009 r4 local: OPEN -> IN_PROGRESS. Timer provisioning, conditional-version 409 test, real-database version race (second writer 0 rows). Hold readback guard tested; real-DB hold path not run.",
-        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. Hold persistence on disposable local Postgres mirror: activation, deactivation, missing-row provisioning, tenant boundary, unknown type. ALL PASSED (local mirror, not Supabase runtime)."
+        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. Hold persistence on disposable local Postgres mirror: activation, deactivation, missing-row provisioning, tenant boundary, unknown type. ALL PASSED (local mirror, not Supabase runtime).",
+        "B009 r6 local: IN_PROGRESS -> IN_PROGRESS. Lost update on hold deactivation reproduced on local Postgres (stale merge overwrote a committed activation). Fixed: conditional write on activatedAt witness with bounded retry, 409 on sustained conflict. Unit tests (4 new) and negative control recorded. Live API path not run."
       ]
     },
     {
@@ -296,7 +300,10 @@
         "docs/audit-remediation/evidence/B009/modal-exclusion/ax-modal.json",
         "docs/audit-remediation/evidence/B009/rehearsal-navigation/rehearsal-navigation.json",
         "docs/audit-remediation/evidence/B009/rehearsal-navigation/README.md",
-        "docs/audit-remediation/evidence/B009/modal-stack/modal-stack.json"
+        "docs/audit-remediation/evidence/B009/modal-stack/modal-stack.json",
+        "docs/audit-remediation/evidence/B009/rehearsal-persistence/rehearsal-persistence.json",
+        "docs/audit-remediation/evidence/B009/rehearsal-persistence/completion-and-nav.json",
+        "lib/rehearsal-run.test.ts"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
@@ -309,7 +316,8 @@
         "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: alertdialog name, focus inside, Escape returns focus to Exit, confirm exits via onExit verified in the harness. Navigation exit without progress is a plain link (not intercepted).",
         "B009 r3 local: IN_PROGRESS -> IN_PROGRESS. B009 r3: initial focus on Cancel; Tab stays inside the alertdialog; background point is the backdrop and cue unchanged; Escape and Enter-on-Cancel close without exit; focus returns to Exit Rehearsal. In-app exit with no progress is a plain link (not intercepted). Browser back navigation not verified.",
         "B009 r4: browser back/forward verified (fresh state, no beforeunload prompt, no /api/live); background excluded from AX tree via inert while dialog open.",
-        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. In-app Link and Back keep progress (sessionStorage per viewer); Reset is the explicit discard; confirmed Exit clears. In-app navigation shows no confirmation (open product decision)."
+        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. In-app Link and Back keep progress (sessionStorage per viewer); Reset is the explicit discard; confirmed Exit clears. In-app navigation shows no confirmation (open product decision).",
+        "B009 r6 local: IN_PROGRESS -> IN_PROGRESS. Storage keyed by user, event and session; cue fingerprint invalidates stale runs; sign-out and account changes clear runs; Reset asks when progress would be lost; confirmed Exit clears; completion survives reload with no prompt. Open: in-app navigation away from a run has no confirmation (product decision)."
       ]
     },
     {
@@ -929,7 +937,8 @@
         "batches/B009/REVIEW_HANDOFF.md",
         "docs/audit-remediation/evidence/B009/modal-exclusion/ax-modal.json",
         "docs/audit-remediation/evidence/B009/modal-stack/modal-stack.json",
-        "docs/audit-remediation/evidence/B009/modal-stack/modal-alone.json"
+        "docs/audit-remediation/evidence/B009/modal-stack/modal-alone.json",
+        "components/ui/use-dialog-focus.test.ts"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
@@ -940,7 +949,8 @@
         "B003: completed master-required fields; corrected its source mapping — several rows previously folded into KF-032 (skip-to-content, sticky headers, keyboard/focus sweep, WCAG AA, alt text, Lighthouse accessibility score) actually belong here (master-prompt item 8), not under KF-032 (master-prompt item 9's UX-08 polish cluster); see SOURCE_COVERAGE.json",
         "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: skip link focus and target, reflow 320-1440 without horizontal scroll (viewport approximation), login main/heading via AX tree. Real browser zoom, screen-reader names and modal focus return not verified.",
         "B009 r4: modal background excluded from the AX tree and from keyboard focus (inert). Modal primitive shares the hook; browser check only on ConfirmDialog.",
-        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. Shared Modal and ConfirmDialog stack: background excluded from the AX tree while any dialog is open; restored in any close order; focus returns to trigger."
+        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. Shared Modal and ConfirmDialog stack: background excluded from the AX tree while any dialog is open; restored in any close order; focus returns to trigger.",
+        "B009 r6 local: IN_PROGRESS -> IN_PROGRESS. Modal registry: idempotent release, pre-existing inert preserved, teardown releases marks, overlapping dialogs in both close orders (unit). Browser unmount-while-open not separately run."
       ]
     },
     {
@@ -1053,7 +1063,8 @@
         "docs/audit-remediation/evidence/B009/perf-gsap-deferred",
         "docs/audit-remediation/evidence/B009/final-revision-measurements",
         "docs/audit-remediation/evidence/B009/perf-lazymotion/NEGATIVE_RESULT.md",
-        "docs/audit-remediation/evidence/B009/perf-framer-negative/NEGATIVE_RESULT.md"
+        "docs/audit-remediation/evidence/B009/perf-framer-negative/NEGATIVE_RESULT.md",
+        "docs/audit-remediation/evidence/B009/hero-server-component/NEGATIVE_RESULT.md"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
@@ -1065,7 +1076,8 @@
         "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: simulated mobile median 3309 ms (misses 2500); observed devtools mobile median 2317 ms (n=3). Reported separately; acceptance method unchanged; not CODEX_VERIFIED.",
         "B009 r3 local: IN_PROGRESS -> IN_PROGRESS. B009 r3: GSAP deferred after first paint; simulated mobile median 3310 -> 3012 ms (3 runs; target 2500 ms NOT met). Observed mobile 2339 ms (n=3, supplementary). Framer-motion stack remains the next lever (design decision needed). Acceptance method unchanged.",
         "B009 r4: LazyMotion experiment reverted (negative, 3158 ms simulated). GSAP-only deferral retained. Target still missed.",
-        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. Framer removal upper bound (landing and root MotionConfig): simulated median 3011 ms, no gain. Negative. Remaining bottleneck not in the animation library. Target still missed."
+        "B009 r5 local: IN_PROGRESS -> IN_PROGRESS. Framer removal upper bound (landing and root MotionConfig): simulated median 3011 ms, no gain. Negative. Remaining bottleneck not in the animation library. Target still missed.",
+        "B009 r6 local: IN_PROGRESS -> IN_PROGRESS. Hero as server component with CSS motion: simulated mobile median 3161 ms vs 3012 ms baseline. Negative, reverted. Target still missed."
       ]
     },
     {

@@ -393,3 +393,85 @@ Final revision: the commit that adds this section (hash in the final message).
 2. Decide whether in-app navigation away from an in-progress rehearsal needs a confirmation; current protection is persistence, not a prompt.
 3. Decide whether KF-023 proceeds to a structural client-bundle change (server components for non-interactive landing sections), which is outside animation internals.
 4. Decide whether the hold deactivation read-then-write needs a conditional update, and whether to exercise it concurrently.
+
+---
+
+# Update r6 (supersedes r5 where they conflict)
+
+Status: SELF-VERIFIED, PENDING CODEX REVIEW. No CODEX_VERIFIED. No self-approval, no acceptance-method change, no push, no deployment, no shared-resource operation.
+Final revision: the commit that adds this section (hash in the final message).
+
+## Final checks
+- `npm test`: 53 files, 592 passed. `npx eslint .`: 0 errors, 6 warnings (outside changed files; pre-existing `window.location` in the auth provider, not in new code). `npx tsc --noEmit`: clean, before and after both builds. Archive/reporting subset: 67 passed. `validate_ledger.mjs`: PASS.
+- Production build, default Turbopack: PASS. Production build, webpack: PASS.
+- Production 404 (HTTP client, not browser): `/dev/modal`, `/dev/realtime`, `/dev/import`, `/dev/rehearsal`, `/dev/components`. Landing 200.
+
+## 1. KF-023: landing hydration (kept the 2500 ms target and the simulated method)
+Profiled before choosing boundaries. Measured candidates, simulated mobile median, n=3 each, same build method:
+
+| Candidate | Mobile median (ms) | Result |
+|---|---|---|
+| GSAP deferred after first paint (kept, in a782580) | 3012 | Baseline for this pass |
+| Framer removed from all landing sections (shim) | 3009 | No gain |
+| Framer removed from sections and root MotionConfig | 3011 | No gain (upper bound for the animation library) |
+| LazyMotion, async features | 3158 | No gain; reverted |
+| Hero as a server component, CSS entrances and scroll timelines | 3161 | Worse; reverted |
+
+- The hero conversion did what it claimed: the copy and headline render and animate with JavaScript disabled (`hero-server-component/hero-no-js.json`). The gain is correctness, not LCP.
+- Why the metric does not move: the LCP element is the one-cue crop image, inside the one-cue client island, not the hero. Removing hero hydration does not shorten the path to that image.
+- Not measured: converting the one-cue, playable-show and navbar islands. They are interactive or timed (GSAP pin, timers, menu) and need separate profiling before any boundary change.
+- Result: KF-023 remains OPEN against its target. Simulated mobile median 3012 ms (shipped build). Observed devtools series is supplementary only.
+
+## 2. Hold deactivation: lost update reproduced, fixed, tested
+- Reproduced on local Postgres 16.15 (`b9_hold`, two psql sessions, `migrations/tests/hold/hold_lost_update.sh rmw`): a concurrent committed activation (M2) was overwritten by the stale deactivation merge. Final hold `{"active": false, "message": "M1", "activatedAt": null}`.
+- Fix (`app/api/display-engine/hold/route.ts`): deactivation writes conditionally on the `activatedAt` witness (`hold->>activatedAt` equal, or IS NULL). Zero rows: re-read and retry, up to 3 attempts; sustained conflict returns 409 and writes nothing. Activation unchanged.
+- Local Postgres, fixed algorithm (`cas`): attempt 1 wrote 0 rows, attempt 2 wrote 1; final `{"active": false, "message": "M2", "activatedAt": null}`.
+- Unit tests (`hold/route.test.ts`, 9): 4 new (concurrent activation kept and retried; unrelated fields preserved; three conflicts give 409 and keep the last write; null witness path). Negative control: the previous route fails the two concurrency tests; the fixed route passes all nine.
+- Tenant boundary: all hold and conditional writes filter by event and display type; `hold_persistence.sql` (10 checks) passes.
+- Limit: the live PostgREST path-filter on `hold->>activatedAt` is covered by the unit fake only. Not run against Supabase.
+- Evidence: `migrations/tests/hold/CONCURRENCY_RESULTS.md`.
+
+## 3. Rehearsal persistence: isolation, invalidation, discards
+- Key: `kf-rehearsal-run:<user id>:<event id>` in sessionStorage. Identity comes from the Supabase session via `lib/auth/session-identity.ts`, set by the auth provider. With no identity the run is memory-only and never written to storage.
+- Stored run carries its session id and a cue fingerprint (order, id, title, duration, count). A run is restored only when user, event, session and fingerprint all match; otherwise it is treated as no run. Unit tests: `lib/rehearsal-run.test.ts` (keys, trust, fingerprint, match, clear).
+- Cue data changed: the stale run is not shown; the view says the cue list changed and restarts on the next action. No progress is merged into the changed cues.
+- Sign-out (`lock`), SIGNED_IN, SIGNED_OUT and USER_UPDATED clear every rehearsal run (`resetRehearsalRuns`). INITIAL_SESSION and TOKEN_REFRESHED keep them (reload and token refresh do not discard).
+- Discards: confirmed Exit clears the run. Reset rehearsal asks for confirmation when meaningful progress would be lost (same rule as Exit); a completed or unstarted run resets without asking. Run again (completion screen) has no meaningful progress to lose and resets directly.
+- Browser (`rehearsal-persistence/rehearsal-persistence.json`, synthetic identity via the harness): reload keeps the run (S1); identity B sees a fresh run and identity A's run remains intact (S2, S3); changed cues show the notice and no stale progress (S4); a fresh run on changed cues survives reload with no notice (S5); Reset with progress opens a confirmation, Cancel keeps cue 2, confirm resets (S6); sign-out clears all keys and a reload starts fresh (S7); no identity writes nothing (S8); confirmed Exit clears (S9).
+- Completion (`completion-and-nav.json`): completion survives reload and in-app Link plus Back with no prompt; no prompt appears because nothing discardable is left.
+- Browser prompts: `beforeunload` appears only while progress is discardable (reload, close).
+- Open decision: in-app navigation (Link, Back) away from a run with progress shows no confirmation. Nothing is lost (the run is restored on return), so no prompt is added. Codex to confirm that reading.
+- Limit: identity and sign-out were exercised through the synthetic harness control, which calls the same functions as the auth provider. The real Supabase sign-in/out flow is not run here (authenticated persistence, external).
+
+## 4. Modal registry (KF-020)
+- Unit tests (`use-dialog-focus.test.ts`, 8): nested (upper-first and lower-first close orders), sibling dialogs, restoration of pre-existing inert, zero marks after any order, idempotent release (a second release no longer decrements counts another dialog holds; this was a real defect the new test found and the fix corrects), teardown on unmount (release from the hook cleanup path).
+- Browser (earlier, `modal-stack/`): Modal alone and Modal plus ConfirmDialog stacks, both close orders.
+- Not run in a browser: unmount-while-open of the Modal (the teardown path calls the same release; verified by unit test only).
+
+## KF-023 remains open
+Target 2500 ms not met (simulated median 3012 ms). Negative results retained: framer removal (no gain), LazyMotion (3158 ms), hero server component (3161 ms). The next lever is profiling and converting the one-cue, playable-show and navbar islands, which has not been done.
+
+## Next remaining audit items (ledger OPEN, after B009; not complete)
+1. KF-008 canonical origin redirect for all aliases (P1).
+2. KF-009 CSP Report-Only rollout with nonces or hashes, violation review (P1).
+3. KF-011 product/counsel-approved privacy and terms routes (P1; needs approved text).
+4. KF-012 Resend SPF and return-path DNS records (P1; DNS change is external).
+5. KF-015 consistent Log out icon and label across the event shell (P2).
+6. KF-016 UI redirects only after server-confirmed sign-out (P2; partly done in lib/auth/sign-out.ts; check all entry points).
+7. KF-018 event shell navigation and labeled menu structure (P2).
+8. KF-024 branded OG and Twitter preview image at an absolute HTTPS URL (P2).
+9. KF-025 /dev/components not in the production build (currently 404 at runtime; still emitted; P2).
+10. KF-038 truthful Organization or SoftwareApplication JSON-LD, if added (P3).
+11. KF-039 AI-crawler robots policy, a business decision (P3).
+12. KF-040 PRD completeness against launch scope (P3).
+13. KF-041 release-operator tooling inventory (P3).
+14. KF-036 children KF-036.1 to .8 (profiling, offline and reconnect, controller competition, realtime burst, soak, staging parity, authenticated surface profiling, form sweep). KF-036.4 (realtime burst) is the nearest to B009.
+15. KF-032 and KF-035 composite findings (children in the ledger).
+
+## External, not local
+- Real Supabase sign-in and sign-out, real selectSession, authenticated persistence of hold, rehearsal and import on an event, shared dev database, RLS, migration staging, remote reset, DNS, provider, KF-010 alerts.
+
+## Tool limitations (not authorization blockers)
+- 200% browser zoom: the browser tool cannot set zoom. Viewport reflow at 320 CSS px is a substitute and is labelled as one.
+- Password-manager autofill: not testable with the available tools.
+- Screen-reader speech output: no screen reader here. AX-tree names, roles and states are verified.

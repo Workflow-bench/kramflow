@@ -19,9 +19,21 @@ let rows: Row[];
 let sharedRows: Record<string, unknown>[];
 let updateReturnsRows: boolean;
 
-function matches(row: object, filters: [string, unknown][]) {
-  return filters.every(([k, v]) => (row as Record<string, unknown>)[k] === v);
+// `col->>field` reads a JSON field as text (PostgREST path), as the route uses it.
+function valueAt(row: object, key: string): unknown {
+  const r = row as Record<string, unknown>;
+  if (!key.includes("->>")) return r[key];
+  const [col, field] = key.split("->>");
+  const json = r[col] as Record<string, unknown> | null | undefined;
+  return json?.[field] ?? null;
 }
+function matches(row: object, filters: [string, unknown][]) {
+  return filters.every(([k, v]) => valueAt(row, k) === (v ?? null));
+}
+
+// Concurrent writes that land between the route's read and its conditional update.
+// Each entry runs once, immediately before the next update executes.
+let interleaves: Array<() => void> = [];
 
 function query(table: string) {
   const filters: [string, unknown][] = [];
@@ -30,6 +42,8 @@ function query(table: string) {
   const list = () => (table === "display_type_state" ? rows : sharedRows);
 
   function updateResult() {
+    const concurrent = interleaves.shift();
+    if (concurrent) concurrent();
     if (!updateReturnsRows) return { data: [], error: null };
     const target = rows.find((r) => matches(r, filters));
     if (!target) return { data: [], error: null };
@@ -54,6 +68,10 @@ function query(table: string) {
       filters.push([col, val]);
       return api;
     },
+    is(col: string, val: unknown) {
+      filters.push([col, val]);
+      return api;
+    },
     maybeSingle: async () => ({ data: list().find((r) => matches(r, filters)) ?? null, error: null }),
     single: async () => {
       const found = list().find((r) => matches(r, filters));
@@ -73,6 +91,7 @@ const req = (body: Record<string, unknown>) =>
   new Request("http://x/api/display-engine/hold", { method: "PATCH", body: JSON.stringify(body) });
 
 beforeEach(() => {
+  interleaves = [];
   updateReturnsRows = true;
   verifySessionAccess.mockReset();
   verifySessionAccess.mockResolvedValue({ ok: true, eventId: "event-a" });
@@ -115,5 +134,47 @@ describe("hold route row guard (KF-031)", () => {
     const res = await PATCH(req({ eventId: "event-a", displayType: "presenter", active: true }));
     expect(res.status).toBe(403);
     expect(rows[0].hold.active).toBe(false);
+  });
+
+  describe("deactivation is a conditional write (lost-update fix)", () => {
+    const activeM1 = { active: true, message: "M1", subMessage: "sub", continueClock: true, activatedAt: "2026-10-04T10:00:00Z" };
+    const activation = (message: string, at: string) => () => {
+      rows[0].hold = { active: true, message, subMessage: null, continueClock: false, activatedAt: at };
+    };
+
+    it("a concurrent activation between read and write is kept: retry deactivates it, message M2 survives", async () => {
+      rows[0].hold = { ...activeM1 };
+      interleaves = [activation("M2", "2026-10-04T10:05:00Z")];
+      const res = await PATCH(req({ eventId: "event-a", displayType: "presenter", active: false }));
+      expect(res.status).toBe(200);
+      expect(rows[0].hold).toMatchObject({ active: false, message: "M2", activatedAt: null });
+    });
+
+    it("preserves unrelated hold fields on deactivation", async () => {
+      rows[0].hold = { ...activeM1 };
+      const res = await PATCH(req({ eventId: "event-a", displayType: "presenter", active: false }));
+      expect(res.status).toBe(200);
+      expect(rows[0].hold).toMatchObject({ active: false, message: "M1", subMessage: "sub", continueClock: true, activatedAt: null });
+    });
+
+    it("three conflicting writes in a row: refused with 409, and the route does not overwrite the last one", async () => {
+      rows[0].hold = { ...activeM1 };
+      interleaves = [
+        activation("M2", "2026-10-04T10:05:00Z"),
+        activation("M3", "2026-10-04T10:06:00Z"),
+        activation("M4", "2026-10-04T10:07:00Z"),
+      ];
+      const res = await PATCH(req({ eventId: "event-a", displayType: "presenter", active: false }));
+      expect(res.status).toBe(409);
+      expect((await res.json()).ok).toBe(false);
+      expect(rows[0].hold).toMatchObject({ active: true, message: "M4", activatedAt: "2026-10-04T10:07:00Z" });
+    });
+
+    it("an initial hold with no activatedAt (null witness) deactivates on the IS NULL branch", async () => {
+      rows[0].hold = { active: true, message: "M0" };
+      const res = await PATCH(req({ eventId: "event-a", displayType: "presenter", active: false }));
+      expect(res.status).toBe(200);
+      expect(rows[0].hold).toMatchObject({ active: false, message: "M0", activatedAt: null });
+    });
   });
 });

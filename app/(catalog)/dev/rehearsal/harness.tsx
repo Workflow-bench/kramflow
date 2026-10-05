@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { setSessionUserId } from "@/lib/auth/session-identity";
+import { resetRehearsalRuns } from "@/components/rehearsal/persisted-run";
 import Link from "next/link";
 import { RehearsalView } from "@/components/rehearsal/rehearsal-view";
 import type { Program, Session } from "@/lib/types";
@@ -57,13 +59,29 @@ function fixtureSessions(fixture: "none" | "zero" | "one" | "two" | "multi"): Se
   return [oneSession("synthetic-session", count, `SYNTHETIC ${fixture}-cue session`)];
 }
 
-export function RehearsalHarness({ fixture }: { fixture: "none" | "zero" | "one" | "two" | "multi" }) {
+export function RehearsalHarness({
+  fixture,
+  user,
+  cues,
+}: {
+  fixture: "none" | "zero" | "one" | "two" | "multi";
+  user: "a" | "b" | "none";
+  cues: "current" | "changed";
+}) {
   const [exited, setExited] = useState(false);
+  // Synthetic identity for the harness only. Real identity comes from the auth provider.
+  useEffect(() => {
+    setSessionUserId(user === "none" ? null : `synthetic-user-${user}`);
+  }, [user]);
   const sessions = fixtureSessions(fixture);
+  if (cues === "changed" && sessions[0]?.items[1]) sessions[0].items[1] = { ...sessions[0].items[1], title: "SYNTHETIC cue 2 (renamed)" };
   return (
     <div>
       <p data-harness-banner className="px-6 py-2 text-[12px] uppercase tracking-[0.16em] text-status-orange">
         Synthetic harness, development only. Fixture: {fixture}-cue. Not event data.
+      </p>
+      <p className="px-6 text-[12px] flex gap-4">
+        <button type="button" data-signout onClick={() => { resetRehearsalRuns(); setSessionUserId(null); }}>Sign out (synthetic)</button>
       </p>
       <p className="px-6 text-[12px]"><Link data-in-app-link href="/dev/import?live=none" className="underline">In-app link (router navigation)</Link></p>
       {exited && <p data-harness-exit role="status" className="px-6 text-[12px] text-status-green">Exit confirmed. Navigation suppressed in harness.</p>}

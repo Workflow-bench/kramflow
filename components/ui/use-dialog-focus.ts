@@ -54,7 +54,12 @@ export function inertOutside(target: HTMLElement): () => void {
     }
     node = node.parentElement;
   }
+  // One release per dialog. A second call (effect re-run, double close) must not
+  // decrement counts that another open dialog still holds.
+  let released = false;
   return () => {
+    if (released) return;
+    released = true;
     for (const el of marked) {
       const mark = inertMarks.get(el);
       if (!mark) continue;

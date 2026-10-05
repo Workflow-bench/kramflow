@@ -6,9 +6,9 @@ import { RehearsalHarness } from "./harness";
 // confirmation and focus return can be exercised without an authenticated event.
 // Returns 404 in production (same gate as the component catalog). No auth bypass,
 // no database, no /api/live: the view itself never calls those.
-export default async function RehearsalHarnessPage({ searchParams }: { searchParams: Promise<{ fixture?: string }> }) {
+export default async function RehearsalHarnessPage({ searchParams }: { searchParams: Promise<{ fixture?: string; user?: string; cues?: string }> }) {
   if (process.env.NODE_ENV === "production") notFound();
-  const { fixture } = await searchParams;
+  const { fixture, user, cues } = await searchParams;
   const known = fixture === "none" || fixture === "zero" || fixture === "one" || fixture === "two" ? fixture : "multi";
-  return <RehearsalHarness fixture={known} />;
+  return <RehearsalHarness fixture={known} user={user === "b" ? "b" : user === "none" ? "none" : "a"} cues={cues === "changed" ? "changed" : "current"} />;
 }

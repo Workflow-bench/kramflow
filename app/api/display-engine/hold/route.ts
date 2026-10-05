@@ -66,31 +66,55 @@ export async function PATCH(request: Request) {
     }
     stored = data && data.length === 1 ? data[0] : null;
   } else {
-    const { data: current, error: fetchError } = await supabase
-      .from("display_type_state")
-      .select("hold")
-      .eq("event_id", access.eventId)
-      .eq("display_type", displayType)
-      .maybeSingle();
-    if (fetchError) {
-      console.error(fetchError);
-      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+    // Deactivation is a compare-and-set, not a blind write. The merge is built from a
+    // read, so the write is conditional on the activatedAt witness the read saw. If a
+    // concurrent activation changed the hold in between, the write matches no row:
+    // re-read and retry. Without this, a stale merge overwrote a committed activation's
+    // message and cleared its timestamp (lost update, reproduced in
+    // docs/audit-remediation/migrations/tests/hold/hold_lost_update.sh).
+    const MAX_ATTEMPTS = 3;
+    let deactivated = false;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS && !deactivated; attempt++) {
+      const { data: current, error: fetchError } = await supabase
+        .from("display_type_state")
+        .select("hold")
+        .eq("event_id", access.eventId)
+        .eq("display_type", displayType)
+        .maybeSingle();
+      if (fetchError) {
+        console.error(fetchError);
+        return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+      }
+      if (!current) {
+        console.error("[hold] no display_type_state row after provisioning", access.eventId, displayType);
+        return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+      }
+      const witness = (current.hold as { activatedAt?: string | null } | null)?.activatedAt ?? null;
+      const conditional = supabase
+        .from("display_type_state")
+        .update({ hold: { ...current.hold, active: false, activatedAt: null } })
+        .eq("event_id", access.eventId)
+        .eq("display_type", displayType);
+      const { data, error } =
+        witness === null
+          ? await conditional.is("hold->>activatedAt", null).select("hold")
+          : await conditional.eq("hold->>activatedAt", witness).select("hold");
+      if (error) {
+        console.error(error);
+        return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+      }
+      if (data && data.length === 1) {
+        stored = data[0];
+        deactivated = true;
+      }
     }
-    if (!current) {
-      console.error("[hold] no display_type_state row after provisioning", access.eventId, displayType);
-      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
+    if (!deactivated) {
+      console.error("[hold] deactivation conflicted with concurrent changes", access.eventId, displayType);
+      return NextResponse.json(
+        { ok: false, error: "The display changed while deactivating. Try again." },
+        { status: 409 }
+      );
     }
-    const { data, error } = await supabase
-      .from("display_type_state")
-      .update({ hold: { ...current.hold, active: false, activatedAt: null } })
-      .eq("event_id", access.eventId)
-      .eq("display_type", displayType)
-      .select("hold");
-    if (error) {
-      console.error(error);
-      return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
-    }
-    stored = data && data.length === 1 ? data[0] : null;
   }
 
   // Readback: the write counts only if the row now holds the requested state.

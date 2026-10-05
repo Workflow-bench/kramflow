@@ -114,3 +114,36 @@ describe("restoration", () => {
     expect(lowerContent.inert).toBe(false);
   });
 });
+
+describe("teardown, idempotency and pre-existing inert", () => {
+  it("releasing the same dialog twice does not release a mark another open dialog still holds", () => {
+    const closeLower = inertOutside(asEl(lower));
+    const closeUpper = inertOutside(asEl(upper));
+    closeLower();
+    closeLower(); // a second release (e.g. effect re-run) must be a no-op
+    expect(page.inert).toBe(true); // upper is still open
+    closeUpper();
+    expect(page.inert).toBe(false);
+    expect(__inertMarkCount()).toBe(0);
+  });
+
+  it("a pre-existing inert attribute survives overlapping dialogs closing in either order", () => {
+    page.setAttribute("inert", "");
+    const a = inertOutside(asEl(lower));
+    const b = inertOutside(asEl(upper));
+    a();
+    expect(page.inert).toBe(true);
+    b();
+    expect(page.inert).toBe(true); // was inert before any dialog: left as it was
+    expect(__inertMarkCount()).toBe(0);
+  });
+
+  it("unmount while open (teardown) releases every mark the dialog set", () => {
+    const close = inertOutside(asEl(upper));
+    expect(__inertMarkCount()).toBeGreaterThan(0);
+    close(); // what the hook's effect cleanup calls on unmount or close
+    expect(__inertMarkCount()).toBe(0);
+    expect(page.inert).toBe(false);
+  });
+});
+

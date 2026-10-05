@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { clearRun, usePersistedRun } from "@/components/rehearsal/persisted-run";
+import { clearRun, EMPTY_RUN_STATE, usePersistedRun } from "@/components/rehearsal/persisted-run";
+import { cueFingerprint, runMatchesSession } from "@/lib/rehearsal-run";
 import { useRouter } from "next/navigation";
 import { FlaskConical, ArrowLeft, Play, Pause, ChevronLeft, ChevronRight, Square } from "lucide-react";
 import { getLive, getNext, getOnDeck, type LiveState, type Session, type Alert as AlertType, type AlertSeverity } from "@/lib/types";
@@ -58,10 +59,26 @@ const REHEARSAL_INITIAL: LiveState = {
 // *progress/hold/alert* state is local and disposable.
 export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; sessions: Session[]; onExit?: () => void }) {
   // Run state persists per viewer across in-app history navigation (persisted-run.ts).
-  const { run, setSessionId, setState, setInteracted } = usePersistedRun(eventId);
+  // The stored run is trusted only for the cue data on screen. If the cues changed since
+  // the run was recorded, the run is stale: its progress is not shown, and the next
+  // action starts a fresh run on the current cues (never a merge into old progress).
+  const stampFor = (id: string | null) => cueFingerprint(sessions.find((s) => s.id === id) ?? null);
+  const { run, setSessionId, setState, setInteracted } = usePersistedRun(eventId, {
+    resolveBase: (r) => {
+      const current = r.sessionId ?? sessions[0]?.id ?? null;
+      const cur = sessions.find((s) => s.id === current) ?? null;
+      return runMatchesSession(r, cur) ? r : { ...r, state: EMPTY_RUN_STATE, interacted: false, fingerprint: null };
+    },
+    stamp: (r) => {
+      const id = r.sessionId ?? sessions[0]?.id ?? null;
+      return { sessionId: id, fingerprint: stampFor(id) };
+    },
+  });
   const sessionId = run.sessionId;
-  const state = run.state;
-  const interacted = run.interacted;
+  const storedSession = sessions.find((s) => s.id === (sessionId ?? sessions[0]?.id)) ?? null;
+  const runStale = run.sessionId !== null && !runMatchesSession(run, storedSession);
+  const state = runStale ? EMPTY_RUN_STATE : run.state;
+  const interacted = runStale ? false : run.interacted;
 
   const session = useMemo(() => sessions.find((s) => s.id === (sessionId ?? sessions[0]?.id)) ?? null, [sessions, sessionId]);
   const activeSessionId = session?.id ?? "";
@@ -70,6 +87,13 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
   const max = session?.items.length ?? 0;
   const isFinished = isRehearsalComplete({ currentOrder, max });
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  // Reset discards the run. Confirm only when meaningful progress would actually be lost
+  // (the same rule as the Exit confirmation). A completed or unstarted run is reset directly.
+  function requestReset() {
+    if (shouldConfirmExit({ currentOrder, max, interacted })) setResetConfirmOpen(true);
+    else reset();
+  }
   // Reload, tab close and external navigation while a run has discardable progress:
   // the browser asks before leaving. Same rule as the in-app Exit confirmation
   // (lib/rehearsal.ts shouldConfirmExit), so the two cannot disagree. In-app history
@@ -179,6 +203,11 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
         )}
       </div>
 
+      {runStale && (
+        <p role="status" className="px-6 pt-4 text-console-meta text-status-orange">
+          The cue list changed since this rehearsal started, so it restarted on the current cues.
+        </p>
+      )}
       {!session ? (
         <div className="px-6 py-8">
           {sessions.length > 1 && (
@@ -356,7 +385,7 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
                     Jump to Finish
                   </Button>
                 )}
-                <Button variant="ghost" size="sm" onClick={reset} className="self-start text-muted-2">
+                <Button variant="ghost" size="sm" onClick={requestReset} className="self-start text-muted-2">
                   Reset rehearsal
                 </Button>
               </div>
@@ -400,6 +429,18 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        title="Reset this rehearsal?"
+        description="Your rehearsal progress will be discarded. Nothing on any live screen was changed."
+        confirmLabel="Reset rehearsal"
+        tone="danger"
+        onConfirm={() => {
+          setResetConfirmOpen(false);
+          reset();
+        }}
+        onCancel={() => setResetConfirmOpen(false)}
+      />
       <ConfirmDialog
         open={exitConfirmOpen}
         title="Leave rehearsal?"
