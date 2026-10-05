@@ -1,40 +1,36 @@
-// Policy for what the auth provider does on each Supabase auth event. Pure, so the
-// ordering rules can be tested without a Supabase client. The provider calls these.
+// Policy for auth events and rehearsal runs. Pure, so the ordering rules are testable. The
+// provider consumes it through identity-controller.ts; nothing here touches React or Supabase.
 //
-// identity: the user id the browser should treat as signed in (null = none).
-// clearRuns: whether per-viewer rehearsal runs must be discarded.
-
-export type AuthEventName =
-  | "INITIAL_SESSION"
-  | "SIGNED_IN"
-  | "SIGNED_OUT"
-  | "USER_UPDATED"
-  | "TOKEN_REFRESHED"
-  | "PASSWORD_RECOVERY";
+// prev: the identity the browser last confirmed. undefined = unknown (no auth result yet);
+//       null = confirmed signed out; string = user id.
+// incoming: the user id the event carries (null when the event has no session).
+//
+// Rules:
+// - Same user, any event (SIGNED_IN refocus or re-established session, TOKEN_REFRESHED,
+//   INITIAL_SESSION, USER_UPDATED, MFA_CHALLENGE_VERIFIED, PASSWORD_RECOVERY): keep runs.
+// - Unknown previous identity: adopt the incoming identity, keep runs (keys are per user).
+// - Confirmed identity change (A to B, signed-out to user, user to signed-out without a
+//   SIGNED_OUT event): clear every rehearsal run.
+// - SIGNED_OUT: clear, identity null.
+import type { AuthChangeEvent } from "@supabase/supabase-js";
 
 export interface AuthEventEffect {
   identity: string | null;
   clearRuns: boolean;
 }
 
-export function authEventEffect(event: AuthEventName, userId: string | null): AuthEventEffect {
-  switch (event) {
-    case "SIGNED_OUT":
-      return { identity: null, clearRuns: true };
-    case "SIGNED_IN":
-    case "USER_UPDATED":
-      // A sign-in or an account change may be a different person on this browser.
-      return { identity: userId, clearRuns: true };
-    case "INITIAL_SESSION":
-    case "TOKEN_REFRESHED":
-    case "PASSWORD_RECOVERY":
-      // A reload or a refreshed token is the same person: runs stay.
-      return { identity: userId, clearRuns: false };
-  }
+export function authEventEffect(
+  event: AuthChangeEvent,
+  prev: string | null | undefined,
+  incoming: string | null
+): AuthEventEffect {
+  if (event === "SIGNED_OUT") return { identity: null, clearRuns: true };
+  // Every other event, including ones added to the installed SDK later, takes the same rule.
+  const boundary = prev !== undefined && prev !== incoming;
+  return { identity: incoming, clearRuns: boundary };
 }
 
-// Sign-out is clearing only when the server confirmed it. A failed attempt keeps the
-// identity and the runs, so the operator is not silently logged out of their own state.
-export function lockEffect(serverConfirmedSignOut: boolean): { identity: string | null; clearRuns: boolean } | null {
+// A sign-out the server did not confirm changes nothing. A confirmed one clears.
+export function lockEffect(serverConfirmedSignOut: boolean): AuthEventEffect | null {
   return serverConfirmedSignOut ? { identity: null, clearRuns: true } : null;
 }

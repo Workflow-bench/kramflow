@@ -92,20 +92,25 @@ export async function PATCH(request: Request) {
         console.error("[hold] no display_type_state row after provisioning", access.eventId, displayType);
         return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });
       }
-      // The witness is the activation revision (`rev`). Rows written before revisions
-      // existed carry only activatedAt, so that is the fallback witness for them.
+      // The predicate must describe the exact row the read saw. A revision-bearing row is
+      // matched by its revision. A legacy row (no revision) is matched by "no revision" AND
+      // its activatedAt: without the "no revision" half, a concurrent revision-bearing
+      // activation with the same timestamp would match and be overwritten (CB-F3).
       const read = (current.hold ?? {}) as { rev?: string | null; activatedAt?: string | null };
-      const witnessKey = read.rev ? "rev" : "activatedAt";
-      const witness = read.rev ?? read.activatedAt ?? null;
       const conditional = supabase
         .from("display_type_state")
         .update({ hold: { ...current.hold, active: false, activatedAt: null, rev: null } })
         .eq("event_id", access.eventId)
         .eq("display_type", displayType);
-      const { data, error } =
-        witness === null
-          ? await conditional.is(`hold->>${witnessKey}`, null).select("hold")
-          : await conditional.eq(`hold->>${witnessKey}`, witness).select("hold");
+      let predicated;
+      if (read.rev) {
+        predicated = conditional.eq("hold->>rev", read.rev);
+      } else {
+        const legacyAt = read.activatedAt ?? null;
+        const withNoRev = conditional.is("hold->>rev", null);
+        predicated = legacyAt === null ? withNoRev.is("hold->>activatedAt", null) : withNoRev.eq("hold->>activatedAt", legacyAt);
+      }
+      const { data, error } = await predicated.select("hold");
       if (error) {
         console.error(error);
         return NextResponse.json({ ok: false, error: "Something went wrong. Try again." }, { status: 500 });

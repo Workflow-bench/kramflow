@@ -1,0 +1,6 @@
+mode=ts witness=activatedAt A_exit=0 B_exit=0
+final hold: {"rev": null, "active": false, "message": "M1", "activatedAt": null}
+mode=legacy witness=activatedAt A_exit=0 B_exit=0
+final hold: {"rev": "r2", "active": true, "message": "M2", "activatedAt": "2026-10-04T10:00:00.000Z"}
+mode=rev witness=rev A_exit=0 B_exit=0
+final hold: {"rev": "r2", "active": true, "message": "M2", "activatedAt": "2026-10-04T10:00:00.000Z"}

@@ -77,6 +77,56 @@ export function __inertMarkCount(): number {
   return inertMarks.size;
 }
 
+// Open dialog containers, oldest first. A surviving dialog is a valid focus destination
+// when a dialog closes or unmounts beneath it (CB-F4).
+const openDialogs: HTMLElement[] = [];
+
+// Whether an element can receive focus right now: connected, rendered, enabled, not inert.
+export function isFocusEligible(el: Element | null | undefined): el is HTMLElement {
+  if (!el || !(el instanceof HTMLElement)) return false;
+  if (!el.isConnected) return false;
+  if (el.closest("[inert]")) return false;
+  if ((el as HTMLButtonElement).disabled) return false;
+  return el.getClientRects().length > 0;
+}
+
+// The focus target when a dialog closes. Pure, so the decision is unit-tested.
+// Order: a surviving dialog's first eligible control; else the trigger if still eligible;
+// else a connected, visible, non-inert page fallback. Never a detached or inert node.
+export function chooseFocusTarget(input: {
+  trigger: Element | null | undefined;
+  survivorFirstControl: HTMLElement | null | undefined;
+  pageFallback: HTMLElement | null | undefined;
+}): HTMLElement | null {
+  if (isFocusEligible(input.survivorFirstControl)) return input.survivorFirstControl;
+  if (isFocusEligible(input.trigger)) return input.trigger;
+  if (isFocusEligible(input.pageFallback)) return input.pageFallback;
+  return null;
+}
+
+function firstEligibleIn(container: HTMLElement | null | undefined): HTMLElement | null {
+  if (!container) return null;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+  return items.find((el) => isFocusEligible(el)) ?? null;
+}
+
+// Restores focus after a dialog closes or unmounts. Does nothing when focus already sits in
+// a surviving dialog (no competing cleanup).
+function restoreFocusAfterClose(container: HTMLElement, trigger: Element | null) {
+  const surviving = openDialogs.filter((d) => d !== container && d.isConnected);
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && surviving.some((d) => d.contains(active))) return;
+  const topSurvivor = surviving[surviving.length - 1];
+  const target = chooseFocusTarget({
+    trigger,
+    survivorFirstControl: firstEligibleIn(topSurvivor),
+    pageFallback: document.querySelector<HTMLElement>("#main-content, main, [data-focus-fallback]"),
+  });
+  if (!target) return;
+  if (target.tabIndex < 0 && !target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+  target.focus({ preventScroll: target === document.querySelector("#main-content, main, [data-focus-fallback]") });
+}
+
 export function useDialogFocus(open: boolean, containerRef: React.RefObject<HTMLElement | null>) {
   const triggerRef = useRef<Element | null>(null);
 
@@ -87,6 +137,7 @@ export function useDialogFocus(open: boolean, containerRef: React.RefObject<HTML
     const container = containerRef.current;
     if (!container) return;
     const restoreBackground = inertOutside(container);
+    openDialogs.push(container);
 
     const focusable = () =>
       Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((el) => el.offsetParent !== null);
@@ -125,7 +176,9 @@ export function useDialogFocus(open: boolean, containerRef: React.RefObject<HTML
       cancelAnimationFrame(raf);
       container.removeEventListener("keydown", onKeyDown);
       restoreBackground();
-      if (triggerRef.current instanceof HTMLElement) triggerRef.current.focus();
+      const index = openDialogs.indexOf(container);
+      if (index >= 0) openDialogs.splice(index, 1);
+      restoreFocusAfterClose(container, triggerRef.current);
     };
   }, [open, containerRef]);
 }

@@ -1,10 +1,10 @@
 "use client";
 import { requestSignOut } from "@/lib/auth/sign-out";
-import { setSessionUserId } from "@/lib/auth/session-identity";
-import { authEventEffect, lockEffect, type AuthEventName } from "@/lib/auth/auth-events";
+import { getRawSessionUserId, setSessionUserId } from "@/lib/auth/session-identity";
+import { createIdentityController, type AuthStatus, type IdentityController } from "@/lib/auth/identity-controller";
 import { resetRehearsalRuns } from "@/components/rehearsal/persisted-run";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { supabaseBrowser, refreshRealtimeAuth } from "@/lib/supabase/client";
 
@@ -26,7 +26,7 @@ import { supabaseBrowser, refreshRealtimeAuth } from "@/lib/supabase/client";
 // to "locked" so components like command-palette (`unlocked = status ===
 // "unlocked"`) react without a full reload.
 
-type Status = "checking" | "locked" | "unlocked";
+type Status = AuthStatus;
 
 interface AuthContextValue {
   status: Status;
@@ -37,45 +37,47 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<Status>("checking");
+  const controllerRef = useRef<IdentityController | null>(null);
 
   useEffect(() => {
     const supabase = supabaseBrowser();
+    // Ordering, identity and rehearsal-run clearing live in identity-controller.ts (tested).
+    const controller = createIdentityController({
+      getIdentity: getRawSessionUserId,
+      setIdentity: setSessionUserId,
+      resetRuns: resetRehearsalRuns,
+      setStatus,
+    });
+    controllerRef.current = controller;
+    const applyHydrate = controller.beginHydrate();
 
     supabase.auth.getSession().then((result: { data: { session: Session | null } }) => {
-      setSessionUserId(result.data.session?.user?.id ?? null);
-      setStatus(result.data.session ? "unlocked" : "locked");
+      // A newer auth event that arrived first wins; a late getSession result is dropped.
+      applyHydrate(result);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      // Account boundary policy lives in lib/auth/auth-events.ts (tested there).
-      const effect = authEventEffect(event as AuthEventName, session?.user?.id ?? null);
-      setSessionUserId(effect.identity);
-      if (effect.clearRuns) resetRehearsalRuns();
-      setStatus(session ? "unlocked" : "locked");
-      // A session that changes *after* a channel already joined (sign-in
-      // on this tab with no reload, a token refresh, sign-out) needs its
-      // own explicit push — see lib/supabase/client.ts's realtimeReady()
-      // doc comment for why joining channels can't just rely on this
-      // firing eventually.
+      controller.onEvent(event, session);
+      // A session that changes after a channel already joined needs its own explicit push
+      // (lib/supabase/client.ts realtimeReady()).
       refreshRealtimeAuth(session?.access_token ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      controller.dispose();
+      controllerRef.current = null;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Redirects home only after the server confirms the session was removed.
-  // A failed or unconfirmed sign-out returns false and leaves the UI as it
-  // was, so the caller can say so instead of acting as if the user was
-  // signed out (KF-016, B005-F2).
+  // Redirects home only after the server confirms the session was removed. A failed or
+  // unconfirmed sign-out returns false and leaves identity, runs and UI as they were.
   async function lock(): Promise<boolean> {
     const confirmed = await requestSignOut();
-    const effect = lockEffect(confirmed);
-    if (!effect) return false;
-    resetRehearsalRuns();
-    setSessionUserId(effect.identity);
-    setStatus("locked");
+    const applied = controllerRef.current?.signOut(confirmed) ?? false;
+    if (!applied) return false;
     window.location.href = "/";
     return true;
   }

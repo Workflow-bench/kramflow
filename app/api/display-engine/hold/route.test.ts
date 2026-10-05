@@ -217,4 +217,49 @@ describe("hold route row guard (KF-031)", () => {
       expect(updateFilters[0]).toContainEqual(["hold->>activatedAt", "2026-10-04T10:00:00.000Z"]);
     });
   });
+
+  describe("legacy witness transition (CB-F3)", () => {
+    const T = "2026-10-04T10:00:00.000Z";
+    it("legacy {M1,T,no rev} with a concurrent revision-bearing {M2,T,R2}: M2 is not stale-overwritten; retry deactivates M2", async () => {
+      rows[0].hold = { active: true, message: "M1", activatedAt: T };
+      interleaves = [() => { rows[0].hold = { active: true, message: "M2", activatedAt: T, rev: "R2" }; }];
+      const res = await PATCH(req({ eventId: "event-a", displayType: "presenter", active: false }));
+      expect(res.status).toBe(200);
+      expect(rows[0].hold).toMatchObject({ active: false, message: "M2", rev: null });
+      // The first predicate was legacy-shaped: it required "no revision" as well as the timestamp.
+      expect(updateFilters[0]).toContainEqual(["hold->>rev", null]);
+      expect(updateFilters[0]).toContainEqual(["hold->>activatedAt", T]);
+    });
+
+    it("legacy row with no activatedAt at all matches only rows with no revision and no timestamp", async () => {
+      rows[0].hold = { active: true, message: "M0" };
+      const res = await PATCH(req({ eventId: "event-a", displayType: "presenter", active: false }));
+      expect(res.status).toBe(200);
+      expect(updateFilters[0]).toContainEqual(["hold->>rev", null]);
+      expect(updateFilters[0]).toContainEqual(["hold->>activatedAt", null]);
+    });
+
+    it("legacy row, then a revision-bearing conflict with the same timestamp, repeated three times: 409, last write kept", async () => {
+      rows[0].hold = { active: true, message: "M1", activatedAt: T };
+      interleaves = [
+        () => { rows[0].hold = { active: true, message: "M2", activatedAt: T, rev: "R2" }; },
+        () => { rows[0].hold = { active: true, message: "M3", activatedAt: T, rev: "R3" }; },
+        () => { rows[0].hold = { active: true, message: "M4", activatedAt: T, rev: "R4" }; },
+      ];
+      const res = await PATCH(req({ eventId: "event-a", displayType: "presenter", active: false }));
+      expect(res.status).toBe(409);
+      expect(rows[0].hold).toMatchObject({ active: true, message: "M4", rev: "R4" });
+    });
+
+    it("a legacy row with the same timestamp but a revision set is not matched by the legacy predicate", async () => {
+      rows[0].hold = { active: true, message: "M2", activatedAt: T, rev: "R2" };
+      // Force the legacy path by making the read a legacy shape, then present the revised row.
+      const real = rows[0].hold;
+      rows[0].hold = { active: true, message: "M1", activatedAt: T };
+      interleaves = [() => { rows[0].hold = real; }];
+      const res = await PATCH(req({ eventId: "event-a", displayType: "presenter", active: false }));
+      expect(res.status).toBe(200);
+      expect(rows[0].hold.message).toBe("M2");
+    });
+  });
 });
