@@ -3,7 +3,7 @@
   "resumed_from": "54d1fc5318ece4e1bcb1217fe040797430e0d8a9",
   "branch": "integrate/ui-revamp-landing",
   "wip_tracked_patch_sha256": "d0af67e724f3fe6dfa4e05f00d8f2436eee12ae4a324219bd61302c4412e1f35",
-  "finalSHA": null,
+  "finalSHA": "a07cf3a075427caecaeb0bbbdfb447be1be28c99",
   "status": "NOT_COMPLETE",
   "kf023": {
     "status": "OPEN",
@@ -105,5 +105,6 @@
     "password toggle behaviour",
     "hashed-asset harness scan",
     "hawkscan"
-  ]
+  ],
+  "hawkscan": "unavailable: HAWK_API_KEY not configured in session"
 }

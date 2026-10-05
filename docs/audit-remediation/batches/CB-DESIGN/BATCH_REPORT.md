@@ -11,7 +11,7 @@ Mobile simulated LCP median is 3454.8 ms against the ≤2500 ms target. The reco
 | Original base | `cb7737e` (BASE_SHA of the first CB-DESIGN checkpoint) |
 | Resumed from | `54d1fc5318ece4e1bcb1217fe040797430e0d8a9` (branch `integrate/ui-revamp-landing`) |
 | Uncommitted snapshot reviewed by Codex | `CB_DESIGN_WIP_TRACKED.patch`, sha256 `d0af67e724f3fe6dfa4e05f00d8f2436eee12ae4a324219bd61302c4412e1f35` |
-| Final commit | Recorded in `TEST_RESULTS.json` (`finalSHA`) after commit |
+| Final commit | `a07cf3a075427caecaeb0bbbdfb447be1be28c99` (recorded in `TEST_RESULTS.json`) |
 
 Pre-existing untracked paths (`.agents/`, `.claude/`, `.impeccable/`, `brag-output*/`, `data/skills/`, `skills-lock.json`, two `REVIEWS` files) were not committed.
 
