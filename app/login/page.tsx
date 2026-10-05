@@ -89,7 +89,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
+    <main className="h-screen w-screen flex items-center justify-center bg-background px-6">
       <div className="flex flex-col items-center w-full max-w-sm">
         {/* The one recovery path missing from this page for anyone who
             landed here by accident or a stray bookmark — there was
@@ -107,7 +107,7 @@ function LoginForm() {
         >
           <Wordmark />
         </Link>
-        <p className="text-console-sm text-muted mt-2">Log in to your account</p>
+        <h1 className="text-console-sm font-normal text-muted mt-2">Log in to your account</h1>
 
         {/* A Panel surface, not the bare background the rest of this form
             floated on — every other authenticated route in the product now
@@ -211,7 +211,7 @@ function LoginForm() {
           </Link>
         </p>
       </div>
-    </div>
+    </main>
   );
 }
 

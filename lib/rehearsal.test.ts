@@ -57,7 +57,7 @@ describe("completion summary", () => {
 // the same approach as the route metadata policy tests (the page itself needs an
 // authenticated event session, which this environment does not have).
 describe("rehearsal page isolation (KF-004)", () => {
-  const raw = readFileSync(path.join(__dirname, "../app/e/[eventId]/rehearsal/page.tsx"), "utf8");
+  const raw = readFileSync(path.join(__dirname, "../components/rehearsal/rehearsal-view.tsx"), "utf8");
   // Comments may name the live endpoint to explain why it is absent; code must not use it.
   const page = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
   // The completion summary block: from "Rehearsal complete" to the exit control.

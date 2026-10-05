@@ -1,0 +1,33 @@
+{
+ "reflow": {
+  "320": 0,
+  "375": 0,
+  "768": 0,
+  "1024": 0,
+  "1440": 0
+ },
+ "skipLink": {
+  "firstFocus": {
+   "text": "Skip to content",
+   "href": "#main-content"
+  },
+  "afterEnter": {
+   "id": "main-content",
+   "tag": "DIV"
+  }
+ },
+ "headings": {
+  "total": 12,
+  "duplicates": [
+   [
+    "H2:One cue. The room responds.",
+    2
+   ]
+  ]
+ },
+ "unnamed": 0,
+ "linkExpired": {
+  "text": "That link has expired or was already used. Request a new link.",
+  "resetLink": true
+ }
+}

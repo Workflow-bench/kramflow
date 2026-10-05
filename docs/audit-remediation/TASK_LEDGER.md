@@ -161,3 +161,14 @@ Status `OPEN` unless noted. Full source citations are in the seven original repo
 Total parent rows: 42 (36 carried forward from B002 + 6 new: KF-037..KF-042). Separately, 28 child criteria exist under the 3 split composite parents (KF-032: 8, KF-035: 3, KF-036: 8) plus KF-042's 9-child roll-up: 18 `OPEN`, 10 `NOT_APPLICABLE` at the child level — see `TASK_LEDGER.json#child_criteria_breakdown`.
 
 No row has been deleted, had its priority reduced, or had its acceptance criteria redefined to reach this count. "Everything complete" is not being claimed — see `batches/B003/BATCH_REPORT.md`'s Verdict/Pause section.
+
+## B009 reconciliation (2026-10-04, integration branch `integrate/ui-revamp-landing`)
+
+The JSON ledger (`TASK_LEDGER.json`) is the primary source. The totals snapshot above stays at B003 and is not rewritten. Machine totals in the JSON were recomputed and `validate_ledger.mjs` passes.
+
+State changes recorded in the JSON `history` field, with evidence links:
+- READY_FOR_CODEX (awaiting independent review, not verified): KF-001 (owner floor), KF-026 (metadata and robots).
+- IN_PROGRESS (partial, local evidence only): KF-004, KF-005 (synthetic harness), KF-006 (local Postgres races), KF-007 (traversal and session selection), KF-010 (local reporting), KF-017 (set-password tests, toggle, expired link), KF-019 (contrast inventory reconciliation), KF-020 (skip link, reflow, login landmark), KF-021 (AX tree headings), KF-023 (performance, both series reported separately, target not met on simulated), KF-034 (archive and reporting tests).
+- Unchanged: BLOCKED_EXTERNAL, PRESERVE_PENDING_REVIEW, NOT_APPLICABLE rows.
+
+No item is CODEX_VERIFIED. `independent_review` fields are unchanged. Review decisions belong to Codex.

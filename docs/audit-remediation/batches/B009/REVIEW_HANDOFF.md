@@ -135,3 +135,75 @@ Not done: further reduction of the simulated LCP below 2500 ms.
 4. Decide whether the observed devtools median (2317 ms) or the simulated median (3309 ms) governs KF-023. Current evidence says the simulated series misses.
 5. Confirm the contrast reconciliation and the missing 27/10 inventory.
 6. Accept or reject the Turbopack build failure as an environment limit.
+
+---
+
+# Update r2 (supersedes the items above where they conflict)
+
+Scope: the remaining locally actionable B009 gaps after `04598ea`. Status: SELF-VERIFIED, PENDING CODEX REVIEW. No CODEX_VERIFIED granted. No push, no deployment, no shared-resource change.
+
+## Final revision
+the commit that adds this section (see the final message for its hash).
+Built and measured on the final tree. Gates below were run on the same tree.
+
+## Gates (final tree)
+- `npm test`: 50 files, 570 tests passed.
+- Archive/reporting subset: 67 tests passed.
+- `npm run lint`: 0 errors, 6 warnings (outside changed files). Evidence capture scripts are excluded from lint (`eslint.config.mjs`, `docs/audit-remediation/evidence/**`).
+- `npx tsc --noEmit`: passed, run sequentially after the production build.
+- `validate_ledger.mjs`: PASS, after the ledger reconciliation below.
+- Production build, webpack (`next build --webpack`): PASSED (run twice).
+- Production build, default Turbopack (`next build`): FAILED. `binding to a port: Operation not permitted (os error 1)` in the PostCSS worker, same as before. Not changed to hide the failure. Recorded separately; UNVERIFIED in this environment.
+
+## Criteria: new completed evidence in this pass
+1. **Rehearsal and import harnesses (KF-004, KF-005, KF-006 UI-selection).**
+   - Rehearsal logic moved to `components/rehearsal/rehearsal-view.tsx` (the Next route module may export only the page default). The real route is a thin wrapper; behaviour unchanged. The consolidated console-surface lint guardrail glob now includes `components/rehearsal/**` so the Stage-token guard still applies.
+   - Synthetic harness: `app/(catalog)/dev/rehearsal/` (`page.tsx`, `harness.tsx`). Labelled SYNTHETIC on screen. Production gate `notFound()`: verified 404 on the production server.
+   - Captured in dev mode (`evidence/B009/harness-rehearsal/`): none (empty state text), zero cues (Start disabled), one cue (Finish by keyboard, completion once, "1 of 1 cues completed"), four cues (Finish absent before last cue, enabled at last, completion once, "4 of 4 cues completed", Run again returns to Not started), Jump to Finish (completion once), exit with progress (alertdialog "Leave rehearsal?" from the AX tree, focus inside on open, Escape returns focus to "Exit Rehearsal", confirm calls `onExit`), exit without progress (plain link to `/e/synthetic-harness/operator`, not intercepted), two sessions (explicit selector "Session to rehearse"; the first session is selected by default; changing it resets progress). Mutating requests and `/api/live` requests: 0 in every state.
+   - Explicit session selection for the Console: `app/e/[eventId]/operator/explicit-session.test.ts` (3 source-level checks). The Console derives its session only from `state.activeSessionId` and shows "Select a session to get started." when none is set; no `sessions[0]` fallback.
+   - Import UI (cue-sheet import confirmation, Open Console from the import result): NOT built as a harness. The import flow is inside a large authenticated page. UNVERIFIED in browser. The database side is verified (see DB below).
+2. **Original contrast inventory (KF-019).** Located in the vendored raw Lighthouse JSON: `source-package/kramflow-lighthouse-desktop.report.json` (27 items) and `kramflow-lighthouse-mobile.report.json` and `-rerun.report.json` (10 items each, selectors identical). Reconciled by class and original section (`evidence/B009/contrast/INVENTORY_RECONCILIATION.md`). Every entry belongs to surfaces-section, room-section or one-cue-section, all removed or replaced in the integration. Manifest discrepancy recorded: the exact class strings do not occur in the base commit `8a91668`; the Lighthouse snapshot (live site, 2026-09-28) was rendered from source not in this repository. Node-for-node replay is not possible from repo content.
+3. **Real accessibility tree (KF-020, KF-021).** CDP `Accessibility.getFullAXTree` on the production build (`evidence/B009/ax-tree/`, `final-revision-browser/ax-final.json`):
+   - Landing, desktop and mobile: 11 headings each, no duplicate heading names, 2 landmarks, 0 unnamed buttons or links.
+   - Login: found 0 headings and 0 landmarks. **Fixed** (`app/login/page.tsx`: outer container is `<main>`, subtitle is `<h1>`, same classes plus `font-normal`). Now 1 heading, 1 `main`. Toggle behaviour unchanged.
+   - Earlier computed-visibility heading check reported a duplicate (the hidden mobile twin). The AX tree excludes it. The computed method is recorded and superseded.
+4. **Performance (KF-023).** Original acceptance method kept (Lighthouse 13.5.0, median of 3, mobile LCP ≤ 2.5 s). Two series reported separately, not merged. Final-revision numbers:
+
+| Series | n | LCP runs (ms) | Median LCP | Perf | Notes |
+|---|---|---|---|---|---|
+| Simulated mobile | 3 | 3814, 3310, 3308 | **3310 ms** (misses 2500) | 0.89–0.92 | CLS 0, TBT median 11 ms, contrast items 0, unused JS 71 KiB |
+| Simulated desktop | 3 | 699, 653, 671 | 671 ms | 1.00 | CLS 0, TBT 0, contrast items 0 |
+| Observed mobile (devtools throttling) | 3 | 2223, 2321, 2304 | **2304 ms** (meets 2500 under observed throttling) | 0.96–0.97 | Different metric; not the acceptance series |
+
+   - Bottleneck from raw breakdown: in the observed series, the LCP image (17.5 KB transfer) waits 575 ms for its request and takes 1730 ms to load, sharing a throttled link with about 250 KB of JavaScript and two fonts. In the simulated series, the breakdown subparts sum to about 50 ms while LCP is 3.3 s. This gap is unexplained and recorded.
+   - Not changed in this pass: JS shipped to the landing (framer-motion and gsap chunks, unused JS 71 KiB). Reducing it touches the motion stack the design relies on. Requires a Codex decision on scope.
+   - KF-023 remains NOT MET under the acceptance method (simulated). Not CODEX_VERIFIED.
+5. **Ledger (KF-001 to KF-034 touched rows).** States reconciled to actual work; JSON `history` records each change with its evidence. Changes: KF-001 and KF-026 to READY_FOR_CODEX; KF-004, KF-005, KF-006, KF-007, KF-010, KF-017, KF-019, KF-020, KF-021, KF-023, KF-034 to IN_PROGRESS. Totals recomputed; validator PASS. `independent_review` fields untouched. Markdown ledger appended with a B009 reconciliation section (the B003 totals snapshot is not rewritten).
+
+## Previously completed (carried, unchanged in this pass)
+- runLiveAction move: real PATCH tests (auth, tenant scope, controller lease, mutation).
+- KF-001 owner floor: `owner-floor.test.ts` (25) plus `owner-floor-matrix.test.ts` (existing 15).
+- KF-017 set-password tests (8); login toggle browser check; expired-link message.
+- KF-026 metadata: `PRIVATE_OPEN_GRAPH` in 15 noindex layouts; robots no longer disallows `/invite/` or `/dev/`; policy test updated.
+- DB: `import_cue_sheet.test.sql` ALL PASSED; four two-connection races on fresh local Postgres 16.15 (`evidence/B009/db/race-results.txt`).
+- Contrast: desktop 496 and mobile 491 settled full-opacity text nodes, 0 failing, min 4.63:1 (oklab-aware); Lighthouse contrast 0.
+- Reduced motion (production, 375 px): cover hidden, nav compact at 200 ms, animations 1e-5 s, 0 long transitions; default shows cover and 46 transitions; no page errors.
+- Reflow: 0 px horizontal overflow at 320, 375, 768, 1024, 1440 CSS px (viewport approximation; not browser zoom).
+
+## Not verified / external (remaining blockers)
+- Browser zoom at 200%: the browser tool cannot set zoom. Viewport reflow is the only substitute and is labelled as such.
+- Screen-reader speech output: no screen reader in this environment. AX-tree names and roles are verified; spoken output is not.
+- Authenticated flows: rehearsal on the real route with a real event; import UI and Open Console from an import result; operator console with real live state. Harness evidence is synthetic.
+- Turbopack production build in this environment (environment port-binding failure).
+- Remote proof: shared database, Supabase runtime, provider email, real password-reset submission, DNS, deployment. Not performed; prohibited without separate authorization.
+- KF-010 monitoring provider, source maps, alert owner, staging capture: external.
+- KF-023 simulated target: performance work remaining (see bottleneck).
+- Original contrast node-for-node replay: needs the rendered source of the 2026-09-28 live site, which is not in the repository.
+
+## Requested from Codex
+1. Decide whether the observed (devtools) or simulated Lighthouse series governs KF-023. The original acceptance method uses the simulated series; current evidence misses it.
+2. Decide whether the destructive-confirm initial focus in the rehearsal exit dialog (`useDialogFocus`) is acceptable (`evidence/B009/harness-rehearsal/README.md` finding 1).
+3. Decide whether the background of open dialogs needs `aria-hidden` or `inert` (finding 2).
+4. Confirm the contrast reconciliation by provenance (the 27/10 inventory is in the vendored JSON; the rendered source is not in the repository).
+5. Confirm the login `main` and heading change (`app/login/page.tsx`).
+6. Accept or reject the Turbopack failure as an environment limit.

@@ -1,0 +1,15 @@
+{
+ "before": {
+  "type": "password",
+  "pressed": "false",
+  "label": "Show password"
+ },
+ "after": {
+  "type": "text",
+  "pressed": "true",
+  "label": "Hide password"
+ },
+ "typedKept": true,
+ "pasteWorks": true,
+ "postsOnToggle": 0
+}
