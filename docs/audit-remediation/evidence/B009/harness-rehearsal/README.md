@@ -28,3 +28,7 @@ Findings for review (not changed in this pass):
 1. ConfirmDialog opens with initial focus on the destructive confirm ("Leave rehearsal"). Pressing Enter immediately leaves the rehearsal. Intended by `useDialogFocus`; Codex to decide.
 2. While the alertdialog is open, the page behind it has no `aria-hidden` / `inert` (`backgroundAriaHidden: null`). `aria-modal="true"` is set on the dialog. Behaviour depends on the assistive technology.
 3. The rehearsal title and state labels are not AX headings (`headings: []` in every state).
+
+## Resolved in r3 (B009)
+1. Destructive confirm opens on the safe action. `components/ui/use-dialog-focus.ts` honours `data-initial-focus`; `components/ui/confirm-dialog.tsx` marks Cancel for danger tones. Verified: `exit-verify.json` `focusOnOpen: "Cancel"`. This applies to every destructive ConfirmDialog caller, not only rehearsal.
+2. Background interaction. The established pattern is kept: a full-viewport backdrop (`fixed inset-0 z-50`) sits above the page, closes the dialog as a cancel, and the Tab trap holds focus in the dialog. Verified: `backgroundElementAtPoint` is the backdrop, the cue is unchanged after a background click, and Tab stays inside the dialog for six presses. `inert` on the page was not added; `aria-modal="true"` remains the AT signal.

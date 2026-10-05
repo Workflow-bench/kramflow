@@ -207,3 +207,63 @@ Built and measured on the final tree. Gates below were run on the same tree.
 4. Confirm the contrast reconciliation by provenance (the 27/10 inventory is in the vendored JSON; the rendered source is not in the repository).
 5. Confirm the login `main` and heading change (`app/login/page.tsx`).
 6. Accept or reject the Turbopack failure as an environment limit.
+
+---
+
+# Update r3 (supersedes r2 where they conflict)
+
+Status: SELF-VERIFIED, PENDING CODEX REVIEW. No CODEX_VERIFIED. No push, no deployment, no shared-resource change.
+Final revision: the commit that adds this section (hash in the final message).
+
+## Gates (final tree)
+- `npm test`: 51 files, 574 tests passed.
+- Archive/reporting subset: 67 passed.
+- `npx eslint .`: 0 errors, 6 warnings (outside changed files). ESLint evidence exclusion narrowed to `docs/audit-remediation/evidence/**/*.cjs` (capture scripts). Product code, tests and repo tooling are linted. The rehearsal view is in the console-surface guardrail glob (`components/rehearsal/**`).
+- `npx tsc --noEmit`: passed, after the production build.
+- `validate_ledger.mjs`: PASS.
+- Production build, default Turbopack (`npm run build`): **PASSED** (exit 0, no binding errors). The earlier PostCSS port-binding failure did not reproduce in this pass. Cause not determined; not claimed as fixed by a code change.
+- Production build, webpack (`next build --webpack`): PASSED.
+- Production 404 for `/dev/import` and `/dev/rehearsal` on both builds. Landing 200.
+
+## Criteria, r3
+1. **Import / Open Console harness (KF-006).** Synthetic, dev-only, `app/(catalog)/dev/import/`. Mounts the real `UploadPanel` (now `components/cue-sheet/upload-panel.tsx`, with an injected request seam), the real `ImportCompleteStep` (`components/cue-sheet/import-complete.tsx`) and the pure `planOpenConsole` (`lib/cue-sheet-open.ts`, 4 unit tests). The cue-sheet page now calls these; behaviour unchanged.
+   - Explicit multi-session choice: each session has its own Open console; no selectSession before a click.
+   - No automatic live start: import performs no live call; the decision is recorded by the harness.
+   - Success, parse-error, commit-error states: parse and commit errors now have `role="alert"` (previously announced nothing).
+   - Guards: a running session is not switched; control held elsewhere is refused.
+   - Zero network requests in every case. Evidence: `evidence/B009/import-harness/`.
+   - Refresh coherence on the real route: NOT verified (needs an authenticated event and a database). The stored-id mapping rule is covered by `lib/cue-sheet-import-result.test.ts`.
+2. **Rehearsal exit dialog (KF-005).** Initial focus on Cancel (`data-initial-focus` on danger tones in `ConfirmDialog`; the hook honours the marker). Keyboard containment, Escape, focus return, accessible name ("Leave rehearsal?", alertdialog) verified. Background pointer: the backdrop intercepts and the cue is unchanged. The established pattern (backdrop + focus trap) is kept; `inert` on the page was not added. Evidence: `evidence/B009/harness-rehearsal/exit-verify.json`.
+   - Side effect: every destructive ConfirmDialog caller now opens on Cancel. Intended; Codex to confirm.
+3. **Performance (KF-023), motion stack.** GSAP (≈140 KB script) moved from the first parse to a dynamic import after first paint (`components/site/use-gsap.ts`). The one-cue hidden starting state moved to motion-allowed CSS (`app/globals.css`) so the after-screens do not flash before GSAP arrives.
+   - Verified: first paint hidden; the after-screens reveal through the pin; nav compacts past 140 px; reduced motion static, no errors. Evidence: `perf-gsap-deferred/one-cue-scroll.json`, `reduced-motion.json`.
+   - Simulated mobile median: **3310 → 3012 ms** (n=3: 3879, 3012, 3009). Target 2500 ms **still not met**. Desktop 671 → 704 (within noise).
+   - Observed mobile (supplementary, n=3): 2304 → 2339 ms. No material change.
+   - Remaining bottleneck: framer-motion (≈131 KB chunk) used by the navbar, hero, split-flap, reveal wrapper, live-operations and playable-show. Removing it from the landing is a design change, not a routine fix. Not done; needs a decision.
+   - Original acceptance method kept (simulated, median of 3).
+4. **ESLint exclusion.** Narrowed as above.
+5. **Ledger.** KF-021 → READY_FOR_CODEX (AX tree). KF-005, KF-006, KF-017, KF-023 updated with new evidence, remain IN_PROGRESS. KF-001 and KF-026 remain READY_FOR_CODEX. Totals recomputed; validator PASS.
+6. **Contrast provenance.** `evidence/B009/contrast/INVENTORY_RECONCILIATION.md` documents where the 27 desktop and 10 mobile entries are and which removed section produced each class. No node-for-node replay is claimed: the rendered source of the 2026-09-28 live site is not in the repository.
+
+## Remaining external proof and limits (not local failures)
+- Authenticated real-route flows: rehearsal, import UI on a real event, refresh coherence after import, real Open Console navigation with the real store.
+- Migration staging for `20260930000000_import_cue_sheet_atomic.sql`: no production migration without separate authorization.
+- Password-manager autofill (KF-017); real reset provider and reset email (prohibited without authorization).
+- Browser zoom at 200% (tool cannot set zoom). Viewport reflow is labelled as a substitute.
+- Screen-reader speech output (no screen reader here). AX-tree names, roles and states are verified.
+- KF-010 monitoring provider, source maps, alert owner, staging capture.
+- Browser back navigation for the rehearsal exit (KF-005).
+
+## Genuine unresolved items
+- KF-023 simulated mobile median 3012 ms against the 2500 ms acceptance target. Open.
+- Framer-motion removal from the landing: decision needed (design impact).
+- Landing DOM still carries the hidden mobile twin of the One-cue section (tree-invisible; a code-quality issue, not a tree failure).
+- `brag-output/` untracked directory produces 2 ESLint warnings in a file this batch did not create. Left alone.
+- Ledger rows outside the B009 list were not re-reviewed in this pass.
+
+## Requested from Codex
+1. Accept or reject the GSAP deferral and the CSS initial state as the KF-023 step (simulated 3310 → 3012 ms, target still missed).
+2. Decide whether the framer-motion stack may be replaced on the landing (design sign-off needed).
+3. Confirm destructive ConfirmDialogs opening on Cancel is the intended product behaviour.
+4. Confirm the import harness scope (synthetic components, real UploadPanel/ImportCompleteStep/planner) as evidence for KF-006 UI criteria, with refresh coherence and real route left external.
+5. Confirm the Turbopack build passes at this revision; the earlier failure is unexplained.

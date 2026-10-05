@@ -147,7 +147,16 @@ export function ConfirmDialog({
               >
                 {confirmLabel}
               </Button>
-              <Button variant="ghost" size="md" className="flex-1" disabled={loading} onClick={onCancel}>
+              <Button
+                variant="ghost"
+                size="md"
+                className="flex-1"
+                disabled={loading}
+                onClick={onCancel}
+                // A destructive confirmation opens on the safe action: Enter here
+                // cancels, so a reflexive keypress cannot run the change.
+                data-initial-focus={tone !== "default" ? "" : undefined}
+              >
                 {cancelLabel}
               </Button>
             </div>

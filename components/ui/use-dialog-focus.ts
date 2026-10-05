@@ -44,7 +44,10 @@ export function useDialogFocus(open: boolean, containerRef: React.RefObject<HTML
     // Input that only renders once `requireTypedConfirmation` is true) may
     // not be in the DOM yet on the same tick this effect runs.
     const raf = requestAnimationFrame(() => {
-      const first = focusable()[0];
+      // A caller may mark the safe action (e.g. Cancel on a destructive dialog)
+      // with data-initial-focus; it wins over DOM order. Otherwise the first control.
+      const marked = container.querySelector<HTMLElement>("[data-initial-focus]");
+      const first = marked ?? focusable()[0];
       (first ?? container).focus();
     });
 

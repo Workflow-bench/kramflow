@@ -1,0 +1,19 @@
+{
+ "focusOnOpen": "Cancel",
+ "dialogAccessibleName": "Leave rehearsal?",
+ "tabStaysInsideDialog": true,
+ "backgroundElementAtPoint": {
+  "tag": "DIV",
+  "cls": "fixed inset-0 z-50 flex items-center justify-center bg-backg",
+  "inDialog": false
+ },
+ "positionBefore": "SYNTHETIC cue 1",
+ "positionAfterBackgroundClick": "SYNTHETIC cue 1",
+ "dialogOpenAfterBackgroundClick": false,
+ "closedByEscape": true,
+ "focusReturnedTo": "Exit Rehearsal",
+ "positionAfterEscape": "SYNTHETIC cue 1",
+ "enterOnInitialFocusClosedWithoutExit": true,
+ "confirmExitMarker": 1,
+ "mutatingOrLiveRequests": []
+}

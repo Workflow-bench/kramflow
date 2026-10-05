@@ -282,7 +282,9 @@
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-005",
         "docs/audit-remediation/evidence/B009/harness-rehearsal/README.md",
         "docs/audit-remediation/evidence/B009/harness-rehearsal/results.json",
-        "batches/B009/REVIEW_HANDOFF.md"
+        "batches/B009/REVIEW_HANDOFF.md",
+        "docs/audit-remediation/evidence/B009/harness-rehearsal/exit-verify.json",
+        "docs/audit-remediation/evidence/B009/harness-rehearsal/exit-verify.cjs"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
@@ -292,7 +294,8 @@
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
         "B006: meaningful-progress rule for exit confirmation defined as operator action (advance past cue 1, pause/resume, rehearsal alert), not elapsed time on cue 1. Unit-tested in lib/rehearsal.test.ts. Browser evidence for rehearsal requires an authenticated event session: UNVERIFIED.",
-        "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: alertdialog name, focus inside, Escape returns focus to Exit, confirm exits via onExit verified in the harness. Navigation exit without progress is a plain link (not intercepted)."
+        "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: alertdialog name, focus inside, Escape returns focus to Exit, confirm exits via onExit verified in the harness. Navigation exit without progress is a plain link (not intercepted).",
+        "B009 r3 local: IN_PROGRESS -> IN_PROGRESS. B009 r3: initial focus on Cancel; Tab stays inside the alertdialog; background point is the backdrop and cue unchanged; Escape and Enter-on-Cancel close without exit; focus returns to Exit Rehearsal. In-app exit with no progress is a plain link (not intercepted). Browser back navigation not verified."
       ]
     },
     {
@@ -337,7 +340,10 @@
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-006",
         "docs/audit-remediation/evidence/B009/db/race-results.txt",
         "docs/audit-remediation/evidence/B009/db/race-full.sh",
-        "batches/B009/REVIEW_HANDOFF.md"
+        "batches/B009/REVIEW_HANDOFF.md",
+        "docs/audit-remediation/evidence/B009/import-harness/import-results2.json",
+        "docs/audit-remediation/evidence/B009/import-harness/README.md",
+        "docs/audit-remediation/evidence/B009/import-harness/import-capture.cjs"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
@@ -347,7 +353,8 @@
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
         "B004: expanded acceptance_criteria to retain every obligation from master#13 and the full FIX_GUIDE paragraph (multi-session explicit choice, transactional scope, RPC-level authorization/search_path, generic client errors, foreign-id rejection, induced-failure rollback) — previously only the parent-heading-level subset survived (Codex B003 review finding B003-F2). Ledger correction only; import itself is not implemented in this batch.",
-        "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: import_cue_sheet SQL scenarios ALL PASSED; four two-connection races on local Postgres 16.15 (first import, same-event, version, multi-session, forced-failure rollback). Import UI not browser-tested."
+        "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: import_cue_sheet SQL scenarios ALL PASSED; four two-connection races on local Postgres 16.15 (first import, same-event, version, multi-session, forced-failure rollback). Import UI not browser-tested.",
+        "B009 r3 local: IN_PROGRESS -> IN_PROGRESS. B009 r3: import/Open Console harness with the real UploadPanel, ImportCompleteStep and planOpenConsole: explicit per-session choice, no selectSession before a click, running-session and locked guards, parse and commit error states announced (role=alert). Refresh coherence on the real route and migration staging not done (external)."
       ]
     },
     {
@@ -778,7 +785,8 @@
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-017",
         "docs/audit-remediation/evidence/B009/browser-pass2/login-toggle.out",
         "docs/audit-remediation/evidence/B009/browser-pass2/a11y-pass.out",
-        "batches/B009/REVIEW_HANDOFF.md"
+        "batches/B009/REVIEW_HANDOFF.md",
+        "docs/audit-remediation/evidence/B009/perf-gsap-deferred/login-ax-toggle.json"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
@@ -787,7 +795,8 @@
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
-        "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: set-password replacement/reauth tests (8); toggle aria-pressed verified in browser; expired-link message verified. Screen-reader announcement and real provider reset not verified."
+        "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: set-password replacement/reauth tests (8); toggle aria-pressed verified in browser; expired-link message verified. Screen-reader announcement and real provider reset not verified.",
+        "B009 r3 local: IN_PROGRESS -> IN_PROGRESS. B009 r3: toggle name and pressed state verified in the AX tree. Password-manager autofill not testable here; real reset provider not tested (prohibited)."
       ]
     },
     {
@@ -919,7 +928,7 @@
         "UX-08"
       ],
       "priority": "P3",
-      "implementation_state": "IN_PROGRESS",
+      "implementation_state": "READY_FOR_CODEX",
       "observation": "PARTIAL",
       "desired_behavior": "remove duplicate responsive heading/content exposure from the accessibility tree for the landing page's responsive variants, while preserving the existing visual layouts.",
       "acceptance_criteria": [
@@ -940,16 +949,18 @@
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-021",
         "docs/audit-remediation/evidence/B009/ax-tree/results.json",
         "docs/audit-remediation/evidence/B009/ax-tree/README.md",
-        "batches/B009/REVIEW_HANDOFF.md"
+        "batches/B009/REVIEW_HANDOFF.md",
+        "docs/audit-remediation/evidence/B009/final-revision-browser/ax-final.json"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
       "blockers_owner": null,
-      "next_action": "Complete the remaining criteria listed in batches/B009/REVIEW_HANDOFF.md",
+      "next_action": "Codex review of B009 batch handoff",
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
-        "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: AX tree shows 11 headings per landing viewport, no duplicates; hidden twins absent from the tree. DOM duplication remains."
+        "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: AX tree shows 11 headings per landing viewport, no duplicates; hidden twins absent from the tree. DOM duplication remains.",
+        "B009 r3 local: IN_PROGRESS -> READY_FOR_CODEX. B009 r3: AX tree (CDP) shows 11 headings per landing viewport, no duplicate names, hidden mobile twin absent from the tree. DOM still carries the responsive twin (display:none); the criterion is measured on the tree."
       ]
     },
     {
@@ -1016,7 +1027,9 @@
         "docs/audit-remediation/SOURCE_COVERAGE.json#KF-023",
         "docs/audit-remediation/evidence/B009/final-measurements",
         "docs/audit-remediation/evidence/B009/landing-lcp-fix",
-        "batches/B009/REVIEW_HANDOFF.md"
+        "batches/B009/REVIEW_HANDOFF.md",
+        "docs/audit-remediation/evidence/B009/perf-gsap-deferred",
+        "docs/audit-remediation/evidence/B009/final-revision-measurements"
       ],
       "environment": "n/a — not yet implemented",
       "reviewer": null,
@@ -1025,7 +1038,8 @@
       "history": [
         "carried forward from original audit enumeration (B002)",
         "B003: completed master-required fields (desired_behavior/acceptance_criteria/affected_files/etc.) using the original FIX_GUIDE/FULL_AUDIT text verbatim where available; no new research invented.",
-        "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: simulated mobile median 3309 ms (misses 2500); observed devtools mobile median 2317 ms (n=3). Reported separately; acceptance method unchanged; not CODEX_VERIFIED."
+        "B009 2026-10-04 local: OPEN -> IN_PROGRESS. B009: simulated mobile median 3309 ms (misses 2500); observed devtools mobile median 2317 ms (n=3). Reported separately; acceptance method unchanged; not CODEX_VERIFIED.",
+        "B009 r3 local: IN_PROGRESS -> IN_PROGRESS. B009 r3: GSAP deferred after first paint; simulated mobile median 3310 -> 3012 ms (3 runs; target 2500 ms NOT met). Observed mobile 2339 ms (n=3, supplementary). Framer-motion stack remains the next lever (design decision needed). Acceptance method unchanged."
       ]
     },
     {
@@ -1919,11 +1933,11 @@
   ],
   "totals": {
     "BLOCKED_EXTERNAL": 2,
-    "IN_PROGRESS": 11,
+    "IN_PROGRESS": 10,
     "NOT_APPLICABLE": 5,
     "OPEN": 17,
     "PRESERVE_PENDING_REVIEW": 3,
-    "READY_FOR_CODEX": 4
+    "READY_FOR_CODEX": 5
   },
   "parent_task_count": 42,
   "child_criteria_count": 29,

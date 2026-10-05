@@ -454,6 +454,21 @@ body {
     display: none;
   }
 }
+/* One-cue initial states. GSAP now loads after first paint (use-gsap.ts), so the
+   hidden starting state of the scrubbed screens is set here as well, for motion-
+   allowed visitors only. The GSAP setup sets the same values when it arrives. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-after],
+  [data-console-after],
+  [data-fired] {
+    opacity: 0;
+  }
+  [data-wire] {
+    transform: scaleX(0);
+    transform-origin: left center;
+    opacity: 0.9;
+  }
+}
 
 /* TV safe area — a fixed 48-64px margin, not a proportion of the screen.
    Full-bleed background, content clear of consumer-TV overscan. */

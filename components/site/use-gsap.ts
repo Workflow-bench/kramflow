@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import type { gsap as Gsap } from "gsap";
+import type { ScrollTrigger as ScrollTriggerPlugin } from "gsap/ScrollTrigger";
 
 /**
  * One place that owns GSAP setup, so every animated section on the page
@@ -30,7 +30,7 @@ const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffec
 
 export function useGsap(
   scope: RefObject<HTMLElement | null>,
-  setup: (ctx: { gsap: typeof gsap; ScrollTrigger: typeof ScrollTrigger; reduced: boolean }) => void,
+  setup: (ctx: { gsap: typeof Gsap; ScrollTrigger: typeof ScrollTriggerPlugin; reduced: boolean }) => void,
   deps: unknown[] = []
 ) {
   // Kept in a ref so the GSAP effect can stay on an explicit dependency
@@ -41,14 +41,27 @@ export function useGsap(
   useIsomorphicLayoutEffect(() => {
     setupRef.current = setup;
   });
-
   useIsomorphicLayoutEffect(() => {
-    if (!registered) {
-      gsap.registerPlugin(ScrollTrigger);
-      registered = true;
-    }
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const ctx = gsap.context(() => setupRef.current({ gsap, ScrollTrigger, reduced }), scope);
-    return () => ctx.revert();
+    // GSAP is loaded after the page has painted, not in the first JavaScript
+    // the landing parses. Its ~140 KB of script evaluation competed with the
+    // hero image on mobile (KF-023). Scroll behaviour is unchanged: a
+    // ScrollTrigger created late still computes its current state on creation.
+    let cancelled = false;
+    let ctx: { revert: () => void } | undefined;
+    void Promise.all([import("gsap"), import("gsap/ScrollTrigger")]).then(([gsapModule, stModule]) => {
+      if (cancelled) return;
+      const { gsap } = gsapModule;
+      const { ScrollTrigger } = stModule;
+      if (!registered) {
+        gsap.registerPlugin(ScrollTrigger);
+        registered = true;
+      }
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      ctx = gsap.context(() => setupRef.current({ gsap, ScrollTrigger, reduced }), scope);
+    });
+    return () => {
+      cancelled = true;
+      ctx?.revert();
+    };
   }, deps);
 }
