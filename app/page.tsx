@@ -1,52 +1,36 @@
 import type { Metadata } from "next";
 import { Navbar } from "@/components/site/navbar";
 import { HeroSection } from "@/components/site/hero-section";
-import { PlayableShow } from "@/components/site/playable-show";
-import { CallSheet } from "@/components/site/call-sheet";
-import { StandbyOverlay } from "@/components/site/standby-overlay";
-import { OneCueSection } from "@/components/site/one-cue-section";
-import { LiveOperationsSection } from "@/components/site/live-operations-section";
-import { CTASection } from "@/components/site/cta-section";
+import { BeforeDoors } from "@/components/site/before-doors";
+import { CallTheShow } from "@/components/site/call-the-show";
+import { WhenPlansChange } from "@/components/site/when-plans-change";
+import { TheRoom } from "@/components/site/the-room";
+import { ClosingSection } from "@/components/site/closing-section";
+import { MotionControl } from "@/components/site/motion-control";
 import { Footer } from "@/components/site/footer";
 
-// The public marketing page — proxy.ts redirects a signed-in operator
-// straight to /dashboard, so this only ever renders for a logged-out
-// visitor.
+// The public marketing page — proxy.ts redirects a signed-in operator straight to
+// /dashboard, so this only ever renders for a logged-out visitor.
 //
-// Every product visual on this page is a real screenshot of Kramflow
-// running a seeded conference ("Northwind Summit 2026" — three sessions,
-// a genuine rundown, a show running ninety seconds behind). They are
-// produced by `npm run capture:product`, which seeds the show and then
-// photographs the running app. The previous version hand-rebuilt each
-// surface in markup instead; accurate, but an approximation is always
-// thinner than the thing, and it drifts.
+// Six compositions, in the order the work actually happens: the promise and the
+// instrument; what you do before doors; calling the cue and watching the room follow;
+// what you reach for when the plan changes; how a screen in the venue joins; and the
+// close. No two of them share a grammar, which is what stops a marketing page reading
+// as one layout repeated with different words.
 //
-// Section rhythm is the composition, not an afterthought. Each beat is a
-// different *kind* of thing, because six variations on "centred column,
-// heading, paragraph, cards" is what made the earlier page read as
-// generated no matter how correct it was:
+// Every product image on this page is a genuine capture of KramFlow running the seeded
+// "Northwind Summit 2026" event (scripts/capture-product.mjs). Nothing here is a
+// recreation, a mockup or a redrawn control — see
+// docs/audit-remediation/evidence/homepage-redesign/PROVENANCE.md for each asset's
+// route, date, dimensions, SHA-256 and known drift.
 //
-//   Hero            full viewport; opens on a STANDBY/GO cue light, headline rises line by line
-//   One cue         pinned cinematic sequence — one cue propagating
-//   Your turn       a playable rundown: Next, +1 min, four screens follow
-//   Call sheet      the details as a cue sheet whose rows go live on scroll
-//   Trust           inverted; the only section with no product visual, counting facts
-//   CTA             one sentence, one action
-//
-// No two consecutive sections share a compositional grammar, which is the
-// thing that stops a page reading as a stack of blocks.
-//
-// The page is built on the product's own tokens (warm graphite #0c0b09,
-// the macOS status ramp, `rounded-panel`, `.tnum`) rather than the literal
-// zinc palette it used to carry, so the marketing surface and the app are
-// made of the same material rather than merely described as sharing one.
+// The STANDBY/GO overlay is deliberately gone: it showed an amber-to-green cue light
+// to a visitor with no show running, which reads as a live status indicator for a
+// state that does not exist.
+
 // Homepage metadata (B006-F1, B006-F2). Next merges nested metadata shallowly, so
 // openGraph must repeat the root fields or the homepage loses siteName and type.
 // The canonical is set here, not at the root, so private routes do not inherit it.
-//
-// Restored with the ui-revamp landing: that branch predates the audit fix, so
-// bringing its page.tsx across dropped this block and with it the homepage's
-// openGraph identity (caught by app/route-metadata-policy.test.ts).
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
   openGraph: {
@@ -62,15 +46,30 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <main className="bg-background">
-      <StandbyOverlay />
+      {/* Skip link: the first focusable element, hidden until keyboard focus (KF-020). */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-control focus:border focus:border-line focus:bg-raised focus:px-4 focus:py-2 focus:text-console-sm focus:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        Skip to content
+      </a>
       <Navbar />
-      <HeroSection />
-      <OneCueSection />
-      <PlayableShow />
-      <CallSheet />
-      <LiveOperationsSection />
-      <CTASection />
+      <div id="main-content" tabIndex={-1} className="focus:outline-none">
+        <HeroSection />
+        <BeforeDoors />
+        {/* Legacy deep anchors from the previous composition keep working: the cue
+            story moved into "Call the show" and the detail list into "When plans
+            change". Zero-height targets, so they add nothing visually. */}
+        <span id="one-cue" aria-hidden="true" className="legacy-anchor" />
+        <span id="product" aria-hidden="true" className="legacy-anchor" />
+        <CallTheShow />
+        <span id="features" aria-hidden="true" className="legacy-anchor" />
+        <WhenPlansChange />
+        <TheRoom />
+        <ClosingSection />
+      </div>
       <Footer />
+      <MotionControl />
     </main>
   );
 }

@@ -28,10 +28,13 @@ import { useGsap } from "./use-gsap";
 // `#one-cue` (OneCueSection), `#product` (PlayableShow) and `#features`
 // (CallSheet). "One cue"/"Product" described the page's internal vocabulary
 // rather than telling a first-time visitor what they would get by clicking.
+// Each label names what the visitor gets, and each target is a real section on this
+// page: preparation, the recorded cue example, and display connection. Native
+// anchors, no client router, no separate routes for homepage chapters.
 const NAV_LINKS = [
-  { label: "How it works", href: "#one-cue" },
-  { label: "Try the demo", href: "#product" },
-  { label: "Features", href: "#features" },
+  { label: "How it works", href: "#prepare" },
+  { label: "Explore the show", href: "#call" },
+  { label: "Connect displays", href: "#room" },
 ];
 
 export function Navbar() {
