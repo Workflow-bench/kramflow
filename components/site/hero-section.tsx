@@ -123,7 +123,7 @@ export function HeroSection() {
         >
           <motion.div style={{ y: lift }} className="will-change-transform">
             <AppWindow label="/e/northwind-summit-2026/operator">
-              <ProductShot shot="console" sizes={CONSOLE_SIZES} priority />
+              <ProductShot shot="console" sizes={CONSOLE_SIZES} />
             </AppWindow>
           </motion.div>
         </motion.div>

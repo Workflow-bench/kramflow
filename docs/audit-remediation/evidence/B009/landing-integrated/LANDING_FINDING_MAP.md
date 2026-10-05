@@ -9,7 +9,7 @@ Scope: the landing page from `ui-revamp` (1587c3c) integrated into `integrate/ui
 | KF-021 (surfaces duplicate headings / hidden twins) | `components/site/surfaces-section.tsx` (deleted in b657c82) | none | Removed with the section. No hidden duplicate heading remains in the new components (grep: `sr-only` and `aria-hidden` used only as decorative or intentional labels; manual review of the 16 hits is still pending Codex). | b657c82 stat |
 | Problem section (not a numbered finding) | `components/site/problem-section.tsx` (deleted) | none | Removed by ui-revamp. | b657c82 stat |
 | KF-020 (skip link) | `app/page.tsx` before the nav | `app/page.tsx:61-71` skip link to `#main-content` with `tabIndex={-1}` target | Retained and carried into the new page. | `app/page.tsx:61-71` |
-| Mobile hero LCP (KF-023) | hero crop asset | new hero uses `product-shot.tsx` `consoleMobile` shot | Superseded. The old crop is not applied to the new landing. Target 2500 ms still not met on mobile (3401 ms median). | `landing-contrast-fixed/` |
+| Mobile LCP (KF-023) | one-cue mobile block (`one-cue-section.tsx`) rendered full 3360 px console at `sizes="320vw"`, lazy; mobile hero has no image | `consoleMobile` 1050x900 crop at container width, `priority`; desktop hero console no longer `priority` | Changed. Simulated mobile median 3401 -> 3308 ms (target 2500 not met). Observed devtools mobile 4.4 s -> 2.7 s. See `landing-lcp-fix/`. | `landing-lcp-fix/` |
 | Contrast (new landing, not an original finding) | `text-muted-2/60`, `/70`, `/35` opacity utilities, and `text-muted-2` at 4.18:1 on small labels | solid tokens | Changed. See the table below. | `landing-contrast-fixed/` |
 
 ## Contrast changes (commit pending; uncommitted at time of writing)

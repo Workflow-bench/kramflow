@@ -18,3 +18,6 @@ Not performed, with reasons:
 - Login submission: calls the remote auth service. Not run.
 - Authenticated pages (rehearsal, operator console, cue sheet import, remote, broadcast, displays, settings): require a real session. No authorized session fixture is available to this batch. UNVERIFIED-runtime.
 - Screen-reader announcements: not performed.
+
+---
+Amendment (B009, see CORRECTION_rgb_only_contrast.md): the row above used an rgb-only parser that skipped `oklab()` colors. Its "0 failing" result is superseded. Corrected oklab-aware result: desktop 496 nodes, 0 failing, min 4.63:1; mobile 491 nodes, 0 failing, min 4.63:1.

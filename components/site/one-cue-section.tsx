@@ -228,9 +228,9 @@ export function OneCueSection() {
       <div className="px-6 py-16 lg:hidden">
         <h2 className="font-display text-[clamp(1.875rem,7vw,2.5rem)] text-primary">One cue. The room responds.</h2>
         <div className="relative mt-8 h-[70vw] max-h-[300px] overflow-hidden rounded-[0.35rem] border border-line-soft bg-black">
-          <div style={{ width: "320%", marginLeft: "-160%", marginTop: "-18%" }}>
-            <ProductShot shot="console" sizes="320vw" />
-          </div>
+          {/* The live column at the same scale the old 320% capture showed it; cropped
+              at build time so the browser fetches ~1050 px, not the 3840 px variant (KF-023). */}
+          <ProductShot shot="consoleMobile" sizes="100vw" priority />
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3">
           {SCREENS.map((screen) => (
