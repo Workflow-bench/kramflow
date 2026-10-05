@@ -81,13 +81,30 @@ export function __inertMarkCount(): number {
 // when a dialog closes or unmounts beneath it (CB-F4).
 const openDialogs: HTMLElement[] = [];
 
-// Whether an element can receive focus right now: connected, rendered, enabled, not inert.
+// Disabled state applies only to form controls, and the browser computes it natively.
+// `:disabled` already covers a disabled ancestor <fieldset> (except its first <legend>),
+// so no manual inheritance is needed. Links and tabindex elements are never disabled by a
+// fieldset (WIP-F1), so they are not passed to :disabled at all.
+const FORM_CONTROL_TAG = /^(BUTTON|INPUT|SELECT|TEXTAREA)$/;
+function isDisabledEffectively(el: HTMLElement): boolean {
+  if (!FORM_CONTROL_TAG.test(el.tagName)) return false;
+  return el.matches(":disabled");
+}
+
+// Whether an element can receive focus right now: connected, rendered, visible,
+// enabled (including fieldset-inherited disabled), not inert (CD-F1).
 export function isFocusEligible(el: Element | null | undefined): el is HTMLElement {
   if (!el || !(el instanceof HTMLElement)) return false;
   if (!el.isConnected) return false;
+  // The document body is "rendered" and never inert, but it is not a focus destination.
+  // A dialog opened with nothing focused records BODY as its trigger; accepting it stranded
+  // focus on BODY instead of the page fallback (found by the real-DOM cleanup harness).
+  if (el === document.body || el === document.documentElement) return false;
   if (el.closest("[inert]")) return false;
-  if ((el as HTMLButtonElement).disabled) return false;
-  return el.getClientRects().length > 0;
+  if (isDisabledEffectively(el)) return false;
+  if (el.getClientRects().length === 0) return false;
+  // visibility is inherited, so checking the element's computed value covers its ancestors.
+  return getComputedStyle(el).visibility !== "hidden" && getComputedStyle(el).visibility !== "collapse";
 }
 
 // The focus target when a dialog closes. Pure, so the decision is unit-tested.

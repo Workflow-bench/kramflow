@@ -7,6 +7,7 @@ import { PasswordInput } from "@/components/auth/password-input";
 import { Button } from "@/components/ui/button";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { safeNext } from "@/lib/safe-redirect";
+import { validatedNext, withNext } from "@/lib/auth/continuation";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -64,7 +65,8 @@ function SetPasswordForm() {
         // re-sign-in after it did not — so send them to log in with the
         // new password rather than a destination the now-stale session
         // can't actually reach.
-        window.location.href = "/login";
+        // Keeps the validated destination, so the next login continues where recovery began.
+        window.location.href = withNext("/login", validatedNext(rawNext));
         return;
       }
       // Hard navigation, same reasoning as login's own — proxy.ts needs to

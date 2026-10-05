@@ -9,11 +9,14 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { safeNext } from "@/lib/safe-redirect";
+import { validatedNext, withNext } from "@/lib/auth/continuation";
 
 function LoginForm() {
   const searchParams = useSearchParams();
   const rawNext = searchParams.get("next");
   const next = safeNext(rawNext);
+  // Recovery keeps the same validated destination: Forgot password → reset → set-password.
+  const resetHref = withNext("/reset", validatedNext(rawNext));
   // Set by the auth callback when an emailed link could not be used. The text is
   // deliberately generic: it does not say whether an account exists or which
   // failure happened (expired, already used, or invalid).
@@ -104,7 +107,7 @@ function LoginForm() {
         {linkExpired && (
           <p role="status" className="rounded-control border border-line-soft bg-raised/60 px-4 py-3 text-[14px] leading-5 text-muted">
             That link has expired or was already used.{" "}
-            <Link href="/reset" className="text-primary hover:underline">Request a new link</Link>.
+            <Link href={resetHref} className="text-primary hover:underline">Request a new link</Link>.
           </p>
         )}
 
@@ -134,7 +137,7 @@ function LoginForm() {
             <label htmlFor="password" className="text-[14px] leading-5 text-muted">
               Password
             </label>
-            <Link href="/reset" className="text-[14px] leading-5 text-primary hover:underline">
+            <Link href={resetHref} className="text-[14px] leading-5 text-primary hover:underline">
               Forgot password?
             </Link>
           </div>

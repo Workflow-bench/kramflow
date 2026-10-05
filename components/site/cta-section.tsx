@@ -1,9 +1,9 @@
-import { GoLink } from "./go-link";
+import { LinkButton } from "@/components/ui/button";
 import { Reveal } from "./motion";
 
 /**
  * The closing statement: one sentence, one action, staged as the last cue.
- * The action is a GoLink, which reads STANDBY until it is hovered or focused.
+ * The action is the shared hero-size primary action, the same as the hero (landing-auth D08).
  */
 export function CTASection() {
   return (
@@ -15,9 +15,9 @@ export function CTASection() {
           </h2>
         </Reveal>
         <Reveal delay={0.15} className="mt-16 flex flex-wrap items-center gap-x-8 gap-y-5">
-          <GoLink href="/signup" size="lg">
+          <LinkButton href="/signup" variant="primary" size="hero">
             Start free
-          </GoLink>
+          </LinkButton>
           <span className="tnum text-[11px] uppercase tracking-[0.2em] text-muted-2">
             No credit card · Runs your next show
           </span>

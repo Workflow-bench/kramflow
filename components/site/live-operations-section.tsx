@@ -9,14 +9,17 @@ import { SplitFlap } from "./split-flap";
  * to the light ground for one statement and four facts about how the product
  * is built, then returns to dark for the close. No product visual here on
  * purpose, and every figure is a fact from the product's own spec, never a
- * usage statistic.
+ * usage statistic. Only counted facts render as figures; a claim without a
+ * measurement is stated in words (CD-F7).
  */
 
-const FACTS = [
+type Fact = { label: string; detail: string } & ({ to: string; suffix: string } | { word: string });
+
+const FACTS: Fact[] = [
   { to: "4", suffix: "", label: "Display surfaces", detail: "General, AV, Green Room and Presenter, each cut for its own audience." },
-  { to: "1", suffix: "s", label: "To reach every screen", detail: "Connected displays reflect a cue within about a second, with nothing relayed by hand." },
+  { word: "One cue", label: "Reaches every screen", detail: "Connected displays reflect the cue you send, with nothing relayed by hand." },
   { to: "6", suffix: "", label: "Digits to connect a TV", detail: "Type the code on the wall screen. No account, no login, no cable." },
-  { to: "200", suffix: "+", label: "Items in a real cue sheet", detail: "The rundown this was built against: multi-day, multi-session, imported from Excel." },
+  { word: "Excel", label: "Rundown import", detail: "Bring an existing multi-day, multi-session rundown in from a spreadsheet." },
 ];
 
 
@@ -36,12 +39,18 @@ export function LiveOperationsSection() {
           {FACTS.map((f) => (
             <div key={f.label} className="flex flex-col-reverse justify-end bg-primary p-5 sm:p-7">
               <dt className="tnum mt-5 text-[11px] uppercase tracking-[0.16em] text-background/60">
-                <span className="sr-only">{f.to}{f.suffix} </span>
+                <span className="sr-only">{"word" in f ? f.word : `${f.to}${f.suffix} `}</span>
                 {f.label}
               </dt>
               <div aria-hidden="true" className="font-display text-[clamp(2.25rem,4.4vw,3.75rem)] leading-none">
-                <SplitFlap value={arrived ? f.to : f.to.replace(/\d/g, "0")} tone="light" />
-                {f.suffix && <span className="ml-1 text-[0.6em]">{f.suffix}</span>}
+                {"word" in f ? (
+                  <span>{f.word}</span>
+                ) : (
+                  <>
+                    <SplitFlap value={arrived ? f.to : f.to.replace(/\d/g, "0")} tone="light" />
+                    {f.suffix && <span className="ml-1 text-[0.6em]">{f.suffix}</span>}
+                  </>
+                )}
               </div>
             </div>
           ))}

@@ -238,7 +238,7 @@ export function OneCueSection() {
         <div className="relative mt-8 h-[70vw] max-h-[300px] overflow-hidden rounded-[0.35rem] border border-line-soft bg-black">
           {/* The live column at the same scale the old 320% capture showed it; cropped
               at build time so the browser fetches ~1050 px, not the 3840 px variant (KF-023). */}
-          <ProductShot shot="consoleMobile" sizes="100vw" priority />
+          <ProductShot shot="consoleMobile" sizes="100vw" />
         </div>
         {/* One readable output at a time (landing-auth design D06). Explicit controls let the
             visitor compare destinations; the four are not shrunk onto one phone screen. */}

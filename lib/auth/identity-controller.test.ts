@@ -105,4 +105,22 @@ describe("controlled provider integration (CB-F1 identity-aware runs)", () => {
     expect(() => h.ctl.onEvent("MFA_CHALLENGE_VERIFIED", user("a"))).not.toThrow();
     expect(h.seen("a")).toBe("cue 2");
   });
+
+  it("a failed sign-out during hydration does not discard the valid initial session (CD-F2)", () => {
+    const h = harness();
+    const applyLate = h.ctl.beginHydrate();
+    expect(h.ctl.signOut(false)).toBe(false);
+    applyLate(session({ data: { session: user("a") } }));
+    expect(h.identity).toBe("a");
+    expect(h.status).toBe("unlocked");
+  });
+
+  it("a confirmed sign-out still rejects a stale initial session that started before it", () => {
+    const h = harness();
+    const applyLate = h.ctl.beginHydrate();
+    expect(h.ctl.signOut(true)).toBe(true);
+    applyLate(session({ data: { session: user("a") } }));
+    expect(h.identity).toBeNull();
+    expect(h.status).toBe("locked");
+  });
 });

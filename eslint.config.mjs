@@ -67,9 +67,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Evidence capture scripts only (Playwright/CDP CommonJS run by hand; not product code).
-    // Product code, tests and repo tooling stay linted.
-    "docs/audit-remediation/evidence/**/*.cjs",
+    // Evidence only: Playwright/CDP capture scripts (CommonJS, run by hand) and generated
+    // harness bundles. Not product code. Product code, tests and repo tooling stay linted.
+    "docs/audit-remediation/evidence/**",
   ]),
   {
     files: CONSOLE_SURFACE_GLOBS,

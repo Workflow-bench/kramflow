@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Variant = "primary" | "secondary" | "ghost" | "warning" | "danger" | "danger-minor" | "danger-solid";
-type Size = "sm" | "md" | "lg" | "xl" | "public" | "hero";
+type Size = "sm" | "md" | "lg" | "xl" | "public" | "hero" | "nav";
 
 // Shared with LinkButton below so the two never drift into two different
 // "button-shaped thing" visual languages — see that component's own comment
@@ -55,6 +55,8 @@ function buttonClasses({
     // actions, 52px for the hero action, 44px nav action (landing-auth design review D02/D08).
     size === "public" &&
       (square ? "h-12 w-12 rounded-control" : "h-12 px-5 text-[16px] font-medium rounded-control [@media(pointer:coarse)]:min-h-12"),
+    // Navigation action: 44px, one step below the form action so the bar stays compact.
+    size === "nav" && (square ? "h-11 w-11 rounded-control" : "h-11 px-4 text-[14px] font-medium rounded-control"),
     size === "hero" &&
       (square ? "h-13 w-13 rounded-control" : "h-[52px] px-6 text-[17px] font-medium rounded-control"),
     size === "xl" && (square ? "h-20 w-20 rounded-card" : "h-20 px-8 text-xl rounded-card"),

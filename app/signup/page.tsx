@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/auth/password-input";
 import { Button, LinkButton } from "@/components/ui/button";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { inviteDestination, validatedNext } from "@/lib/auth/continuation";
 
 function SignupForm() {
   const searchParams = useSearchParams();
@@ -16,7 +17,10 @@ function SignupForm() {
   // on that invite page and AutoAccept can claim it, instead of the
   // generic dashboard.
   const inviteToken = searchParams.get("invite");
-  const next = inviteToken ? `/invite/${inviteToken}` : "/dashboard";
+  // `next` carries the destination through login → signup → login (CD-F3). A validated
+  // `next` wins over the invite fallback; an unsafe or absent `next` falls through to it.
+  // An unsafe `next` falls back to a validated invite destination, then to the dashboard.
+  const next = validatedNext(searchParams.get("next")) ?? inviteDestination(inviteToken) ?? "/dashboard";
   const prefillEmail = searchParams.get("email") ?? "";
 
   const [name, setName] = useState("");

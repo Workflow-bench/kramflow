@@ -12,8 +12,15 @@ class StubEl {
   tabIndex = 0;
   attrs = new Map<string, string>();
   constructor(public id: string) {}
+  visibility = "visible";
+  tagName = "BUTTON";
+  fieldsetDisabled = false;
   closest(sel: string) {
     return sel === "[inert]" && this.inert ? this : null;
+  }
+  // Models native :disabled: own disabled, or a disabled ancestor fieldset.
+  matches(sel: string) {
+    return sel === ":disabled" && (this.disabled || this.fieldsetDisabled);
   }
   getClientRects() {
     return this.rendered ? [{}] : [];
@@ -28,6 +35,8 @@ class StubEl {
 
 class StubHTMLElement extends StubEl {}
 vi.stubGlobal("HTMLElement", StubHTMLElement);
+vi.stubGlobal("document", { body: {}, documentElement: {} });
+vi.stubGlobal("getComputedStyle", (el: StubEl) => ({ visibility: el.visibility }));
 
 const { chooseFocusTarget, isFocusEligible } = await import("./use-dialog-focus");
 
@@ -41,6 +50,21 @@ describe("focus eligibility", () => {
     expect(isFocusEligible(el("d", { disabled: true }))).toBe(false);
     expect(isFocusEligible(el("e", { rendered: false }))).toBe(false);
     expect(isFocusEligible(null)).toBe(false);
+  });
+
+  it("rejects visibility:hidden and collapse (CD-F1)", () => {
+    expect(isFocusEligible(el("h", { visibility: "hidden" }))).toBe(false);
+    expect(isFocusEligible(el("i", { visibility: "collapse" }))).toBe(false);
+  });
+
+  it("rejects a button or input disabled by a fieldset (native :disabled)", () => {
+    expect(isFocusEligible(el("j", { fieldsetDisabled: true }))).toBe(false);
+    expect(isFocusEligible(el("k", { tagName: "INPUT", fieldsetDisabled: true }))).toBe(false);
+  });
+
+  it("keeps a link or tabindex element inside a disabled fieldset eligible (WIP-F1)", () => {
+    expect(isFocusEligible(el("a1", { tagName: "A", fieldsetDisabled: true }))).toBe(true);
+    expect(isFocusEligible(el("t1", { tagName: "DIV", tabIndex: 0, fieldsetDisabled: true }))).toBe(true);
   });
 });
 

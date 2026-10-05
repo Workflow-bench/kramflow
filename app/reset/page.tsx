@@ -1,16 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { GENERIC_RESET_MESSAGE } from "@/lib/reset-message";
+import { validatedNext, withNext } from "@/lib/auth/continuation";
 
 // Password reset request. The success message is the same for every address,
 // so this page never says whether an account exists. Only a validation error
 // or a rate limit is shown as different.
-export default function ResetPage() {
+function ResetForm() {
+  const searchParams = useSearchParams();
+  // A validated destination from login ("Forgot password?") rides along to the email link
+  // and back to log in (WIP-F2). The server validates it again.
+  const next = validatedNext(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +31,7 @@ export default function ResetPage() {
       const res = await fetch("/api/auth/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, next }),
       });
       const data: { ok: boolean; error?: string } = await res.json().catch(() => ({ ok: false }));
       if (!data.ok) {
@@ -45,7 +51,7 @@ export default function ResetPage() {
       title="Reset your password"
       support="Enter the email on your account and we will send a reset link."
       footer={
-        <Link href="/login" className="text-primary hover:underline">
+        <Link href={withNext("/login", next)} className="text-primary hover:underline">
           Back to log in
         </Link>
       }
@@ -87,5 +93,13 @@ export default function ResetPage() {
         </form>
       )}
     </AuthShell>
+  );
+}
+
+export default function ResetPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetForm />
+    </Suspense>
   );
 }

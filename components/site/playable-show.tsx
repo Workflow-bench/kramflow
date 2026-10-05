@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Reveal, useReduced } from "./motion";
+import { useReduced } from "./motion";
 import { SplitFlap } from "./split-flap";
 
 /**
@@ -101,12 +101,14 @@ export function PlayableShow() {
   return (
     <section ref={root} id="demo" data-cue="Try a cue" className="scroll-mt-24 border-b border-line-soft">
       <div className="mx-auto max-w-[1600px] px-6 py-16 sm:px-10 lg:py-28">
-        <Reveal>
+        {/* Not wrapped in <Reveal>: the heading is server-rendered visible, so no
+            opacity or translate gate sits between the page and its LCP (CD-F4). */}
+        <div>
           <h2 className="max-w-[14ch] font-display text-[clamp(2.25rem,5.5vw,4.75rem)] text-primary">
             Now you call the cue.
           </h2>
           <p className="mt-5 max-w-[40ch] text-base leading-relaxed text-muted">Press Next. Four screens follow.</p>
-        </Reveal>
+        </div>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14">
           {/* ---------------------------------------------- the rundown */}

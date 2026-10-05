@@ -22,10 +22,13 @@ export function AuthShell({
 }) {
   return (
     <div className="min-h-dvh bg-background text-primary">
-      <div className="mx-auto grid min-h-dvh w-full max-w-[1200px] grid-cols-1 min-[960px]:grid-cols-[55fr_45fr]">
+      {/* Without art there is no second column, so the form takes one centred column (CD-F5). */}
+      <div
+        className={`mx-auto grid min-h-dvh w-full max-w-[1200px] grid-cols-1 ${showArt ? "min-[960px]:grid-cols-[55fr_45fr]" : ""}`}
+      >
         {showArt && <AuthArt className="hidden min-[960px]:flex min-[960px]:flex-col min-[960px]:justify-center" />}
         <main className="flex flex-col px-6 py-10 sm:px-10 min-[960px]:justify-center min-[960px]:px-12 min-[960px]:py-16">
-          <div className="w-full max-w-[420px] min-[960px]:max-w-[440px]">
+          <div className={`w-full max-w-[420px] min-[960px]:max-w-[440px] ${showArt ? "" : "mx-auto"}`}>
             <Link
               href="/"
               className="-my-3 inline-block rounded-chip py-3 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"

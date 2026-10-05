@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
+import { LinkButton } from "@/components/ui/button";
 import { Wordmark } from "./wordmark";
 import { useGsap } from "./use-gsap";
 
@@ -110,12 +111,9 @@ export function Navbar() {
           >
             Log in
           </Link>
-          <Link
-            href="/signup"
-            className="rounded-control bg-primary px-4 py-2.5 text-console-sm font-medium text-background transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
+          <LinkButton href="/signup" variant="primary" size="nav">
             Start free
-          </Link>
+          </LinkButton>
         </div>
 
         <button
@@ -163,13 +161,9 @@ export function Navbar() {
               <Link href="/login" onClick={() => setOpen(false)} className="py-4 text-base text-primary">
                 Log in
               </Link>
-              <Link
-                href="/signup"
-                onClick={() => setOpen(false)}
-                className="my-3 rounded-control bg-primary py-3.5 text-center text-base font-medium text-background"
-              >
+              <LinkButton href="/signup" variant="primary" size="public" onClick={() => setOpen(false)} className="my-3 w-full">
                 Start free
-              </Link>
+              </LinkButton>
             </div>
           </motion.div>
         )}

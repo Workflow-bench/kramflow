@@ -489,3 +489,18 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Hero entrance (CD-F4/WIP-F3): transform only, no opacity, CSS-driven, so the copy paints from the
+   server HTML at once and is never held hidden waiting for hydration. Off under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes hero-rise {
+    from { transform: translateY(10px); }
+    to { transform: none; }
+  }
+  .hero-rise {
+    animation: hero-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .hero-rise-late {
+    animation-delay: 0.15s;
+  }
+}

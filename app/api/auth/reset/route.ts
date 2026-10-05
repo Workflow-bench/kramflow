@@ -4,6 +4,7 @@ import { getClientIp, reserveAttempt } from "@/lib/server/rate-limit";
 import { isValidEmail } from "@/lib/validation/email";
 import { SITE_ORIGIN } from "@/lib/site-origin";
 import { GENERIC_RESET_MESSAGE } from "@/lib/reset-message";
+import { recoverySetPath, validatedNext } from "@/lib/auth/continuation";
 
 // Requests a password reset email. Every request that passes validation gets
 // the same success response, whether or not the email has an account, so the
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { email?: unknown };
+  let body: { email?: unknown; next?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -37,7 +38,9 @@ export async function POST(request: Request) {
   }
 
   const supabase = await supabaseServer();
-  const redirectTo = `${SITE_ORIGIN}/auth/callback?next=${encodeURIComponent("/set-password")}`;
+  // The destination is validated again here; the client value is never trusted as-is.
+  const next = validatedNext(typeof body.next === "string" ? body.next : null);
+  const redirectTo = `${SITE_ORIGIN}/auth/callback?next=${encodeURIComponent(recoverySetPath(next))}`;
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
   // A provider error is logged for the operator, never returned: returning it
   // would tell a caller that some addresses behave differently from others.

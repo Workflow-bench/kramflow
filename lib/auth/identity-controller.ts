@@ -46,10 +46,12 @@ export function createIdentityController(deps: IdentityControllerDeps): Identity
       };
     },
     signOut(serverConfirmed) {
-      seq += 1;
       if (disposed) return false;
+      // A sign-out the server did not confirm applies nothing, so it must not invalidate a
+      // pending hydration either (CD-F2). Only an applied change advances the sequence.
       const effect = lockEffect(serverConfirmed);
       if (!effect) return false;
+      seq += 1;
       if (effect.clearRuns) deps.resetRuns();
       deps.setIdentity(effect.identity);
       deps.setStatus("locked");
