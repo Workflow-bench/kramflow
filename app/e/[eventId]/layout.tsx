@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { PRIVATE_OPEN_GRAPH } from "@/lib/private-metadata";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
 import { AuthProvider } from "@/components/auth/auth-context";
 import { EventProvider, EventRoleProvider, type EventRole } from "@/lib/event-context";
@@ -27,6 +28,7 @@ import { CommandPalette } from "@/components/operator/command-palette";
 export const metadata: Metadata = {
   title: "Event",
   robots: { index: false, follow: false },
+  openGraph: PRIVATE_OPEN_GRAPH,
 };
 
 export default async function EventLayout({

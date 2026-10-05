@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { PRIVATE_OPEN_GRAPH } from "@/lib/private-metadata";
 import { AuthProvider } from "@/components/auth/auth-context";
 
 // Private surface: not for search. Title is static, so no account or event data reaches the head.
 export const metadata: Metadata = {
   title: "Dashboard",
   robots: { index: false, follow: false },
+  openGraph: PRIVATE_OPEN_GRAPH,
 };
 
 // This group now covers /dashboard only — every per-event operator

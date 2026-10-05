@@ -5,15 +5,11 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: ["/"],
-      // Noindex routes stay crawlable so crawlers can read their noindex meta;
-      // robots disallow only covers private/authenticated paths.
-      disallow: [
-        "/dashboard",
-        "/e/",
-        "/invite/",
-        "/api/",
-        "/dev/",
-      ],
+      // Noindex pages stay crawlable so crawlers can read their noindex meta
+      // (KF-026): /invite/ carries noindex and is not disallowed. Disallow only
+      // private routes that redirect to login (their noindex is never served
+      // to a crawler anyway) and the API. /dev/ is a 404 in production.
+      disallow: ["/dashboard", "/e/", "/api/"],
     },
   };
 }

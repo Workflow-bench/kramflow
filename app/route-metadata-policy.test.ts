@@ -74,3 +74,24 @@ describe("route metadata policy (B006-F2)", () => {
     }
   });
 });
+
+// KF-026: a noindex layout must not inherit the root Open Graph (its og:url is the
+// public homepage). Each layout sets the shared private OG object and no url.
+describe("noindex layouts carry a non-inherited Open Graph (KF-026)", () => {
+  const layouts = [...new Set([...PRIVATE_SURFACES, ...NOINDEX_PAGE_DIRS])].map((d) => path.join(APP, d, "layout.tsx"));
+  it.each(layouts)("%s sets PRIVATE_OPEN_GRAPH and no og url", (file) => {
+    const src = readFileSync(file, "utf8");
+    expect(src).toContain("robots: { index: false, follow: false }");
+    expect(src).toContain("openGraph: PRIVATE_OPEN_GRAPH");
+    expect(src).not.toMatch(/openGraph:\s*\{[^}]*url:/);
+  });
+});
+
+// KF-026: robots.txt must not block a page whose own noindex meta is the control.
+describe("robots.txt does not hide noindex pages (KF-026)", () => {
+  it("does not disallow /invite/ or /dev/", () => {
+    const src = readFileSync(path.join(APP, "robots.ts"), "utf8");
+    expect(src).not.toMatch(/"\/invite\/"/);
+    expect(src).not.toMatch(/"\/dev\/"/);
+  });
+});

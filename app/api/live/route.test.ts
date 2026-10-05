@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const logActivity = vi.fn();
@@ -353,6 +354,42 @@ describe("runLiveAction start guard (Lane C live-start invariants)", () => {
       actionRequest({ eventId: "event-a", action: "next", maxOrder: 3, clientId: "client-a" }),
       { eventId: "event-a", userId: "user-a" }
     );
+    expect(res.status).toBe(200);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(1);
+  });
+});
+
+const { PATCH } = await import("./route");
+
+// The public PATCH handler now delegates to lib/server/live-action.ts. These tests run
+// the real exported PATCH and check that authentication, tenant scope, the controller
+// lease and the mutation itself are unchanged by the move (no trusted-actor bypass).
+describe("PATCH entry point after the move to lib/server/live-action.ts", () => {
+  it("refuses an anonymous caller at the HTTP entry, writing nothing", async () => {
+    requireEventAccess.mockResolvedValue(NextResponse.json({ ok: false }, { status: 401 }));
+    const res = await PATCH(actionRequest({ eventId: "event-a", action: "next", maxOrder: 2, clientId: "client-a" }));
+    expect(res.status).toBe(401);
+    expect(calls.find((c) => c.table === "live_state" && c.op === "update")).toBeUndefined();
+  });
+
+  it("checks the requested event against the caller's access, and refuses a foreign event", async () => {
+    requireEventAccess.mockResolvedValue(NextResponse.json({ ok: false }, { status: 403 }));
+    const res = await PATCH(actionRequest({ eventId: "event-b", action: "next", maxOrder: 2, clientId: "client-a" }));
+    expect(res.status).toBe(403);
+    expect(requireEventAccess).toHaveBeenCalledWith("event-b", "owner");
+    expect(calls.find((c) => c.table === "live_state" && c.op === "update")).toBeUndefined();
+  });
+
+  it("keeps the controller lease: a non-controller client is refused with 423 and writes nothing", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    const res = await PATCH(actionRequest({ eventId: "event-a", action: "next", maxOrder: 2, clientId: "someone-else" }));
+    expect(res.status).toBe(423);
+    expect(calls.find((c) => c.table === "live_state" && c.op === "update")).toBeUndefined();
+  });
+
+  it("lets the controller and an owner mutate exactly as runLiveAction does", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    const res = await PATCH(actionRequest({ eventId: "event-a", action: "next", maxOrder: 2, clientId: "client-a" }));
     expect(res.status).toBe(200);
     expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(1);
   });
