@@ -159,7 +159,7 @@ export function WhenPlansChange() {
               Focusable, so keyboard users reach the proof that the selection controls
               (HF-05); Tab previously skipped it entirely. */}
           <figure
-            className="min-w-0 rounded-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="min-w-0 self-start justify-self-end w-full lg:max-w-[560px] rounded-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             tabIndex={0}
             aria-label={`Proof for ${op.title}: ${op.caption}`}
           >
