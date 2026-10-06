@@ -1,71 +1,33 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { useReduced } from "./motion";
 
 /**
- * One switch for the homepage's continuous motion.
+ * One effective motion setting for the homepage.
  *
- * Two inputs decide whether ambient motion runs: the OS `prefers-reduced-motion`
- * setting (authoritative, and re-read when the user changes it mid-session — see
- * `useReduced`) and this visitor-facing Pause control. Either one turns the
- * ambient light off and leaves a static composition behind it.
+ * The OS `prefers-reduced-motion` setting is the single source of truth, and it stays
+ * authoritative while the page is open — `useReduced` subscribes to the media query, so
+ * turning it on mid-scene rebuilds the static branch rather than leaving a half-played
+ * timeline behind.
  *
- * **Scope of Pause (HOME-R08).** Pause covers *all* decorative motion on this page,
- * not just the background: the ambient light stops, and user-triggered changes stop
- * travelling too — the cue reveal and the selection indicator apply instantly instead
- * of animating. What Pause never does is remove function. Every control still works,
- * every state still changes, and all content stays readable; only the movement goes.
- * This is the behaviour the control's label promises, rather than a background-only
- * switch described as a motion switch.
+ * There was previously a visitor-facing Pause control folded in here as a second input.
+ * It has been removed from the page at the user's request, so the OS preference is now
+ * the only thing that turns motion off. Everything downstream still reads these two
+ * hooks, which keeps one setting reaching every engine — the ambient shader, the GSAP
+ * scroll stage, navigation and CSS travel (`data-motion`, see MotionFlag) — rather than
+ * each of them sampling the preference separately.
  */
 
-let paused = false;
-const listeners = new Set<() => void>();
-
-function emit() {
-  for (const l of listeners) l();
-}
-
-export function setMotionPaused(next: boolean) {
-  if (paused === next) return;
-  paused = next;
-  emit();
-}
-
-function subscribe(onChange: () => void) {
-  listeners.add(onChange);
-  return () => listeners.delete(onChange);
-}
-
-/** The Pause control's own state. Server snapshot is `false`, so SSR and hydration agree. */
-export function useMotionPaused() {
-  return useSyncExternalStore(
-    subscribe,
-    () => paused,
-    () => false
-  );
-}
-
-/**
- * Whether decorative, continuous motion may run right now.
- * Reduced motion wins over the control; the control can only ever turn motion off.
- */
+/** Whether decorative, continuous motion may run (the ambient field, the scroll stage). */
 export function useAmbientMotion() {
-  const reduce = useReduced();
-  const isPaused = useMotionPaused();
-  return !reduce && !isPaused;
+  return !useReduced();
 }
 
 /**
- * Whether a user-triggered transition (cue reveal, selection move) should animate.
- * Under reduced motion the change is applied instantly rather than suppressed —
- * the content still changes, it just arrives without the travel.
+ * Whether a user-triggered change (a cue reveal, a selection move) should animate.
+ * When motion is off the change still happens — it simply arrives instantly rather than
+ * travelling. Content and actions are never removed, only the movement.
  */
 export function useTransitionMotion() {
-  const reduce = useReduced();
-  const isPaused = useMotionPaused();
-  // Same inputs as the ambient field: either one turns travel off, and the state
-  // change itself still happens immediately.
-  return !reduce && !isPaused;
+  return !useReduced();
 }

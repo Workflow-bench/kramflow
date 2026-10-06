@@ -6,7 +6,7 @@ import { RoomScene } from "@/components/site/room-scene";
 import { WhenPlansChange } from "@/components/site/when-plans-change";
 import { TheRoom } from "@/components/site/the-room";
 import { ClosingSection } from "@/components/site/closing-section";
-import { MotionControl } from "@/components/site/motion-control";
+import { MotionFlag } from "@/components/site/motion-flag";
 import { Footer } from "@/components/site/footer";
 
 // The public marketing page — proxy.ts redirects a signed-in operator straight to
@@ -71,7 +71,7 @@ export default function Home() {
         <ClosingSection />
       </div>
       <Footer />
-      <MotionControl />
+      <MotionFlag />
     </main>
   );
 }
