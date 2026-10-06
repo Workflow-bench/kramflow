@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ProductShot, type ShotKey } from "./product-shot";
-import { RecordedView, type CropBox } from "./recorded-view";
+import type { ShotKey } from "./product-shot";
+import { ConsoleReplica } from "./replica/console-replica";
+import { PresenterReplica, AVReplica, GreenRoomReplica, GeneralReplica } from "./replica/display-replicas";
 import { AppWindow } from "./app-window";
-import { FullViewDialog } from "./full-view-dialog";
 import { SegmentedSelector, type SegmentedItem } from "./segmented-selector";
 import { useGsap } from "./use-gsap";
 
@@ -92,27 +92,23 @@ const PHASES = [
   "Display views updated",
 ] as const;
 
+// The four display replicas, keyed by the product's canonical role name.
+function renderScreen(role: string, cue: 3 | 4) {
+  const label = `${role} display, cue ${cue}`;
+  if (role === "Presenter") return <PresenterReplica cue={cue} label={label} />;
+  if (role === "AV") return <AVReplica cue={cue} label={label} />;
+  if (role === "Green Room") return <GreenRoomReplica cue={cue} label={label} />;
+  return <GeneralReplica cue={cue} label={label} />;
+}
+
 const MOBILE_VIEWS: readonly SegmentedItem[] = SCREENS.map((s) => ({ value: s.label, label: s.label }));
 
-// On a phone the whole 3360px console is unreadable, and the old build shipped a
-// 320vw treatment to compensate. Instead the mobile stage frames the same verified
-// cue/timer/control region of the real capture — uniform scale and clipping only, and a
-// request size a phone can afford.
-const CONSOLE_CROP: CropBox = {
-  left: 1700,
-  top: 150,
-  width: 1660,
-  height: 670,
-  imageWidth: 3360,
-  imageHeight: 2100,
-};
 
 export function RoomScene() {
   const root = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
   const [phase, setPhase] = useState(0);
-  const [inspecting, setInspecting] = useState(false);
   const [mobileView, setMobileView] = useState(SCREENS[0].label);
 
   // Breakpoint is state, so the GSAP setup can be rebuilt when it changes rather than
@@ -238,20 +234,13 @@ export function RoomScene() {
                 the content area stacks the two captures and cuts between them. */}
             <div className="[grid-area:console]">
               <AppWindow label="/e/northwind-summit-2026/operator" className="shadow-[0_50px_140px_-40px_rgba(0,0,0,0.9)]">
-                <ProductShot shot="consolePrev" sizes="(min-width: 1024px) 46vw, 92vw" />
+                <ConsoleReplica cue={3} label="Operator console, cue 3 Opening Keynote" />
                 <div data-console-after className="absolute inset-0">
-                  <ProductShot shot="console" sizes="(min-width: 1024px) 46vw, 92vw" />
+                  <ConsoleReplica cue={4} label="Operator console, cue 4 Product Launch Demo" />
                 </div>
               </AppWindow>
               <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4">
                 <p className="text-console-label uppercase text-muted-2">Operator console</p>
-                <button
-                  type="button"
-                  onClick={() => setInspecting(true)}
-                  className="inline-flex h-11 items-center rounded-control px-1 text-[13px] text-muted transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  View the whole console
-                </button>
               </div>
             </div>
 
@@ -270,9 +259,9 @@ export function RoomScene() {
             {SCREENS.map((screen, i) => (
               <div key={screen.label} className={screen.area}>
                 <div className="relative overflow-hidden rounded-[0.4rem] bg-black ring-1 ring-line-soft">
-                  <ProductShot shot={screen.before} sizes="(min-width: 1024px) 22vw, 90vw" />
+                  {renderScreen(screen.label, 3)}
                   <div data-after={i} className="absolute inset-0">
-                    <ProductShot shot={screen.after} sizes="(min-width: 1024px) 22vw, 90vw" />
+                    {renderScreen(screen.label, 4)}
                   </div>
                 </div>
                 <p className="mt-2 text-console-label uppercase text-muted-2">{screen.label}</p>
@@ -305,12 +294,7 @@ export function RoomScene() {
         <p className="mt-2 text-[13px] text-muted-2">Recorded cue sequence.</p>
 
         <div className="mt-6 overflow-hidden rounded-panel border border-line bg-card">
-          <RecordedView
-            shot="console"
-            crop={CONSOLE_CROP}
-            ratio={CONSOLE_CROP.width / CONSOLE_CROP.height}
-            sizes="(max-width: 1023px) 190vw, 60vw"
-          />
+          <ConsoleReplica cue={4} label="Operator console, cue 4 Product Launch Demo" />
         </div>
         <p className="mt-2 text-console-label uppercase text-muted-2">
           Operator console · cue 4, Product Launch Demo
@@ -327,24 +311,13 @@ export function RoomScene() {
         />
         <div id="room-view-panel" role="tabpanel" aria-labelledby={`room-view-${mobileView}`} tabIndex={0} className="mt-4 rounded-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
           <div className="overflow-hidden rounded-panel border border-line bg-black">
-            <ProductShot
-              shot={(SCREENS.find((s) => s.label === mobileView) ?? SCREENS[0]).after}
-              sizes="(max-width: 1023px) 92vw, 40vw"
-            />
+            {renderScreen(mobileView, 4)}
           </div>
           <p className="mt-2 text-[13px] text-muted-2">
             {mobileView} · {(SCREENS.find((s) => s.label === mobileView) ?? SCREENS[0]).note}
           </p>
         </div>
       </div>
-
-      {inspecting && (
-        <FullViewDialog
-          shot={phase >= 1 ? "console" : "consolePrev"}
-          label="Operator Console"
-          onClose={() => setInspecting(false)}
-        />
-      )}
     </section>
   );
 }

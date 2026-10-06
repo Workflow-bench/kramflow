@@ -1,9 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { RecordedView, type CropBox } from "./recorded-view";
-import { FullViewDialog } from "./full-view-dialog";
-import type { ShotKey } from "./product-shot";
+import { TimerOperation, HoldOperation, NoticeOperation, ControlOperation } from "./replica/operation-replicas";
 
 /**
  * "When plans change" — four operations, each with the surface that performs it.
@@ -34,17 +32,14 @@ import type { ShotKey } from "./product-shot";
  * not on a public page — and no missing state is ever filled in with invented pixels.
  */
 
-const CONSOLE = { imageWidth: 3360, imageHeight: 2100 };
-const BROADCAST = { imageWidth: 2446, imageHeight: 1880 };
-const APERTURE = 1.45;
+
+type OpKey = "timer" | "hold" | "notice" | "control";
 
 interface Op {
-  id: string;
+  id: OpKey;
   situation: string;
   title: string;
   detail: string;
-  shot: ShotKey;
-  crop: CropBox;
   caption: string;
 }
 
@@ -54,27 +49,21 @@ const OPS: Op[] = [
     situation: "A speaker needs more time.",
     title: "Adjust the timer",
     detail: "Add or remove time while the cue is running. The projected finish moves with it.",
-    shot: "console",
-    crop: { left: 1700, top: 180, width: 985, height: 812, ...CONSOLE },
-    caption: "Operator Console · the running cue, its countdown and the adjustment row",
+    caption: "Operator Console · timer and adjustment controls",
   },
   {
     id: "hold",
     situation: "The next cue needs to wait.",
     title: "Hold the room",
     detail: "Hold the current item on the displays you choose instead of advancing the show.",
-    shot: "console",
-    crop: { left: 2690, top: 150, width: 670, height: 900, ...CONSOLE },
-    caption: "Operator Console · the transport controls, including Hold",
+    caption: "Operator Console · transport controls, including Hold",
   },
   {
     id: "notice",
     situation: "The booth needs an update.",
     title: "Send a notice",
     detail: "Write a message and choose which screens receive it, without interrupting the cue.",
-    shot: "broadcast",
-    crop: { left: 10, top: 840, width: 1180, height: 760, ...BROADCAST },
-    caption: "Broadcast Center · the composer and its target selector, set to All Displays in this capture",
+    caption: "Broadcast Center · composer and audience, set to All Displays",
   },
   {
     id: "control",
@@ -82,15 +71,19 @@ const OPS: Op[] = [
     title: "Keep control clear",
     detail:
       "One operator calls the cues at a time and the console names who. What a collaborator may do on the event is a separate permission.",
-    shot: "console",
-    crop: { left: 2690, top: 150, width: 670, height: 420, ...CONSOLE },
-    caption: "Operator Console · who holds control, and the release affordance",
+    caption: "Operator Console · who holds control",
   },
 ];
 
+const PROOF: Record<OpKey, () => React.ReactElement> = {
+  timer: TimerOperation,
+  hold: HoldOperation,
+  notice: NoticeOperation,
+  control: ControlOperation,
+};
+
 export function WhenPlansChange() {
   const [open, setOpen] = useState("timer");
-  const [inspecting, setInspecting] = useState(false);
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
   const op = OPS.find((o) => o.id === open) ?? OPS[0];
 
@@ -171,35 +164,20 @@ export function WhenPlansChange() {
             aria-label={`Proof for ${op.title}: ${op.caption}`}
           >
             <div className="overflow-hidden rounded-panel border border-line bg-card shadow-[0_40px_120px_-48px_rgba(0,0,0,0.9)]">
-              <RecordedView
-                shot={op.shot}
-                crop={op.crop}
-                fit="contain"
-                ratio={APERTURE}
-                sizes="(min-width: 1024px) 1500px, 95vw"
-              />
+              {(() => {
+                const Proof = PROOF[op.id];
+                return <Proof />;
+              })()}
             </div>
             <figcaption className="mt-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
               <span className="text-[13px] leading-relaxed text-muted-2">{op.caption}</span>
-              <button
-                type="button"
-                onClick={() => setInspecting(true)}
-                className="inline-flex h-11 items-center rounded-control px-1 text-[13px] text-muted transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                View the whole capture
-              </button>
+
             </figcaption>
           </figure>
         </div>
       </div>
 
-      {inspecting && (
-        <FullViewDialog
-          shot={op.shot}
-          label={op.shot === "broadcast" ? "Broadcast Center" : "Operator Console"}
-          onClose={() => setInspecting(false)}
-        />
-      )}
+
     </section>
   );
 }
