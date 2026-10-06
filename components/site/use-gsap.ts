@@ -23,12 +23,11 @@ import { useAmbientMotion } from "./motion-state";
  *   would silently accumulate a second set of ScrollTriggers.
  * - **`useLayoutEffect` on the client**, so the initial `gsap.set` lands
  *   before paint and nothing flashes in at full opacity first.
- * - **One effective motion setting, live.** `reduced` is the OS preference OR the
- *   page's own Pause control (HF-03). It used to watch only the OS query, so Pause
- *   stopped the shader while GSAP-driven navigation and scenes kept moving. Both
- *   inputs are subscribed to, and a change to either reverts the context and re-runs
- *   setup on the other branch — so turning motion off mid-scene rebuilds the static
- *   branch instead of leaving a half-played timeline or an orphaned pin spacer.
+ * - **One effective motion setting, live.** `reduced` follows the OS preference
+ *   (`useAmbientMotion`, which subscribes to the media query). A change reverts the
+ *   context and re-runs setup on the other branch, so turning reduced motion on mid-scene
+ *   rebuilds the static branch instead of leaving a half-played timeline or an orphaned
+ *   pin spacer. The visitor-facing Pause control was removed; nothing else feeds this.
  */
 
 let registered = false;
@@ -49,8 +48,7 @@ export function useGsap(
     setupRef.current = setup;
   });
 
-  // `useAmbientMotion` already folds the OS preference and the Pause control together
-  // and re-renders on either changing.
+  // Subscribed to the OS preference; re-renders when it changes.
   const motionAllowed = useAmbientMotion();
   const reduced = !motionAllowed;
 

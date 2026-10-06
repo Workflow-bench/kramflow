@@ -141,14 +141,25 @@ export function WhenPlansChange() {
                       </span>
                     </button>
                   </h3>
+                  {/* Grid-row expansion, ~260ms. Closed panels are inert, so they leave the
+                      tab order and the accessibility tree at once rather than after the
+                      transition. The region stays mounted so aria-controls always resolves. */}
                   <div
-                    id={`op-panel-${o.id}`}
-                    role="region"
-                    aria-labelledby={`op-${o.id}`}
-                    hidden={!isOpen}
-                    className="pb-5 pl-10"
+                    className={`grid transition-[grid-template-rows,opacity] duration-[260ms] ease-out motion-reduce:transition-none ${
+                      isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                    }`}
+                    inert={!isOpen}
                   >
-                    <p className="max-w-[44ch] text-[15px] leading-relaxed text-muted">{o.detail}</p>
+                    <div className="min-h-0 overflow-hidden">
+                      <div
+                        id={`op-panel-${o.id}`}
+                        role="region"
+                        aria-labelledby={`op-${o.id}`}
+                        className="pb-5 pl-10"
+                      >
+                        <p className="max-w-[44ch] text-[15px] leading-relaxed text-muted">{o.detail}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -166,7 +177,13 @@ export function WhenPlansChange() {
             <div className="overflow-hidden rounded-panel border border-line bg-card shadow-[0_40px_120px_-48px_rgba(0,0,0,0.9)]">
               {(() => {
                 const Proof = PROOF[op.id];
-                return <Proof />;
+                // Keyed by operation: a new proof mounts fresh with a short settle, and the
+                // previous one leaves the DOM immediately rather than stacking.
+                return (
+                  <div key={op.id} className="proof-enter">
+                    <Proof />
+                  </div>
+                );
               })()}
             </div>
             <figcaption className="mt-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">

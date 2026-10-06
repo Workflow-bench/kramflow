@@ -88,6 +88,7 @@ export function ConsoleAperture() {
           className="hero-aperture relative overflow-hidden rounded-t-panel border border-b-0 border-line bg-card"
           style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
         >
+          <span aria-hidden="true" className="console-trace" />
           {/* Absolutely positioned so the capture contributes no intrinsic height:
               the aperture's size is the viewport remainder the hero gives it, and the
               image is scaled to the aperture's width and clipped by it. */}

@@ -52,7 +52,7 @@ export function SiteAction({
     <Link
       href={href}
       onClick={onClick}
-      className={`inline-flex shrink-0 items-center justify-center rounded-control font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${ROLE[role]} ${SIZE[size]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-control font-medium transition-[background-color,box-shadow,transform] duration-200 ease-out hover:shadow-[0_0_0_1px_rgba(214,176,112,0.28),0_10px_28px_-14px_rgba(214,176,112,0.55)] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${ROLE[role]} ${SIZE[size]} ${className}`}
     >
       {children}
     </Link>

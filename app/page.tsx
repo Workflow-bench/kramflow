@@ -7,6 +7,8 @@ import { WhenPlansChange } from "@/components/site/when-plans-change";
 import { TheRoom } from "@/components/site/the-room";
 import { ClosingSection } from "@/components/site/closing-section";
 import { MotionFlag } from "@/components/site/motion-flag";
+import { SmoothScroll } from "@/components/site/smooth-scroll";
+import { Arrival } from "@/components/site/arrival";
 import { Footer } from "@/components/site/footer";
 
 // The public marketing page — proxy.ts redirects a signed-in operator straight to
@@ -54,6 +56,7 @@ export default function Home() {
         Skip to content
       </a>
       <Navbar />
+      <SmoothScroll>
       <div id="main-content" tabIndex={-1} className="focus:outline-none">
         <HeroSection />
         <BeforeDoors />
@@ -71,7 +74,9 @@ export default function Home() {
         <ClosingSection />
       </div>
       <Footer />
+      </SmoothScroll>
       <MotionFlag />
+      <Arrival />
     </main>
   );
 }

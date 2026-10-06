@@ -90,6 +90,7 @@ export function Navbar() {
       >
         <Link
           href="/"
+          data-arrival="wordmark"
           className="-my-3 shrink-0 rounded-chip py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <Wordmark />

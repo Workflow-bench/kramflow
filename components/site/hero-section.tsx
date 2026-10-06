@@ -32,6 +32,8 @@ export function HeroSection() {
       className="hero-section relative isolate flex flex-col overflow-hidden border-b border-line-soft"
     >
       <AmbientLight variant="hero" />
+      {/* Arrival band: decorative, pointer-events off, present only during the arrival class. */}
+      <div aria-hidden="true" className="arrival-band" />
 
       <div className="hero-copy relative z-10 mx-auto w-full max-w-[1440px] px-6 sm:px-10">
         <p className="hero-eyebrow uppercase tracking-[0.18em] text-muted-2">Live event operations</p>
