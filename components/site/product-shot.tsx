@@ -89,10 +89,26 @@ interface ProductShotProps {
   priority?: boolean;
 }
 
-export function ProductShot({ shot, className = "", sizes = "100vw", priority = false }: ProductShotProps) {
+export function ProductShot({
+  shot,
+  className = "",
+  sizes = "100vw",
+  priority = false,
+  onLoad,
+  style,
+}: ProductShotProps & { onLoad?: () => void; style?: React.CSSProperties }) {
   const s = SHOTS[shot];
   return (
-    <Image src={s.img} alt={s.alt} sizes={sizes} priority={priority} quality={90} className={`h-auto w-full ${className}`} />
+    <Image
+      src={s.img}
+      alt={s.alt}
+      sizes={sizes}
+      priority={priority}
+      quality={90}
+      onLoad={onLoad}
+      style={style}
+      className={`h-auto w-full ${className}`}
+    />
   );
 }
 

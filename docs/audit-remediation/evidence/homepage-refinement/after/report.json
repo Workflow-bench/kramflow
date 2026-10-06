@@ -1,0 +1,345 @@
+{
+  "label": "after",
+  "viewports": [
+    {
+      "view": "1280x720",
+      "requested": "1280x720",
+      "cssViewport": "1280x720",
+      "browserZoom": 1,
+      "devicePixelRatio": 1,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "heroHeight": 720,
+      "apertureHeight": 221,
+      "apertureVisibleInFirstView": 221,
+      "h1FontSize": "66.56px",
+      "sectionHeights": [
+        {
+          "id": "top",
+          "h": 720
+        },
+        {
+          "id": "prepare",
+          "h": 768
+        },
+        {
+          "id": "call",
+          "h": 1590
+        },
+        {
+          "id": "adapt",
+          "h": 677
+        },
+        {
+          "id": "room",
+          "h": 587
+        },
+        {
+          "id": "The next show",
+          "h": 652
+        }
+      ]
+    },
+    {
+      "view": "1440x900",
+      "requested": "1440x900",
+      "cssViewport": "1440x900",
+      "browserZoom": 1,
+      "devicePixelRatio": 1,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "heroHeight": 900,
+      "apertureHeight": 346,
+      "apertureVisibleInFirstView": 346,
+      "h1FontSize": "92.16px",
+      "sectionHeights": [
+        {
+          "id": "top",
+          "h": 900
+        },
+        {
+          "id": "prepare",
+          "h": 843
+        },
+        {
+          "id": "call",
+          "h": 1729
+        },
+        {
+          "id": "adapt",
+          "h": 686
+        },
+        {
+          "id": "room",
+          "h": 596
+        },
+        {
+          "id": "The next show",
+          "h": 667
+        }
+      ]
+    },
+    {
+      "view": "1920x1080",
+      "requested": "1920x1080",
+      "cssViewport": "1920x1080",
+      "browserZoom": 1,
+      "devicePixelRatio": 1,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "heroHeight": 1080,
+      "apertureHeight": 488,
+      "apertureVisibleInFirstView": 488,
+      "h1FontSize": "112px",
+      "sectionHeights": [
+        {
+          "id": "top",
+          "h": 1080
+        },
+        {
+          "id": "prepare",
+          "h": 843
+        },
+        {
+          "id": "call",
+          "h": 1735
+        },
+        {
+          "id": "adapt",
+          "h": 692
+        },
+        {
+          "id": "room",
+          "h": 601
+        },
+        {
+          "id": "The next show",
+          "h": 667
+        }
+      ]
+    },
+    {
+      "view": "1280x600-compact",
+      "requested": "1280x600",
+      "cssViewport": "1280x600",
+      "browserZoom": 1,
+      "devicePixelRatio": 1,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "heroHeight": 624,
+      "apertureHeight": 190,
+      "apertureVisibleInFirstView": 167,
+      "h1FontSize": "48.64px",
+      "sectionHeights": [
+        {
+          "id": "top",
+          "h": 624
+        },
+        {
+          "id": "prepare",
+          "h": 768
+        },
+        {
+          "id": "call",
+          "h": 1590
+        },
+        {
+          "id": "adapt",
+          "h": 677
+        },
+        {
+          "id": "room",
+          "h": 587
+        },
+        {
+          "id": "The next show",
+          "h": 652
+        }
+      ]
+    },
+    {
+      "view": "375x812-mobile",
+      "requested": "375x812",
+      "cssViewport": "375x812",
+      "browserZoom": 1,
+      "devicePixelRatio": 1,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "heroHeight": 812,
+      "apertureHeight": 320,
+      "apertureVisibleInFirstView": 296,
+      "h1FontSize": "44px",
+      "sectionHeights": [
+        {
+          "id": "top",
+          "h": 812
+        },
+        {
+          "id": "prepare",
+          "h": 691
+        },
+        {
+          "id": "call",
+          "h": 1292
+        },
+        {
+          "id": "adapt",
+          "h": 1029
+        },
+        {
+          "id": "room",
+          "h": 1048
+        },
+        {
+          "id": "The next show",
+          "h": 567
+        }
+      ]
+    }
+  ],
+  "checks": {
+    "cueBefore": {
+      "console": "console-prev",
+      "output": "display-presenter-prev",
+      "announced": "Showing cue 3, Opening Keynote, on the Presenter display.",
+      "primary": "Advance example"
+    },
+    "cueAfter": {
+      "console": "console",
+      "output": "display-presenter",
+      "announced": "Showing cue 4, Product Launch Demo, on the Presenter display.",
+      "primary": "Replay cue change"
+    },
+    "perView": {
+      "AV": {
+        "console": "console",
+        "output": "display-av",
+        "announced": "Showing cue 4, Product Launch Demo, on the AV display.",
+        "primary": "Replay cue change"
+      },
+      "Green Room": {
+        "console": "console",
+        "output": "display-speaker-ready",
+        "announced": "Showing cue 4, Product Launch Demo, on the Green Room display.",
+        "primary": "Replay cue change"
+      },
+      "General": {
+        "console": "console",
+        "output": "display-general",
+        "announced": "Showing cue 4, Product Launch Demo, on the General display.",
+        "primary": "Replay cue change"
+      },
+      "Presenter": {
+        "console": "console",
+        "output": "display-presenter",
+        "announced": "Showing cue 4, Product Launch Demo, on the Presenter display.",
+        "primary": "Replay cue change"
+      }
+    },
+    "rapidSelection": {
+      "console": "console",
+      "output": "display-speaker-ready",
+      "announced": "Showing cue 4, Product Launch Demo, on the Green Room display.",
+      "primary": "Replay cue change"
+    },
+    "cueReplay": {
+      "console": "console-prev",
+      "output": "display-speaker-ready-prev",
+      "announced": "Showing cue 3, Opening Keynote, on the Green Room display.",
+      "primary": "Advance example"
+    },
+    "fullView": {
+      "dialog": true,
+      "focusInside": true,
+      "imageNaturalRatio": 1.602
+    },
+    "fullViewClosed": {
+      "dialog": false,
+      "focusReturned": true
+    },
+    "adaptationRows": {
+      "Adjust the timer": {
+        "image": "console",
+        "crop": "1680px@-850px",
+        "caption": "Operator Console · the running cue's timer and its adjustments"
+      },
+      "Hold the room": {
+        "image": "console",
+        "crop": "1680px@-1030px",
+        "caption": "Operator Console · the Hold control. No capture of a display already holding exists yet."
+      },
+      "Send a notice": {
+        "image": "broadcast",
+        "crop": "650px@0px",
+        "caption": "Broadcast Center · Recorded product view"
+      },
+      "Keep control clear": {
+        "image": "console",
+        "crop": "1680px@-1030px",
+        "caption": "Operator Console · who is calling cues, and how many displays are targeted"
+      }
+    },
+    "tabs": {
+      "selectedLabel": "Prepare",
+      "indicatorZIndex": "0",
+      "indicatorVisible": true,
+      "selectedFontWeight": "500",
+      "panelContainsImage": true,
+      "panelContainsCaption": true,
+      "panelContainsCopy": true
+    },
+    "pause": {
+      "canvasBefore": false,
+      "canvasWhilePaused": false,
+      "staticFieldPresent": true,
+      "cueStillChanges": "console",
+      "announced": "Showing cue 4, Product Launch Demo, on the Presenter display.",
+      "controlLabel": "Resume motion"
+    },
+    "reducedMotion": {
+      "canvas": false,
+      "staticField": true,
+      "h1Visible": true,
+      "controlText": "Motion off · system setting",
+      "navCompactAtRest": "true"
+    },
+    "reducedMotionRuntime": {
+      "canvasAfterAllowingMotion": true
+    },
+    "noWebGL": {
+      "canvas": false,
+      "staticField": true,
+      "h1Visible": true,
+      "pageErrors": []
+    },
+    "mobileMenu": {
+      "opened": {
+        "expanded": "true",
+        "menuVisible": true
+      },
+      "afterEscape": {
+        "expanded": "false",
+        "menuPresent": false,
+        "focusOnToggle": true
+      },
+      "afterLink": {
+        "expanded": "false",
+        "hash": "#call",
+        "scrolledAway": true,
+        "bodyOverflow": "clip visible"
+      },
+      "hiddenFocusable": {
+        "menuPresent": false,
+        "focusable": 0
+      }
+    },
+    "copy": {
+      "namesOperatorOnce": 1,
+      "mentionsLease": false,
+      "mentionsNoKeyboardTv": false,
+      "mentionsTvRoute": true,
+      "forbiddenClaims": []
+    }
+  },
+  "errors": []
+}

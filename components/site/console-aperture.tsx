@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
 import { ProductShot } from "./product-shot";
-import { useDialogFocus } from "@/components/ui/use-dialog-focus";
+import { FullViewDialog } from "./full-view-dialog";
 
 /**
  * The hero's presentation aperture for the real Operator Console capture.
@@ -101,58 +100,9 @@ export function ConsoleAperture() {
         </div>
       </div>
 
-      {expanded && <FullConsoleDialog onClose={() => setExpanded(false)} />}
+      {expanded && (
+        <FullViewDialog shot="console" label="Operator Console" onClose={() => setExpanded(false)} />
+      )}
     </>
-  );
-}
-
-function FullConsoleDialog({ onClose }: { onClose: () => void }) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(true, panelRef);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    // The page behind must not scroll while the full capture is open.
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/92 p-4 sm:p-8">
-      <button
-        type="button"
-        aria-label="Close full console view"
-        onClick={onClose}
-        className="absolute inset-0 h-full w-full cursor-default"
-        tabIndex={-1}
-      />
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Operator Console, full recorded product view"
-        className="relative max-h-full w-full max-w-[1600px] overflow-auto rounded-panel border border-line bg-card"
-      >
-        <div className="flex items-center justify-between gap-4 border-b border-line-soft px-4 py-3">
-          <p className="text-[13px] text-muted-2">Operator Console · Recorded product view</p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-control text-muted transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" strokeWidth={2} />
-          </button>
-        </div>
-        <ProductShot shot="console" sizes="(min-width: 1024px) 90vw, 100vw" />
-      </div>
-    </div>
   );
 }

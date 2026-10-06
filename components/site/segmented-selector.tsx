@@ -23,6 +23,13 @@ import { useTransitionMotion } from "./motion-state";
  * These are homepage-owned controls that choose which recorded capture is displayed.
  * They are not a copy of any control inside the product and must never be styled to
  * look like one.
+ *
+ * Selection has to read at rest, on focus and with motion off (HOME-R07), so the
+ * selected item carries a filled surface, a real border and a heavier label — not just
+ * a travelling highlight. The indicator sits at `z-0` inside a `relative` button with
+ * the label above it at `z-10`; it was previously `-z-10`, which puts it behind the
+ * button's own painted background and can hide it entirely. Hover only changes text
+ * colour, so pointing at an item never overrides what is actually selected.
  */
 
 export interface SegmentedItem {
@@ -94,19 +101,19 @@ export function SegmentedSelector({
                 move(items.length - 1);
               }
             }}
-            className={`relative inline-flex h-11 items-center rounded-control px-4 text-[14px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              selected ? "text-primary" : "text-muted hover:text-primary"
+            className={`relative inline-flex h-11 items-center whitespace-nowrap rounded-control px-4 text-[14px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              selected ? "font-medium text-primary" : "text-muted hover:text-primary"
             }`}
           >
             {selected && (
               <motion.span
                 layoutId={`${idBase}-indicator`}
                 aria-hidden="true"
-                className="absolute inset-0 -z-10 rounded-control border border-line bg-card"
+                className="absolute inset-0 z-0 rounded-control border border-line bg-card-hover shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                 transition={animate ? { type: "spring", stiffness: 380, damping: 32, duration: 0.21 } : { duration: 0 }}
               />
             )}
-            {item.label}
+            <span className="relative z-10">{item.label}</span>
           </button>
         );
       })}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
@@ -41,6 +41,23 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const [compact, setCompact] = useState(false);
   const root = useRef<HTMLElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+
+  // Disclosure contract (HOME-R09): Escape closes the menu and puts focus back on the
+  // control that opened it. This is a disclosure, not a modal — it does not trap focus
+  // or freeze the page, because activating a chapter link must leave native scrolling
+  // and the destination intact. The listener is document-level so Escape works wherever
+  // focus happens to be inside the open panel.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      toggle.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   useGsap(root, ({ gsap, ScrollTrigger, reduced }) => {
     if (reduced) {
@@ -105,6 +122,7 @@ export function Navbar() {
         </div>
 
         <button
+          ref={toggle}
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
@@ -120,6 +138,10 @@ export function Navbar() {
         {open && (
           <motion.div
             id="site-menu"
+            // While the panel animates out its links are still in the DOM; `inert`
+            // takes them out of the tab order and the accessibility tree for that
+            // window, so a closing menu can never hold hidden focus (HOME-R09).
+            inert={!open}
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}

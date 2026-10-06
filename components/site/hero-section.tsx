@@ -17,6 +17,9 @@ import { SiteAction } from "./site-action";
  * `min-h`, never `h` — at browser zoom or large text the content is allowed to grow
  * past the viewport and scroll rather than being clipped to protect the effect.
  *
+ * The operator is named once, here, and nowhere else on the page (HOME-R10): the rest
+ * of the chapters describe tasks rather than re-introducing the audience.
+ *
  * No STANDBY/GO ornament. Its amber-to-green cue light read as a live status
  * indicator for a visitor who has no show running, which is exactly the kind of
  * invented operational state this page must not display.
@@ -39,7 +42,7 @@ export function HeroSection() {
         </h1>
 
         <p className="hero-body max-w-[46ch] leading-relaxed text-muted">
-          Run your cue sheet, timers, and venue displays from one operator console.
+          Stage managers and AV teams run the cue sheet, timers, and venue displays from one console.
         </p>
 
         <div className="hero-actions flex flex-wrap items-center gap-3">

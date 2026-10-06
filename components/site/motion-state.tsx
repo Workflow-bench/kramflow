@@ -11,10 +11,13 @@ import { useReduced } from "./motion";
  * `useReduced`) and this visitor-facing Pause control. Either one turns the
  * ambient light off and leaves a static composition behind it.
  *
- * What pausing deliberately does NOT do: it never stops reading, navigation, the
- * recorded cue example or the view selector. Those are user-triggered state
- * changes; under pause or reduced motion they apply immediately instead of
- * transitioning. A visitor who dislikes drifting light still gets the whole page.
+ * **Scope of Pause (HOME-R08).** Pause covers *all* decorative motion on this page,
+ * not just the background: the ambient light stops, and user-triggered changes stop
+ * travelling too — the cue reveal and the selection indicator apply instantly instead
+ * of animating. What Pause never does is remove function. Every control still works,
+ * every state still changes, and all content stays readable; only the movement goes.
+ * This is the behaviour the control's label promises, rather than a background-only
+ * switch described as a motion switch.
  */
 
 let paused = false;
@@ -61,5 +64,8 @@ export function useAmbientMotion() {
  */
 export function useTransitionMotion() {
   const reduce = useReduced();
-  return !reduce;
+  const isPaused = useMotionPaused();
+  // Same inputs as the ambient field: either one turns travel off, and the state
+  // change itself still happens immediately.
+  return !reduce && !isPaused;
 }

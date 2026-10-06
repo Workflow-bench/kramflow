@@ -137,7 +137,7 @@ export function AmbientLight({
             swirl={0.55}
             grainMixer={0}
             grainOverlay={0}
-            speed={variant === "hero" ? 0.45 : 0.3}
+            speed={variant === "hero" ? 0.5 : 0.3}
             minPixelRatio={MIN_PIXEL_RATIO}
             maxPixelCount={MAX_PIXEL_COUNT}
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}

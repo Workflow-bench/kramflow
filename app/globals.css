@@ -474,11 +474,15 @@ body {
 
    The brightest region sits right of and below the reading column, and the product
    captures render above this layer, never over it. */
+/* Shaped to meet the console, not to wash the page (HOME-R01). The dominant pool is a
+   wide, vertically tight band sitting on the aperture's top edge, so the capture reads
+   as lit from the page rather than floating on a broad brown field; a second, much
+   quieter pool adds depth to the upper right where the copy is not. */
 .ambient-light-hero {
   background:
-    radial-gradient(48% 42% at 76% 42%, rgba(138, 94, 34, 0.46) 0%, rgba(138, 94, 34, 0) 70%),
-    radial-gradient(38% 34% at 44% 22%, rgba(61, 42, 22, 0.36) 0%, rgba(61, 42, 22, 0) 72%),
-    radial-gradient(62% 28% at 58% 72%, rgba(110, 99, 84, 0.14) 0%, rgba(110, 99, 84, 0) 74%);
+    radial-gradient(66% 24% at 60% 70%, rgba(152, 104, 40, 0.52) 0%, rgba(152, 104, 40, 0) 72%),
+    radial-gradient(30% 26% at 84% 30%, rgba(74, 49, 23, 0.34) 0%, rgba(74, 49, 23, 0) 74%),
+    radial-gradient(52% 16% at 56% 63%, rgba(120, 108, 90, 0.16) 0%, rgba(120, 108, 90, 0) 76%);
 }
 .ambient-light-echo {
   background: radial-gradient(44% 56% at 72% 50%, rgba(138, 94, 34, 0.3) 0%, rgba(138, 94, 34, 0) 72%);
@@ -486,9 +490,13 @@ body {
 /* The shader is masked to the same region the static field occupies and fades in to
    that field's intensity, so arriving is not a visible step change. */
 .ambient-shader-hero {
-  opacity: 0.55;
-  mask-image: radial-gradient(58% 52% at 74% 46%, #000 0%, transparent 78%);
-  -webkit-mask-image: radial-gradient(58% 52% at 74% 46%, #000 0%, transparent 78%);
+  /* The mask is tighter than the previous broad field, so the shader carries a little
+     more of the band's intensity to stay observably in motion within a few seconds. */
+  opacity: 0.68;
+  /* Masked to the same band the static field occupies, so the moving light stays on the
+     console edge and off the reading column. */
+  mask-image: radial-gradient(64% 30% at 62% 68%, #000 0%, transparent 76%);
+  -webkit-mask-image: radial-gradient(64% 30% at 62% 68%, #000 0%, transparent 76%);
   animation: ambient-in 0.9s ease both;
 }
 .ambient-shader-echo {
@@ -541,15 +549,15 @@ body {
 }
 .hero-title {
   margin-top: 1rem;
-  font-size: clamp(2.75rem, 5.6vw, 5.75rem);
-  line-height: 0.98;
+  font-size: clamp(2.75rem, 6.4vw, 7rem);
+  line-height: 0.95;
 }
 .hero-body {
-  margin-top: 1rem;
+  margin-top: 1.25rem;
   font-size: 19px;
 }
 .hero-actions {
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
   padding-bottom: 1.5rem;
 }
 /* Shorter viewports: give the product its space back by tightening type and gaps
@@ -559,8 +567,8 @@ body {
     padding-top: calc(var(--site-header-h, 77px) + 2rem);
   }
   .hero-title {
-    margin-top: 1rem;
-    font-size: clamp(2.5rem, 4.6vw, 4.25rem);
+    margin-top: 0.75rem;
+    font-size: clamp(2.5rem, 5.2vw, 5rem);
   }
   .hero-body {
     margin-top: 1rem;
