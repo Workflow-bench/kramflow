@@ -7,6 +7,8 @@ Three design lanes plus the HF-01…HF-07 correction debt. Not self-approved; pe
 | Item | Value |
 |---|---|
 | `BASE_SHA` | `6f898aaea3de16e99bc41750c8b6d353f7070e42` (matched the expected starting HEAD) |
+| `FINAL_SHA` | `d858ef364e6221e899a8c8f6ed2a61018cd6972e`, plus the follow-up commit recording it |
+| HawkScan | Not run: `HAWK_API_KEY` and the hawk runtime are absent in this session |
 | Branch | `integrate/ui-revamp-landing` |
 | Tree at start | Tracked tree clean; nine pre-existing untracked paths, all preserved and excluded |
 | Restoration source | `one-cue-section.tsx`, byte-identical to the cached `origin/ui-revamp` ref `6d69834` (verified by empty diff). That is a **local cached ref, not a claim about the remote tip.** |
