@@ -1,0 +1,642 @@
+[
+ {
+  "name": "console-1280x720-top dialog opens",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1280x720-top backdrop = viewport",
+  "ok": true,
+  "detail": "{\"x\":0,\"y\":0,\"w\":1280,\"h\":720}"
+ },
+ {
+  "name": "console-1280x720-top panel inside viewport",
+  "ok": true,
+  "detail": "{\"top\":32,\"bottom\":688,\"w\":1216,\"h\":656}"
+ },
+ {
+  "name": "console-1280x720-top close control visible",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1280x720-top html overflow locked",
+  "ok": true,
+  "detail": "hidden"
+ },
+ {
+  "name": "console-1280x720-top image region scrolls internally",
+  "ok": true,
+  "detail": "{\"sh\":759,\"ch\":585}"
+ },
+ {
+  "name": "console-1280x720-top page locked while open",
+  "ok": true,
+  "detail": "before 0 after 0"
+ },
+ {
+  "name": "console-1280x720-top Tab trapped (30 presses)",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "console-1280x720-top Shift+Tab trapped",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "console-1280x720-top Escape closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1280x720-top focus returns to trigger",
+  "ok": true,
+  "detail": "{\"dialog\":false,\"htmlOverflow\":\"\",\"active\":\"View full console\",\"activeLabel\":null}"
+ },
+ {
+  "name": "console-1280x720-top overflow restored",
+  "ok": true,
+  "detail": "html overflow=''"
+ },
+ {
+  "name": "console-1280x720-top scroll works after close",
+  "ok": true,
+  "detail": "before 0 after 500"
+ },
+ {
+  "name": "console-1280x720-top gutter hit-target is overlay",
+  "ok": true,
+  "detail": "DIV  backdrop-or-other"
+ },
+ {
+  "name": "console-1280x720-top backdrop click closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1280x720-top video",
+  "ok": true,
+  "detail": "/Users/deeppatel/Documents/AI/Shibir/stageflow/docs/audit-remediation/batches/homepage-motion-correction/evidence/gm01/video-console-1280x720-top/page@f4a36d878fdafb7adfeb6a27b69fcf2f.webm"
+ },
+ {
+  "name": "console-1280x720-scrolled dialog opens",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1280x720-scrolled backdrop = viewport",
+  "ok": true,
+  "detail": "{\"x\":0,\"y\":0,\"w\":1280,\"h\":720}"
+ },
+ {
+  "name": "console-1280x720-scrolled panel inside viewport",
+  "ok": true,
+  "detail": "{\"top\":32,\"bottom\":688,\"w\":1216,\"h\":656}"
+ },
+ {
+  "name": "console-1280x720-scrolled close control visible",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1280x720-scrolled html overflow locked",
+  "ok": true,
+  "detail": "hidden"
+ },
+ {
+  "name": "console-1280x720-scrolled image region scrolls internally",
+  "ok": true,
+  "detail": "{\"sh\":759,\"ch\":585}"
+ },
+ {
+  "name": "console-1280x720-scrolled page locked while open",
+  "ok": true,
+  "detail": "before 360 after 360"
+ },
+ {
+  "name": "console-1280x720-scrolled Tab trapped (30 presses)",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "console-1280x720-scrolled Shift+Tab trapped",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "console-1280x720-scrolled Escape closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1280x720-scrolled focus returns to trigger",
+  "ok": true,
+  "detail": "{\"dialog\":false,\"htmlOverflow\":\"\",\"active\":\"View full console\",\"activeLabel\":null}"
+ },
+ {
+  "name": "console-1280x720-scrolled overflow restored",
+  "ok": true,
+  "detail": "html overflow=''"
+ },
+ {
+  "name": "console-1280x720-scrolled scroll works after close",
+  "ok": true,
+  "detail": "before 360 after 860"
+ },
+ {
+  "name": "console-1280x720-scrolled gutter hit-target is overlay",
+  "ok": true,
+  "detail": "DIV  backdrop-or-other"
+ },
+ {
+  "name": "console-1280x720-scrolled backdrop click closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1280x720-scrolled video",
+  "ok": true,
+  "detail": "/Users/deeppatel/Documents/AI/Shibir/stageflow/docs/audit-remediation/batches/homepage-motion-correction/evidence/gm01/video-console-1280x720-scrolled/page@40f37630b78c6b074076777e41dd8719.webm"
+ },
+ {
+  "name": "fleet-1280x720-top dialog opens",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1280x720-top backdrop = viewport",
+  "ok": true,
+  "detail": "{\"x\":0,\"y\":0,\"w\":1280,\"h\":720}"
+ },
+ {
+  "name": "fleet-1280x720-top panel inside viewport",
+  "ok": true,
+  "detail": "{\"top\":32,\"bottom\":688,\"w\":1216,\"h\":656}"
+ },
+ {
+  "name": "fleet-1280x720-top close control visible",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1280x720-top html overflow locked",
+  "ok": true,
+  "detail": "hidden"
+ },
+ {
+  "name": "fleet-1280x720-top image region scrolls internally",
+  "ok": true,
+  "detail": "{\"sh\":792,\"ch\":585}"
+ },
+ {
+  "name": "fleet-1280x720-top page locked while open",
+  "ok": true,
+  "detail": "before 4440 after 4440"
+ },
+ {
+  "name": "fleet-1280x720-top Tab trapped (30 presses)",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "fleet-1280x720-top Shift+Tab trapped",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "fleet-1280x720-top Escape closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1280x720-top focus returns to trigger",
+  "ok": true,
+  "detail": "{\"dialog\":false,\"htmlOverflow\":\"\",\"active\":\"Inspect the display fleet\",\"activeLabel\":null}"
+ },
+ {
+  "name": "fleet-1280x720-top overflow restored",
+  "ok": true,
+  "detail": "html overflow=''"
+ },
+ {
+  "name": "fleet-1280x720-top scroll works after close",
+  "ok": true,
+  "detail": "before 4440 after 4940"
+ },
+ {
+  "name": "fleet-1280x720-top gutter hit-target is overlay",
+  "ok": true,
+  "detail": "DIV  backdrop-or-other"
+ },
+ {
+  "name": "fleet-1280x720-top backdrop click closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1280x720-top video",
+  "ok": true,
+  "detail": "/Users/deeppatel/Documents/AI/Shibir/stageflow/docs/audit-remediation/batches/homepage-motion-correction/evidence/gm01/video-fleet-1280x720-top/page@665596665083d608481cfd40c72e37f9.webm"
+ },
+ {
+  "name": "fleet-1280x720-scrolled dialog opens",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1280x720-scrolled backdrop = viewport",
+  "ok": true,
+  "detail": "{\"x\":0,\"y\":0,\"w\":1280,\"h\":720}"
+ },
+ {
+  "name": "fleet-1280x720-scrolled panel inside viewport",
+  "ok": true,
+  "detail": "{\"top\":32,\"bottom\":688,\"w\":1216,\"h\":656}"
+ },
+ {
+  "name": "fleet-1280x720-scrolled close control visible",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1280x720-scrolled html overflow locked",
+  "ok": true,
+  "detail": "hidden"
+ },
+ {
+  "name": "fleet-1280x720-scrolled image region scrolls internally",
+  "ok": true,
+  "detail": "{\"sh\":792,\"ch\":585}"
+ },
+ {
+  "name": "fleet-1280x720-scrolled page locked while open",
+  "ok": true,
+  "detail": "before 4440 after 4440"
+ },
+ {
+  "name": "fleet-1280x720-scrolled Tab trapped (30 presses)",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "fleet-1280x720-scrolled Shift+Tab trapped",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "fleet-1280x720-scrolled Escape closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1280x720-scrolled focus returns to trigger",
+  "ok": true,
+  "detail": "{\"dialog\":false,\"htmlOverflow\":\"\",\"active\":\"Inspect the display fleet\",\"activeLabel\":null}"
+ },
+ {
+  "name": "fleet-1280x720-scrolled overflow restored",
+  "ok": true,
+  "detail": "html overflow=''"
+ },
+ {
+  "name": "fleet-1280x720-scrolled scroll works after close",
+  "ok": true,
+  "detail": "before 4440 after 4940"
+ },
+ {
+  "name": "fleet-1280x720-scrolled gutter hit-target is overlay",
+  "ok": true,
+  "detail": "DIV  backdrop-or-other"
+ },
+ {
+  "name": "fleet-1280x720-scrolled backdrop click closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1280x720-scrolled video",
+  "ok": true,
+  "detail": "/Users/deeppatel/Documents/AI/Shibir/stageflow/docs/audit-remediation/batches/homepage-motion-correction/evidence/gm01/video-fleet-1280x720-scrolled/page@c5c4acaf10bffe5e06757204aeffb1a5.webm"
+ },
+ {
+  "name": "console-1440x900-top dialog opens",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1440x900-top backdrop = viewport",
+  "ok": true,
+  "detail": "{\"x\":0,\"y\":0,\"w\":1440,\"h\":900}"
+ },
+ {
+  "name": "console-1440x900-top panel inside viewport",
+  "ok": true,
+  "detail": "{\"top\":32,\"bottom\":868,\"w\":1376,\"h\":836}"
+ },
+ {
+  "name": "console-1440x900-top close control visible",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1440x900-top html overflow locked",
+  "ok": true,
+  "detail": "hidden"
+ },
+ {
+  "name": "console-1440x900-top image region scrolls internally",
+  "ok": true,
+  "detail": "{\"sh\":859,\"ch\":765}"
+ },
+ {
+  "name": "console-1440x900-top page locked while open",
+  "ok": true,
+  "detail": "before 0 after 0"
+ },
+ {
+  "name": "console-1440x900-top Tab trapped (30 presses)",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "console-1440x900-top Shift+Tab trapped",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "console-1440x900-top Escape closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1440x900-top focus returns to trigger",
+  "ok": true,
+  "detail": "{\"dialog\":false,\"htmlOverflow\":\"\",\"active\":\"View full console\",\"activeLabel\":null}"
+ },
+ {
+  "name": "console-1440x900-top overflow restored",
+  "ok": true,
+  "detail": "html overflow=''"
+ },
+ {
+  "name": "console-1440x900-top scroll works after close",
+  "ok": true,
+  "detail": "before 0 after 500"
+ },
+ {
+  "name": "console-1440x900-top gutter hit-target is overlay",
+  "ok": true,
+  "detail": "DIV  backdrop-or-other"
+ },
+ {
+  "name": "console-1440x900-top backdrop click closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1440x900-top video",
+  "ok": true,
+  "detail": "/Users/deeppatel/Documents/AI/Shibir/stageflow/docs/audit-remediation/batches/homepage-motion-correction/evidence/gm01/video-console-1440x900-top/page@61e4d01fa938f2729efb0c262ac1df1e.webm"
+ },
+ {
+  "name": "console-1440x900-scrolled dialog opens",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1440x900-scrolled backdrop = viewport",
+  "ok": true,
+  "detail": "{\"x\":0,\"y\":0,\"w\":1440,\"h\":900}"
+ },
+ {
+  "name": "console-1440x900-scrolled panel inside viewport",
+  "ok": true,
+  "detail": "{\"top\":32,\"bottom\":868,\"w\":1376,\"h\":836}"
+ },
+ {
+  "name": "console-1440x900-scrolled close control visible",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1440x900-scrolled html overflow locked",
+  "ok": true,
+  "detail": "hidden"
+ },
+ {
+  "name": "console-1440x900-scrolled image region scrolls internally",
+  "ok": true,
+  "detail": "{\"sh\":859,\"ch\":765}"
+ },
+ {
+  "name": "console-1440x900-scrolled page locked while open",
+  "ok": true,
+  "detail": "before 360 after 360"
+ },
+ {
+  "name": "console-1440x900-scrolled Tab trapped (30 presses)",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "console-1440x900-scrolled Shift+Tab trapped",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "console-1440x900-scrolled Escape closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1440x900-scrolled focus returns to trigger",
+  "ok": true,
+  "detail": "{\"dialog\":false,\"htmlOverflow\":\"\",\"active\":\"View full console\",\"activeLabel\":null}"
+ },
+ {
+  "name": "console-1440x900-scrolled overflow restored",
+  "ok": true,
+  "detail": "html overflow=''"
+ },
+ {
+  "name": "console-1440x900-scrolled scroll works after close",
+  "ok": true,
+  "detail": "before 360 after 860"
+ },
+ {
+  "name": "console-1440x900-scrolled gutter hit-target is overlay",
+  "ok": true,
+  "detail": "DIV  backdrop-or-other"
+ },
+ {
+  "name": "console-1440x900-scrolled backdrop click closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "console-1440x900-scrolled video",
+  "ok": true,
+  "detail": "/Users/deeppatel/Documents/AI/Shibir/stageflow/docs/audit-remediation/batches/homepage-motion-correction/evidence/gm01/video-console-1440x900-scrolled/page@985c6c5f95d65a8fab739c5d557fb826.webm"
+ },
+ {
+  "name": "fleet-1440x900-top dialog opens",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1440x900-top backdrop = viewport",
+  "ok": true,
+  "detail": "{\"x\":0,\"y\":0,\"w\":1440,\"h\":900}"
+ },
+ {
+  "name": "fleet-1440x900-top panel inside viewport",
+  "ok": true,
+  "detail": "{\"top\":32,\"bottom\":868,\"w\":1376,\"h\":836}"
+ },
+ {
+  "name": "fleet-1440x900-top close control visible",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1440x900-top html overflow locked",
+  "ok": true,
+  "detail": "hidden"
+ },
+ {
+  "name": "fleet-1440x900-top image region scrolls internally",
+  "ok": true,
+  "detail": "{\"sh\":897,\"ch\":765}"
+ },
+ {
+  "name": "fleet-1440x900-top page locked while open",
+  "ok": true,
+  "detail": "before 5040 after 5040"
+ },
+ {
+  "name": "fleet-1440x900-top Tab trapped (30 presses)",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "fleet-1440x900-top Shift+Tab trapped",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "fleet-1440x900-top Escape closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1440x900-top focus returns to trigger",
+  "ok": true,
+  "detail": "{\"dialog\":false,\"htmlOverflow\":\"\",\"active\":\"Inspect the display fleet\",\"activeLabel\":null}"
+ },
+ {
+  "name": "fleet-1440x900-top overflow restored",
+  "ok": true,
+  "detail": "html overflow=''"
+ },
+ {
+  "name": "fleet-1440x900-top scroll works after close",
+  "ok": true,
+  "detail": "before 5040 after 5540"
+ },
+ {
+  "name": "fleet-1440x900-top gutter hit-target is overlay",
+  "ok": true,
+  "detail": "DIV  backdrop-or-other"
+ },
+ {
+  "name": "fleet-1440x900-top backdrop click closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1440x900-top video",
+  "ok": true,
+  "detail": "/Users/deeppatel/Documents/AI/Shibir/stageflow/docs/audit-remediation/batches/homepage-motion-correction/evidence/gm01/video-fleet-1440x900-top/page@9cba8051a63a307e2640ef402e33a587.webm"
+ },
+ {
+  "name": "fleet-1440x900-scrolled dialog opens",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1440x900-scrolled backdrop = viewport",
+  "ok": true,
+  "detail": "{\"x\":0,\"y\":0,\"w\":1440,\"h\":900}"
+ },
+ {
+  "name": "fleet-1440x900-scrolled panel inside viewport",
+  "ok": true,
+  "detail": "{\"top\":32,\"bottom\":868,\"w\":1376,\"h\":836}"
+ },
+ {
+  "name": "fleet-1440x900-scrolled close control visible",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1440x900-scrolled html overflow locked",
+  "ok": true,
+  "detail": "hidden"
+ },
+ {
+  "name": "fleet-1440x900-scrolled image region scrolls internally",
+  "ok": true,
+  "detail": "{\"sh\":897,\"ch\":765}"
+ },
+ {
+  "name": "fleet-1440x900-scrolled page locked while open",
+  "ok": true,
+  "detail": "before 5040 after 5040"
+ },
+ {
+  "name": "fleet-1440x900-scrolled Tab trapped (30 presses)",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "fleet-1440x900-scrolled Shift+Tab trapped",
+  "ok": true,
+  "detail": "escaped 0"
+ },
+ {
+  "name": "fleet-1440x900-scrolled Escape closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1440x900-scrolled focus returns to trigger",
+  "ok": true,
+  "detail": "{\"dialog\":false,\"htmlOverflow\":\"\",\"active\":\"Inspect the display fleet\",\"activeLabel\":null}"
+ },
+ {
+  "name": "fleet-1440x900-scrolled overflow restored",
+  "ok": true,
+  "detail": "html overflow=''"
+ },
+ {
+  "name": "fleet-1440x900-scrolled scroll works after close",
+  "ok": true,
+  "detail": "before 5040 after 5540"
+ },
+ {
+  "name": "fleet-1440x900-scrolled gutter hit-target is overlay",
+  "ok": true,
+  "detail": "DIV  backdrop-or-other"
+ },
+ {
+  "name": "fleet-1440x900-scrolled backdrop click closes",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "fleet-1440x900-scrolled video",
+  "ok": true,
+  "detail": "/Users/deeppatel/Documents/AI/Shibir/stageflow/docs/audit-remediation/batches/homepage-motion-correction/evidence/gm01/video-fleet-1440x900-scrolled/page@bf9719a2bf623f39d8b31677c367cd3e.webm"
+ }
+]

@@ -1,0 +1,15 @@
+import { chromium } from "/Users/deeppatel/Documents/AI/Shibir/stageflow/node_modules/playwright/index.mjs";
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+const log = [];
+p.on("console", (m) => { if (m.text().startsWith("ORDER")) log.push(m.text()); });
+await p.goto("http://localhost:3971/", { waitUntil: "networkidle" });
+await p.waitForTimeout(2500);
+log.push("-- breakpoint to 900px (smoother must be killed)");
+await p.setViewportSize({ width: 900, height: 800 }); await p.waitForTimeout(1200);
+log.push("-- back to 1440px (smoother must be created before scenes)");
+await p.setViewportSize({ width: 1440, height: 900 }); await p.waitForTimeout(2000);
+log.push("-- hard reload");
+await p.reload({ waitUntil: "networkidle" }); await p.waitForTimeout(2500);
+console.log(log.join("\n"));
+await b.close();

@@ -684,11 +684,14 @@ html[data-motion="off"] *::after {
   }
 }
 
-/* ── Homepage motion: gradient headline, arrival sequence ──────────────────────────
-   One gradient field across the whole heading. It is applied to the h1 element itself
-   (not per word or per line), so the light reads as one surface that the spans sit in.
-   Text fill is transparent only where background clipping is supported; everywhere else
-   — including forced colors and print — the heading is solid cream. */
+/* ── Homepage motion: gradient headline ──────────────────────────────────────────
+   One gradient field across the whole H1 (not per word or per line), applied to the
+   heading element itself. Settled values live in ordinary CSS, so nothing is held by a
+   finished animation: the focus/hover response below can always take effect.
+
+   The entrance sweep is NOT in this block. It belongs to the first-entry arrival, which
+   switches it on with the `arrival-running` class (see below) and whose end releases it.
+   A returning, reloaded or deep-linked page therefore starts settled. */
 .hero-title {
   color: #f4efe5;
 }
@@ -696,34 +699,24 @@ html[data-motion="off"] *::after {
   .hero-title {
     background-image: linear-gradient(100deg, #f4efe5 0%, #f1e3c6 34%, #d9b77a 50%, #f4efe5 68%, #f4efe5 100%);
     background-size: 240% 100%;
-    background-position: 100% 0;
+    background-position: 43% 0;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    /* Gentle settle to the resting gradient. Ends on background-position 0 and stays there. */
-    animation: hero-light-sweep 1.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transition: background-position 0.9s ease;
   }
-  /* A restrained brass response when the visitor reaches the actions. Hover/focus only,
-     never a loop. */
+  /* A restrained brass response when the visitor reaches the actions. Hover/focus only.
+     Ordinary transitions handle it, because no finished animation is holding the property. */
   .hero-copy:has(.hero-actions a:hover) .hero-title,
   .hero-copy:has(.hero-actions a:focus-visible) .hero-title {
     background-position: 28% 0;
-    transition: background-position 0.9s ease;
   }
-}
-@keyframes hero-light-sweep {
-  from { background-position: 100% 0; }
-  to   { background-position: 43% 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-title { animation: none !important; background-position: 43% 0 !important; }
 }
 @media (forced-colors: active) {
   .hero-title {
     background: none;
     -webkit-text-fill-color: CanvasText;
     color: CanvasText;
-    animation: none;
   }
 }
 @media print {
@@ -731,7 +724,6 @@ html[data-motion="off"] *::after {
     background: none;
     -webkit-text-fill-color: #000;
     color: #000;
-    animation: none;
   }
 }
 
@@ -762,7 +754,9 @@ html.arrival-running [data-arrival="wordmark"] {
   from { transform: translateX(-8px); opacity: 0.4; }
   to   { transform: none; opacity: 1; }
 }
-/* Heading: the light sweep plus a 6px settle, inside the same 1.3s total. */
+/* Heading: the light sweep plus a 6px settle, inside the same 1.3s total. Only while the
+   arrival class is set. `both` holds the start frame during the delay; it ends at the same
+   background-position as the resting style, so releasing the class causes no visible jump. */
 html.arrival-running .hero-title {
   animation: arrival-title 1.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }

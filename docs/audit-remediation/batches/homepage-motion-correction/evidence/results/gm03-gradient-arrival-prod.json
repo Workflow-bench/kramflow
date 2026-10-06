@@ -1,0 +1,187 @@
+[
+ {
+  "name": "1 fresh arrival runs sweep",
+  "ok": true,
+  "detail": "{\"arrival\":true,\"anim\":\"arrival-title\",\"running\":2}"
+ },
+ {
+  "name": "1 arrival class removed on completion",
+  "ok": true,
+  "detail": "{\"arrival\":false,\"anim\":\"none\",\"running\":0}"
+ },
+ {
+  "name": "1 no arrival animation remains",
+  "ok": true,
+  "detail": "running 0"
+ },
+ {
+  "name": "1 resting gradient at 43%",
+  "ok": true,
+  "detail": "bgX 43"
+ },
+ {
+  "name": "1 arrival writes storage on completion",
+  "ok": true,
+  "detail": "stored 1"
+ },
+ {
+  "name": "1 no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "2 hover moves gradient to 28%",
+  "ok": true,
+  "detail": "samples 43,41.3,37.8,34.4,31.6,30,29,28.3,28,28,28,28"
+ },
+ {
+  "name": "2 hover transition is gradual (intermediate values)",
+  "ok": true,
+  "detail": "43,41.3,37.8,34.4,31.6,30,29,28.3,28,28,28,28"
+ },
+ {
+  "name": "2 leaving hover returns to 43%",
+  "ok": true,
+  "detail": "bgX 43"
+ },
+ {
+  "name": "3 keyboard focus on hero action reaches focus-visible",
+  "ok": true,
+  "detail": "reached true focusVisible true"
+ },
+ {
+  "name": "3 keyboard focus moves gradient to 28%",
+  "ok": true,
+  "detail": "bgX 28"
+ },
+ {
+  "name": "3 focus loss returns to 43%",
+  "ok": true,
+  "detail": "bgX 43"
+ },
+ {
+  "name": "4 reduced-motion live change keeps resting gradient",
+  "ok": true,
+  "detail": "bgX 43"
+ },
+ {
+  "name": "4 reduced-motion live change: no animation",
+  "ok": true,
+  "detail": "{\"arrival\":false,\"anim\":\"none\",\"running\":0}"
+ },
+ {
+  "name": "4 no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "5 second visit does not run arrival",
+  "ok": true,
+  "detail": "{\"arrival\":false,\"anim\":\"none\",\"running\":0}"
+ },
+ {
+  "name": "5 second visit resting at 43%",
+  "ok": true,
+  "detail": "bgX 43"
+ },
+ {
+  "name": "5 reload does not run arrival",
+  "ok": true,
+  "detail": "{\"arrival\":false,\"anim\":\"none\",\"running\":0}"
+ },
+ {
+  "name": "5 Back does not run arrival",
+  "ok": true,
+  "detail": "{\"arrival\":false,\"anim\":\"none\",\"running\":0}"
+ },
+ {
+  "name": "5 Back resting at 43%",
+  "ok": true,
+  "detail": "bgX 43"
+ },
+ {
+  "name": "5 no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "6 deep link first visit: no arrival",
+  "ok": true,
+  "detail": "{\"arrival\":false,\"anim\":\"none\",\"running\":0}"
+ },
+ {
+  "name": "6 deep link resting at 43%",
+  "ok": true,
+  "detail": "bgX 43"
+ },
+ {
+  "name": "6 no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "7 arrival started before interruption",
+  "ok": true,
+  "detail": "{\"arrival\":true,\"anim\":\"arrival-title\",\"running\":2}"
+ },
+ {
+  "name": "7 wheel interruption ends arrival",
+  "ok": true,
+  "detail": "{\"arrival\":false,\"anim\":\"none\",\"running\":0}"
+ },
+ {
+  "name": "7 visitor interruption marks the visit seen (by design, arrival.tsx finish(true))",
+  "ok": true,
+  "detail": "stored 1"
+ },
+ {
+  "name": "7 interruption: resting at 43% after interrupt",
+  "ok": true,
+  "detail": "bgX 43"
+ },
+ {
+  "name": "7 no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "8 reduced-motion first load: no arrival",
+  "ok": true,
+  "detail": "{\"arrival\":false,\"anim\":\"none\",\"running\":0}"
+ },
+ {
+  "name": "8 reduced-motion resting at 43%",
+  "ok": true,
+  "detail": "bgX 43"
+ },
+ {
+  "name": "8 no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "9 live reduced-motion ends arrival",
+  "ok": true,
+  "detail": "{\"arrival\":false,\"anim\":\"none\",\"running\":0}"
+ },
+ {
+  "name": "9 no restart after reduced-motion",
+  "ok": true,
+  "detail": "{\"arrival\":false,\"anim\":\"none\",\"running\":0}"
+ },
+ {
+  "name": "9 no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "10 denied storage: arrival still runs",
+  "ok": true,
+  "detail": "{\"arrival\":true,\"anim\":\"arrival-title\",\"running\":2}"
+ },
+ {
+  "name": "10 denied storage: page settles",
+  "ok": true,
+  "detail": "bgX 43 errors "
+ }
+]

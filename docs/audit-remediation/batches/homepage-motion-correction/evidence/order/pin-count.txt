@@ -1,0 +1,3 @@
+pin spacers (count of .pin-spacer; inside #smooth-content; wrappers)
+dev Strict  : pinSpacers 1, insideContent 1, outsideContent 0, wrappers 1, contentTransform true
+prod        : pinSpacers 1, insideContent 1, outsideContent 0, wrappers 1, contentTransform true

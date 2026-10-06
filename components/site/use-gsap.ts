@@ -57,7 +57,19 @@ export function useGsap(
       gsap.registerPlugin(ScrollTrigger);
       registered = true;
     }
-    const ctx = gsap.context(() => setupRef.current({ gsap, ScrollTrigger, reduced }), scope);
-    return () => ctx.revert();
+    // Build the scene one frame after commit. Layout effects run children first, so a scene
+    // created synchronously would be measured before the parent smoother (created in the same
+    // commit by SmoothScroll) exists. The frame defers the build; it does not by itself prove
+    // the order. The order was checked in a browser: smoother-create precedes every scene build
+    // on load, Strict Mode remount, breakpoint rebuild and reload (evidence/order). The frame
+    // is cancelled if the scene unmounts or its settings change first.
+    let ctx: ReturnType<typeof gsap.context> | null = null;
+    const frame = window.requestAnimationFrame(() => {
+      ctx = gsap.context(() => setupRef.current({ gsap, ScrollTrigger, reduced }), scope);
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      ctx?.revert();
+    };
   }, [reduced, ...deps]);
 }

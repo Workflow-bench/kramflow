@@ -1,157 +1,235 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollSmoother } from "gsap/ScrollSmoother";
+import { startNavigation, type ScrollEnv, type Transaction } from "./scroll-navigation";
 
 /**
  * The homepage's one scrolling owner.
  *
- * ScrollSmoother runs only where it is wanted: a desktop-width viewport with a fine
- * pointer and no reduced-motion preference. Touch, narrow screens and reduced motion keep
- * the browser's own scrolling untouched. Both conditions are media queries, so a change
- * (resize, a pointer swap, the OS setting) tears the smoother down or builds it again
- * without a reload.
+ * Ownership, stated once:
+ * - ScrollSmoother runs only on desktop with a fine pointer and motion allowed. Touch,
+ *   narrow screens and reduced motion use the browser's own scrolling.
+ * - At most one navigation transaction is live at a time (scroll-navigation.ts). A new
+ *   navigation, any visitor scroll intent, a breakpoint or preference change, and leaving
+ *   the page all cancel it. Cancelled work never writes to the scroller again.
+ * - Child scroll scenes build their ScrollTriggers from a frame after this component
+ *   mounts (see use-gsap.ts). Layout effects of the parent run after the children's, so
+ *   the smoother is created in the same commit and every scene sees it when it starts.
+ *   That ordering is explicit, not an accident of effect order.
  *
- * Only this component may own scroll. Anchor clicks on the page are routed here: with a
- * smoother active they go through its `scrollTo`, otherwise through a single native
- * `window.scrollTo`. Nothing else in the homepage calls scrollTo, and no CSS smooth
- * behaviour is set for the document, so two owners never fight over one scroll position.
- *
- * Structure: `#smooth-wrapper` > `#smooth-content`. The skip link and fixed navigation sit
- * outside, because a transformed ancestor would break their `position: fixed`. The footer
- * is inside, so it scrolls with the page.
+ * Structure: `#smooth-wrapper` > `#smooth-content` wraps the main content and footer. The
+ * skip link, fixed navigation, the motion flag and the arrival sequence sit outside it, and
+ * so do the dialogs (FullViewDialog portals to the body), so a transform can never contain
+ * a fixed overlay.
  */
 
-const HEADER_OFFSET = 88; // matches the scroll-margin-top on the scene anchors
+const HEADER_OFFSET = 88;
 const DESKTOP_SMOOTH = "(min-width: 1024px) and (pointer: fine) and (prefers-reduced-motion: no-preference)";
 
 let registered = false;
+let live: Transaction | null = null;
+let smootherRef: ScrollSmoother | null = null;
+let quietFrame = 0;
 
-function smootherActive(): ScrollSmoother | null {
-  return ScrollSmoother.get() ?? null;
+function cancelLive() {
+  live?.cancel();
+  live = null;
+  if (quietFrame) window.cancelAnimationFrame(quietFrame);
+  quietFrame = 0;
 }
 
 /**
- * Scrolls to a same-page destination and moves focus there for keyboard users. Works with
- * or without the smoother, and respects the fixed-header offset.
+ * Runs `fn` once the window has been still for a few frames. A route that mounts on a hash
+ * (Back, or a deep link) has its own scroll writes in the frames after mount, so starting a
+ * navigation before they land makes those writes look like unexplained movement. Bounded, and
+ * cancelled by the same input and navigation paths as a live transaction.
+ */
+function whenScrollQuiet(fn: () => void) {
+  if (quietFrame) window.cancelAnimationFrame(quietFrame);
+  let still = 0;
+  let last = NaN;
+  const started = performance.now();
+  const step = () => {
+    quietFrame = 0;
+    const y = window.scrollY;
+    still = y === last ? still + 1 : 0;
+    last = y;
+    if (still >= 4 || performance.now() - started > 1500) {
+      fn();
+      return;
+    }
+    quietFrame = window.requestAnimationFrame(step);
+  };
+  quietFrame = window.requestAnimationFrame(step);
+}
+
+/** Cancels any navigation in flight. Called by input, by teardown and by new navigations. */
+export function cancelScrollNavigation() {
+  cancelLive();
+}
+
+function scrollerEnv(
+  s: ScrollSmoother | null,
+  targetTop: () => number
+): ScrollEnv {
+  return {
+    read: () => (s ? s.scrollTop() : window.scrollY),
+    scrollTo: (y, smooth) => {
+      if (s) s.scrollTo(Math.max(0, y), smooth);
+      else window.scrollTo({ top: Math.max(0, y), behavior: smooth ? "smooth" : "auto" });
+    },
+    targetTop,
+    raf: (cb) => window.requestAnimationFrame(cb),
+    cancelRaf: (id) => window.cancelAnimationFrame(id),
+    now: () => performance.now(),
+  };
+}
+
+/** Layout-only offset of an element inside the smooth content, ignoring transforms. */
+function contentOffset(target: HTMLElement): number {
+  const root = document.getElementById("smooth-content");
+  let y = 0;
+  let el: HTMLElement | null = target;
+  while (el && el !== root) {
+    y += el.offsetTop;
+    el = el.offsetParent as HTMLElement | null;
+  }
+  return y;
+}
+
+/**
+ * Navigates to a same-page destination. Returns false if the hash has no target, so the
+ * browser's own behaviour applies. Focus moves to the destination for keyboard users, with
+ * a temporary tabindex that is removed again on blur so the element's markup is unchanged.
  */
 export function navigateToAnchor(hash: string): boolean {
   const id = decodeURIComponent(hash.replace(/^#/, ""));
   const target = id ? document.getElementById(id) : null;
   if (!target) return false;
 
-  const smoother = smootherActive();
-  if (smoother) {
-    // Element-based smoother targets measure through the smoother's own transform and
-    // landed 16-64px off in testing. offsetTop is layout-only and ignores transforms, so
-    // sum it up to the content root and scroll to that number instead.
-    let y = 0;
-    let el: HTMLElement | null = target;
-    const root = document.getElementById("smooth-content");
-    while (el && el !== root) {
-      y += el.offsetTop;
-      el = el.offsetParent as HTMLElement | null;
-    }
-    const want = Math.max(0, y - HEADER_OFFSET);
-    smoother.scrollTo(want, true);
-    // The smooth tween can settle a little short of its target, and the transform lag
-    // makes that hard to predict. Once it has had time to finish, measure the destination
-    // as it is on screen and correct the remainder with one non-smooth step.
-    window.setTimeout(() => {
-      const current = smootherActive();
-      if (!current) return;
-      const delta = target.getBoundingClientRect().top - HEADER_OFFSET;
-      if (Math.abs(delta) > 2) current.scrollTo(current.scrollTop() + delta, false);
-    }, 900);
-  } else {
-    const top = target.getBoundingClientRect().top + window.scrollY - HEADER_OFFSET;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: Math.max(0, top), behavior: reduce ? "auto" : "smooth" });
-  }
+  cancelLive();
+  const s = smootherRef;
+  // The smoother clamps every write to a cached maxScroll. Pinned scenes add their spacers a
+  // frame after mount, so refresh before measuring, or the first smooth write clamps to the
+  // stale maximum and only the measured correction moves the page.
+  if (s) ScrollTrigger.refresh();
+  const goal = s ? contentOffset(target) - HEADER_OFFSET : window.scrollY + target.getBoundingClientRect().top - HEADER_OFFSET;
+  live = startNavigation(
+    scrollerEnv(s, () => target.getBoundingClientRect().top),
+    Math.max(0, goal),
+    HEADER_OFFSET
+  );
 
-  // Skip links and same-page jumps should land focus at the destination, not only the
-  // viewport. Elements without a tabindex get a temporary -1 so they can take focus.
-  if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+  if (!target.hasAttribute("tabindex")) {
+    target.setAttribute("tabindex", "-1");
+    target.addEventListener("blur", () => target.removeAttribute("tabindex"), { once: true });
+  }
   target.focus({ preventScroll: true });
   return true;
 }
 
 export function SmoothScroll({ children }: { children: ReactNode }) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!registered) {
       gsap.registerPlugin(ScrollTrigger, ScrollSmoother);
       registered = true;
     }
 
-    const wrapper = document.getElementById("smooth-wrapper");
-    const content = document.getElementById("smooth-content");
-    if (!wrapper || !content) return;
-
-    let smoother: ScrollSmoother | null = null;
     const mq = window.matchMedia(DESKTOP_SMOOTH);
+    const reducedMq = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    const create = () => {
+      if (smootherRef) return;
+      smootherRef = ScrollSmoother.create({
+        wrapper: "#smooth-wrapper",
+        content: "#smooth-content",
+        smooth: 0.45,
+        effects: false,
+        smoothTouch: false,
+      });
+      ScrollTrigger.refresh();
+    };
+    const destroy = () => {
+      if (!smootherRef) return;
+      smootherRef.kill();
+      smootherRef = null;
+      ScrollTrigger.refresh();
+    };
 
     const sync = () => {
-      if (mq.matches && !smoother) {
-        smoother = ScrollSmoother.create({
-          wrapper: "#smooth-wrapper",
-          content: "#smooth-content",
-          smooth: 0.45,
-          // No data-speed/data-lag effects: the product scenes are scrubbed by ScrollTrigger.
-          effects: false,
-          smoothTouch: false,
-        });
-        // Triggers built before the smoother existed are rebound to its scroller here.
-        ScrollTrigger.refresh();
-      } else if (!mq.matches && smoother) {
-        smoother.kill();
-        smoother = null;
-        ScrollTrigger.refresh();
-      }
+      // Any change in breakpoint or preference first drops the navigation that was
+      // measured against the old scroller.
+      cancelLive();
+      if (mq.matches && !reducedMq.matches) create();
+      else destroy();
     };
     sync();
     mq.addEventListener("change", sync);
+    reducedMq.addEventListener("change", sync);
 
-    // Same-page anchor clicks, including the skip link. Modified clicks and middle clicks
-    // keep their browser behaviour (new tab, etc.).
+    // Visitor intent always wins over a navigation still settling.
+    const interrupt = () => cancelLive();
+    const intentKeys = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
+    const onKey = (e: KeyboardEvent) => {
+      if (intentKeys.has(e.key)) cancelLive();
+    };
+    window.addEventListener("wheel", interrupt, { passive: true });
+    window.addEventListener("touchstart", interrupt, { passive: true });
+    window.addEventListener("pointerdown", interrupt, true);
+    window.addEventListener("keydown", onKey, true);
+
+    // Same-page anchor clicks. Modified or non-primary clicks keep browser behaviour.
     const onClick = (e: MouseEvent) => {
       if (e.defaultPrevented || e.button !== 0) return;
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       const a = (e.target as Element | null)?.closest?.('a[href^="#"]') as HTMLAnchorElement | null;
       if (!a) return;
       const hash = a.getAttribute("href") ?? "";
-      if (hash.length < 2) return;
-      if (!navigateToAnchor(hash)) return;
+      if (hash.length < 2 || !navigateToAnchor(hash)) return;
       e.preventDefault();
-      // Keep the URL shareable without adding a history entry per chapter.
-      history.replaceState(history.state, "", hash);
+      // A new history entry per jump, so Back returns to the previous chapter.
+      if (location.hash !== hash) history.pushState(history.state, "", hash);
     };
     document.addEventListener("click", onClick);
 
-    // A deep link arrives with a hash. Wait a frame so the layout (and the smoother, if any)
-    // has settled before measuring the destination.
+    // Back/forward between chapters. A hash entry scrolls to its destination; the empty
+    // entry returns to the top. Browser scroll restoration is left to the page, since the
+    // smoother owns the scroll position.
+    const onPop = () => {
+      if (location.hash) {
+        const hash = location.hash;
+        cancelLive();
+        whenScrollQuiet(() => navigateToAnchor(hash));
+        return;
+      }
+      cancelLive();
+      // The top of the page: its "destination" already sits at the header offset.
+      live = startNavigation(scrollerEnv(smootherRef, () => HEADER_OFFSET), 0, HEADER_OFFSET);
+    };
+    window.addEventListener("popstate", onPop);
+
+    // Deep link: navigate once the layout exists. The frame lets the children's scenes
+    // (deferred by one frame in use-gsap) register before the destination is measured.
+    let frame = 0;
     if (location.hash) {
-      // Pin spacers from the room scene are inserted after first layout. Refresh first, or
-      // the destination is measured before they exist and the jump lands short.
-      const frame = requestAnimationFrame(() => {
-        ScrollTrigger.refresh(true);
-        navigateToAnchor(location.hash);
-      });
-      return () => {
-        cancelAnimationFrame(frame);
-        mq.removeEventListener("change", sync);
-        document.removeEventListener("click", onClick);
-        smoother?.kill();
-        smoother = null;
-      };
+      frame = window.requestAnimationFrame(() => whenScrollQuiet(() => navigateToAnchor(location.hash)));
     }
 
     return () => {
+      window.cancelAnimationFrame(frame);
+      cancelLive();
       mq.removeEventListener("change", sync);
+      reducedMq.removeEventListener("change", sync);
+      window.removeEventListener("wheel", interrupt);
+      window.removeEventListener("touchstart", interrupt);
+      window.removeEventListener("pointerdown", interrupt, true);
+      window.removeEventListener("keydown", onKey, true);
       document.removeEventListener("click", onClick);
-      smoother?.kill();
-      smoother = null;
+      window.removeEventListener("popstate", onPop);
+      destroy();
     };
   }, []);
 
