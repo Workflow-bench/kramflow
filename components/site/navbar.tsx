@@ -2,52 +2,71 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { Wordmark } from "./wordmark";
 import { SiteAction, SiteTextLink } from "./site-action";
-import { useGsap } from "./use-gsap";
 
 /**
- * Navigation that gets out of the hero's way, then becomes chrome.
+ * A quiet, fixed-height header.
  *
- * Over the hero the bar is transparent and tall, so the first viewport
- * belongs to the product and the headline rather than to a header sitting
- * on top of them. Once the hero is behind you it compacts and picks up
- * `.glass-chrome` — the product's own persistent-nav material, the same
- * class `EventShellHeader` uses inside the app — so the chrome a visitor
- * ends the page with is literally the chrome they get after signing up.
+ * Three long chapter names used to fill the centre and read as another row of content.
+ * Two short destinations replace them: **Product** is the scroll scene, **Features** is
+ * the operations chapter. Log in stays subordinate; Start free is the single action.
  *
- * One ScrollTrigger, one toggle, one tween. Padding is animated rather
- * than height so nothing reflows the page below it, and the background
- * and border are plain CSS transitions driven by React state. Under
- * reduced motion the bar simply starts compact.
+ * **No padding travel.** The bar used to animate its own padding from 22px to 10px
+ * through GSAP on every scroll crossing, which moved the whole page's first row for no
+ * informational gain and kept a motion engine wired into navigation. The height is now
+ * constant and only the background and border change — a cheap passive scroll listener,
+ * not an animation, so there is nothing here for Pause or reduced motion to stop.
+ *
+ * **The mobile panel is always mounted (HF-04).** It used to render only while open
+ * inside `AnimatePresence`, so `inert={!open}` was evaluated exclusively on open
+ * instances and was therefore always `false`; during the exit animation five links
+ * stayed focusable and in the accessibility tree. Keeping the element mounted and
+ * driving it with CSS means `inert` flips to `true` the instant the menu starts
+ * closing, which is the window the review actually measured.
  */
 
-// Familiar names for the sections that already exist, not new nomenclature:
-// `#one-cue` (OneCueSection), `#product` (PlayableShow) and `#features`
-// (CallSheet). "One cue"/"Product" described the page's internal vocabulary
-// rather than telling a first-time visitor what they would get by clicking.
-// Each label names what the visitor gets, and each target is a real section on this
-// page: preparation, the recorded cue example, and display connection. Native
-// anchors, no client router, no separate routes for homepage chapters.
 const NAV_LINKS = [
-  { label: "How it works", href: "#prepare" },
-  { label: "Explore the show", href: "#call" },
-  { label: "Connect displays", href: "#room" },
+  { label: "Product", href: "#product" },
+  { label: "Features", href: "#features" },
 ];
+
+const HEADER_H = 64;
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
-  const [compact, setCompact] = useState(false);
-  const root = useRef<HTMLElement>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const [active, setActive] = useState<string | null>(null);
   const toggle = useRef<HTMLButtonElement>(null);
 
-  // Disclosure contract (HOME-R09): Escape closes the menu and puts focus back on the
-  // control that opened it. This is a disclosure, not a modal — it does not trap focus
-  // or freeze the page, because activating a chapter link must leave native scrolling
-  // and the destination intact. The listener is document-level so Escape works wherever
-  // focus happens to be inside the open panel.
+  // Background state only — no tween, no layout change.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Active destination, for `aria-current` on the matching link.
+  useEffect(() => {
+    const ids = NAV_LINKS.map((l) => l.href.slice(1));
+    const targets = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
+    if (!targets.length || !("IntersectionObserver" in window)) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible) setActive(visible.target.id);
+      },
+      { rootMargin: `-${HEADER_H}px 0px -55% 0px`, threshold: [0.01, 0.25] }
+    );
+    targets.forEach((t) => io.observe(t));
+    return () => io.disconnect();
+  }, []);
+
+  // Escape closes the disclosure and returns focus to the control that opened it.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -59,42 +78,16 @@ export function Navbar() {
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
-  useGsap(root, ({ gsap, ScrollTrigger, reduced }) => {
-    if (reduced) {
-      setCompact(true);
-      gsap.set("[data-nav-inner]", { paddingTop: 8, paddingBottom: 8 });
-      return;
-    }
-
-    ScrollTrigger.create({
-      start: 140,
-      end: 99999,
-      onToggle: (self) => {
-        // React state, not a data attribute. `glass-chrome` is a custom
-        // class in globals.css rather than a Tailwind utility, so the
-        // `data-[compact=true]:glass-chrome` variant this used to rely on
-        // silently generated nothing — measured backdropFilter: none on a
-        // bar that was supposedly glass.
-        setCompact(self.isActive);
-        gsap.to("[data-nav-inner]", {
-          paddingTop: self.isActive ? 8 : 16,
-          paddingBottom: self.isActive ? 8 : 16,
-          duration: 0.35,
-          ease: "power2.out",
-        });
-      },
-    });
-  });
-
   return (
     <nav
-      ref={root}
-      data-compact={compact}
       className={`fixed inset-x-0 top-0 z-50 border-b transition-colors duration-300 ${
-        compact ? "glass-chrome bg-background/90! border-line-soft" : "border-transparent"
+        scrolled ? "glass-chrome bg-background/90! border-line-soft" : "border-transparent"
       }`}
     >
-      <div data-nav-inner className="mx-auto flex max-w-[1440px] items-center justify-between gap-8 px-6 py-4 sm:px-10">
+      <div
+        className="mx-auto flex max-w-[1440px] items-center justify-between gap-8 px-6 sm:px-10"
+        style={{ height: HEADER_H }}
+      >
         <Link
           href="/"
           className="-my-3 shrink-0 rounded-chip py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -102,12 +95,15 @@ export function Navbar() {
           <Wordmark />
         </Link>
 
-        <div className="hidden items-center gap-8 lg:flex">
+        <div className="hidden items-center gap-7 lg:flex">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="inline-flex h-11 items-center rounded-control px-1 text-[15px] text-muted transition-colors duration-200 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              aria-current={active === link.href.slice(1) ? "true" : undefined}
+              className={`inline-flex h-11 items-center rounded-control px-1 text-[15px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                active === link.href.slice(1) ? "text-primary" : "text-muted hover:text-primary"
+              }`}
             >
               {link.label}
             </a>
@@ -134,55 +130,34 @@ export function Navbar() {
         </button>
       </div>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            id="site-menu"
-            // While the panel animates out its links are still in the DOM; `inert`
-            // takes them out of the tab order and the accessibility tree for that
-            // window, so a closing menu can never hold hidden focus (HOME-R09).
-            inert={!open}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            // Opaque, not `.glass-chrome`. That class is 65%-alpha by
-            // design for the persistent toolbar sliver it was built for
-            // (see the comment above); this dropdown sits directly over
-            // the hero at the same screen position, so translucency let
-            // the hero's own "Start free" button show through, nearly
-            // stacked on this panel's own "Start free" — reading as a
-            // rendering glitch, not an overlay. A menu that must fully
-            // replace what's under it needs a solid ground.
-            className="overflow-hidden border-t border-line-soft bg-background lg:hidden"
-          >
-            <div className="flex flex-col px-6 py-2">
-              {NAV_LINKS.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setOpen(false)}
-                  className="border-b border-line-soft py-4 text-base text-primary"
-                >
-                  {link.label}
-                </a>
-              ))}
-              <Link href="/login" onClick={() => setOpen(false)} className="py-4 text-base text-primary">
-                Log in
-              </Link>
-              <SiteAction
-                href="/signup"
-                role="primary"
-                size="hero"
-                onClick={() => setOpen(false)}
-                className="my-3 w-full"
-              >
-                Start free
-              </SiteAction>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Always mounted: `inert` is real during the closing window, not only after it. */}
+      <div
+        id="site-menu"
+        inert={!open}
+        aria-hidden={!open}
+        className={`site-menu overflow-hidden border-t bg-background lg:hidden ${
+          open ? "site-menu-open border-line-soft" : "border-transparent"
+        }`}
+      >
+        <div className="flex flex-col px-6 py-2">
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              onClick={() => setOpen(false)}
+              className="border-b border-line-soft py-4 text-base text-primary"
+            >
+              {link.label}
+            </a>
+          ))}
+          <Link href="/login" onClick={() => setOpen(false)} className="py-4 text-base text-primary">
+            Log in
+          </Link>
+          <SiteAction href="/signup" role="primary" size="hero" onClick={() => setOpen(false)} className="my-3 w-full">
+            Start free
+          </SiteAction>
+        </div>
+      </div>
     </nav>
   );
 }

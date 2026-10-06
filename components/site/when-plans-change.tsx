@@ -1,168 +1,205 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { RecordedView, type CropBox } from "./recorded-view";
+import { FullViewDialog } from "./full-view-dialog";
 import type { ShotKey } from "./product-shot";
 
 /**
- * When plans change — the four things an operator reaches for mid-show.
+ * "When plans change" — four operations, each with the surface that performs it.
  *
- * A ruled list, not four feature cards: these are operations in one console, and a grid
- * of equal boxes would say they are four separate products.
+ * Asymmetric by design: a narrow single-open accordion on the left, one large stable
+ * proof aperture on the right. The previous version put four flat rows beside an
+ * equal-width image and read as a conventional feature selector.
  *
- * **Each row shows its own surface (HOME-R03).** Previously every row sat beside the
- * same Broadcast Center screenshot, so "Adjust the timer" and "Hold the room" were
- * illustrated by a notice composer. Now the timer row shows the console's actual timer
- * and adjustment controls, the hold row shows the actual Next / Previous / Hold cluster,
- * notices show Broadcast Center, and control ownership shows the console's own control
- * strip. Every one is a crop of a genuine capture: uniform scale and clipping only, no
- * pixel altered.
+ * **Selection is page language, not product status.** A cream rule, a heavier label and
+ * the row's own expansion mark the open case. The old green dot borrowed the product's
+ * live-status colour for a marketing control; real status colours stay where they
+ * belong, inside the screenshots.
  *
- * **One honest gap.** There is no safe capture of a display actually *in* a hold state,
- * because producing one means driving a real event. The hold row therefore shows the
- * control that triggers it and says so in its caption, rather than implying a state that
- * was never recorded. This is recorded in the batch evidence as an open asset item.
+ * **Each row has its own measured crop**, taken against the actual source pixels:
+ * - timer — the countdown, the full ±0:30/±0:10 row and the current cue's context,
+ *   ending cleanly at the column divider rather than clipping the next column's words;
+ * - hold — the complete controls column, so Next, Previous and Hold are whole;
+ * - notice — the Broadcast composer with its target selector. The capture's target reads
+ *   **All Displays**, so the caption says that rather than implying an AV-only send;
+ * - control — the ownership strip: who holds control, and the release affordance.
  *
- * Each sentence is bounded by what the source supports: `app/api/display-engine/timer`
- * and `/time`, `/hold`, `/broadcasts`, and the control strip in
- * `components/operator/controls-panel.tsx` with `components/ui/control-lease-status.tsx`.
+ * Crops letterbox rather than fill (`fit="contain"`), because stretching a tall control
+ * column into a landscape aperture would distort the product or cut the control being
+ * explained. Image handoff keeps the committed capture until its replacement decodes
+ * (see RecordedView), so fast switching never leaves an empty aperture.
+ *
+ * Captions name the surface shown. Implementation-gap commentary belongs in the handoff,
+ * not on a public page — and no missing state is ever filled in with invented pixels.
  */
 
 const CONSOLE = { imageWidth: 3360, imageHeight: 2100 };
+const BROADCAST = { imageWidth: 2446, imageHeight: 1880 };
+const APERTURE = 1.45;
 
-const ROWS: {
+interface Op {
   id: string;
+  situation: string;
   title: string;
-  copy: string;
-  scenario: string;
-  shot: ShotKey | null;
-  crop?: CropBox;
+  detail: string;
+  shot: ShotKey;
+  crop: CropBox;
   caption: string;
-}[] = [
+}
+
+const OPS: Op[] = [
   {
     id: "timer",
+    situation: "A speaker needs more time.",
     title: "Adjust the timer",
-    copy: "Add or remove time while the current cue is running.",
-    scenario: "The keynote overruns by four minutes, so you add the time and the projected finish moves with it.",
+    detail: "Add or remove time while the cue is running. The projected finish moves with it.",
     shot: "console",
-    crop: { left: 1700, top: 300, width: 1300, height: 560, ...CONSOLE },
-    caption: "Operator Console · the running cue's timer and its adjustments",
+    crop: { left: 1700, top: 180, width: 985, height: 812, ...CONSOLE },
+    caption: "Operator Console · the running cue, its countdown and the adjustment row",
   },
   {
     id: "hold",
+    situation: "The next cue needs to wait.",
     title: "Hold the room",
-    copy: "Show a hold message on the selected displays.",
-    scenario: "The next speaker is still in the corridor, so the room holds instead of moving on.",
+    detail: "Hold the current item on the displays you choose instead of advancing the show.",
     shot: "console",
-    crop: { left: 2060, top: 330, width: 1300, height: 560, ...CONSOLE },
-    caption: "Operator Console · the Hold control. No capture of a display already holding exists yet.",
+    crop: { left: 2690, top: 150, width: 670, height: 900, ...CONSOLE },
+    caption: "Operator Console · the transport controls, including Hold",
   },
   {
     id: "notice",
+    situation: "The booth needs an update.",
     title: "Send a notice",
-    copy: "Send the right message to the right screens.",
-    scenario: "The booth needs to know about a microphone change that the lobby should never see.",
+    detail: "Write a message and choose which screens receive it, without interrupting the cue.",
     shot: "broadcast",
-    caption: "Broadcast Center · Recorded product view",
+    crop: { left: 10, top: 840, width: 1180, height: 760, ...BROADCAST },
+    caption: "Broadcast Center · the composer and its target selector, set to All Displays in this capture",
   },
   {
     id: "control",
+    situation: "Another operator takes over.",
     title: "Keep control clear",
-    copy: "The console shows who has control.",
-    scenario: "Two operators are signed in, and the console names the one calling cues right now.",
+    detail:
+      "One operator calls the cues at a time and the console names who. What a collaborator may do on the event is a separate permission.",
     shot: "console",
-    crop: { left: 2060, top: 130, width: 1300, height: 560, ...CONSOLE },
-    caption: "Operator Console · who is calling cues, and how many displays are targeted",
+    crop: { left: 2690, top: 150, width: 670, height: 420, ...CONSOLE },
+    caption: "Operator Console · who holds control, and the release affordance",
   },
 ];
 
 export function WhenPlansChange() {
   const [open, setOpen] = useState("timer");
-  const row = ROWS.find((r) => r.id === open) ?? ROWS[0];
+  const [inspecting, setInspecting] = useState(false);
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const op = OPS.find((o) => o.id === open) ?? OPS[0];
+
+  function move(to: number) {
+    const next = OPS[(to + OPS.length) % OPS.length];
+    setOpen(next.id);
+    refs.current[next.id]?.focus();
+  }
 
   return (
-    <section id="adapt" data-cue="When plans change" className="relative border-b border-line-soft">
+    <section id="features" data-cue="When plans change" className="relative border-b border-line-soft">
       <div className="mx-auto w-full max-w-[1440px] px-6 py-20 sm:px-10 lg:py-24">
         <p className="text-[12px] uppercase tracking-[0.18em] text-muted-2">03 / When plans change</p>
+        <h2 className="mt-4 max-w-[20ch] font-display text-[clamp(1.875rem,3vw,2.875rem)] leading-[1.04] tracking-[-0.02em] text-primary">
+          The plan changes. The show keeps running.
+        </h2>
 
-        <div className="mt-5 grid gap-10 lg:grid-cols-[minmax(0,50fr)_minmax(0,50fr)] lg:gap-14">
-          <div>
-            <h2 className="max-w-[14ch] font-display text-[clamp(1.875rem,3vw,2.875rem)] leading-[1.04] tracking-[-0.02em] text-primary">
-              Keep calling the show.
-            </h2>
-
-            {/* Tabs are direct children of the tablist: an intermediate wrapper (or a
-                heading element around each tab) breaks `aria-required-children` /
-                `aria-required-parent`, which Lighthouse flagged. The changing copy
-                therefore lives in the panel with the image, which is also what
-                HOME-R07 asks for. */}
-            <div role="tablist" aria-label="Mid-show operations" aria-orientation="vertical" className="mt-8 border-t border-line-soft">
-              {ROWS.map((r, i) => {
-                const selected = r.id === open;
-                return (
-                  <button
-                    key={r.id}
-                    type="button"
-                    role="tab"
-                    id={`plans-tab-${r.id}`}
-                    aria-selected={selected}
-                    aria-controls="plans-panel"
-                    tabIndex={selected ? 0 : -1}
-                    onClick={() => setOpen(r.id)}
-                    onKeyDown={(e) => {
-                      const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
-                      if (!keys.includes(e.key)) return;
-                      e.preventDefault();
-                      const next =
-                        e.key === "Home" ? 0
-                        : e.key === "End" ? ROWS.length - 1
-                        : (i + (e.key === "ArrowDown" ? 1 : -1) + ROWS.length) % ROWS.length;
-                      setOpen(ROWS[next].id);
-                      document.getElementById(`plans-tab-${ROWS[next].id}`)?.focus();
-                    }}
-                    className="flex w-full items-center justify-between gap-6 border-b border-line-soft py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,36fr)_minmax(0,64fr)] lg:gap-14">
+          {/* ---- the operations, one open at a time ---- */}
+          <div className="border-t border-line-soft">
+            {OPS.map((o, i) => {
+              const isOpen = o.id === open;
+              return (
+                <div key={o.id} className="border-b border-line-soft">
+                  <h3 className="m-0">
+                    <button
+                      ref={(el) => {
+                        refs.current[o.id] = el;
+                      }}
+                      type="button"
+                      id={`op-${o.id}`}
+                      aria-expanded={isOpen}
+                      aria-controls={`op-panel-${o.id}`}
+                      onClick={() => setOpen(o.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown") { e.preventDefault(); move(i + 1); }
+                        else if (e.key === "ArrowUp") { e.preventDefault(); move(i - 1); }
+                        else if (e.key === "Home") { e.preventDefault(); move(0); }
+                        else if (e.key === "End") { e.preventDefault(); move(OPS.length - 1); }
+                      }}
+                      className="group flex w-full items-baseline gap-3 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    >
+                      {/* Cream rule, not a status colour. */}
+                      <span
+                        aria-hidden="true"
+                        className={`mt-2 h-px shrink-0 transition-all duration-200 ${
+                          isOpen ? "w-7 bg-primary" : "w-3 bg-line group-hover:bg-muted-2"
+                        }`}
+                      />
+                      <span className="flex flex-col gap-1">
+                        <span className={`text-[13px] ${isOpen ? "text-muted" : "text-muted-2"}`}>{o.situation}</span>
+                        <span className={`text-[18px] ${isOpen ? "font-medium text-primary" : "text-muted"}`}>
+                          {o.title}
+                        </span>
+                      </span>
+                    </button>
+                  </h3>
+                  <div
+                    id={`op-panel-${o.id}`}
+                    role="region"
+                    aria-labelledby={`op-${o.id}`}
+                    hidden={!isOpen}
+                    className="pb-5 pl-10"
                   >
-                    <span className={`text-[18px] ${selected ? "font-medium text-primary" : "text-muted"}`}>
-                      {r.title}
-                    </span>
-                    <span
-                      aria-hidden="true"
-                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${selected ? "bg-status-green" : "bg-transparent"}`}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-
-            <p className="mt-8 max-w-[52ch] text-[14px] leading-relaxed text-muted-2">
-              One operator calls the cues at a time, and the console names who that is. What a
-              collaborator is allowed to do on an event is set separately, by their permission on it.
-            </p>
+                    <p className="max-w-[44ch] text-[15px] leading-relaxed text-muted">{o.detail}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* The panel is the whole changing region: image and caption together (HOME-R07). */}
-          <figure id="plans-panel" role="tabpanel" aria-labelledby={`plans-tab-${row.id}`} className="min-w-0 lg:pt-4">
-            {/* Plain block, not a second <figcaption>: a figure may only have one. */}
-            <div className="mb-4">
-              <p className="max-w-[46ch] text-[15px] leading-relaxed text-primary">{row.copy}</p>
-              <p className="mt-2 max-w-[48ch] text-[14px] leading-relaxed text-muted-2">{row.scenario}</p>
-            </div>
+          {/* ---- one stable proof aperture ----
+              Focusable, so keyboard users reach the proof that the selection controls
+              (HF-05); Tab previously skipped it entirely. */}
+          <figure
+            className="min-w-0 rounded-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            tabIndex={0}
+            aria-label={`Proof for ${op.title}: ${op.caption}`}
+          >
             <div className="overflow-hidden rounded-panel border border-line bg-card shadow-[0_40px_120px_-48px_rgba(0,0,0,0.9)]">
               <RecordedView
-                shot={row.shot as ShotKey}
-                crop={row.crop}
-                ratio={row.crop ? row.crop.width / row.crop.height : 2446 / 1880}
-                /* A crop magnifies: the element renders the whole capture at
-                   container x (3360/1300), so `sizes` states that rendered width
-                   rather than the container's, or Next serves a variant that is
-                   then upscaled and looks soft. */
-                sizes="(min-width: 1024px) 1700px, 1100px"
+                shot={op.shot}
+                crop={op.crop}
+                fit="contain"
+                ratio={APERTURE}
+                sizes="(min-width: 1024px) 1500px, 95vw"
               />
             </div>
-            <figcaption className="mt-3 text-[13px] leading-relaxed text-muted-2">{row.caption}</figcaption>
+            <figcaption className="mt-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+              <span className="text-[13px] leading-relaxed text-muted-2">{op.caption}</span>
+              <button
+                type="button"
+                onClick={() => setInspecting(true)}
+                className="inline-flex h-11 items-center rounded-control px-1 text-[13px] text-muted transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                View the whole capture
+              </button>
+            </figcaption>
           </figure>
         </div>
       </div>
+
+      {inspecting && (
+        <FullViewDialog
+          shot={op.shot}
+          label={op.shot === "broadcast" ? "Broadcast Center" : "Operator Console"}
+          onClose={() => setInspecting(false)}
+        />
+      )}
     </section>
   );
 }

@@ -463,7 +463,32 @@ body {
 :root {
   /* The landing header's resting height, so the hero can reserve exactly that much
      before its own copy starts. Measured, not guessed: 44px action + 2x16px padding. */
-  --site-header-h: 77px;
+  --site-header-h: 64px;
+}
+
+/* Pause reaches CSS travel too (HF-03). `data-motion="off"` is set on <html> whenever
+   the OS asks for reduced motion or the page's Pause control is on, so CSS transitions
+   and keyframes collapse the same way the JS engines do. Actions stay functional; they
+   simply arrive instantly. Mirrors the reduced-motion block at the end of this file. */
+html[data-motion="off"] *,
+html[data-motion="off"] *::before,
+html[data-motion="off"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* The mobile disclosure stays mounted so `inert` is real while it closes (HF-04);
+   its open/closed travel is CSS, not an AnimatePresence exit. */
+.site-menu {
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.22s ease, opacity 0.18s ease;
+}
+.site-menu-open {
+  max-height: 80svh;
+  overflow-y: auto;
+  opacity: 1;
 }
 
 /* ── Landing homepage ───────────────────────────────────────────────────────
@@ -514,11 +539,12 @@ body {
 /* Every in-page destination clears the fixed header when jumped to, including the
    legacy anchors kept from the previous composition. */
 #prepare,
-#call,
-#adapt,
+#product,
+#features,
 #room,
 .legacy-anchor {
-  scroll-margin-top: 96px;
+  /* Clears the 64px fixed header with a little air. */
+  scroll-margin-top: 88px;
 }
 .legacy-anchor {
   display: block;

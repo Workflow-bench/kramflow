@@ -1,0 +1,626 @@
+{
+  "label": "after",
+  "viewports": [
+    {
+      "view": "1280x800",
+      "requested": "1280x800",
+      "requestedNote": "see report row",
+      "cssViewport": "1280x800",
+      "browserZoom": 1,
+      "devicePixelRatio": 1,
+      "horizontalOverflow": false,
+      "headerHeight": 65,
+      "navLinks": [
+        "Kramflow",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free"
+      ],
+      "sections": [
+        {
+          "id": "top",
+          "h": 800
+        },
+        {
+          "id": "prepare",
+          "h": 768
+        },
+        {
+          "id": "product",
+          "h": 2561
+        },
+        {
+          "id": "features",
+          "h": 902
+        },
+        {
+          "id": "room",
+          "h": 587
+        },
+        {
+          "id": "The next show",
+          "h": 652
+        }
+      ],
+      "duplicateIds": []
+    },
+    {
+      "view": "1440x900",
+      "requested": "1440x900",
+      "requestedNote": "see report row",
+      "cssViewport": "1440x900",
+      "browserZoom": 1,
+      "devicePixelRatio": 1,
+      "horizontalOverflow": false,
+      "headerHeight": 65,
+      "navLinks": [
+        "Kramflow",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free"
+      ],
+      "sections": [
+        {
+          "id": "top",
+          "h": 900
+        },
+        {
+          "id": "prepare",
+          "h": 843
+        },
+        {
+          "id": "product",
+          "h": 2881
+        },
+        {
+          "id": "features",
+          "h": 981
+        },
+        {
+          "id": "room",
+          "h": 596
+        },
+        {
+          "id": "The next show",
+          "h": 667
+        }
+      ],
+      "duplicateIds": []
+    },
+    {
+      "view": "1920x1080",
+      "requested": "1920x1080",
+      "requestedNote": "see report row",
+      "cssViewport": "1920x1080",
+      "browserZoom": 1,
+      "devicePixelRatio": 1,
+      "horizontalOverflow": false,
+      "headerHeight": 65,
+      "navLinks": [
+        "Kramflow",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free"
+      ],
+      "sections": [
+        {
+          "id": "top",
+          "h": 1080
+        },
+        {
+          "id": "prepare",
+          "h": 843
+        },
+        {
+          "id": "product",
+          "h": 3457
+        },
+        {
+          "id": "features",
+          "h": 987
+        },
+        {
+          "id": "room",
+          "h": 601
+        },
+        {
+          "id": "The next show",
+          "h": 667
+        }
+      ],
+      "duplicateIds": []
+    },
+    {
+      "view": "1280x620-short",
+      "requested": "1280x620",
+      "requestedNote": "see report row",
+      "cssViewport": "1280x620",
+      "browserZoom": 1,
+      "devicePixelRatio": 1,
+      "horizontalOverflow": false,
+      "headerHeight": 65,
+      "navLinks": [
+        "Kramflow",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free"
+      ],
+      "sections": [
+        {
+          "id": "top",
+          "h": 620
+        },
+        {
+          "id": "prepare",
+          "h": 768
+        },
+        {
+          "id": "product",
+          "h": 2075
+        },
+        {
+          "id": "features",
+          "h": 902
+        },
+        {
+          "id": "room",
+          "h": 587
+        },
+        {
+          "id": "The next show",
+          "h": 652
+        }
+      ],
+      "duplicateIds": []
+    },
+    {
+      "view": "320x720-mobile",
+      "requested": "320x720",
+      "requestedNote": "see report row",
+      "cssViewport": "320x720",
+      "browserZoom": 1,
+      "devicePixelRatio": 1,
+      "horizontalOverflow": false,
+      "headerHeight": 66,
+      "navLinks": [
+        "Kramflow",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free"
+      ],
+      "sections": [
+        {
+          "id": "top",
+          "h": 720
+        },
+        {
+          "id": "prepare",
+          "h": 708
+        },
+        {
+          "id": "product",
+          "h": 826
+        },
+        {
+          "id": "features",
+          "h": 1079
+        },
+        {
+          "id": "room",
+          "h": 1157
+        },
+        {
+          "id": "The next show",
+          "h": 567
+        }
+      ],
+      "duplicateIds": []
+    },
+    {
+      "view": "375x812-mobile",
+      "requested": "375x812",
+      "requestedNote": "see report row",
+      "cssViewport": "375x812",
+      "browserZoom": 1,
+      "devicePixelRatio": 1,
+      "horizontalOverflow": false,
+      "headerHeight": 66,
+      "navLinks": [
+        "Kramflow",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free"
+      ],
+      "sections": [
+        {
+          "id": "top",
+          "h": 812
+        },
+        {
+          "id": "prepare",
+          "h": 691
+        },
+        {
+          "id": "product",
+          "h": 861
+        },
+        {
+          "id": "features",
+          "h": 1089
+        },
+        {
+          "id": "room",
+          "h": 1048
+        },
+        {
+          "id": "The next show",
+          "h": 567
+        }
+      ],
+      "duplicateIds": []
+    },
+    {
+      "view": "768x1024-tablet",
+      "requested": "768x1024",
+      "requestedNote": "see report row",
+      "cssViewport": "768x1024",
+      "browserZoom": 1,
+      "devicePixelRatio": 1,
+      "horizontalOverflow": false,
+      "headerHeight": 66,
+      "navLinks": [
+        "Kramflow",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free",
+        "Product",
+        "Features",
+        "Log in",
+        "Start free"
+      ],
+      "sections": [
+        {
+          "id": "top",
+          "h": 1024
+        },
+        {
+          "id": "prepare",
+          "h": 915
+        },
+        {
+          "id": "product",
+          "h": 1117
+        },
+        {
+          "id": "features",
+          "h": 1267
+        },
+        {
+          "id": "room",
+          "h": 687
+        },
+        {
+          "id": "The next show",
+          "h": 507
+        }
+      ],
+      "duplicateIds": []
+    }
+  ],
+  "lanes": {
+    "sceneScan": [
+      {
+        "y": 1200,
+        "label": "Before the cue · Opening Keynote",
+        "consoleAfter": false,
+        "shown": 0,
+        "pinSpacer": true,
+        "pinSpacerH": 2880
+      },
+      {
+        "y": 2100,
+        "label": "Console cut · Product Launch Demo",
+        "consoleAfter": true,
+        "shown": 0,
+        "pinSpacer": true,
+        "pinSpacerH": 2880
+      },
+      {
+        "y": 2400,
+        "label": "Reaching the room",
+        "consoleAfter": true,
+        "shown": 1,
+        "pinSpacer": true,
+        "pinSpacerH": 2880
+      },
+      {
+        "y": 2700,
+        "label": "Reaching the room",
+        "consoleAfter": true,
+        "shown": 2,
+        "pinSpacer": true,
+        "pinSpacerH": 2880
+      },
+      {
+        "y": 3000,
+        "label": "Reaching the room",
+        "consoleAfter": true,
+        "shown": 3,
+        "pinSpacer": true,
+        "pinSpacerH": 2880
+      },
+      {
+        "y": 3300,
+        "label": "Display views updated",
+        "consoleAfter": true,
+        "shown": 4,
+        "pinSpacer": true,
+        "pinSpacerH": 2880
+      }
+    ],
+    "sceneReverse": [
+      {
+        "y": 3600,
+        "label": "Display views updated",
+        "consoleAfter": true,
+        "shown": 4,
+        "pinSpacer": true,
+        "pinSpacerH": 2880
+      },
+      {
+        "y": 2600,
+        "label": "Reaching the room",
+        "consoleAfter": true,
+        "shown": 2,
+        "pinSpacer": true,
+        "pinSpacerH": 2880
+      },
+      {
+        "y": 2100,
+        "label": "Console cut · Product Launch Demo",
+        "consoleAfter": true,
+        "shown": 0,
+        "pinSpacer": true,
+        "pinSpacerH": 2880
+      },
+      {
+        "y": 1600,
+        "label": "Before the cue · Opening Keynote",
+        "consoleAfter": false,
+        "shown": 0,
+        "pinSpacer": true,
+        "pinSpacerH": 2880
+      }
+    ],
+    "labelContradictions": [],
+    "anchorEntry": {
+      "sectionTop": 88,
+      "navBottom": 65,
+      "obscured": false
+    },
+    "legacyAnchors": {
+      "call": {
+        "exists": true,
+        "top": 88,
+        "obscured": false
+      },
+      "one-cue": {
+        "exists": true,
+        "top": 88,
+        "obscured": false
+      },
+      "adapt": {
+        "exists": true,
+        "top": 88,
+        "obscured": false
+      },
+      "prepare": {
+        "exists": true,
+        "top": 88,
+        "obscured": false
+      },
+      "room": {
+        "exists": true,
+        "top": 88,
+        "obscured": false
+      },
+      "features": {
+        "exists": true,
+        "top": 88,
+        "obscured": false
+      }
+    },
+    "pauseScene": {
+      "before": {
+        "label": "Before the cue · Opening Keynote",
+        "consoleAfter": false,
+        "shown": 0,
+        "pinSpacer": true,
+        "pinSpacerH": 2880
+      },
+      "paused": {
+        "label": "Display views updated",
+        "consoleAfter": true,
+        "shown": 4,
+        "pinSpacer": false,
+        "pinSpacerH": 0
+      },
+      "resumedPin": true
+    },
+    "reducedScene": {
+      "label": "Display views updated",
+      "consoleAfter": true,
+      "shown": 4,
+      "pinSpacer": false,
+      "pinSpacerH": 0
+    },
+    "reducedSceneRuntime": {
+      "label": "Before the cue · Opening Keynote",
+      "consoleAfter": false,
+      "shown": 0,
+      "pinSpacer": true,
+      "pinSpacerH": 2880
+    },
+    "operations": {
+      "Adjust the timer": {
+        "image": "console",
+        "imgWidth": "2375.91px",
+        "imgLeft": "-1134.08px",
+        "caption": "Operator Console · the running cue, its countdown and the adjustment row",
+        "expanded": "A speaker needs more time.Adjust the timer",
+        "openRegions": 1
+      },
+      "Hold the room": {
+        "image": "console",
+        "imgWidth": "2143.59px",
+        "imgLeft": "-1513.59px",
+        "caption": "Operator Console · the transport controls, including Hold",
+        "expanded": "The next cue needs to wait.Hold the room",
+        "openRegions": 1
+      },
+      "Send a notice": {
+        "image": "broadcast",
+        "imgWidth": "1725.8px",
+        "imgLeft": "-7.04688px",
+        "caption": "Broadcast Center · the composer and its target selector, set to All Displays in this capture",
+        "expanded": "The booth needs an update.Send a notice",
+        "openRegions": 1
+      },
+      "Keep control clear": {
+        "image": "console",
+        "imgWidth": "4175.23px",
+        "imgLeft": "-3342.67px",
+        "caption": "Operator Console · who holds control, and the release affordance",
+        "expanded": "Another operator takes over.Keep control clear",
+        "openRegions": 1
+      }
+    },
+    "operationsRapid": {
+      "images": [
+        "console"
+      ],
+      "caption": "Operator Console · who holds control, and the release affordance"
+    },
+    "publicCopyClean": true
+  },
+  "hf": {
+    "HF01": {
+      "afterA": [
+        {
+          "src": "console",
+          "complete": true,
+          "opacity": "1"
+        }
+      ],
+      "duringB": [
+        {
+          "src": "console",
+          "complete": true
+        }
+      ],
+      "duringC": [
+        {
+          "src": "console",
+          "complete": true
+        },
+        {
+          "src": "",
+          "complete": false
+        }
+      ],
+      "decodedImagePresentThroughout": true
+    },
+    "HF03_HF04": {
+      "open": {
+        "expanded": "true",
+        "inert": false
+      },
+      "exitWindow": {
+        "present": true,
+        "inert": true,
+        "ariaHidden": "true",
+        "focusableLinks": 4,
+        "style": "0px",
+        "motionAttr": "off"
+      },
+      "after": {
+        "expanded": "false",
+        "focusOnToggle": true,
+        "inert": true
+      }
+    },
+    "HF05": {
+      "tabStopsAfterTabs": [
+        {
+          "tag": "DIV",
+          "id": "before-doors-panel",
+          "role": "tabpanel",
+          "text": "Organise the session, its it"
+        },
+        {
+          "tag": "BUTTON",
+          "id": null,
+          "role": null,
+          "text": "View the whole console"
+        },
+        {
+          "tag": "BUTTON",
+          "id": "op-timer",
+          "role": null,
+          "text": "A speaker needs more time.Ad"
+        },
+        {
+          "tag": "BUTTON",
+          "id": "op-hold",
+          "role": null,
+          "text": "The next cue needs to wait.H"
+        },
+        {
+          "tag": "BUTTON",
+          "id": "op-notice",
+          "role": null,
+          "text": "The booth needs an update.Se"
+        },
+        {
+          "tag": "BUTTON",
+          "id": "op-control",
+          "role": null,
+          "text": "Another operator takes over."
+        }
+      ],
+      "reachesPanel": true
+    }
+  },
+  "errors": []
+}

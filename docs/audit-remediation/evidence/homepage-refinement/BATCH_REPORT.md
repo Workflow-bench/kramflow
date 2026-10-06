@@ -25,7 +25,7 @@ Lanes: none. No agent tools were used; built sequentially by one implementer.
 | **R02** Readable signature scene | **PASS** | The console is now an unaltered crop (source px 1700,150 1660×670) carrying LIVE NOW, the cue title and owner, schedule variance, the countdown, the adjust row and the Next/Previous/Hold cluster — verified against both recorded states. One selected real output sits beside it. "View the whole console" opens the complete source image (measured natural ratio 1.600 = 3360×2100). Cause/consequence labels and the "Opening Keynote → Product Launch Demo" annotation are page type, outside every image. Not a timer-only crop. |
 | **R03** Relevant adaptation imagery | **PASS** (one documented gap) | Each row now shows its own genuine region: timer → the console's timer and adjustments; hold → the Next/Previous/Hold cluster; notice → Broadcast Center; control → the control-ownership strip. Each has its own caption and one concrete scenario. **Gap:** no safe capture of a display *already holding* exists, so the hold row shows the control that triggers it and says so in its caption rather than implying a state never recorded. |
 | **R04** Current asset fidelity | **PARTIAL — blocked** | The Next.js dev badge was measured in 13 of 14 published captures (identical 158-pixel glyph, extent x 38–113, y 39–114 from the bottom) and removed by **measured crop** on 12 of them, with before/after SHA-256 recorded. `console-prev.png` has no safe margin on either axis and still carries it. The padlock and the "Speaker Ready" fleet label need a recapture, which is blocked: the pipeline seeds and writes to hosted Supabase, and `DEMO1_PASSWORD` is absent. Full detail and exact unblock actions in `PROVENANCE.md`. |
-| **R05** Whole-page rhythm | **PASS** | Measured section heights at 1440×900: hero 900, prepare 843, **call 1729**, adapt 784, room 596, closing 667. The cue stage is roughly twice any other chapter; preparation was compacted; connection became a three-step strip with the fleet behind an optional inspection rather than a fourth framed screenshot. |
+| **R05** Whole-page rhythm | **PASS** | Measured section heights at 1440×900: hero 900, prepare 843, **call 1729**, adapt 784 _(corrected: 686 — see amendment below)_, room 596, closing 667. The cue stage is roughly twice any other chapter; preparation was compacted; connection became a three-step strip with the fleet behind an optional inspection rather than a fourth framed screenshot. |
 | **R06** Replay and image handoff | **PASS** | The exhausted primary becomes **Replay cue change** in the same position. The displayed cue is announced (`aria-live`) and the announcement matches the painted pixels. Handoff rewritten: two layers keyed per shot, the previous capture stays painted until the new one decodes, the reveal runs over real pixels, and a superseded request is discarded — verified by a rapid three-selection test where the last choice won. Captures load on demand, not all on first paint. |
 | **R07** Tab states | **PASS** | The indicator moved from `-z-10` (behind the button's own background) to `z-0` with the label at `z-10`; measured `zIndex: 0`, visible, and the selected label is 500-weight with a filled surface, so selection reads with motion on or off. Before Doors' panel now encompasses copy, image **and** caption (all three verified present). Hover never changes selection. Arrows/Home/End and roving tabindex preserved. |
 | **R08** Honest motion controls | **PASS** | Pause now covers all nonessential motion, matching its label: the shader unmounts and the field measures **completely still** (mean 0.00, max 0.0 over 2s), while the cue still changes instantly under pause (new capture at 120 ms, `clip-path: none`). `useGsap` previously sampled `prefers-reduced-motion` once at setup; it now subscribes and re-runs, so an OS change mid-session is honoured — verified by flipping the preference at runtime and seeing the engines return. |
@@ -86,3 +86,19 @@ Lighthouse 13.5.0, `--preset=desktop`, headless Chrome, production builds, own p
 4. **Screen reader** verification unavailable here.
 
 Nothing was pushed, deployed, migrated, seeded, or changed in any provider or account. No audit state was modified and `CODEX_VERIFIED` was not assigned.
+
+---
+
+## Amendment — 2026-10-05 (HF-07)
+
+The R05 row above reported the adaptation section as **784px**. The raw evidence it was
+derived from, `after/report.json` at 1440×900, records **686px**. The narrative figure was
+wrong; the raw file was right and is unchanged.
+
+Corrected reading at 1440×900: hero 900, prepare 843, call 1729, **adapt 686**, room 596,
+closing 667. The conclusion the row draws is unaffected — the cue stage remained roughly
+twice the height of any other chapter, and is more so against the corrected number.
+
+This amendment is additive. The original sentence is kept above with an inline correction
+so the earlier claim and its correction are both legible, and no historical evidence file
+was edited.

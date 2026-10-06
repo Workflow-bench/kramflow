@@ -72,11 +72,15 @@ export function BeforeDoors() {
           </div>
 
           {/* One panel around everything the tabs change: sentence, capture and caption. */}
+          {/* Focusable: Tab previously skipped straight past the panel these tabs
+              control, so a keyboard user never reached the content they had just
+              selected (HF-05). */}
           <div
             id="before-doors-panel"
             role="tabpanel"
+            tabIndex={0}
             aria-labelledby={`before-doors-${view}`}
-            className="min-w-0"
+            className="min-w-0 rounded-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <p className="max-w-[52ch] text-[15px] leading-relaxed text-muted">{detail.copy}</p>
             <figure className="mt-4">

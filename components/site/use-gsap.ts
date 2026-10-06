@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useAmbientMotion } from "./motion-state";
 
 /**
  * One place that owns GSAP setup, so every animated section on the page
@@ -22,10 +23,12 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
  *   would silently accumulate a second set of ScrollTriggers.
  * - **`useLayoutEffect` on the client**, so the initial `gsap.set` lands
  *   before paint and nothing flashes in at full opacity first.
- * - **The OS preference stays authoritative while the page is open.** It used to be
- *   sampled once during setup, so a visitor who turned reduced motion on mid-session
- *   kept the animated branch until a reload (HOME-R08). The query is now subscribed
- *   to, and a change reverts the context and re-runs setup on the other branch.
+ * - **One effective motion setting, live.** `reduced` is the OS preference OR the
+ *   page's own Pause control (HF-03). It used to watch only the OS query, so Pause
+ *   stopped the shader while GSAP-driven navigation and scenes kept moving. Both
+ *   inputs are subscribed to, and a change to either reverts the context and re-runs
+ *   setup on the other branch — so turning motion off mid-scene rebuilds the static
+ *   branch instead of leaving a half-played timeline or an orphaned pin spacer.
  */
 
 let registered = false;
@@ -46,17 +49,12 @@ export function useGsap(
     setupRef.current = setup;
   });
 
-  const [reduced, setReduced] = useState<boolean | null>(null);
-  useIsomorphicLayoutEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const onChange = () => setReduced(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
+  // `useAmbientMotion` already folds the OS preference and the Pause control together
+  // and re-renders on either changing.
+  const motionAllowed = useAmbientMotion();
+  const reduced = !motionAllowed;
 
   useIsomorphicLayoutEffect(() => {
-    if (reduced === null) return;
     if (!registered) {
       gsap.registerPlugin(ScrollTrigger);
       registered = true;

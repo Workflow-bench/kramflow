@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Pause, Play } from "lucide-react";
 import { useReduced } from "./motion";
 import { setMotionPaused, useMotionPaused } from "./motion-state";
@@ -18,6 +19,16 @@ import { setMotionPaused, useMotionPaused } from "./motion-state";
 export function MotionControl() {
   const reduce = useReduced();
   const paused = useMotionPaused();
+
+  // Publish the effective setting to CSS, so stylesheet transitions and keyframes stop
+  // with everything else rather than being the one engine Pause cannot reach (HF-03).
+  useEffect(() => {
+    const off = reduce || paused;
+    document.documentElement.dataset.motion = off ? "off" : "on";
+    return () => {
+      delete document.documentElement.dataset.motion;
+    };
+  }, [reduce, paused]);
 
   if (reduce) {
     return (

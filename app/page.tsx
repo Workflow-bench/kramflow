@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Navbar } from "@/components/site/navbar";
 import { HeroSection } from "@/components/site/hero-section";
 import { BeforeDoors } from "@/components/site/before-doors";
-import { CallTheShow } from "@/components/site/call-the-show";
+import { RoomScene } from "@/components/site/room-scene";
 import { WhenPlansChange } from "@/components/site/when-plans-change";
 import { TheRoom } from "@/components/site/the-room";
 import { ClosingSection } from "@/components/site/closing-section";
@@ -57,13 +57,15 @@ export default function Home() {
       <div id="main-content" tabIndex={-1} className="focus:outline-none">
         <HeroSection />
         <BeforeDoors />
-        {/* Legacy deep anchors from the previous composition keep working: the cue
-            story moved into "Call the show" and the detail list into "When plans
-            change". Zero-height targets, so they add nothing visually. */}
+        {/* One canonical id per scene, with the earlier anchors kept as zero-height
+            aliases beside it. The scroll scene owns `#product` (the nav's "Product"),
+            and `#call`/`#one-cue` — both of which have pointed at this story in earlier
+            revisions — resolve just above it. The operations chapter owns `#features`
+            (the nav's "Features") with `#adapt` as its alias. No id is duplicated. */}
         <span id="one-cue" aria-hidden="true" className="legacy-anchor" />
-        <span id="product" aria-hidden="true" className="legacy-anchor" />
-        <CallTheShow />
-        <span id="features" aria-hidden="true" className="legacy-anchor" />
+        <span id="call" aria-hidden="true" className="legacy-anchor" />
+        <RoomScene />
+        <span id="adapt" aria-hidden="true" className="legacy-anchor" />
         <WhenPlansChange />
         <TheRoom />
         <ClosingSection />

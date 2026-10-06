@@ -95,8 +95,9 @@ export function ProductShot({
   sizes = "100vw",
   priority = false,
   onLoad,
+  onError,
   style,
-}: ProductShotProps & { onLoad?: () => void; style?: React.CSSProperties }) {
+}: ProductShotProps & { onLoad?: () => void; onError?: () => void; style?: React.CSSProperties }) {
   const s = SHOTS[shot];
   return (
     <Image
@@ -106,6 +107,7 @@ export function ProductShot({
       priority={priority}
       quality={90}
       onLoad={onLoad}
+      onError={onError}
       style={style}
       className={`h-auto w-full ${className}`}
     />
