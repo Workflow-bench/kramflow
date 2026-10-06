@@ -7,7 +7,7 @@ Not self-approved. Ready for independent Codex review (`READY_FOR_CODEX`). `CODE
 | Item | Value |
 |---|---|
 | `BASE_SHA` | `e67f308df6663db6cc224daf705cdd385092b4c1` |
-| `FINAL_SHA` | this batch's commit (recorded in the follow-up commit that adds this file's SHA line) |
+| `FINAL_SHA` | `c5c51d4178a1461ea15477d123ebafce45443eb5` (motion batch commit; a follow-up commit records this line) |
 | Branch | `integrate/ui-revamp-landing` |
 | Tracked tree at start | clean; nine pre-existing untracked paths preserved and excluded |
 | GSAP / plugins | `gsap` 3.15.0 from the public npm package (ScrollSmoother, ScrollTrigger). No private registry, no credentials. |
@@ -68,7 +68,7 @@ No product views were replaced in this batch. The room scene and operations proo
 ## Changed files
 
 - New: `components/site/smooth-scroll.tsx`, `components/site/arrival.tsx`, `components/site/arrival-eligibility.ts`, `components/site/arrival-eligibility.test.ts`
-- Changed: `app/page.tsx`, `app/globals.css`, `components/site/hero-section.tsx`, `components/site/navbar.tsx`, `components/site/console-aperture.tsx`, `components/site/site-action.tsx`, `components/site/when-plans-change.tsx`, `components/site/use-gsap.ts`, `components/site/motion-state.tsx`
+- Changed: `app/page.tsx`, `app/globals.css`, `components/site/hero-section.tsx`, `components/site/navbar.tsx`, `components/site/console-aperture.tsx`, `components/site/site-action.tsx`, `components/site/when-plans-change.tsx`, `components/site/use-gsap.ts`
 
 ## Remaining work and blockers
 
