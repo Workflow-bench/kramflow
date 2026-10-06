@@ -7,6 +7,8 @@ One integrated refinement batch against the reviewed homepage. Not self-approved
 | Item | Value |
 |---|---|
 | Base (`BASE_SHA`) | `a29ebf21685115c04de4f88150866219e9af7411` |
+| Final (`FINAL_SHA`) | `06f43fa7a60009ccc4cf4c48f9712ed16aaa1bf9`, plus the follow-up commit recording it |
+| HawkScan | Not run: `HAWK_API_KEY` and the hawk runtime are absent in this session |
 | Branch | `integrate/ui-revamp-landing` |
 | Dirty delta at start | None tracked. Nine pre-existing untracked paths, all preserved and excluded from the commit. |
 | Intervening changes | None — HEAD matched the reviewed revision exactly. |
