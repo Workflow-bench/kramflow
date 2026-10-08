@@ -1,0 +1,2 @@
+# Raw Playwright recordings stay local; regenerate with the scripts in ../scripts.
+**/*.webm
