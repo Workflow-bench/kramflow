@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { TimerOperation, HoldOperation, NoticeOperation, ControlOperation } from "./replica/operation-replicas";
+import { useGsap } from "./use-gsap";
+import { revealSection } from "./reveal";
 
 /**
  * "When plans change" — four operations, each with the surface that performs it.
@@ -85,7 +87,10 @@ const PROOF: Record<OpKey, () => React.ReactElement> = {
 export function WhenPlansChange() {
   const [open, setOpen] = useState("timer");
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const root = useRef<HTMLElement>(null);
   const op = OPS.find((o) => o.id === open) ?? OPS[0];
+
+  useGsap(root, ({ gsap, ScrollTrigger, reduced }) => revealSection(root.current!, { gsap, ScrollTrigger, reduced }));
 
   function move(to: number) {
     const next = OPS[(to + OPS.length) % OPS.length];
@@ -94,10 +99,10 @@ export function WhenPlansChange() {
   }
 
   return (
-    <section id="features" data-cue="When plans change" className="relative border-b border-line-soft">
+    <section ref={root} id="features" data-cue="When plans change" className="relative">
       <div className="mx-auto w-full max-w-[1440px] px-6 py-20 sm:px-10 lg:py-24">
         <p className="text-[12px] uppercase tracking-[0.18em] text-muted-2">03 / When plans change</p>
-        <h2 className="mt-4 max-w-[20ch] font-display text-[clamp(1.875rem,3vw,2.875rem)] leading-[1.04] tracking-[-0.02em] text-primary">
+        <h2 data-reveal="heading" className="mt-4 max-w-[20ch] font-display text-[clamp(1.875rem,3vw,2.875rem)] leading-[1.04] tracking-[-0.02em] text-primary">
           The plan changes. The show keeps running.
         </h2>
 
@@ -170,6 +175,7 @@ export function WhenPlansChange() {
               Focusable, so keyboard users reach the proof that the selection controls
               (HF-05); Tab previously skipped it entirely. */}
           <figure
+            data-reveal="media"
             className="min-w-0 self-start justify-self-end w-full lg:max-w-[560px] rounded-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             tabIndex={0}
             aria-label={`Proof for ${op.title}: ${op.caption}`}

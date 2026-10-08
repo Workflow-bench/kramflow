@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "stageflow-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "stageflow-review",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "dev", "--webpack", "-p", "3975"],
+      "port": 3975
+    }
+  ]
+}

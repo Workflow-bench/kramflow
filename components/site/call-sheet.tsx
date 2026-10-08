@@ -35,7 +35,7 @@ export function CallSheet() {
   }, []);
 
   return (
-    <section id="features" data-cue="Details" className="border-b border-line-soft">
+    <section id="features" data-cue="Details">
       <div className="mx-auto max-w-[1600px] px-6 py-16 sm:px-10 lg:py-28">
         <Reveal>
           <h2 className=" max-w-[16ch] font-display text-[clamp(2rem,5vw,4.25rem)] text-primary">

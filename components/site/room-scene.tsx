@@ -201,7 +201,7 @@ export function RoomScene() {
       id="product"
       data-cue="One cue"
       ref={root}
-      className="relative border-b border-line-soft"
+      className="relative"
     >
       {/* ------------------------------------------------------------- desktop */}
       <div ref={stage} className="hidden min-h-svh flex-col justify-center overflow-hidden py-16 lg:flex">

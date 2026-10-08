@@ -572,6 +572,9 @@ html[data-motion="off"] *::after {
 }
 .hero-eyebrow {
   font-size: 13px;
+  /* A definite, round line-height so the entrance word-switch's mask and 16px
+     per-step track below land on exact pixels. */
+  line-height: 16px;
 }
 .hero-title {
   margin-top: 1rem;
@@ -753,6 +756,34 @@ html.arrival-running [data-arrival="wordmark"] {
 @keyframes arrival-wordmark {
   from { transform: translateX(-8px); opacity: 0.4; }
   to   { transform: none; opacity: 1; }
+}
+/* Entrance word-switch (section 3): a masked window over the real hero eyebrow label.
+   `.hero-eyebrow`'s line-height below gives both the real label and this overlay the same
+   16px box, so the track's steps land on exact pixels and the mask never clips a word.
+   Hidden until the arrival class is set; it fades out early — not mid-word — on interruption,
+   which happens by removing the class, the same event every other arrival beat listens for. */
+.entrance-words {
+  opacity: 0;
+  pointer-events: none;
+  /* Opaque, or the real label shows through wherever the overlay's own glyphs have no
+     ink (letter gaps, the space after a short word) — measured: without this, "Plan"
+     over "Live event operations" read as garbled overlapping text, not a clean swap. */
+  background-color: var(--color-background);
+}
+html.arrival-running .entrance-words {
+  opacity: 1;
+}
+html:not(.arrival-running) .entrance-words {
+  transition: opacity 0.25s ease;
+}
+html.arrival-running .entrance-words-track {
+  animation: entrance-words-cycle 1.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes entrance-words-cycle {
+  0%, 20%  { transform: translateY(0); }
+  28%, 48% { transform: translateY(-16px); }
+  56%, 76% { transform: translateY(-32px); }
+  84%, 100% { transform: translateY(-48px); }
 }
 /* Heading: the light sweep plus a 6px settle, inside the same 1.3s total. Only while the
    arrival class is set. `both` holds the start frame during the delay; it ends at the same

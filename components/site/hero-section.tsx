@@ -29,14 +29,33 @@ export function HeroSection() {
     <section
       id="top"
       data-cue="Promise"
-      className="hero-section relative isolate flex flex-col overflow-hidden border-b border-line-soft"
+      className="hero-section relative isolate flex flex-col overflow-hidden"
     >
       <AmbientLight variant="hero" />
       {/* Arrival band: decorative, pointer-events off, present only during the arrival class. */}
       <div aria-hidden="true" className="arrival-band" />
 
       <div className="hero-copy relative z-10 mx-auto w-full max-w-[1440px] px-6 sm:px-10">
-        <p className="hero-eyebrow uppercase tracking-[0.18em] text-muted-2">Live event operations</p>
+        {/* Entrance (section 3): a masked word-switch over the real eyebrow label, not a
+            separate loader. The real "Live event operations" paragraph below is always
+            present and unhidden — no-JS, JS failure and reduced motion (which never adds
+            `arrival-running`, see arrival.tsx) all land on it with nothing to undo. The
+            overlay only ever adds a decorative layer on top, released by the same CSS rule
+            that ends every other arrival beat, and fades out early on interruption instead
+            of stopping mid-word. Stages are the product's own: plan the cues, preview the
+            build, rehearse the sequence, go live — ending on the overlay's last word, which
+            sits exactly over the real label it reveals. */}
+        <div className="relative">
+          <p className="hero-eyebrow uppercase tracking-[0.18em] text-muted-2">Live event operations</p>
+          <p aria-hidden="true" className="entrance-words hero-eyebrow absolute inset-0 overflow-hidden uppercase tracking-[0.18em] text-muted-2">
+            <span className="entrance-words-track block">
+              <span className="block">Plan</span>
+              <span className="block">Preview</span>
+              <span className="block">Rehearse</span>
+              <span className="block">Live event operations</span>
+            </span>
+          </p>
+        </div>
 
         <h1 className="hero-title font-display tracking-[-0.0325em] text-primary">
           <span className="block">Run the show</span>

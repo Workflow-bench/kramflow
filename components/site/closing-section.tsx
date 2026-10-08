@@ -1,5 +1,10 @@
+"use client";
+
+import { useRef } from "react";
 import { AmbientLight } from "./ambient-light";
 import { SiteAction } from "./site-action";
+import { useGsap } from "./use-gsap";
+import { revealSection } from "./reveal";
 
 /**
  * The next show — the close.
@@ -12,15 +17,19 @@ import { SiteAction } from "./site-action";
  * "no credit card" reassurance. None of those are confirmed, so none are published.
  */
 export function ClosingSection() {
+  const root = useRef<HTMLElement>(null);
+
+  useGsap(root, ({ gsap, ScrollTrigger, reduced }) => revealSection(root.current!, { gsap, ScrollTrigger, reduced }));
+
   return (
-    <section data-cue="The next show" className="relative isolate overflow-hidden border-b border-line-soft">
+    <section ref={root} data-cue="The next show" className="relative isolate overflow-hidden">
       <AmbientLight variant="echo" />
       <div className="relative z-10 mx-auto w-full max-w-[1440px] px-6 py-28 sm:px-10 lg:py-40">
         <p className="text-[12px] uppercase tracking-[0.18em] text-muted-2">05 / The next show</p>
-        <h2 className="mt-5 max-w-[14ch] font-display text-[clamp(2.25rem,5vw,4.5rem)] leading-[1.02] tracking-[-0.025em] text-primary">
+        <h2 data-reveal="heading" className="mt-5 max-w-[14ch] font-display text-[clamp(2.25rem,5vw,4.5rem)] leading-[1.02] tracking-[-0.025em] text-primary">
           Your next show. One console.
         </h2>
-        <p className="mt-6 max-w-[40ch] text-[17px] leading-relaxed text-muted">
+        <p data-reveal="copy" className="mt-6 max-w-[40ch] text-[17px] leading-relaxed text-muted">
           Prepare the cues. Rehearse the handoffs. Run the room.
         </p>
         <div className="mt-10 flex flex-wrap items-center gap-3">

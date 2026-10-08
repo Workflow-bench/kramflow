@@ -99,7 +99,7 @@ export function PlayableShow() {
   const done = cue >= ITEMS.length - 1;
 
   return (
-    <section ref={root} id="product" data-cue="Your turn" className="border-b border-line-soft">
+    <section ref={root} id="product" data-cue="Your turn">
       <div className="mx-auto max-w-[1600px] px-6 py-16 sm:px-10 lg:py-28">
         <Reveal>
           <h2 className="max-w-[14ch] font-display text-[clamp(2.25rem,5.5vw,4.75rem)] text-primary">

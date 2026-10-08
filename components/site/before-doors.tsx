@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { RecordedView } from "./recorded-view";
 import { SegmentedSelector, type SegmentedItem } from "./segmented-selector";
 import type { ShotKey } from "./product-shot";
+import { useGsap } from "./use-gsap";
+import { revealSection } from "./reveal";
 
 /**
  * Before doors — what the operator does before anyone is in the room.
@@ -47,17 +49,20 @@ const DETAIL: Record<string, { shot: ShotKey; copy: string; caption: string }> =
 export function BeforeDoors() {
   const [view, setView] = useState("prepare");
   const detail = DETAIL[view];
+  const root = useRef<HTMLElement>(null);
+
+  useGsap(root, ({ gsap, ScrollTrigger, reduced }) => revealSection(root.current!, { gsap, ScrollTrigger, reduced }));
 
   return (
-    <section id="prepare" data-cue="Before doors" className="relative border-b border-line-soft">
+    <section ref={root} id="prepare" data-cue="Before doors" className="relative">
       <div className="mx-auto w-full max-w-[1440px] px-6 py-16 sm:px-10 lg:py-20">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,32fr)_minmax(0,68fr)] lg:gap-14">
           <div className="flex flex-col">
             <p className="text-[12px] uppercase tracking-[0.18em] text-muted-2">01 / Before doors</p>
-            <h2 className="mt-4 font-display text-[clamp(1.875rem,3vw,2.875rem)] leading-[1.04] tracking-[-0.02em] text-primary">
+            <h2 data-reveal="heading" className="mt-4 font-display text-[clamp(1.875rem,3vw,2.875rem)] leading-[1.04] tracking-[-0.02em] text-primary">
               Get the rundown ready.
             </h2>
-            <p className="mt-4 max-w-[40ch] text-[16px] leading-relaxed text-muted">
+            <p data-reveal="copy" className="mt-4 max-w-[40ch] text-[16px] leading-relaxed text-muted">
               Build the cue sheet, then run the sequence end to end before anyone is in the room.
             </p>
             <SegmentedSelector
@@ -83,7 +88,7 @@ export function BeforeDoors() {
             className="min-w-0 rounded-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <p className="max-w-[52ch] text-[15px] leading-relaxed text-muted">{detail.copy}</p>
-            <figure className="mt-4">
+            <figure data-reveal="media" className="mt-4">
               <div className="overflow-hidden rounded-panel border border-line bg-card shadow-[0_40px_120px_-48px_rgba(0,0,0,0.9)]">
                 <RecordedView
                   shot={detail.shot}

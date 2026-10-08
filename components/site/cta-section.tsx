@@ -7,7 +7,7 @@ import { Reveal } from "./motion";
  */
 export function CTASection() {
   return (
-    <section data-cue="Go" className="border-b border-line-soft">
+    <section data-cue="Go">
       <div className="mx-auto max-w-[1600px] px-6 py-32 sm:px-10 lg:py-48">
         <Reveal>
           <h2 className="max-w-[13ch] font-display text-[clamp(2.5rem,7vw,6rem)] text-primary">
