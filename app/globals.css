@@ -491,12 +491,38 @@ html[data-motion="off"] *::after {
   opacity: 1;
 }
 
-/* Landing depth is static and neutral. No canvas or continuously moving wash. */
+/* The page's one ambient light: a warm, layered gradient mesh (the structural
+   technique behind the soft multi-stop "aurora" every dark-mode product site from
+   Linear to Raycast to Attio shares), built from KramFlow's own already-chosen brand
+   stops — #8a5a1e ember, #4a3117 umber, #6e6354 taupe, over #0c0b09 — not a borrowed
+   palette. Three radial-gradient layers, not one flat wash, so it reads as depth
+   rather than a single soft blob; the brightest layer sits right of and below the
+   copy, off the reading column, per this project's own standing rule for this
+   element. A slow breathing scale keeps it from reading as a static image — it must
+   actually be visible and alive, not just present — collapsed to a single frame by
+   the blanket `prefers-reduced-motion`/`data-motion=off` rule already in this file,
+   so nothing extra is needed here for that. */
 .ambient-light-hero {
-  background: radial-gradient(70% 32% at 70% 72%, rgba(194, 198, 197, 0.075), transparent 76%);
+  background-image:
+    radial-gradient(42% 46% at 80% 24%, rgba(138, 90, 30, 0.38), transparent 72%),
+    radial-gradient(52% 58% at 88% 68%, rgba(74, 49, 23, 0.42), transparent 74%),
+    radial-gradient(46% 50% at 58% 88%, rgba(110, 99, 84, 0.22), transparent 76%);
+  background-repeat: no-repeat;
+  animation: ambient-breathe 16s ease-in-out infinite;
+  transform-origin: 75% 55%;
 }
 .ambient-light-echo {
-  background: radial-gradient(52% 80% at 86% 65%, rgba(194, 198, 197, 0.045), transparent 78%);
+  background-image:
+    radial-gradient(48% 62% at 84% 58%, rgba(138, 90, 30, 0.22), transparent 74%),
+    radial-gradient(40% 50% at 68% 82%, rgba(74, 49, 23, 0.24), transparent 76%);
+  background-repeat: no-repeat;
+  animation: ambient-breathe 18s ease-in-out infinite;
+  animation-delay: -4s;
+  transform-origin: 75% 60%;
+}
+@keyframes ambient-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.92; }
+  50%      { transform: scale(1.08); opacity: 1; }
 }
 /* A quiet change of material marks the practical connection chapter. */
 .room-chapter {
