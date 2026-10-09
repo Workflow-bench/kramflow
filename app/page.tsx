@@ -11,6 +11,8 @@ import { SmoothScroll } from "@/components/site/smooth-scroll";
 import { Arrival } from "@/components/site/arrival";
 import { ArrivalBootScript } from "@/components/site/arrival-boot-script";
 import { Footer } from "@/components/site/footer";
+import { GrainOverlay } from "@/components/site/grain-overlay";
+import { ScrollProgress } from "@/components/site/scroll-progress";
 
 // The public marketing page — proxy.ts redirects a signed-in operator straight to
 // /dashboard, so this only ever renders for a logged-out visitor.
@@ -53,6 +55,8 @@ export default function Home() {
           where it sits, so this must run before anything below it paints. See
           arrival-boot-script.tsx and arrival.tsx for why. */}
       <ArrivalBootScript />
+      <ScrollProgress />
+      <GrainOverlay />
       {/* Skip link: the first focusable element, hidden until keyboard focus (KF-020). */}
       <a
         href="#main-content"

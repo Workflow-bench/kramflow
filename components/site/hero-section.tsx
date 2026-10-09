@@ -1,6 +1,12 @@
+"use client";
+
+import { useLayoutEffect, useRef } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { AmbientLight } from "./ambient-light";
 import { ConsoleAperture } from "./console-aperture";
 import { SiteAction } from "./site-action";
+import { useReduced } from "./motion";
 
 /**
  * The promise, and the instrument it is made with.
@@ -23,8 +29,66 @@ import { SiteAction } from "./site-action";
  * No STANDBY/GO ornament. Its amber-to-green cue light read as a live status
  * indicator for a visitor who has no show running, which is exactly the kind of
  * invented operational state this page must not display.
+ *
+ * Two small, scoped additions, built from first principles (not copied from any
+ * reference — see this batch's handoff for the source note):
+ * - The headline reveals word by word (blur + rise, GSAP, mount-only), decoupled
+ *   from the full-viewport loading screen's own entrance so it plays consistently
+ *   whether or not that sequence ran. Hidden state is only ever set client-side, in
+ *   a layout effect, before paint — the server-rendered heading is always the
+ *   settled, readable text, so no-JS and JS-failure both land on it with nothing to
+ *   undo.
+ * - The console aperture gets a faint scroll-linked tilt (ScrollTrigger scrub,
+ *   `rotateX`/`perspective`, never affecting layout) and two small floating labels
+ *   drawn from real, already-shown state (`Synced`, `4 displays online`) — not
+ *   invented status, the same words the console itself already uses.
  */
+
+const HEADLINE_LINES = [
+  ["Run", "the", "show"],
+  ["from", "one", "screen."],
+];
+
 export function HeroSection() {
+  const reduced = useReduced();
+  const headlineRef = useRef<HTMLHeadingElement>(null);
+  const apertureWrapRef = useRef<HTMLDivElement>(null);
+  const tiltRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (reduced) return;
+    const ctx = gsap.context(() => {
+      if (headlineRef.current) {
+        const words = headlineRef.current.querySelectorAll<HTMLElement>("[data-hero-word]");
+        gsap.set(words, { opacity: 0, y: 16, filter: "blur(10px)" });
+        gsap.to(words, {
+          opacity: 1,
+          y: 0,
+          filter: "blur(0px)",
+          duration: 0.7,
+          stagger: 0.055,
+          ease: "power2.out",
+          delay: 0.1,
+        });
+      }
+      if (tiltRef.current && apertureWrapRef.current) {
+        gsap.registerPlugin(ScrollTrigger);
+        gsap.set(tiltRef.current, { rotateX: 6, transformPerspective: 1400, transformOrigin: "center top" });
+        gsap.to(tiltRef.current, {
+          rotateX: 0,
+          ease: "none",
+          scrollTrigger: {
+            trigger: apertureWrapRef.current,
+            start: "top bottom",
+            end: "top 55%",
+            scrub: true,
+          },
+        });
+      }
+    });
+    return () => ctx.revert();
+  }, [reduced]);
+
   return (
     <section
       id="top"
@@ -39,9 +103,21 @@ export function HeroSection() {
             hero scale before the curtain wipes to reveal this exact, real, unhidden label. */}
         <p className="hero-eyebrow uppercase tracking-[0.18em] text-muted-2">Live event operations</p>
 
-        <h1 className="hero-title font-display tracking-[-0.0325em] text-primary">
-          <span className="block">Run the show </span>
-          <span className="block">from one screen.</span>
+        <h1
+          ref={headlineRef}
+          aria-label="Run the show from one screen."
+          className="hero-title font-display tracking-[-0.0325em] text-primary"
+        >
+          {HEADLINE_LINES.map((line, i) => (
+            <span key={i} aria-hidden="true" className="block">
+              {line.map((word, j) => (
+                <span key={j} data-hero-word className="inline-block">
+                  {word}
+                  {j < line.length - 1 ? " " : ""}
+                </span>
+              ))}
+            </span>
+          ))}
         </h1>
 
         <p className="hero-body max-w-[46ch] leading-relaxed text-muted">
@@ -59,8 +135,18 @@ export function HeroSection() {
       </div>
 
       {/* The aperture takes the viewport budget the copy did not use. */}
-      <div className="hero-aperture-wrap relative z-10 mx-auto w-full max-w-[1440px] px-6 sm:px-10">
-        <ConsoleAperture />
+      <div ref={apertureWrapRef} className="hero-aperture-wrap relative z-10 mx-auto w-full max-w-[1440px] px-6 sm:px-10">
+        <div ref={tiltRef} className="hero-aperture-tilt">
+          <ConsoleAperture />
+          {/* Real, already-displayed state, not invented status — see the component note. */}
+          <div aria-hidden="true" className="hero-chip hero-chip-a hidden lg:flex">
+            <span className="hero-chip-dot" />
+            Synced
+          </div>
+          <div aria-hidden="true" className="hero-chip hero-chip-b hidden lg:flex">
+            4 displays online
+          </div>
+        </div>
       </div>
     </section>
   );
