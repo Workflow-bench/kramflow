@@ -510,6 +510,14 @@ html[data-motion="off"] *::after {
   background-repeat: no-repeat;
   animation: ambient-breathe 16s ease-in-out infinite;
   transform-origin: 75% 55%;
+  /* The hero is exactly one viewport tall with overflow-hidden, so any gradient
+     layer still carrying color at the very bottom edge gets clipped there instead
+     of fading — a visible straight seam where the section ends, confirmed in a
+     screenshot. The radial stops above don't reach zero by y=100% on their own, so
+     this masks the last 20% of the section to transparent regardless, the standard
+     fix for a background that must fade out before its own hard edge. */
+  mask-image: linear-gradient(to bottom, black 0%, black 78%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 78%, transparent 100%);
 }
 .ambient-light-echo {
   background-image:
