@@ -77,7 +77,7 @@ export function BeforeDoors() {
   return (
     <section ref={root} id="prepare" data-cue="Before doors" className="relative">
       <div className="mx-auto w-full max-w-[1440px] px-6 py-16 sm:px-10 lg:py-20">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] lg:items-center lg:gap-20">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] lg:items-start lg:gap-20">
           <div className="flex flex-col lg:order-2">
             <h2 data-reveal="heading" className="mt-4 font-display max-w-[12ch] text-[clamp(2.125rem,3.6vw,3.5rem)] leading-[1.04] tracking-[-0.02em] text-primary">
               Get the rundown ready.
