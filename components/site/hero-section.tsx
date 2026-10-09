@@ -32,33 +32,15 @@ export function HeroSection() {
       className="hero-section relative isolate flex flex-col overflow-hidden"
     >
       <AmbientLight variant="hero" />
-      {/* Arrival band: decorative, pointer-events off, present only during the arrival class. */}
-      <div aria-hidden="true" className="arrival-band" />
 
       <div className="hero-copy relative z-10 mx-auto w-full max-w-[1440px] px-6 sm:px-10">
-        {/* Entrance (section 3): a masked word-switch over the real eyebrow label, not a
-            separate loader. The real "Live event operations" paragraph below is always
-            present and unhidden — no-JS, JS failure and reduced motion (which never adds
-            `arrival-running`, see arrival.tsx) all land on it with nothing to undo. The
-            overlay only ever adds a decorative layer on top, released by the same CSS rule
-            that ends every other arrival beat, and fades out early on interruption instead
-            of stopping mid-word. Stages are the product's own: plan the cues, preview the
-            build, rehearse the sequence, go live — ending on the overlay's last word, which
-            sits exactly over the real label it reveals. */}
-        <div className="relative">
-          <p className="hero-eyebrow uppercase tracking-[0.18em] text-muted-2">Live event operations</p>
-          <p aria-hidden="true" className="entrance-words hero-eyebrow absolute inset-0 overflow-hidden uppercase tracking-[0.18em] text-muted-2">
-            <span className="entrance-words-track block">
-              <span className="block">Plan</span>
-              <span className="block">Preview</span>
-              <span className="block">Rehearse</span>
-              <span className="block">Live event operations</span>
-            </span>
-          </p>
-        </div>
+        {/* The entrance now lives in the full-viewport loading screen
+            (components/site/loading-screen.tsx), which runs the same word sequence at
+            hero scale before the curtain wipes to reveal this exact, real, unhidden label. */}
+        <p className="hero-eyebrow uppercase tracking-[0.18em] text-muted-2">Live event operations</p>
 
         <h1 className="hero-title font-display tracking-[-0.0325em] text-primary">
-          <span className="block">Run the show</span>
+          <span className="block">Run the show </span>
           <span className="block">from one screen.</span>
         </h1>
 

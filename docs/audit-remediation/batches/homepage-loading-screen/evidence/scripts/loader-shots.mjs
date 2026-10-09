@@ -1,0 +1,23 @@
+import { chromium } from "/Users/deeppatel/Documents/AI/Shibir/stageflow/node_modules/playwright/index.mjs";
+const BASE = "http://localhost:3961/";
+const OUT = process.env.OUT;
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const page = await ctx.newPage();
+await page.goto(BASE, { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/loading-mid-1440x900.png` });
+await page.waitForTimeout(1200);
+await page.screenshot({ path: `${OUT}/loading-curtain-1440x900.png` });
+await page.waitForTimeout(600);
+await page.screenshot({ path: `${OUT}/loading-settled-1440x900.png` });
+await ctx.close();
+// mobile
+const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const page2 = await ctx2.newPage();
+await page2.goto(BASE, { waitUntil: "domcontentloaded" });
+await page2.waitForTimeout(500);
+await page2.screenshot({ path: `${OUT}/loading-mid-390x844.png` });
+await ctx2.close();
+await browser.close();
+console.log("done");

@@ -491,49 +491,19 @@ html[data-motion="off"] *::after {
   opacity: 1;
 }
 
-/* ── Landing homepage ───────────────────────────────────────────────────────
-   The ambient light, as plain CSS. This layer is always in the server HTML and is
-   never swapped out: the WebGL mesh (components/site/ambient-light.tsx) only ever
-   fades in on top of it, so reduced motion, Pause, missing WebGL, a lost context
-   and a failed chunk all resolve to this same composed image.
-
-   The brightest region sits right of and below the reading column, and the product
-   captures render above this layer, never over it. */
-/* Shaped to meet the console, not to wash the page (HOME-R01). The dominant pool is a
-   wide, vertically tight band sitting on the aperture's top edge, so the capture reads
-   as lit from the page rather than floating on a broad brown field; a second, much
-   quieter pool adds depth to the upper right where the copy is not. */
+/* Landing depth is static and neutral. No canvas or continuously moving wash. */
 .ambient-light-hero {
-  background:
-    radial-gradient(66% 24% at 60% 70%, rgba(152, 104, 40, 0.52) 0%, rgba(152, 104, 40, 0) 72%),
-    radial-gradient(30% 26% at 84% 30%, rgba(74, 49, 23, 0.34) 0%, rgba(74, 49, 23, 0) 74%),
-    radial-gradient(52% 16% at 56% 63%, rgba(120, 108, 90, 0.16) 0%, rgba(120, 108, 90, 0) 76%);
+  background: radial-gradient(70% 32% at 70% 72%, rgba(194, 198, 197, 0.075), transparent 76%);
 }
 .ambient-light-echo {
-  background: radial-gradient(44% 56% at 72% 50%, rgba(138, 94, 34, 0.3) 0%, rgba(138, 94, 34, 0) 72%);
+  background: radial-gradient(52% 80% at 86% 65%, rgba(194, 198, 197, 0.045), transparent 78%);
 }
-/* The shader is masked to the same region the static field occupies and fades in to
-   that field's intensity, so arriving is not a visible step change. */
-.ambient-shader-hero {
-  /* The mask is tighter than the previous broad field, so the shader carries a little
-     more of the band's intensity to stay observably in motion within a few seconds. */
-  opacity: 0.68;
-  /* Masked to the same band the static field occupies, so the moving light stays on the
-     console edge and off the reading column. */
-  mask-image: radial-gradient(64% 30% at 62% 68%, #000 0%, transparent 76%);
-  -webkit-mask-image: radial-gradient(64% 30% at 62% 68%, #000 0%, transparent 76%);
-  animation: ambient-in 0.9s ease both;
+/* A quiet change of material marks the practical connection chapter. */
+.room-chapter {
+  background: #151514;
 }
-.ambient-shader-echo {
-  opacity: 0.4;
-  mask-image: radial-gradient(50% 60% at 72% 50%, #000 0%, transparent 78%);
-  -webkit-mask-image: radial-gradient(50% 60% at 72% 50%, #000 0%, transparent 78%);
-  animation: ambient-in 0.9s ease both;
-}
-@keyframes ambient-in {
-  from {
-    opacity: 0;
-  }
+.room-route {
+  background: #191918;
 }
 
 /* Every in-page destination clears the fixed header when jumped to, including the
@@ -555,9 +525,9 @@ html[data-motion="off"] *::after {
    The opening section targets one viewport, header included, and spends it in a
    fixed order: copy first, then whatever is left goes to the console aperture.
 
-   `min-height`, never `height`: at browser zoom or large text the content grows
-   past the viewport and the page scrolls. A viewport-sized hero must never become
-   a clipping rule for accessibility. */
+   Desktop uses a viewport height with a content-size minimum; phones use an
+   automatic height with a viewport minimum. At large text or short heights the
+   section can grow and scroll instead of clipping the recorded view. */
 .hero-section {
   /* A definite height, so the aperture below can take the exact remainder —
      `min-height` alone leaves the section auto-sized and nothing ever shrinks.
@@ -659,11 +629,25 @@ html[data-motion="off"] *::after {
 }
 @media (max-width: 1023px) {
   .hero-section {
-    min-height: 0;
+    /* Let wrapped copy and the recorded view grow beyond a short phone viewport. */
+    height: auto;
+    min-height: 100svh;
   }
   .hero-aperture {
     flex: 0 0 auto;
     height: clamp(180px, 42vh, 320px);
+  }
+}
+
+/* On phones, inspect the useful right-hand portion of the authentic capture:
+   current cue, countdown and show controls. The full image remains available in
+   the dialog; scaling a whole desktop console to 340px made every label illegible. */
+@media (max-width: 639px) {
+  .hero-aperture-img {
+    width: 200%;
+    max-width: none;
+    inset-inline-start: auto;
+    inset-inline-end: 0;
   }
 }
 
@@ -687,68 +671,15 @@ html[data-motion="off"] *::after {
   }
 }
 
-/* ── Homepage motion: gradient headline ──────────────────────────────────────────
-   One gradient field across the whole H1 (not per word or per line), applied to the
-   heading element itself. Settled values live in ordinary CSS, so nothing is held by a
-   finished animation: the focus/hover response below can always take effect.
-
-   The entrance sweep is NOT in this block. It belongs to the first-entry arrival, which
-   switches it on with the `arrival-running` class (see below) and whose end releases it.
-   A returning, reloaded or deep-linked page therefore starts settled. */
-.hero-title {
-  color: #f4efe5;
-}
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .hero-title {
-    background-image: linear-gradient(100deg, #f4efe5 0%, #f1e3c6 34%, #d9b77a 50%, #f4efe5 68%, #f4efe5 100%);
-    background-size: 240% 100%;
-    background-position: 43% 0;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    transition: background-position 0.9s ease;
-  }
-  /* A restrained brass response when the visitor reaches the actions. Hover/focus only.
-     Ordinary transitions handle it, because no finished animation is holding the property. */
-  .hero-copy:has(.hero-actions a:hover) .hero-title,
-  .hero-copy:has(.hero-actions a:focus-visible) .hero-title {
-    background-position: 28% 0;
-  }
-}
+/* The headline stays cream; a finite rule on the console carries the entrance. */
+.hero-title { color: #f4efe5; }
 @media (forced-colors: active) {
-  .hero-title {
-    background: none;
-    -webkit-text-fill-color: CanvasText;
-    color: CanvasText;
-  }
+  .hero-title { color: CanvasText; }
 }
 @media print {
-  .hero-title {
-    background: none;
-    -webkit-text-fill-color: #000;
-    color: #000;
-  }
+  .hero-title { color: #000; }
 }
 
-/* Arrival: the warm band crosses the hero's negative space once. Decorative, under the
-   copy, and absent unless the arrival class is set. */
-.arrival-band {
-  display: none;
-  pointer-events: none;
-}
-html.arrival-running .arrival-band {
-  display: block;
-  position: absolute;
-  inset: -10% -40%;
-  z-index: 0;
-  background: linear-gradient(90deg, rgba(214, 176, 112, 0) 30%, rgba(214, 176, 112, 0.16) 50%, rgba(214, 176, 112, 0) 70%);
-  transform: translateX(-60%);
-  animation: arrival-band 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-@keyframes arrival-band {
-  from { transform: translateX(-60%); opacity: 0.9; }
-  to   { transform: translateX(60%); opacity: 0; }
-}
 /* The wordmark settles into its nav position. It never becomes a splash logo. */
 html.arrival-running [data-arrival="wordmark"] {
   animation: arrival-wordmark 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -757,43 +688,29 @@ html.arrival-running [data-arrival="wordmark"] {
   from { transform: translateX(-8px); opacity: 0.4; }
   to   { transform: none; opacity: 1; }
 }
-/* Entrance word-switch (section 3): a masked window over the real hero eyebrow label.
-   `.hero-eyebrow`'s line-height below gives both the real label and this overlay the same
-   16px box, so the track's steps land on exact pixels and the mask never clips a word.
-   Hidden until the arrival class is set; it fades out early — not mid-word — on interruption,
-   which happens by removing the class, the same event every other arrival beat listens for. */
-.entrance-words {
+/* The loading screen (components/site/loading-screen.tsx). Hidden by default — GSAP
+   (arrival.tsx) sets it visible synchronously, in the same tick it adds the class, so
+   there is no default-hidden state a no-JS or reduced-motion visitor can get stuck
+   behind: without JS the opacity never changes from 0, and the real hero underneath
+   was never hidden in the first place. `pointer-events: none` throughout: it is a
+   decoration in front of an already-interactive page, never a gate. */
+.loading-screen {
   opacity: 0;
-  pointer-events: none;
-  /* Opaque, or the real label shows through wherever the overlay's own glyphs have no
-     ink (letter gaps, the space after a short word) — measured: without this, "Plan"
-     over "Live event operations" read as garbled overlapping text, not a clean swap. */
   background-color: var(--color-background);
+  will-change: transform, opacity;
 }
-html.arrival-running .entrance-words {
-  opacity: 1;
+.loading-word {
+  opacity: 0;
 }
-html:not(.arrival-running) .entrance-words {
-  transition: opacity 0.25s ease;
-}
-html.arrival-running .entrance-words-track {
-  animation: entrance-words-cycle 1.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-@keyframes entrance-words-cycle {
-  0%, 20%  { transform: translateY(0); }
-  28%, 48% { transform: translateY(-16px); }
-  56%, 76% { transform: translateY(-32px); }
-  84%, 100% { transform: translateY(-48px); }
-}
-/* Heading: the light sweep plus a 6px settle, inside the same 1.3s total. Only while the
-   arrival class is set. `both` holds the start frame during the delay; it ends at the same
-   background-position as the resting style, so releasing the class causes no visible jump. */
+/* The hero eyebrow's own settle. Runs under the full-viewport loading screen
+   (components/site/loading-screen.tsx), which owns the word sequence now — see that
+   file for the entrance proper. This is just the small beat revealed at the wipe. */
 html.arrival-running .hero-title {
   animation: arrival-title 1.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @keyframes arrival-title {
-  from { transform: translateY(6px); background-position: 100% 0; }
-  to   { transform: none; background-position: 43% 0; }
+  from { transform: translateY(6px); }
+  to   { transform: none; }
 }
 /* The console aperture's top rule draws left to right. */
 .console-trace {
@@ -802,7 +719,7 @@ html.arrival-running .hero-title {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, rgba(214, 176, 112, 0.9), rgba(214, 176, 112, 0.1));
+  background: linear-gradient(90deg, rgba(244, 239, 229, 0.7), rgba(244, 239, 229, 0.12));
   transform-origin: left center;
   pointer-events: none;
   z-index: 2;
@@ -832,3 +749,14 @@ html.arrival-running .console-trace {
 @media (prefers-reduced-motion: reduce) {
   .proof-enter { animation: none; }
 }
+
+/* Text links echo the console rule, only on intent. */
+.site-text-link {
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 1px;
+  transition: color 180ms ease, text-decoration-color 180ms ease;
+}
+.site-text-link:hover,
+.site-text-link:focus-visible { text-decoration-color: currentColor; }
