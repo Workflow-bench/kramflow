@@ -9,6 +9,7 @@ import { ClosingSection } from "@/components/site/closing-section";
 import { MotionFlag } from "@/components/site/motion-flag";
 import { SmoothScroll } from "@/components/site/smooth-scroll";
 import { Arrival } from "@/components/site/arrival";
+import { ArrivalBootScript } from "@/components/site/arrival-boot-script";
 import { Footer } from "@/components/site/footer";
 
 // The public marketing page — proxy.ts redirects a signed-in operator straight to
@@ -48,6 +49,10 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <main className="bg-background">
+      {/* First thing in the body, on purpose: an inline script blocks parsing and runs
+          where it sits, so this must run before anything below it paints. See
+          arrival-boot-script.tsx and arrival.tsx for why. */}
+      <ArrivalBootScript />
       {/* Skip link: the first focusable element, hidden until keyboard focus (KF-020). */}
       <a
         href="#main-content"

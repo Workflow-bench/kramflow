@@ -133,3 +133,71 @@ motion, interruption, Strict Mode) was touched - only the *visual* entrance chan
 The landing page's section-level redesign (composition, hero/section rhythm,
 screenshots, any further motion beyond this entrance) was explicitly deferred per "do
 one by one." It has not been started.
+
+---
+
+## Rebuild: smoothness and paint-order fixes (addendum)
+
+Two real defects reported after the first version shipped:
+
+1. **"Not smooth"**: the first version split each word into characters with GSAP
+   SplitText and staggered them in and out individually (4 separate SplitText
+   instances). It read as busy, not smooth.
+2. **"Landing page comes first, then the loading animation"**: the overlay was only
+   ever made visible by a post-hydration React effect, so the server-rendered hero
+   painted first and was then covered a beat later - a visible double-reveal, not an
+   entrance.
+
+### Fix 1: rebuilt against a real, inspected reference
+
+Fetched `osmo.supply/collection` and the two individual resource pages
+(`/resource/welcoming-words-loader`, `/resource/masked-text-reveal`) rather than
+guessing again. The Welcoming Words Loader is **one text node**, not one SplitText
+instance per word: `yPercent: 50 -> 0` over 1s on `Expo.easeInOut` for the entrance,
+plain `textContent` swaps at a fixed interval while the node holds still, then
+`yPercent: -75, opacity: 0` over 0.8s on `Expo.easeIn` for the exit. Rebuilt
+`components/site/loading-screen.tsx` (now a single `<p>`) and `arrival.tsx`'s timeline
+exactly on that structure, with the product's own four words in place of a generic
+greeting list, and kept the curtain-wipe finish from the first version (a named,
+legitimate GSAP pattern in its own right) rather than the reference's plain fade, since
+it reveals the real hero rather than just clearing to the same color.
+
+### Fix 2: a pre-paint boot script
+
+New file `components/site/arrival-boot-script.tsx`: a synchronous inline `<script>`,
+rendered as the first thing in `app/page.tsx`'s body, before the skip link or nav. It
+is a minimal, approximate copy of `arrivalEligible`'s rule using only synchronous
+browser APIs (`sessionStorage`, `matchMedia`, the Navigation Timing API, `location.hash`,
+`scrollY`) and adds `arrival-boot` to `<html>` if it looks eligible - before the browser
+paints a single pixel. `arrival.tsx`'s effect was changed from `useEffect` to
+`useLayoutEffect` so its full, authoritative eligibility check (the real one, with
+session storage) can correct a wrong optimistic guess before paint too, not after.
+`.loading-screen` is opaque under either class, so the handoff between the boot guess
+and the real, running sequence is invisible.
+
+Verified directly: the raw HTML has the boot script before the hero markup
+(`scriptIdx 116 < heroIdx 10443`), and the earliest observable sample after navigation
+(`t=229ms`, before `arrival-running` is even added) already shows `arrival-boot: true`,
+`overlay opacity: 1` - the cover is up before hydration, not after.
+
+### Re-verified (production build, rewritten Playwright harness for the new single-element structure)
+
+**19/19**: overlay covers from the first sample, all four words appear in order, curtain
+collapses fully (`scaleY -> 0`), settles cleanly, real hero eyebrow intact after the
+wipe, storage written, repeat visit / deep link skip correctly (including the boot
+script itself staying silent), interruption mid-sequence releases cleanly and marks the
+visit seen, real CTA reachable immediately after an interrupt, reduced motion never
+shows either class, pointer-events stay `none` throughout. Regression smoke (room scene,
+dialog, section reveals): 6/6. Full suite: `tsc` clean, `vitest` 684/684, `eslint` 0
+errors, `next build --webpack` passes.
+
+**Duration, reported plainly**: total sequence is now ~3.3-3.4s in production, close to
+the real Welcoming Words Loader reference's own natural length (its own documented
+timing - 1s entrance + per-word holds + 0.8s exit + a fade - lands in the same range for
+a similar word count). This is longer than the original 0.9-1.4s brief target; said so
+rather than claiming otherwise. It is a decorative overlay the real, interactive page
+sits behind the whole time, dismissed instantly by any input.
+
+Screenshots: `evidence/v2-boot-cover-1440x900.png` (pre-hydration cover),
+`evidence/v2-entrance-1440x900.png`, `evidence/v2-cycle-1440x900.png`,
+`evidence/v2-curtain-1440x900.png`, `evidence/v2-settled-1440x900.png`.

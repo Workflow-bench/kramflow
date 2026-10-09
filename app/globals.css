@@ -688,19 +688,33 @@ html.arrival-running [data-arrival="wordmark"] {
   from { transform: translateX(-8px); opacity: 0.4; }
   to   { transform: none; opacity: 1; }
 }
-/* The loading screen (components/site/loading-screen.tsx). Hidden by default — GSAP
-   (arrival.tsx) sets it visible synchronously, in the same tick it adds the class, so
-   there is no default-hidden state a no-JS or reduced-motion visitor can get stuck
-   behind: without JS the opacity never changes from 0, and the real hero underneath
-   was never hidden in the first place. `pointer-events: none` throughout: it is a
-   decoration in front of an already-interactive page, never a gate. */
+/* The loading screen (components/site/loading-screen.tsx). Hidden by default — no-JS
+   and reduced-motion visitors never see the opacity change from 0, and the real hero
+   underneath was never hidden in the first place. `pointer-events: none` throughout:
+   it is a decoration in front of an already-interactive page, never a gate.
+
+   `arrival-boot` is added synchronously before first paint (the inline script in
+   app/page.tsx) so the cover is already up for the server-rendered HTML's first
+   frame — see arrival.tsx's own comment for why an effect-only class produced a
+   visible "hero paints, then gets covered, then uncovers" sequence instead of a
+   clean entrance. `arrival-running` is the real sequence, added once the full
+   eligibility check (session storage, navigation type) passes; both classes show
+   the same solid cover, so handing off between them is invisible. */
 .loading-screen {
   opacity: 0;
   background-color: var(--color-background);
   will-change: transform, opacity;
 }
+html.arrival-boot .loading-screen,
+html.arrival-running .loading-screen {
+  opacity: 1;
+}
+/* The word's own resting-before-entrance state, matched exactly to the GSAP
+   timeline's own starting values (`yPercent: 50, opacity: 0`) so the handoff from
+   this CSS default to the JS-driven entrance has nothing to jump from. */
 .loading-word {
   opacity: 0;
+  transform: translateY(50%);
 }
 /* The hero eyebrow's own settle. Runs under the full-viewport loading screen
    (components/site/loading-screen.tsx), which owns the word sequence now — see that

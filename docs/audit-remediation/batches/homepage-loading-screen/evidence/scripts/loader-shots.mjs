@@ -5,19 +5,16 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
 await page.goto(BASE, { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(100); // boot cover, pre-hydration
+await page.screenshot({ path: `${OUT}/v2-boot-cover-1440x900.png` });
+await page.waitForTimeout(500); // mid entrance slide
+await page.screenshot({ path: `${OUT}/v2-entrance-1440x900.png` });
+await page.waitForTimeout(900); // mid word-cycle
+await page.screenshot({ path: `${OUT}/v2-cycle-1440x900.png` });
+await page.waitForTimeout(1500); // exit/curtain window
+await page.screenshot({ path: `${OUT}/v2-curtain-1440x900.png` });
 await page.waitForTimeout(500);
-await page.screenshot({ path: `${OUT}/loading-mid-1440x900.png` });
-await page.waitForTimeout(1200);
-await page.screenshot({ path: `${OUT}/loading-curtain-1440x900.png` });
-await page.waitForTimeout(600);
-await page.screenshot({ path: `${OUT}/loading-settled-1440x900.png` });
+await page.screenshot({ path: `${OUT}/v2-settled-1440x900.png` });
 await ctx.close();
-// mobile
-const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 } });
-const page2 = await ctx2.newPage();
-await page2.goto(BASE, { waitUntil: "domcontentloaded" });
-await page2.waitForTimeout(500);
-await page2.screenshot({ path: `${OUT}/loading-mid-390x844.png` });
-await ctx2.close();
 await browser.close();
 console.log("done");
