@@ -689,40 +689,6 @@ html[data-motion="off"] *::after {
   flex-direction: column;
   min-height: 0;
 }
-.hero-chip {
-  position: absolute;
-  z-index: 20;
-  align-items: center;
-  gap: 6px;
-  border-radius: 9999px;
-  border: 1px solid rgba(244, 239, 229, 0.14);
-  background: rgba(23, 20, 15, 0.82);
-  backdrop-filter: blur(6px);
-  padding: 6px 12px;
-  font-size: 12px;
-  color: #f4efe5;
-  box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.6);
-  animation: hero-chip-drift 9s ease-in-out infinite;
-}
-.hero-chip-a {
-  top: -14px;
-  right: 8%;
-}
-.hero-chip-b {
-  bottom: 14%;
-  left: -18px;
-  animation-delay: -4.5s;
-}
-.hero-chip-dot {
-  height: 6px;
-  width: 6px;
-  border-radius: 9999px;
-  background: #30d158;
-}
-@keyframes hero-chip-drift {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
 .hero-aperture-img {
   position: absolute;
   inset-inline: 0;

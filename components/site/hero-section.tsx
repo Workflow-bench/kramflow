@@ -39,9 +39,10 @@ import { useReduced } from "./motion";
  *   settled, readable text, so no-JS and JS-failure both land on it with nothing to
  *   undo.
  * - The console aperture gets a faint scroll-linked tilt (ScrollTrigger scrub,
- *   `rotateX`/`perspective`, never affecting layout) and two small floating labels
- *   drawn from real, already-shown state (`Synced`, `4 displays online`) — not
- *   invented status, the same words the console itself already uses.
+ *   `rotateX`/`perspective`, never affecting layout). A pair of floating status
+ *   chips was tried here and removed: against the real capture they read as a
+ *   stray dark pill, not part of the console, so the aperture now carries no
+ *   overlay of its own.
  */
 
 const HEADLINE_LINES = [
@@ -138,14 +139,6 @@ export function HeroSection() {
       <div ref={apertureWrapRef} className="hero-aperture-wrap relative z-10 mx-auto w-full max-w-[1440px] px-6 sm:px-10">
         <div ref={tiltRef} className="hero-aperture-tilt">
           <ConsoleAperture />
-          {/* Real, already-displayed state, not invented status — see the component note. */}
-          <div aria-hidden="true" className="hero-chip hero-chip-a hidden lg:flex">
-            <span className="hero-chip-dot" />
-            Synced
-          </div>
-          <div aria-hidden="true" className="hero-chip hero-chip-b hidden lg:flex">
-            4 displays online
-          </div>
         </div>
       </div>
     </section>
