@@ -81,7 +81,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${plexMono.variable} ${archivo.variable} dark h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${plexMono.variable} ${archivo.variable} dark h-full antialiased`}
+      // The homepage's inline boot script (components/site/arrival-boot-script.tsx)
+      // adds `arrival-boot` to this element before React hydrates, on purpose — it
+      // has to run before first paint to cover the hero before the browser ever
+      // paints it (see that file's comment). React's hydration diff then sees a
+      // className that doesn't match what it rendered server-side on this one
+      // element and warns; the mismatch is expected and harmless (a decorative class,
+      // not content), so it's suppressed here rather than fixed by not doing the
+      // thing the script exists to do. Scoped to this element only — it does not
+      // suppress mismatches anywhere else in the tree.
+      suppressHydrationWarning
+    >
       {/* overflow-x-hidden: tooltips (components/ui/tooltip.tsx) stay mounted
           at opacity-0 rather than unmounted, centered on their trigger via
           left-1/2 -translate-x-1/2 with whitespace-nowrap — one anchored
