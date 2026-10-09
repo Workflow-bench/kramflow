@@ -29,9 +29,15 @@ export function AuthShell({
         {showArt && <AuthArt className="hidden min-[960px]:flex min-[960px]:flex-col min-[960px]:justify-center" />}
         <main className="flex flex-col px-6 py-10 sm:px-10 min-[960px]:justify-center min-[960px]:px-12 min-[960px]:py-16">
           <div className={`w-full max-w-[420px] min-[960px]:max-w-[440px] ${showArt ? "" : "mx-auto"}`}>
+            {/* One wordmark per page, not one per column. When the art panel is shown
+                (min-[960px]:), it carries the single, top-left, click-to-home logo
+                (auth-art.tsx); this one only renders above md where there's no art
+                panel to carry it, and always below md where the art panel is hidden. */}
             <Link
               href="/"
-              className="-my-3 inline-block rounded-chip py-3 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className={`-my-3 inline-block rounded-chip py-3 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                showArt ? "min-[960px]:hidden" : ""
+              }`}
             >
               <Wordmark />
             </Link>

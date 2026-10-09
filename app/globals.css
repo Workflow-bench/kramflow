@@ -529,19 +529,30 @@ html[data-motion="off"] *::after {
   transform-origin: 75% 60%;
 }
 
-/* Auth split panel (components/auth/auth-art.tsx): the page's own background color
-   under the reused gradient mesh, plus a fine dot field for texture — the structural
-   move behind the dotted/halftone background in the reference the login redesign was
-   asked to match, built as a plain repeating-radial-gradient (no image asset, no new
-   dependency), faded at the edges so it reads as texture, not a mechanical grid. */
+/* Auth split panel (components/auth/auth-art.tsx): the page's own background color,
+   and its own gradient mesh layer — a dedicated class, not `.ambient-light-hero`
+   reused. That class now carries a bottom-fade mask added to fix a seam where the
+   100svh-tall hero section ends (see that commit); reusing it here clipped this
+   panel's glow well short of its own box, since this panel is often taller than the
+   hero and the same percentage-based fade lands partway up it instead of near the
+   true bottom — reported as the art panel visibly "cutting off to black". No mask
+   here: `position: absolute; inset: 0` already fills this panel's real box exactly,
+   however tall its content makes it, so nothing needs to fade before an edge that
+   doesn't exist the way the hero's viewport-height edge does. The dot texture itself
+   moved to a real interactive canvas (interactive-dots-grid.tsx); nothing here draws
+   it anymore. */
 .auth-art-panel {
   background-color: var(--color-background);
 }
-.auth-art-dots {
-  background-image: radial-gradient(rgba(244, 239, 229, 0.16) 1px, transparent 1.5px);
-  background-size: 18px 18px;
-  mask-image: radial-gradient(85% 85% at 50% 40%, black 35%, transparent 85%);
-  -webkit-mask-image: radial-gradient(85% 85% at 50% 40%, black 35%, transparent 85%);
+.auth-art-glow {
+  background-image:
+    radial-gradient(55% 45% at 75% 18%, rgba(138, 90, 30, 0.3), transparent 72%),
+    radial-gradient(60% 50% at 82% 55%, rgba(74, 49, 23, 0.34), transparent 74%),
+    radial-gradient(55% 45% at 55% 92%, rgba(110, 99, 84, 0.2), transparent 76%);
+  background-repeat: no-repeat;
+  animation: ambient-breathe 17s ease-in-out infinite;
+  animation-delay: -2s;
+  transform-origin: 70% 50%;
 }
 @keyframes ambient-breathe {
   0%, 100% { transform: scale(1); opacity: 0.92; }
