@@ -19,15 +19,19 @@ export function AuthArt({ className = "" }: { className?: string }) {
   return (
     <div
       aria-hidden="true"
-      className={`relative overflow-hidden border-r border-line-soft bg-[radial-gradient(120%_80%_at_20%_0%,rgba(244,239,229,0.07),transparent_60%)] p-12 ${className}`}
+      className={`auth-art-panel relative isolate overflow-hidden border-r border-line-soft p-12 ${className}`}
     >
-      <div className="flex flex-col gap-10">
+      {/* The page's own gradient mesh (app/globals.css, `.ambient-light-hero`'s
+          palette), not a separate wash — this panel should feel like the same
+          material as the rest of the site, not a different screen. */}
+      <div className="ambient-light-hero absolute inset-0 -z-10 opacity-80" />
+      {/* A fine dot field for texture, the structural move behind the reference's
+          halftone background — plain repeating-radial-gradient, no image asset. */}
+      <div className="auth-art-dots absolute inset-0 -z-10" />
+
+      <div className="relative flex h-full flex-col gap-10">
         <Wordmark />
-        <div className="flex flex-col gap-6">
-          <p className="tnum text-[12px] uppercase tracking-[0.2em] text-muted-2">Product preview</p>
-          <p className="font-display text-[28px] leading-[34px] text-primary">One cue. The whole room follows.</p>
-        </div>
-        <div className="rounded-panel border border-line bg-card p-5">
+        <div className="rounded-panel border border-line bg-card/90 p-5 backdrop-blur-sm">
           <div className="flex items-baseline justify-between">
             <p className="text-[14px] text-muted">Current cue</p>
             <p className="tnum text-[32px] leading-none text-primary">04:12</p>
@@ -50,11 +54,21 @@ export function AuthArt({ className = "" }: { className?: string }) {
         </div>
         <div className="grid grid-cols-3 gap-3">
           {OUTPUTS.map((out) => (
-            <div key={out.label} className="rounded-control border border-line-soft bg-raised/60 p-3">
+            <div key={out.label} className="rounded-control border border-line-soft bg-raised/70 p-3 backdrop-blur-sm">
               <p className="text-[13px] text-primary">{out.label}</p>
               <p className={`mt-2 text-[12px] ${out.tone}`}>{out.status}</p>
             </div>
           ))}
+        </div>
+        {/* The closing line, last and largest — the money headline sits at the
+            bottom of the panel, read after the proof above it, not before it. */}
+        <div className="mt-auto flex flex-col gap-2">
+          <p className="tnum text-[12px] uppercase tracking-[0.2em] text-muted-2">Product preview</p>
+          <p className="font-display text-[clamp(1.75rem,2.6vw,2.25rem)] leading-[1.1] text-primary">
+            One cue.
+            <br />
+            The whole room follows.
+          </p>
         </div>
       </div>
     </div>
