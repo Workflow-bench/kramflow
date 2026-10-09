@@ -101,7 +101,6 @@ export function WhenPlansChange() {
   return (
     <section ref={root} id="features" data-cue="When plans change" className="relative">
       <div className="mx-auto w-full max-w-[1440px] px-6 py-20 sm:px-10 lg:py-24">
-        <p className="text-[12px] uppercase tracking-[0.18em] text-muted-2">03 / When plans change</p>
         <h2 data-reveal="heading" className="mt-4 max-w-[20ch] font-display text-[clamp(1.875rem,3vw,2.875rem)] leading-[1.04] tracking-[-0.02em] text-primary">
           The plan changes. The show keeps running.
         </h2>

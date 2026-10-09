@@ -53,12 +53,11 @@ export function TheRoom() {
   useGsap(root, ({ gsap, ScrollTrigger, reduced }) => revealSection(root.current!, { gsap, ScrollTrigger, reduced }));
 
   return (
-    <section ref={root} id="room" data-cue="The room" className="relative">
-      <div className="mx-auto w-full max-w-[1440px] px-6 py-16 sm:px-10 lg:py-20">
+    <section ref={root} id="room" data-cue="The room" className="room-chapter relative">
+      <div className="mx-auto w-full max-w-[1440px] px-6 py-20 sm:px-10 lg:py-28">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-16">
           <div>
-            <p className="text-[12px] uppercase tracking-[0.18em] text-muted-2">04 / The room</p>
-            <h2 data-reveal="heading" className="mt-4 max-w-[18ch] font-display text-[clamp(1.875rem,3vw,2.875rem)] leading-[1.04] tracking-[-0.02em] text-primary">
+            <h2 data-reveal="heading" className="mt-4 max-w-[18ch] font-display text-[clamp(1.875rem,2.6vw,2.5rem)] leading-[1.04] tracking-[-0.02em] text-primary">
               Connect the screen. Choose its view.
             </h2>
           </div>
@@ -70,7 +69,7 @@ export function TheRoom() {
 
         <ol data-reveal="stagger" className="mt-10 grid gap-px overflow-hidden rounded-panel border border-line-soft bg-line-soft sm:grid-cols-3">
           {ROUTES.map((r) => (
-            <li key={r.step} className="flex flex-col gap-2 bg-background p-6">
+            <li key={r.step} className="room-route flex flex-col gap-2 p-6 sm:p-8">
               <span className="tnum text-[11px] uppercase tracking-[0.16em] text-muted-2">{r.step}</span>
               <span className="text-[17px] text-primary">{r.name}</span>
               <span className="text-[12px] uppercase tracking-[0.12em] text-muted-2">{r.device}</span>
@@ -82,7 +81,12 @@ export function TheRoom() {
         <div className="mt-6">
           <button
             type="button"
-            onClick={() => setInspecting(true)}
+            onClick={(event) => {
+              // WebKit pointer clicks do not reliably focus buttons. Capture a real
+              // return target before the dialog's shared focus lifecycle begins.
+              event.currentTarget.focus({ preventScroll: true });
+              setInspecting(true);
+            }}
             className="inline-flex h-11 items-center rounded-control border border-line px-4 text-[14px] text-primary transition-colors hover:border-white/25 hover:bg-overlay-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             Inspect the display fleet

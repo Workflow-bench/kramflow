@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { RecordedView } from "./recorded-view";
 import { SegmentedSelector, type SegmentedItem } from "./segmented-selector";
 import type { ShotKey } from "./product-shot";
@@ -48,7 +48,28 @@ const DETAIL: Record<string, { shot: ShotKey; copy: string; caption: string }> =
 
 export function BeforeDoors() {
   const [view, setView] = useState("prepare");
+  const [committedView, setCommittedView] = useState("prepare");
+  const [unavailable, setUnavailable] = useState<ShotKey | null>(null);
   const detail = DETAIL[view];
+  const displayed = DETAIL[committedView];
+  const pending = detail.shot !== displayed.shot;
+  const displayedName = committedView === "rehearse" ? "Rehearsal Mode" : "Cue Sheet";
+  const requestedName = view === "rehearse" ? "Rehearsal Mode" : "Cue Sheet";
+  const caption = pending
+    ? unavailable === detail.shot
+      ? `${displayedName} · ${requestedName} unavailable`
+      : `${displayedName} · Loading ${requestedName}…`
+    : displayed.caption;
+  const onCommitted = useCallback((shot: ShotKey) => {
+    setCommittedView(shot === "rehearsal" ? "rehearse" : "prepare");
+    setUnavailable(null);
+  }, []);
+  const onUnavailable = useCallback((shot: ShotKey) => setUnavailable(shot), []);
+  function selectView(next: string) {
+    if (next === view) return;
+    setUnavailable(null);
+    setView(next);
+  }
   const root = useRef<HTMLElement>(null);
 
   useGsap(root, ({ gsap, ScrollTrigger, reduced }) => revealSection(root.current!, { gsap, ScrollTrigger, reduced }));
@@ -56,10 +77,9 @@ export function BeforeDoors() {
   return (
     <section ref={root} id="prepare" data-cue="Before doors" className="relative">
       <div className="mx-auto w-full max-w-[1440px] px-6 py-16 sm:px-10 lg:py-20">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,32fr)_minmax(0,68fr)] lg:gap-14">
-          <div className="flex flex-col">
-            <p className="text-[12px] uppercase tracking-[0.18em] text-muted-2">01 / Before doors</p>
-            <h2 data-reveal="heading" className="mt-4 font-display text-[clamp(1.875rem,3vw,2.875rem)] leading-[1.04] tracking-[-0.02em] text-primary">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] lg:items-center lg:gap-20">
+          <div className="flex flex-col lg:order-2">
+            <h2 data-reveal="heading" className="mt-4 font-display max-w-[12ch] text-[clamp(2.125rem,3.6vw,3.5rem)] leading-[1.04] tracking-[-0.02em] text-primary">
               Get the rundown ready.
             </h2>
             <p data-reveal="copy" className="mt-4 max-w-[40ch] text-[16px] leading-relaxed text-muted">
@@ -69,7 +89,7 @@ export function BeforeDoors() {
               className="mt-6 self-start"
               items={VIEWS}
               value={view}
-              onChange={setView}
+              onChange={selectView}
               label="Choose a preparation view"
               idBase="before-doors"
               panelId="before-doors-panel"
@@ -85,9 +105,9 @@ export function BeforeDoors() {
             role="tabpanel"
             tabIndex={0}
             aria-labelledby={`before-doors-${view}`}
-            className="min-w-0 rounded-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="min-w-0 lg:order-1 rounded-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            <p className="max-w-[52ch] text-[15px] leading-relaxed text-muted">{detail.copy}</p>
+            <p className="max-w-[52ch] text-[15px] leading-relaxed text-muted">{displayed.copy}</p>
             <figure data-reveal="media" className="mt-4">
               <div className="overflow-hidden rounded-panel border border-line bg-card shadow-[0_40px_120px_-48px_rgba(0,0,0,0.9)]">
                 <RecordedView
@@ -95,10 +115,14 @@ export function BeforeDoors() {
                   /* One fixed box for both states, so selecting a view never reflows the
                      page. Both captures are scaled uniformly and clipped, never stretched. */
                   ratio={2560 / 1760}
-                  sizes="(min-width: 1024px) 64vw, 92vw"
+                  sizes="(min-width: 1440px) 735px, (min-width: 1024px) 54vw, 92vw"
+                  onCommitted={onCommitted}
+                  onUnavailable={onUnavailable}
                 />
               </div>
-              <figcaption className="mt-3 text-[13px] text-muted-2">{detail.caption}</figcaption>
+              {/* Metadata describes committed pixels, including during a failed switch.
+                  Reserve two lines so status changes do not move the next chapter. */}
+              <figcaption role="status" className="mt-3 min-h-10 text-[13px] text-muted-2">{caption}</figcaption>
             </figure>
           </div>
         </div>
