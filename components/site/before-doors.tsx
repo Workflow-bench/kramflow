@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { AmbientLight } from "./ambient-light";
 import { RecordedView } from "./recorded-view";
 import { SegmentedSelector, type SegmentedItem } from "./segmented-selector";
 import type { ShotKey } from "./product-shot";
@@ -76,55 +77,69 @@ export function BeforeDoors() {
 
   return (
     <section ref={root} id="prepare" data-cue="Before doors" className="relative">
-      <div className="mx-auto w-full max-w-[1440px] px-6 py-16 sm:px-10 lg:py-20">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] lg:items-start lg:gap-20">
-          <div className="flex flex-col lg:order-2">
-            <h2 data-reveal="heading" className="mt-4 font-display max-w-[12ch] text-[clamp(2.125rem,3.6vw,3.5rem)] leading-[1.04] tracking-[-0.02em] text-primary">
-              Get the rundown ready.
-            </h2>
-            <p data-reveal="copy" className="mt-4 max-w-[40ch] text-[16px] leading-relaxed text-muted">
-              Build the cue sheet, then run the sequence end to end before anyone is in the room.
-            </p>
-            <SegmentedSelector
-              className="mt-6 self-start"
-              items={VIEWS}
-              value={view}
-              onChange={selectView}
-              label="Choose a preparation view"
-              idBase="before-doors"
-              panelId="before-doors-panel"
-            />
-          </div>
+      {/* `echo`, not `hero`: this continues the hero's own ambient wash rather than
+          starting a new one. The hero's glow is masked to fade out before its
+          bottom edge (fixing an earlier hard seam there), but that fade-out landed
+          on a section with no glow of its own right after it, so the transition
+          still read as "warm, then flat black" — a seam one level up. `echo` has no
+          edge mask (nothing here clips it) and fades out on its own radial falloff,
+          so the atmosphere now runs continuously from the hero into this section
+          instead of stopping dead at a section boundary. */}
+      <AmbientLight variant="echo" className="opacity-70" />
+      <div className="relative z-10 mx-auto w-full max-w-[1440px] px-6 py-24 sm:px-10 lg:py-32">
+        {/* Centered intro, then a full-width capture below it — the asymmetric
+            58/42 two-column split this replaced read as two unrelated panels side
+            by side. A centered claim with the control directly under it, followed
+            by one large capture the control drives, is the shape Apple's own
+            feature pages use for exactly this "a few words, a switch, a screenshot"
+            job (developer.apple.com/design — segmented control switching a single
+            preview below it), adapted to this project's own tokens and motion. */}
+        <div className="mx-auto max-w-[46ch] text-center">
+          <h2 data-reveal="heading" className="font-display text-[clamp(2.125rem,3.6vw,3.5rem)] leading-[1.04] tracking-[-0.02em] text-primary">
+            Get the rundown ready.
+          </h2>
+          <p data-reveal="copy" className="mx-auto mt-4 max-w-[40ch] text-[16px] leading-relaxed text-muted">
+            Build the cue sheet, then run the sequence end to end before anyone is in the room.
+          </p>
+          <SegmentedSelector
+            className="mt-8"
+            items={VIEWS}
+            value={view}
+            onChange={selectView}
+            label="Choose a preparation view"
+            idBase="before-doors"
+            panelId="before-doors-panel"
+          />
+        </div>
 
-          {/* One panel around everything the tabs change: sentence, capture and caption. */}
-          {/* Focusable: Tab previously skipped straight past the panel these tabs
-              control, so a keyboard user never reached the content they had just
-              selected (HF-05). */}
-          <div
-            id="before-doors-panel"
-            role="tabpanel"
-            tabIndex={0}
-            aria-labelledby={`before-doors-${view}`}
-            className="min-w-0 lg:order-1 rounded-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <p className="max-w-[52ch] text-[15px] leading-relaxed text-muted">{displayed.copy}</p>
-            <figure data-reveal="media" className="mt-4">
-              <div className="overflow-hidden rounded-panel border border-line bg-card shadow-[0_40px_120px_-48px_rgba(0,0,0,0.9)]">
-                <RecordedView
-                  shot={detail.shot}
-                  /* One fixed box for both states, so selecting a view never reflows the
-                     page. Both captures are scaled uniformly and clipped, never stretched. */
-                  ratio={2560 / 1760}
-                  sizes="(min-width: 1440px) 735px, (min-width: 1024px) 54vw, 92vw"
-                  onCommitted={onCommitted}
-                  onUnavailable={onUnavailable}
-                />
-              </div>
-              {/* Metadata describes committed pixels, including during a failed switch.
-                  Reserve two lines so status changes do not move the next chapter. */}
-              <figcaption role="status" className="mt-3 min-h-10 text-[13px] text-muted-2">{caption}</figcaption>
-            </figure>
-          </div>
+        {/* One panel around everything the tabs change: sentence, capture and caption. */}
+        {/* Focusable: Tab previously skipped straight past the panel these tabs
+            control, so a keyboard user never reached the content they had just
+            selected (HF-05). */}
+        <div
+          id="before-doors-panel"
+          role="tabpanel"
+          tabIndex={0}
+          aria-labelledby={`before-doors-${view}`}
+          className="mx-auto mt-12 max-w-[920px] rounded-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <p className="mx-auto max-w-[52ch] text-center text-[15px] leading-relaxed text-muted">{displayed.copy}</p>
+          <figure data-reveal="media" className="mt-6">
+            <div className="overflow-hidden rounded-panel border border-line bg-card shadow-[0_40px_120px_-48px_rgba(0,0,0,0.9)]">
+              <RecordedView
+                shot={detail.shot}
+                /* One fixed box for both states, so selecting a view never reflows the
+                   page. Both captures are scaled uniformly and clipped, never stretched. */
+                ratio={2560 / 1760}
+                sizes="(min-width: 1024px) 920px, 92vw"
+                onCommitted={onCommitted}
+                onUnavailable={onUnavailable}
+              />
+            </div>
+            {/* Metadata describes committed pixels, including during a failed switch.
+                Reserve two lines so status changes do not move the next chapter. */}
+            <figcaption role="status" className="mt-3 min-h-10 text-center text-[13px] text-muted-2">{caption}</figcaption>
+          </figure>
         </div>
       </div>
     </section>

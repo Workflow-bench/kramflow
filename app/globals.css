@@ -680,8 +680,7 @@ html[data-motion="off"] *::after {
   min-height: 190px;
   max-height: 520px;
 }
-/* The aperture's scroll-linked tilt wrapper (hero-section.tsx). `position: relative`
-   anchors the two floating chips to this box specifically, not the wider section. */
+/* The aperture's scroll-linked tilt wrapper (hero-section.tsx). */
 .hero-aperture-tilt {
   position: relative;
   flex: 1 1 auto;
