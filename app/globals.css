@@ -529,30 +529,28 @@ html[data-motion="off"] *::after {
   transform-origin: 75% 60%;
 }
 
-/* Auth split panel (components/auth/auth-art.tsx): the page's own background color,
-   and its own gradient mesh layer — a dedicated class, not `.ambient-light-hero`
-   reused. That class now carries a bottom-fade mask added to fix a seam where the
-   100svh-tall hero section ends (see that commit); reusing it here clipped this
-   panel's glow well short of its own box, since this panel is often taller than the
-   hero and the same percentage-based fade lands partway up it instead of near the
-   true bottom — reported as the art panel visibly "cutting off to black". No mask
-   here: `position: absolute; inset: 0` already fills this panel's real box exactly,
-   however tall its content makes it, so nothing needs to fade before an edge that
-   doesn't exist the way the hero's viewport-height edge does. The dot texture itself
-   moved to a real interactive canvas (interactive-dots-grid.tsx); nothing here draws
-   it anymore. */
+/* Auth split panel (components/auth/auth-art.tsx): just the page's own
+   background color as a base beneath its real animated backdrop now
+   (components/auth/auth-art-backdrop.tsx - the same ShaderGradient
+   waterPlane used across the new homepage). The warm amber/brown radial-
+   gradient mesh that used to live here as `.auth-art-glow` is retired,
+   replaced along with the rest of the auth split's visual language. */
 .auth-art-panel {
   background-color: var(--color-background);
 }
-.auth-art-glow {
-  background-image:
-    radial-gradient(55% 45% at 75% 18%, rgba(138, 90, 30, 0.3), transparent 72%),
-    radial-gradient(60% 50% at 82% 55%, rgba(74, 49, 23, 0.34), transparent 74%),
-    radial-gradient(55% 45% at 55% 92%, rgba(110, 99, 84, 0.2), transparent 76%);
-  background-repeat: no-repeat;
-  animation: ambient-breathe 17s ease-in-out infinite;
-  animation-delay: -2s;
-  transform-origin: 70% 50%;
+/* Same cinematic "liquid" entrance curve as the new homepage (0.8s,
+   cubic-bezier(0.19,1,0.22,1) - a long quint-out tail, not a quick snap)
+   applied once to the auth form column on mount, matching that page's
+   motion language instead of the auth split's previous un-animated form. */
+.auth-form-enter {
+  animation: auth-form-enter 0.9s cubic-bezier(0.19, 1, 0.22, 1) both;
+}
+@keyframes auth-form-enter {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-form-enter { animation: none; }
 }
 @keyframes ambient-breathe {
   0%, 100% { transform: scale(1); opacity: 0.92; }

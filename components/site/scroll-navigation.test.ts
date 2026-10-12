@@ -57,6 +57,16 @@ describe("startNavigation", () => {
     expect(f.pending()).toBe(0);
   });
 
+  it("corrects a history restoration write after starting a return to the page top", () => {
+    const f = fakeEnv({ y: 821, targetTopFor: (y) => 88 - y });
+    const tx = startNavigation(f.env, 0, 88);
+    f.setY(821); // Browser restoration races the initial top write.
+    f.step(200);
+    expect(f.writes).toEqual([{ y: 0, smooth: true }, { y: 0, smooth: false }]);
+    expect(tx.settled).toBe(true);
+    expect(f.pending()).toBe(0);
+  });
+
   it("cancelled navigation never writes again, even if the layout would call for a correction", () => {
     const destinationMoved = true;
     const f = fakeEnv({ targetTopFor: () => (destinationMoved ? 300 : 88) });

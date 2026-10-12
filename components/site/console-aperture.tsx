@@ -9,7 +9,9 @@ import { FullViewDialog } from "./full-view-dialog";
  *
  * The capture is scaled uniformly (width-driven; the element keeps the file's own
  * 3360×2100 ratio) and clipped by a fixed-height window. Only the window's lower
- * edge fades into the page background. Nothing is stretched, warped, repainted or
+ * edge fades into the page background. On phones the same capture is twice the
+ * aperture width and right-aligned, bringing its timer and controls into view.
+ * Nothing is stretched, warped, repainted or
  * colour-graded, and the fade is the only thing applied to the image.
  *
  * **The fade stop is computed, not chosen.** `OPAQUE_FRACTION` is the share of the
@@ -43,7 +45,10 @@ export function ConsoleAperture() {
     const width = el.clientWidth;
     const apertureHeight = el.clientHeight;
     if (!width || !apertureHeight) return;
-    const imageHeight = width / IMAGE_RATIO;
+    // The narrow-screen crop intentionally renders wider than its aperture.
+    // Measure that rendered width so the fade still preserves the timer controls.
+    const imageWidth = el.querySelector("img")?.clientWidth || width;
+    const imageHeight = imageWidth / IMAGE_RATIO;
     const opaquePx = imageHeight * OPAQUE_FRACTION;
     const pct = (opaquePx / apertureHeight) * 100;
     // Never fade a control: if the aperture is shorter than the opaque band, there
@@ -76,7 +81,12 @@ export function ConsoleAperture() {
           <p className="text-[13px] text-muted-2">Operator Console · Recorded product view</p>
           <button
             type="button"
-            onClick={() => setExpanded(true)}
+            onClick={(event) => {
+              // WebKit pointer clicks do not reliably focus buttons. Capture a real
+              // return target before the dialog's shared focus lifecycle begins.
+              event.currentTarget.focus({ preventScroll: true });
+              setExpanded(true);
+            }}
             className="inline-flex h-11 items-center rounded-control px-1 text-[13px] text-muted transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             View full console
@@ -96,7 +106,7 @@ export function ConsoleAperture() {
             shot="console"
             priority
             className="hero-aperture-img"
-            sizes="(min-width: 1024px) min(1360px, 92vw), 100vw"
+            sizes="(max-width: 639px) calc(200vw - 100px), (min-width: 1024px) min(1360px, 92vw), 100vw"
           />
         </div>
       </div>

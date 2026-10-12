@@ -1,37 +1,23 @@
 import type { Metadata } from "next";
-import { Navbar } from "@/components/site/navbar";
-import { HeroSection } from "@/components/site/hero-section";
-import { BeforeDoors } from "@/components/site/before-doors";
-import { RoomScene } from "@/components/site/room-scene";
-import { WhenPlansChange } from "@/components/site/when-plans-change";
-import { TheRoom } from "@/components/site/the-room";
-import { ClosingSection } from "@/components/site/closing-section";
-import { MotionFlag } from "@/components/site/motion-flag";
-import { SmoothScroll } from "@/components/site/smooth-scroll";
-import { Arrival } from "@/components/site/arrival";
-import { ArrivalBootScript } from "@/components/site/arrival-boot-script";
-import { Footer } from "@/components/site/footer";
+import { NewLanding } from "@/components/site/new-landing";
 import { GrainOverlay } from "@/components/site/grain-overlay";
-import { ScrollProgress } from "@/components/site/scroll-progress";
 
 // The public marketing page — proxy.ts redirects a signed-in operator straight to
 // /dashboard, so this only ever renders for a logged-out visitor.
 //
-// Six compositions, in the order the work actually happens: the promise and the
-// instrument; what you do before doors; calling the cue and watching the room follow;
-// what you reach for when the plan changes; how a screen in the venue joins; and the
-// close. No two of them share a grammar, which is what stops a marketing page reading
-// as one layout repeated with different words.
+// Replaced wholesale (2026-10) by the landing redesign worked out at
+// app/(catalog)/dev/hero-concept and promoted into components/site/new-landing.tsx.
+// NewLanding owns its own scroll (Lenis) and every section from hero through
+// footer, so the previous Navbar/HeroSection/BeforeDoors/RoomScene/
+// WhenPlansChange/TheRoom/ClosingSection/Footer/SmoothScroll/Arrival/
+// MotionFlag/ScrollProgress composition is retired from this route (the
+// component files themselves are left in place, not deleted, in case
+// another route still needs them - none currently does).
 //
-// Every product image on this page is a genuine capture of KramFlow running the seeded
-// "Northwind Summit 2026" event (scripts/capture-product.mjs). Nothing here is a
-// recreation, a mockup or a redrawn control — see
-// docs/audit-remediation/evidence/homepage-redesign/PROVENANCE.md for each asset's
-// route, date, dimensions, SHA-256 and known drift.
-//
-// The STANDBY/GO overlay is deliberately gone: it showed an amber-to-green cue light
-// to a visitor with no show running, which reads as a live status indicator for a
-// state that does not exist.
+// Every product surface on this page is either the real app/before-doors.tsx
+// section (real recorded captures) or this project's own code replica
+// components (components/site/replica/*) - no screenshots were faked or
+// invented for the new sections.
 
 // Homepage metadata (B006-F1, B006-F2). Next merges nested metadata shallowly, so
 // openGraph must repeat the root fields or the homepage loses siteName and type.
@@ -51,11 +37,6 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <main className="bg-background">
-      {/* First thing in the body, on purpose: an inline script blocks parsing and runs
-          where it sits, so this must run before anything below it paints. See
-          arrival-boot-script.tsx and arrival.tsx for why. */}
-      <ArrivalBootScript />
-      <ScrollProgress />
       <GrainOverlay />
       {/* Skip link: the first focusable element, hidden until keyboard focus (KF-020). */}
       <a
@@ -64,28 +45,9 @@ export default function Home() {
       >
         Skip to content
       </a>
-      <Navbar />
-      <SmoothScroll>
       <div id="main-content" tabIndex={-1} className="focus:outline-none">
-        <HeroSection />
-        <BeforeDoors />
-        {/* One canonical id per scene, with the earlier anchors kept as zero-height
-            aliases beside it. The scroll scene owns `#product` (the nav's "Product"),
-            and `#call`/`#one-cue` — both of which have pointed at this story in earlier
-            revisions — resolve just above it. The operations chapter owns `#features`
-            (the nav's "Features") with `#adapt` as its alias. No id is duplicated. */}
-        <span id="one-cue" aria-hidden="true" className="legacy-anchor" />
-        <span id="call" aria-hidden="true" className="legacy-anchor" />
-        <RoomScene />
-        <span id="adapt" aria-hidden="true" className="legacy-anchor" />
-        <WhenPlansChange />
-        <TheRoom />
-        <ClosingSection />
+        <NewLanding />
       </div>
-      <Footer />
-      </SmoothScroll>
-      <MotionFlag />
-      <Arrival />
     </main>
   );
 }

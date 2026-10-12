@@ -90,6 +90,7 @@ export function RecordedView({
   fit = "cover",
   /** Called with the shot that is actually painted, whenever that changes. */
   onCommitted,
+  onUnavailable,
 }: {
   shot: ShotKey;
   /** width / height of the visible box, so it never changes size between states. */
@@ -101,6 +102,8 @@ export function RecordedView({
   /** How a crop region sits in the box. `contain` letterboxes instead of filling. */
   fit?: "cover" | "contain";
   onCommitted?: (shot: ShotKey) => void;
+  /** A requested replacement failed; the committed capture remains visible. */
+  onUnavailable?: (shot: ShotKey) => void;
 }) {
   const animate = useTransitionMotion();
   const [committed, setCommitted] = useState<ShotKey>(shot);
@@ -165,6 +168,7 @@ export function RecordedView({
             onError={() => {
               // Keep the committed capture; a failed request never takes the display.
               setReadyFor(null);
+              onUnavailable?.(pending);
             }}
           />
         </motion.div>

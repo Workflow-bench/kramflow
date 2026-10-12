@@ -5,7 +5,7 @@ import { useLayoutEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { Wordmark } from "@/components/site/wordmark";
 import { useReduced } from "@/components/site/motion";
-import { InteractiveDotsGrid } from "./interactive-dots-grid";
+import { AuthArtBackdrop } from "./auth-art-backdrop";
 
 /**
  * Static product preview for the auth split. The same anatomy as the landing demo's
@@ -62,15 +62,7 @@ export function AuthArt({ className = "" }: { className?: string }) {
       aria-hidden="true"
       className={`auth-art-panel relative isolate overflow-hidden border-r border-line-soft p-12 ${className}`}
     >
-      {/* This page's own gradient mesh palette (app/globals.css), a dedicated
-          unmasked layer — reusing `.ambient-light-hero` directly pulled in its
-          bottom-fade mask (added to fix the hero/section seam, see that commit),
-          which cut this panel off well short of its own, much taller box. */}
-      <div className="auth-art-glow absolute inset-0 -z-10" />
-      {/* The interactive dot field — see interactive-dots-grid.tsx for the full
-          source note (Osmo's "Interactive Dots Grid Background", fetched and
-          ported: canvas, no GSAP, grows and darkens toward the pointer). */}
-      <InteractiveDotsGrid className="-z-10" />
+      <AuthArtBackdrop />
 
       <div className="relative flex h-full flex-col">
         {/* The one logo for the whole auth split (auth-shell.tsx hides its own copy
@@ -87,7 +79,7 @@ export function AuthArt({ className = "" }: { className?: string }) {
             closing line — not pinned to the top with the rest of the height left
             empty below it. */}
         <div className="flex flex-1 flex-col justify-center">
-          <div data-art-reveal className="rounded-panel border border-line bg-card/95 p-5 shadow-[0_40px_120px_-48px_rgba(0,0,0,0.9)]">
+          <div data-art-reveal className="glass-panel rounded-panel border border-line p-5 shadow-[0_40px_120px_-48px_rgba(0,0,0,0.9)]">
             <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-muted-2">
               <span>Program</span>
               <span className="tnum">2 / 3</span>
@@ -125,7 +117,7 @@ export function AuthArt({ className = "" }: { className?: string }) {
 
           <div data-art-reveal className="mt-4 grid grid-cols-3 gap-3">
             {OUTPUTS.map((out) => (
-              <div key={out.label} className="rounded-control border border-line-soft bg-raised/80 p-3">
+              <div key={out.label} className="glass-panel rounded-control border border-line-soft p-3">
                 <p className="text-[13px] text-primary">{out.label}</p>
                 <p className={`mt-2 text-[12px] ${out.tone}`}>{out.status}</p>
               </div>

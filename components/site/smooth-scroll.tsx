@@ -79,7 +79,10 @@ function scrollerEnv(
     read: () => (s ? s.scrollTop() : window.scrollY),
     scrollTo: (y, smooth) => {
       if (s) s.scrollTo(Math.max(0, y), smooth);
-      else window.scrollTo({ top: Math.max(0, y), behavior: smooth ? "smooth" : "auto" });
+      else {
+        const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        window.scrollTo({ top: Math.max(0, y), behavior: smooth && !reduced ? "smooth" : "instant" });
+      }
     },
     targetTop,
     raf: (cb) => window.requestAnimationFrame(cb),
@@ -112,15 +115,22 @@ export function navigateToAnchor(hash: string): boolean {
 
   cancelLive();
   const s = smootherRef;
+  // Recover native hash/restoration writes into the fixed overflow-hidden wrapper.
+  // The smoother owns the window scroll; an inner offset would desync its triggers.
+  if (s) {
+    const wrapper = document.getElementById("smooth-wrapper");
+    if (wrapper) wrapper.scrollTop = 0;
+  }
   // The smoother clamps every write to a cached maxScroll. Pinned scenes add their spacers a
   // frame after mount, so refresh before measuring, or the first smooth write clamps to the
   // stale maximum and only the measured correction moves the page.
   if (s) ScrollTrigger.refresh();
-  const goal = s ? contentOffset(target) - HEADER_OFFSET : window.scrollY + target.getBoundingClientRect().top - HEADER_OFFSET;
+  const offset = id === "top" ? 0 : HEADER_OFFSET;
+  const goal = s ? contentOffset(target) - offset : window.scrollY + target.getBoundingClientRect().top - offset;
   live = startNavigation(
     scrollerEnv(s, () => target.getBoundingClientRect().top),
     Math.max(0, goal),
-    HEADER_OFFSET
+    offset
   );
 
   if (!target.hasAttribute("tabindex")) {
@@ -181,19 +191,29 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
     window.addEventListener("pointerdown", interrupt, true);
     window.addEventListener("keydown", onKey, true);
 
-    // Same-page anchor clicks. Modified or non-primary clicks keep browser behaviour.
+    // Own same-page clicks before Next Link handles them. Its native hash scroll can
+    // scroll the fixed smoother wrapper independently of ScrollTrigger in production.
+    // Preventing default in capture lets Next Link skip its scroll while preserving
+    // React onClick callbacks (for example, closing the mobile menu).
+    // Modified or non-primary clicks keep browser behaviour.
     const onClick = (e: MouseEvent) => {
       if (e.defaultPrevented || e.button !== 0) return;
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      const a = (e.target as Element | null)?.closest?.('a[href^="#"]') as HTMLAnchorElement | null;
-      if (!a) return;
-      const hash = a.getAttribute("href") ?? "";
+      const a = (e.target as Element | null)?.closest?.('a[href^="#"], a[href="/"]') as HTMLAnchorElement | null;
+      if (!a || a.hasAttribute("download") || (a.target && a.target !== "_self")) return;
+      const href = a.getAttribute("href") ?? "";
+      // Next Link treats the same home route as unchanged, even when its hero is
+      // offscreen. Let the existing scroll owner handle the wordmark's top action.
+      const home = href === "/" && location.pathname === "/" && !location.search;
+      const hash = home ? "#top" : href;
       if (hash.length < 2 || !navigateToAnchor(hash)) return;
       e.preventDefault();
       // A new history entry per jump, so Back returns to the previous chapter.
-      if (location.hash !== hash) history.pushState(history.state, "", hash);
+      if (home) {
+        if (location.hash) history.pushState(history.state, "", "/");
+      } else if (location.hash !== hash) history.pushState(history.state, "", hash);
     };
-    document.addEventListener("click", onClick);
+    document.addEventListener("click", onClick, true);
 
     // Back/forward between chapters. A hash entry scrolls to its destination; the empty
     // entry returns to the top. Browser scroll restoration is left to the page, since the
@@ -206,8 +226,15 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
         return;
       }
       cancelLive();
-      // The top of the page: its "destination" already sits at the header offset.
-      live = startNavigation(scrollerEnv(smootherRef, () => HEADER_OFFSET), 0, HEADER_OFFSET);
+      // History restoration may write after popstate. Wait for it, then measure
+      // the real top so a later restoration write can still be corrected.
+      whenScrollQuiet(() => {
+        live = startNavigation(
+          scrollerEnv(smootherRef, () => (document.getElementById("top")?.getBoundingClientRect().top ?? 0) + HEADER_OFFSET),
+          0,
+          HEADER_OFFSET
+        );
+      });
     };
     window.addEventListener("popstate", onPop);
 
@@ -227,7 +254,7 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
       window.removeEventListener("touchstart", interrupt);
       window.removeEventListener("pointerdown", interrupt, true);
       window.removeEventListener("keydown", onKey, true);
-      document.removeEventListener("click", onClick);
+      document.removeEventListener("click", onClick, true);
       window.removeEventListener("popstate", onPop);
       destroy();
     };

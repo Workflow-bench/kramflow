@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { AmbientLight } from "./ambient-light";
+import { HeroGradientBackdrop } from "./hero-gradient-backdrop";
 import { ConsoleAperture } from "./console-aperture";
 import { SiteAction } from "./site-action";
 import { useReduced } from "./motion";
@@ -96,13 +96,16 @@ export function HeroSection() {
       data-cue="Promise"
       className="hero-section relative isolate flex flex-col overflow-hidden"
     >
-      <AmbientLight variant="hero" />
+      <HeroGradientBackdrop />
 
       <div className="hero-copy relative z-10 mx-auto w-full max-w-[1440px] px-6 sm:px-10">
         {/* The entrance now lives in the full-viewport loading screen
             (components/site/loading-screen.tsx), which runs the same word sequence at
             hero scale before the curtain wipes to reveal this exact, real, unhidden label. */}
-        <p className="hero-eyebrow uppercase tracking-[0.18em] text-muted-2">Live event operations</p>
+        <p className="hero-eyebrow flex items-center gap-2 uppercase tracking-[0.18em] text-muted-2">
+          <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-status-green motion-safe:animate-pulse" style={{ boxShadow: "0 0 0 3px rgba(48,209,88,0.16)" }} />
+          Live event operations
+        </p>
 
         <h1
           ref={headlineRef}

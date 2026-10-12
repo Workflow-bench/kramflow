@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kramflow — Concept B: The Green Room at 7:58pm</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    color: #111;
+    background: #fff;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 32px; }
+  .wrap-wide { max-width: 1320px; margin: 0 auto; padding: 0 32px; }
+  .tag {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #777;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 6px;
+    margin-bottom: 24px;
+    font-weight: bold;
+  }
+  section { padding: 80px 0; }
+  section.border-top { border-top: 1px solid #000; }
+  h1, h2, h3 { font-weight: bold; margin: 0; }
+  p { color: #333; line-height: 1.7; margin: 0 0 16px 0; font-size: 17px; }
+  .box {
+    border: 1px solid #000;
+    background: repeating-linear-gradient(45deg, #fff, #fff 8px, #f0f0f0 8px, #f0f0f0 16px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #555;
+    font-size: 13px;
+  }
+  .btn {
+    display: inline-block;
+    border: 1.5px solid #111;
+    padding: 12px 26px;
+    font-size: 14px;
+    font-weight: bold;
+    background: #fff;
+  }
+  .btn.primary { background: #111; color: #fff; }
+  .muted { color: #888; font-size: 13px; }
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 0;
+  }
+  nav .logo { font-weight: bold; font-size: 18px; letter-spacing: -0.02em; }
+  footer { border-top: 1px solid #000; padding: 40px 0; font-size: 13px; color: #777; }
+  .pullquote {
+    border-left: 3px solid #111;
+    padding-left: 24px;
+    font-size: 24px;
+    font-weight: bold;
+    line-height: 1.35;
+    margin: 40px 0;
+  }
+  .stack { display: flex; flex-direction: column; gap: 14px; margin-top: 28px; }
+  .stack .row {
+    border: 1px solid #000;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .stack .row .lvl { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #777; width: 90px; flex-shrink: 0; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 32px; }
+</style>
+</head>
+<body>
+
+<div class="wrap-wide">
+  <nav>
+    <div class="logo">KRAMFLOW</div>
+    <div style="display:flex; gap:12px;">
+      <span class="btn" style="padding:8px 18px;">Sign in</span>
+      <span class="btn primary" style="padding:8px 18px;">Start free</span>
+    </div>
+  </nav>
+</div>
+
+<!-- HERO: PROBLEM ONLY -->
+<div class="wrap">
+<section style="padding-top:100px; padding-bottom:40px;">
+  <div class="tag">HERO — problem statement only. No screenshot. No diagram. Text and air.</div>
+  <h1 style="font-size:44px; line-height:1.15; max-width:820px;">It's 7:58pm. The keynote is running four minutes long. Somebody has to tell six people, right now, without walking anywhere.</h1>
+  <p style="margin-top:28px; font-size:19px; max-width:640px;">That's the job a run-of-show spreadsheet was never built for — and the reason it gets shouted across green rooms instead of read.</p>
+  <div style="margin-top:30px;">
+    <span class="btn primary">See how Kramflow does it</span>
+  </div>
+</section>
+</div>
+
+<!-- NARRATIVE CONTINUES -->
+<div class="wrap">
+<section class="border-top">
+  <div class="tag">NARRATIVE — the familiar chaos, told plainly, long-form</div>
+  <p>Every multi-day event runs the same way behind the scenes. A spreadsheet holds the truth — 200-some rows of sessions, speakers, timings, mic counts — and one person holds it in their head. When something slips, that person radios, texts, or jogs across the room to say so. Everyone else is guessing.</p>
+  <p>The performer backstage doesn't know if they have four minutes or forty. The AV crew doesn't know the next cue needs a lav mic until someone tells them. The presenter can't see the clock from the stage. None of this is anyone's fault — it's what happens when the only source of truth lives in a file nobody else can see.</p>
+  <div class="pullquote">A spreadsheet can hold the schedule. It can't tell a room what's happening right now.</div>
+</section>
+</div>
+
+<!-- TRANSITION: PRODUCT REVEAL -->
+<div class="wrap">
+<section class="border-top">
+  <div class="tag">TRANSITION — the product appears for the first time, modestly sized</div>
+  <h2 style="font-size:26px; max-width:620px;">So Kramflow puts the schedule on a screen instead — one that updates itself.</h2>
+  <div class="box" style="height:280px; margin-top:28px;">
+    SCREENSHOT — operator console next to a small TV display, implied live link between them
+  </div>
+  <p style="margin-top:24px; max-width:640px;">One operator runs a live queue. Every connected display — lobby, backstage, AV booth, presenter monitor — reflects it within about a second. No relay. No shouting.</p>
+</section>
+</div>
+
+<!-- STRUCTURE EXPLAINER -->
+<div class="wrap">
+<section class="border-top">
+  <div class="tag">WHY A TIMER APP ISN'T ENOUGH — the real structure underneath</div>
+  <h2 style="font-size:24px;">A live event isn't one countdown. It's a structure.</h2>
+  <p style="margin-top:14px;">Multiple days. Multiple sessions per day. Sections within a session. And inside each one, a queue item with its own timing, owner, and production needs. Kramflow models that directly — the queue is the core entity; a timer is just one property of one item in it.</p>
+  <div class="stack">
+    <div class="row"><span class="lvl">EVENT</span><span class="muted">Satsang Shibir 2026 — 3 days</span></div>
+    <div class="row" style="margin-left:24px;"><span class="lvl">SESSION</span><span class="muted">Saturday Morning</span></div>
+    <div class="row" style="margin-left:48px;"><span class="lvl">SECTION</span><span class="muted">Opening Remarks</span></div>
+    <div class="row" style="margin-left:72px;"><span class="lvl">QUEUE ITEM</span><span class="muted">Keynote — 12 min, mic + slides, owner: J. Patel</span></div>
+  </div>
+</section>
+</div>
+
+<!-- TWO AUDIENCES, IN PROSE -->
+<div class="wrap">
+<section class="border-top">
+  <div class="tag">TWO AUDIENCES — told in prose, not feature boxes</div>
+  <div class="two-col">
+    <div>
+      <h3 style="font-size:18px;">For the person running it</h3>
+      <p style="font-size:15px; margin-top:10px;">An operator — stage manager or AV lead — drives the queue from a laptop or a phone in their pocket. They sign up, create an event, and it's theirs alone. Reorder, bulk-edit, recalculate timing, all while the show is live.</p>
+    </div>
+    <div>
+      <h3 style="font-size:18px;">For everyone else in the room</h3>
+      <p style="font-size:15px; margin-top:10px;">Performers, crew, presenters, attendees — nobody else touches the interface. They scan a QR code, follow a link, or type a 6-digit code on a TV. No account. No app. Just the current state of the show, from fifteen feet away.</p>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- PROOF: SINGLE NARRATIVE SNIPPET -->
+<div class="wrap">
+<section class="border-top">
+  <div class="tag">PROOF — one real-use narrative, not a logo wall</div>
+  <div class="pullquote">"250 cues, three days, six sessions — and for the first time nobody asked 'what's happening next' over a radio."</div>
+  <p class="muted">— from a multi-day conference run on Kramflow</p>
+</section>
+</div>
+
+<!-- CTA -->
+<div class="wrap">
+<section class="border-top center" style="text-align:center;">
+  <div class="tag">CLOSING CTA</div>
+  <h2 style="font-size:28px;">Stop shouting the schedule across the room.</h2>
+  <div style="margin-top:22px;">
+    <span class="btn primary">Start free — no credit card</span>
+  </div>
+</section>
+</div>
+
+<footer>
+  <div class="wrap-wide" style="display:flex; justify-content:space-between;">
+    <div>KRAMFLOW</div>
+    <div>Product · Pricing · Docs · Sign in</div>
+  </div>
+</footer>
+
+</body>
+</html>

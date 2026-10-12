@@ -11,8 +11,9 @@ const APP = __dirname;
 // Private or app-only surfaces: each must carry robots noindex in a layout.
 const PRIVATE_SURFACES = ["(operator)", "e/[eventId]", "invite", "(catalog)"];
 
-// Public or intentionally indexable pages: the marketing home only.
-const PUBLIC_PAGES = ["page.tsx"];
+// Public or intentionally indexable pages: the marketing home, plus the two
+// new marketing/utility pages added alongside the landing redesign.
+const PUBLIC_PAGES = ["page.tsx", "pricing/page.tsx", "about/page.tsx"];
 
 // Pages that set robots noindex themselves (or through their route layout).
 const NOINDEX_PAGE_DIRS = ["av", "custom", "general", "green-room", "login", "presenter", "reset", "screens", "set-password", "signup", "tv"];

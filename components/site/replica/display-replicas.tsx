@@ -8,11 +8,18 @@ import type { ShotKey } from "../product-shot";
  * They are samples for the landing page: no store, no token, no network.
  */
 
-type Cue = 3 | 4;
+export type Cue = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
+/** Kept in step with PROGRAM/CUE_STATE in console-replica.tsx - same fixture show,
+ *  same seven items, `next` cycling from 7 back to 1. */
 const DATA: Record<Cue, { title: string; owner: string; clock: string; next: string; nextOwner: string; onDeck: string }> = {
+  1: { title: "Doors and Walk-in Music", owner: "AV", clock: "28:40", next: "Welcome and Housekeeping", nextOwner: "Stage Manager", onDeck: "Opening Keynote" },
+  2: { title: "Welcome and Housekeeping", owner: "Stage Manager", clock: "3:12", next: "Opening Keynote", nextOwner: "Amara Osei", onDeck: "Product Launch Demo" },
   3: { title: "Opening Keynote", owner: "Amara Osei", clock: "20:40", next: "Product Launch Demo", nextOwner: "Rafael Costa", onDeck: "Coffee Break" },
   4: { title: "Product Launch Demo", owner: "Rafael Costa", clock: "13:51", next: "Coffee Break", nextOwner: "", onDeck: "Panel: Scaling Live Events" },
+  5: { title: "Coffee Break", owner: "", clock: "9:05", next: "Panel: Scaling Live Events", nextOwner: "Moderator", onDeck: "Closing Remarks" },
+  6: { title: "Panel: Scaling Live Events", owner: "Moderator", clock: "31:20", next: "Closing Remarks", nextOwner: "Amara Osei", onDeck: "Doors and Walk-in Music" },
+  7: { title: "Closing Remarks", owner: "Amara Osei", clock: "6:44", next: "Doors and Walk-in Music", nextOwner: "AV", onDeck: "Welcome and Housekeeping" },
 };
 
 const W = 960;
@@ -26,7 +33,17 @@ function Strip({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function PresenterReplica({ cue, label }: { cue: Cue; label: string }) {
+export function PresenterReplica({
+  cue,
+  label,
+  clockOverride,
+}: {
+  cue: Cue;
+  label: string;
+  /** Live ticking seconds, formatted - overrides the fixture's static clock
+   *  so the displays read as a running show instead of a frozen sample. */
+  clockOverride?: string;
+}) {
   const d = DATA[cue];
   return (
     <FitFrame designWidth={W} designHeight={H} label={label} className="bg-black">
@@ -35,7 +52,7 @@ export function PresenterReplica({ cue, label }: { cue: Cue; label: string }) {
           <span>Northwind Summit 2026 · Day 1 Morning</span>
           <span className="text-status-green">Live</span>
         </div>
-        <div className="tnum mt-6 text-center text-[150px] leading-none text-status-green">{d.clock}</div>
+        <div className="tnum mt-6 text-center text-[150px] leading-none text-status-green">{clockOverride ?? d.clock}</div>
         <div className="mt-2 text-center text-[11px] uppercase tracking-[0.2em] text-muted-2">Remaining</div>
         <div className="mt-6 text-center text-[34px]">{d.title}</div>
         <div className="mt-1 text-center text-[16px] text-muted">{d.owner}</div>
@@ -51,7 +68,15 @@ export function PresenterReplica({ cue, label }: { cue: Cue; label: string }) {
   );
 }
 
-export function AVReplica({ cue, label }: { cue: Cue; label: string }) {
+export function AVReplica({
+  cue,
+  label,
+  clockOverride,
+}: {
+  cue: Cue;
+  label: string;
+  clockOverride?: string;
+}) {
   const d = DATA[cue];
   const reqs = cue === 3
     ? [["Microphone / Track", "Mic"], ["Video / Presentation", "Slides + Backdrop"], ["Lighting", "Half Half · Stage Wash"], ["Curtains", "Open"]]
@@ -65,7 +90,7 @@ export function AVReplica({ cue, label }: { cue: Cue; label: string }) {
         </div>
         <div className="mt-8 text-[11px] uppercase tracking-[0.18em] text-muted-2">Current cue</div>
         <div className="mt-1 text-[40px]">{d.title}</div>
-        <div className="tnum mt-2 text-[28px] text-status-green">{d.clock} <span className="text-[11px] uppercase tracking-[0.16em] text-muted-2">cue countdown</span></div>
+        <div className="tnum mt-2 text-[28px] text-status-green">{clockOverride ?? d.clock} <span className="text-[11px] uppercase tracking-[0.16em] text-muted-2">cue countdown</span></div>
         <div className="mt-8 text-[11px] uppercase tracking-[0.18em] text-muted-2">Prep requirements · {d.title}</div>
         <div className="mt-3 divide-y divide-line-soft">
           {reqs.map(([k, v]) => (
@@ -92,7 +117,15 @@ export function AVReplica({ cue, label }: { cue: Cue; label: string }) {
   );
 }
 
-export function GreenRoomReplica({ cue, label }: { cue: Cue; label: string }) {
+export function GreenRoomReplica({
+  cue,
+  label,
+  clockOverride,
+}: {
+  cue: Cue;
+  label: string;
+  clockOverride?: string;
+}) {
   const d = DATA[cue];
   return (
     <FitFrame designWidth={W} designHeight={H} label={label} className="bg-black">
@@ -104,7 +137,7 @@ export function GreenRoomReplica({ cue, label }: { cue: Cue; label: string }) {
         <div className="mt-8 text-[11px] uppercase tracking-[0.18em] text-muted-2">On stage now</div>
         <div className="mt-1 text-[46px] leading-tight">{d.title}</div>
         <div className="text-[18px] text-muted">{d.owner}</div>
-        <div className="tnum mt-4 text-[32px] text-status-green">{d.clock}</div>
+        <div className="tnum mt-4 text-[32px] text-status-green">{clockOverride ?? d.clock}</div>
         <div className="mt-2 text-[11px] uppercase tracking-[0.16em] text-muted-2">Remaining, counting down until called</div>
         <div className="absolute right-10 top-28 w-[300px] rounded-control border border-status-orange/30 bg-status-orange/10 p-4">
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted-2">Next · Please prepare</div>

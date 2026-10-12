@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kramflow — Concept C: Two Audiences, One Queue</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    color: #111;
+    background: #fff;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 0 32px; }
+  .tag {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #777;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 6px;
+    margin-bottom: 22px;
+    font-weight: bold;
+  }
+  section { border-top: 1px solid #000; padding: 56px 0; }
+  section:first-of-type { border-top: none; }
+  h1, h2, h3 { font-weight: bold; margin: 0; }
+  p { color: #333; line-height: 1.5; margin: 0; }
+  .box {
+    border: 1px solid #000;
+    background: repeating-linear-gradient(45deg, #fff, #fff 8px, #f0f0f0 8px, #f0f0f0 16px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #555;
+    font-size: 13px;
+  }
+  .btn {
+    display: inline-block;
+    border: 1.5px solid #111;
+    padding: 11px 22px;
+    font-size: 14px;
+    font-weight: bold;
+    background: #fff;
+  }
+  .btn.primary { background: #111; color: #fff; }
+  .muted { color: #888; font-size: 13px; }
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0;
+    border-bottom: 1px solid #000;
+  }
+  nav .links { display: flex; gap: 28px; font-size: 14px; }
+  nav .logo { font-weight: bold; font-size: 18px; letter-spacing: -0.02em; }
+  footer { border-top: 1px solid #000; padding: 40px 0; font-size: 13px; color: #777; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; }
+  .split > div { padding: 44px; }
+  .split > div:first-child { border-right: 1px solid #000; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .nest { border: 1px solid #000; padding: 20px; }
+  .nest .inner { border: 1px solid #555; padding: 16px; margin-top: 14px; }
+  .nest .inner .inner2 { border: 1px solid #999; padding: 12px; margin-top: 12px; }
+  .nest .inner .inner2 .inner3 { border: 1px dashed #999; padding: 10px; margin-top: 10px; background: #f7f7f7; }
+  table { width: 100%; border-collapse: collapse; margin-top: 24px; font-size: 14px; }
+  th, td { border: 1px solid #000; padding: 12px 16px; text-align: left; }
+  th { background: #efefef; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  ul.checklist { list-style: none; padding: 0; margin: 24px 0 0 0; columns: 2; column-gap: 40px; }
+  ul.checklist li { margin-bottom: 10px; font-size: 14px; padding-left: 22px; position: relative; break-inside: avoid; }
+  ul.checklist li:before { content: "[x]"; position: absolute; left: 0; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav>
+    <div class="logo">KRAMFLOW</div>
+    <div class="links"><span>Product</span><span>Displays</span><span>Compare</span><span>Pricing</span></div>
+    <div style="display:flex; gap:12px;">
+      <span class="btn" style="padding:8px 18px;">Sign in</span>
+      <span class="btn primary" style="padding:8px 18px;">Start free</span>
+    </div>
+  </nav>
+</div>
+
+<!-- SPLIT HERO: TWO AUDIENCES, TWO CTAS -->
+<div class="wrap">
+<section style="padding:0;">
+  <div class="tag" style="padding:24px 44px 0;">HERO — split in half from the first pixel, each audience gets its own headline, mockup, and CTA</div>
+  <div class="split">
+    <div>
+      <div class="muted" style="margin-bottom:10px;">FOR THE PERSON RUNNING IT</div>
+      <h1 style="font-size:32px; line-height:1.15;">Run the queue from one console.</h1>
+      <p style="margin-top:12px; font-size:15px;">Laptop or phone. Drag-reorder, bulk edit, dynamic timing — built for a 200+ item cue sheet, not a toy list.</p>
+      <div class="box" style="height:220px; margin-top:22px;">OPERATOR CONSOLE — cue sheet mockup</div>
+      <div style="margin-top:20px;"><span class="btn primary">Start free</span></div>
+    </div>
+    <div>
+      <div class="muted" style="margin-bottom:10px;">FOR EVERYONE ELSE IN THE VENUE</div>
+      <h1 style="font-size:32px; line-height:1.15;">Every screen in the room, in sync.</h1>
+      <p style="margin-top:12px; font-size:15px;">No login. Scan a QR code, follow a link, or type a 6-digit code on any TV.</p>
+      <div class="box" style="height:220px; margin-top:22px;">VENUE DISPLAY — large NOW/NEXT TV mockup</div>
+      <div style="margin-top:20px;"><span class="btn">See a live display</span></div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- STRUCTURE / ENTITY MODEL -->
+<div class="wrap">
+<section>
+  <div class="tag">STRUCTURE — the nested entity model, shown as a literal nesting diagram</div>
+  <h2 style="font-size:26px;">Built around how a real event is actually structured.</h2>
+  <div class="nest" style="margin-top:28px;">
+    EVENT — "Satsang Shibir 2026" (3 days, multi-tenant: yours alone)
+    <div class="inner">
+      SESSION — "Saturday Morning"
+      <div class="inner2">
+        SECTION — "Opening Remarks"
+        <div class="inner3">
+          QUEUE ITEM — title · timing · owner · production requirements (mic, slides, camera angle)
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="muted" style="margin-top:14px;">The queue is the core entity. A timer is a property of one item in it — not the other way around.</p>
+</section>
+</div>
+
+<!-- 4 DISPLAY SURFACES GRID -->
+<div class="wrap">
+<section>
+  <div class="tag">DISPLAY SURFACES — 2×2 grid, each with its audience and access method</div>
+  <div class="grid-4">
+    <div class="box" style="height:170px; flex-direction:column;">GENERAL<br><span class="muted">public / lobby · via link or QR</span></div>
+    <div class="box" style="height:170px; flex-direction:column;">AV<br><span class="muted">technical crew · via link or QR</span></div>
+    <div class="box" style="height:170px; flex-direction:column;">GREEN ROOM<br><span class="muted">performers · via link or QR</span></div>
+    <div class="box" style="height:170px; flex-direction:column;">PRESENTER<br><span class="muted">confidence monitor · via 6-digit TV code</span></div>
+  </div>
+</section>
+</div>
+
+<!-- COMPARISON TABLE -->
+<div class="wrap">
+<section>
+  <div class="tag">COMPARISON — spec table vs. generic countdown-timer tools, builds trust by precision</div>
+  <h2 style="font-size:24px;">Not a timer with a queue bolted on.</h2>
+  <table>
+    <tr>
+      <th>Capability</th>
+      <th>Generic countdown timer tools</th>
+      <th>Kramflow</th>
+    </tr>
+    <tr><td>Core entity</td><td>A timer</td><td>A queue item (timer is one property)</td></tr>
+    <tr><td>Event structure</td><td>One flat list of timers</td><td>Event → Session → Section → Queue item</td></tr>
+    <tr><td>Multi-day, multi-session events</td><td>Workaround / separate rooms</td><td>Native</td></tr>
+    <tr><td>Per-item production requirements</td><td>Not modeled</td><td>Dynamic fields per event and context</td></tr>
+    <tr><td>Display surfaces</td><td>One generic viewer</td><td>4 purpose-built surfaces (General / AV / Green Room / Presenter)</td></tr>
+    <tr><td>Access for venue screens</td><td>Signed link per role</td><td>One link / QR / 6-digit code, pick your screen</td></tr>
+  </table>
+</section>
+</div>
+
+<!-- OPERATOR FEATURE CHECKLIST (dense) -->
+<div class="wrap">
+<section>
+  <div class="tag">OPERATOR FEATURES — dense checklist, high information density by design</div>
+  <h2 style="font-size:22px;">Everything the console does.</h2>
+  <ul class="checklist">
+    <li>Drag-and-drop queue reordering, live, mid-show</li>
+    <li>Bulk multi-select edit across items</li>
+    <li>Dynamic, cascading schedule recalculation</li>
+    <li>Configurable per-event Add Item form</li>
+    <li>Per-context production fields (mic, video, lighting, camera)</li>
+    <li>One-tap advance, jump-ahead, and hold</li>
+    <li>Live alerts pushed to every display</li>
+    <li>Generate / revoke share links and QR codes per event</li>
+    <li>Multi-tenant — see and manage only your own events</li>
+    <li>Sub-second sync to every connected screen</li>
+  </ul>
+</section>
+</div>
+
+<!-- CTA -->
+<div class="wrap">
+<section class="center" style="text-align:center;">
+  <div class="tag">CLOSING CTA</div>
+  <h2 style="font-size:28px;">Pick your side of the room. Start free.</h2>
+  <div style="margin-top:22px; display:flex; gap:14px; justify-content:center;">
+    <span class="btn primary">Start free as an operator</span>
+    <span class="btn">Try a display with a demo code</span>
+  </div>
+</section>
+</div>
+
+<footer>
+  <div class="wrap" style="display:flex; justify-content:space-between;">
+    <div>KRAMFLOW</div>
+    <div>Product · Displays · Compare · Pricing · Docs · Sign in</div>
+  </div>
+</footer>
+
+</body>
+</html>
