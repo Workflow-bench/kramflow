@@ -5,7 +5,22 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
 import { ShaderGradientCanvas, ShaderGradient } from "@shadergradient/react";
-import { ListChecks, QrCode, Bell, CalendarDays, RefreshCw, Activity, SkipForward, Users } from "lucide-react";
+import {
+  ListChecks,
+  QrCode,
+  Bell,
+  CalendarDays,
+  RefreshCw,
+  Activity,
+  SkipForward,
+  Users,
+  ClipboardList,
+  SlidersHorizontal,
+  Layers,
+  Tv,
+  RotateCcw,
+  Rows3,
+} from "lucide-react";
 import { ConsoleReplica, CUE_STATE, type Cue } from "@/components/site/replica/console-replica";
 import { PresenterReplica, AVReplica, GreenRoomReplica, GeneralReplica } from "@/components/site/replica/display-replicas";
 import { BeforeDoors } from "@/components/site/before-doors";
@@ -571,7 +586,7 @@ function Hero() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16, paddingBottom: 6 }}>
             <p ref={subRef} style={{ color: MUTED, fontSize: 15.5, maxWidth: "38ch", margin: 0, lineHeight: 1.6 }}>
-              The run-of-show console that replaces the spreadsheet shouted across a green room.
+              Plan the cue sheet, call it live, every connected screen follows - no more spreadsheet shouted across a green room.
             </p>
             <div ref={actionsRef} style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <a href="/signup" className="hc-btn-primary" style={{ padding: "12px 22px", borderRadius: 10, fontWeight: 600, fontSize: 14.5, textDecoration: "none" }}>
@@ -622,8 +637,14 @@ function Hero() {
                   display: "block",
                   borderRadius: 16,
                   opacity: 0.97,
-                  maskImage: "linear-gradient(to bottom, black 0%, black 55%, transparent 92%)",
-                  WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 55%, transparent 92%)",
+                  // A matching fade at the TOP edge, not just the bottom: without it the
+                  // capture's own app chrome (toolbar, breadcrumb) sits hard against the
+                  // image's top edge with nothing easing into it, which is what reads as
+                  // "a screenshot was pasted here" rather than an object floating in the
+                  // scene. 10% is short enough that no real content is lost, long enough
+                  // to soften the edge.
+                  maskImage: "linear-gradient(to bottom, transparent 0%, black 10%, black 55%, transparent 92%)",
+                  WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 10%, black 55%, transparent 92%)",
                 }}
               />
               <div style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 16, background: "linear-gradient(160deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.015) 18%, transparent 32%)" }} />
@@ -888,7 +909,7 @@ function StatsSection() {
   }, []);
 
   return (
-    <section ref={sectionRef} style={{ position: "relative", zIndex: 1, padding: "64px 0", overflow: "hidden" }}>
+    <section ref={sectionRef} style={{ position: "relative", zIndex: 1, padding: "128px 0", overflow: "hidden" }}>
       <AmbientGlow top="50%" left="50%" size={700} opacity={0.32} />
       <div
         ref={rowRef}
@@ -896,7 +917,22 @@ function StatsSection() {
         style={{ position: "relative", zIndex: 1, maxWidth: 1440, margin: "0 auto", padding: "0 24px", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 }}
       >
         {STATS.map((s, i) => (
-          <div key={s.label} className="hc-glass" style={{ borderRadius: 14, padding: "22px 24px" }}>
+          <div key={s.label} className="hc-glass" style={{ position: "relative", overflow: "hidden", borderRadius: 14, padding: "22px 24px" }}>
+            {/* A quiet per-card accent instead of four identical flat tiles - layered
+                on top of .hc-glass's own background (not replacing it, which would
+                lose the backdrop-filter translucency that makes it read as glass at
+                all) - the same green ambient glow this page already uses elsewhere,
+                just small and corner-anchored so it reads as a materials choice, not
+                four competing hero glows. */}
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "radial-gradient(120px 90px at 100% 0%, rgba(48,209,88,0.12), transparent 70%)",
+                pointerEvents: "none",
+              }}
+            />
             <div
               ref={(el) => {
                 ruleRefs.current[i] = el;
@@ -921,20 +957,22 @@ function StatsSection() {
 }
 
 const CAPABILITIES = [
-  { title: "A real cue sheet, not a timer list", body: "Drag-reorder, bulk edit, and a schedule that recalculates when one item runs long." },
-  { title: "Dynamic per-event fields", body: "Mic requirements, slides, lighting, camera angle - the Add Item form adapts to the production." },
-  { title: "Sections within a session", body: "Multi-day, multi-session events with partitions, not one flat list pretending to scale." },
-  { title: "No-login venue displays", body: "A share link, QR code, or 6-digit TV code - nobody in the room needs an account." },
-  { title: "Rehearsal without the risk", body: "Run the full sequence end to end without ever touching a connected display." },
-  { title: "Built for 200+ item events", body: "Not a countdown tool retrofitted with a queue - the queue was the starting point." },
+  { title: "A real cue sheet, not a timer list", body: "Drag-reorder, bulk edit, and a schedule that recalculates when one item runs long.", Icon: ClipboardList },
+  { title: "Keep every cue's details together", body: "Mic requirements, slides, lighting, camera angle - the Add Item form adapts to the production.", Icon: SlidersHorizontal },
+  { title: "Organize multi-part shows", body: "Multi-day, multi-session events with partitions, not one flat list pretending to scale.", Icon: Layers },
+  { title: "No-login venue displays", body: "A share link, QR code, or 6-digit TV code - nobody in the room needs an account.", Icon: Tv },
+  { title: "Rehearsal without the risk", body: "Run the full sequence end to end without ever touching a connected display.", Icon: RotateCcw },
+  { title: "Built for 200+ item events", body: "Not a countdown tool retrofitted with a queue - the queue was the starting point.", Icon: Rows3 },
 ] as const;
 
 /** "There's more to running a show than a countdown." - also ported from
- *  concept-4.html's "capabilities" section (same heading, same six items),
- *  minus its icon-badge row (no stand-in icon set chosen yet for this page;
- *  better to omit than to fake one). A plain two-column list with the
- *  project's own border-top rhythm (same divider used throughout this
- *  page), not the prototype's own card styling. */
+ *  concept-4.html's "capabilities" section (same heading, same six items).
+ *  The prototype's icon-badge row was originally dropped for lacking a
+ *  chosen icon set; now reuses the exact badge this page settled on for
+ *  ReachSection (36px, rounded-10, rgba(48,209,88,0.08) fill, same green
+ *  stroke) instead of inventing a second icon treatment. A plain
+ *  two-column list with the project's own border-top rhythm (same divider
+ *  used throughout this page), not the prototype's own card styling. */
 function CapabilitiesSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const headRef = useRef<HTMLDivElement>(null);
@@ -977,6 +1015,22 @@ function CapabilitiesSection() {
         <div ref={listRef} className="hc-stack-mobile" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px 48px" }}>
           {CAPABILITIES.map((c) => (
             <div key={c.title} style={{ paddingTop: 16, borderTop: `1px solid ${LINE_SOFT}` }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: "rgba(48,209,88,0.08)",
+                  border: "1px solid rgba(48,209,88,0.18)",
+                  color: ACCENT,
+                  marginBottom: 14,
+                }}
+              >
+                <c.Icon size={17} strokeWidth={2} />
+              </span>
               <h3 style={{ fontFamily: "var(--font-sans)", fontSize: 16, fontWeight: 700, margin: "0 0 7px", color: PRIMARY }}>{c.title}</h3>
               <p style={{ color: MUTED, fontSize: 14.5, margin: 0, lineHeight: 1.55 }}>{c.body}</p>
             </div>
@@ -1154,8 +1208,14 @@ function ReliabilitySection() {
   }, []);
 
   return (
-    <section ref={sectionRef} id="reliability" style={{ position: "relative", zIndex: 1, padding: "140px 0" }}>
-      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 24px" }}>
+    <section ref={sectionRef} id="reliability" style={{ position: "relative", zIndex: 1, padding: "140px 0", overflow: "hidden" }}>
+      {/* The left column is headline + one paragraph against a lot of empty
+          vertical space (the right column's three facts run taller) - this
+          fills that weight with the same ambient glow language the page
+          already uses, rather than leaving the column feeling unfinished
+          next to the denser one beside it. */}
+      <AmbientGlow top="30%" left="8%" size={460} opacity={0.2} />
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 1440, margin: "0 auto", padding: "0 24px" }}>
         <div className="hc-stack-mobile" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 56, alignItems: "start" }}>
           <div ref={headRef}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: "#8a8070", display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -1220,8 +1280,8 @@ function ClosingBackdrop() {
           cDistance={4.8}
           cameraZoom={1}
           lightType="3d"
-          brightness={0.14}
-          reflection={0.03}
+          brightness={0.2}
+          reflection={0.04}
           grain="off"
           wireframe={false}
           color1={BG}
@@ -1291,14 +1351,14 @@ function ClosingSection() {
             ref={magneticRef}
             href="/signup"
             className="hc-btn-primary hc-closing-cta hc-magnetic"
-            style={{ padding: "14px 26px", borderRadius: 11, fontWeight: 600, fontSize: 15.5, textDecoration: "none" }}
+            style={{ padding: "18px 32px", borderRadius: 12, fontWeight: 600, fontSize: 17, textDecoration: "none" }}
           >
             Start free
-            <svg viewBox="0 0 24 24" width={16} height={16} stroke="currentColor" fill="none" strokeWidth={2.2} style={{ marginLeft: 8, verticalAlign: -3 }}>
+            <svg viewBox="0 0 24 24" width={18} height={18} stroke="currentColor" fill="none" strokeWidth={2.2} style={{ marginLeft: 8, verticalAlign: -3 }}>
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </a>
-          <a href="#" className="hc-btn-ghost" style={{ padding: "14px 26px", borderRadius: 11, fontWeight: 600, fontSize: 15.5, color: PRIMARY }}>
+          <a href="#" className="hc-btn-ghost" style={{ padding: "18px 32px", borderRadius: 12, fontWeight: 600, fontSize: 17, color: PRIMARY }}>
             Talk to us
           </a>
         </div>

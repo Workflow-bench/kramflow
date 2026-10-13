@@ -4,8 +4,8 @@ import { requestSignOut } from "@/lib/auth/sign-out";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PasswordInput } from "@/components/auth/password-input";
-import { Button } from "@/components/ui/button";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { safeNext } from "@/lib/safe-redirect";
 import { validatedNext, withNext } from "@/lib/auth/continuation";
 
@@ -83,7 +83,6 @@ function SetPasswordForm() {
     <AuthShell
       title="Set your password"
       support="You are logged in with a temporary password. Choose a new one to continue."
-      showArt={false}
       footer={
         <button
           type="button"
@@ -142,9 +141,7 @@ function SetPasswordForm() {
               </p>
             )}
 
-            <Button type="submit" variant="primary" size="public" loading={submitting} className="w-full">
-              Set Password &amp; Continue
-            </Button>
+            <AuthSubmitButton loading={submitting}>Set Password &amp; Continue</AuthSubmitButton>
           </form>
     </AuthShell>
   );

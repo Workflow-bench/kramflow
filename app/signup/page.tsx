@@ -5,8 +5,9 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/auth/password-input";
-import { Button, LinkButton } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { inviteDestination, validatedNext } from "@/lib/auth/continuation";
 
 function SignupForm() {
@@ -73,7 +74,6 @@ function SignupForm() {
       <AuthShell
         title="Check your email"
         support={`We sent a confirmation link to ${email}. Click it to activate your account, then log in.`}
-        showArt={false}
       >
         <LinkButton href={`/login?next=${encodeURIComponent(next)}`} variant="secondary" size="public" className="w-full">
           Back to log in
@@ -169,9 +169,7 @@ function SignupForm() {
           </p>
         )}
 
-        <Button type="submit" variant="primary" size="public" loading={submitting} className="w-full">
-          Sign Up
-        </Button>
+        <AuthSubmitButton loading={submitting}>Sign Up</AuthSubmitButton>
       </form>
     </AuthShell>
   );

@@ -5,9 +5,9 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/auth/password-input";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { safeNext } from "@/lib/safe-redirect";
 import { validatedNext, withNext } from "@/lib/auth/continuation";
 
@@ -180,9 +180,7 @@ function LoginForm() {
           </p>
         )}
 
-        <Button type="submit" variant="primary" size="public" loading={submitting} className="w-full">
-          Log In
-        </Button>
+        <AuthSubmitButton loading={submitting}>Log In</AuthSubmitButton>
       </form>
     </AuthShell>
   );

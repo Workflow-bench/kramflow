@@ -1,34 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useLayoutEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { Wordmark } from "@/components/site/wordmark";
 import { useReduced } from "@/components/site/motion";
-import { AuthArtBackdrop } from "./auth-art-backdrop";
+import consoleShot from "@/public/product/console.png";
 
 /**
- * Static product preview for the auth split. The same anatomy as the landing demo's
- * Operator Console replica (components/site/replica/console-replica.tsx): a program
- * rail, the live item, a countdown. No timers and no motion on the data itself — it is
- * a composition, not a live status, labelled as a preview so it cannot read as a real
- * show. Built with the exact token language that replica uses (the uppercase
- * `text-[10px] tracking-[0.16em] text-muted-2` section label, `tnum` on every number,
- * the `status-green/10` live row), not an approximation of it, so this panel reads as
- * the same product, not a different mockup style.
+ * The auth split's left panel: the real Operator Console (the same capture
+ * `ProductShot` uses on the homepage — `scripts/capture-product.mjs` against
+ * the seeded "Northwind Summit 2026" event, not a mockup) filling the panel
+ * edge to edge, with a scrim for the logo and headline sitting on top of it.
+ * A prior version of this panel was a hand-built miniature replica of the
+ * console; that read as decoration *about* the product. A real, large
+ * capture reads as the product itself - the same reasoning product-shot.tsx
+ * already documents for the homepage.
  */
-const PROGRAM = [
-  { n: 1, title: "Opening remarks", owner: "Amara Osei", state: "done" },
-  { n: 2, title: "Keynote", owner: "Rafael Costa", state: "live" },
-  { n: 3, title: "Sponsor reel", owner: "AV", state: "next" },
-] as const;
-
-const OUTPUTS = [
-  { label: "Stage", status: "Live", tone: "text-status-green" },
-  { label: "Speaker", status: "Next cue", tone: "text-status-blue" },
-  { label: "Lobby", status: "Standby", tone: "text-status-orange" },
-] as const;
-
 export function AuthArt({ className = "" }: { className?: string }) {
   const reduced = useReduced();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -47,8 +36,8 @@ export function AuthArt({ className = "" }: { className?: string }) {
       gsap.to(targets, {
         opacity: 1,
         y: 0,
-        duration: 0.5,
-        stagger: 0.08,
+        duration: 0.6,
+        stagger: 0.1,
         ease: "power2.out",
         delay: 0.1,
       });
@@ -57,16 +46,24 @@ export function AuthArt({ className = "" }: { className?: string }) {
   }, [reduced]);
 
   return (
-    <div
-      ref={rootRef}
-      aria-hidden="true"
-      className={`auth-art-panel relative isolate overflow-hidden border-r border-line-soft p-12 ${className}`}
-    >
-      <AuthArtBackdrop />
+    <div ref={rootRef} aria-hidden="true" className={`relative isolate overflow-hidden bg-black ${className}`}>
+      <Image
+        src={consoleShot}
+        alt=""
+        fill
+        sizes="(min-width: 900px) 55vw, 0px"
+        quality={90}
+        priority
+        className="object-cover object-left-top opacity-90"
+      />
 
-      <div className="relative flex h-full flex-col">
-        {/* The one logo for the whole auth split (auth-shell.tsx hides its own copy
-            once this panel is shown) — top-left, a real link back to the homepage. */}
+      {/* Legibility scrims: a top-down wash so the logo sits on dark ground
+          regardless of what the capture shows underneath it, and a taller
+          bottom wash the headline needs to read over busy console pixels. */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/75 via-black/10 to-black/85" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black via-black/55 to-transparent" />
+
+      <div className="relative flex h-full flex-col p-10 sm:p-12">
         <Link
           data-art-reveal
           href="/"
@@ -75,63 +72,17 @@ export function AuthArt({ className = "" }: { className?: string }) {
           <Wordmark />
         </Link>
 
-        {/* The proof sits in the panel's vertical center, between the logo and the
-            closing line — not pinned to the top with the rest of the height left
-            empty below it. */}
-        <div className="flex flex-1 flex-col justify-center">
-          <div data-art-reveal className="glass-panel rounded-panel border border-line p-5 shadow-[0_40px_120px_-48px_rgba(0,0,0,0.9)]">
-            <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-muted-2">
-              <span>Program</span>
-              <span className="tnum">2 / 3</span>
-            </div>
-            <ul className="mt-3 flex flex-col">
-              {PROGRAM.map((item) => (
-                <li
-                  key={item.n}
-                  className={`flex items-center gap-3 border-b border-line-soft px-1 py-2.5 last:border-b-0 ${
-                    item.state === "live" ? "bg-status-green/10" : ""
-                  }`}
-                >
-                  <span className="tnum w-4 text-[12px] text-muted-2">{item.n}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className={`block truncate text-[13px] ${item.state === "live" ? "text-primary" : "text-muted"}`}>
-                      {item.title}
-                    </span>
-                    <span className="block text-[11px] text-muted-2">{item.owner}</span>
-                  </span>
-                  <span
-                    className={`tnum text-[10px] uppercase tracking-[0.16em] ${
-                      item.state === "live" ? "text-status-green" : "text-muted-2"
-                    }`}
-                  >
-                    {item.state === "live" ? "Live" : item.state === "next" ? "Next" : "Done"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 flex items-baseline justify-between border-t border-line-soft pt-4">
-              <span className="text-[12px] text-muted">Remaining</span>
-              <span className="tnum text-[28px] leading-none text-primary">04:12</span>
-            </div>
-          </div>
-
-          <div data-art-reveal className="mt-4 grid grid-cols-3 gap-3">
-            {OUTPUTS.map((out) => (
-              <div key={out.label} className="glass-panel rounded-control border border-line-soft p-3">
-                <p className="text-[13px] text-primary">{out.label}</p>
-                <p className={`mt-2 text-[12px] ${out.tone}`}>{out.status}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* The closing line, last — read after the proof above it, not before it. */}
-        <div data-art-reveal className="flex flex-col gap-2">
-          <p className="tnum text-[12px] uppercase tracking-[0.2em] text-muted-2">Product preview</p>
-          <p className="font-display text-[clamp(1.75rem,2.6vw,2.25rem)] leading-[1.1] text-primary">
+        <div className="mt-auto flex flex-col gap-3">
+          <p data-art-reveal className="tnum text-[12px] uppercase tracking-[0.2em] text-muted-2">
+            The real Operator Console
+          </p>
+          <p data-art-reveal className="font-display text-[clamp(1.75rem,2.6vw,2.5rem)] leading-[1.1] text-primary">
             One cue.
             <br />
             The whole room follows.
+          </p>
+          <p data-art-reveal className="max-w-[36ch] text-[14px] leading-5 text-muted">
+            Rundown, live countdown and show controls, all synced to every screen in the venue.
           </p>
         </div>
       </div>
