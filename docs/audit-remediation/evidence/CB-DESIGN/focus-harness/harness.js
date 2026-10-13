@@ -14720,7 +14720,7 @@
         let hash = urlObj.hash || "";
         let query = urlObj.query || "";
         let host = false;
-        auth = auth ? encodeURIComponent(auth).replace(/%3A/i, ":") + "@" : "";
+        auth = auth ? encodeURIComponent(auth).replace(/%3A/gi, ":") + "@" : "";
         if (urlObj.host) {
           host = auth + urlObj.host;
         } else if (hostname) {
@@ -14743,7 +14743,7 @@
         if (hash && hash[0] !== "#") hash = "#" + hash;
         if (search && search[0] !== "?") search = "?" + search;
         pathname = pathname.replace(/[?#]/g, encodeURIComponent);
-        search = search.replace("#", "%23");
+        search = search.replace(/#/g, "%23");
         return `${protocol}${host}${pathname}${search}${hash}`;
       }
       var urlObjectKeys = [
