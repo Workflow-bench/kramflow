@@ -5,6 +5,7 @@ import { getSessionById } from "@/lib/data/sessions";
 import { audioSummary, getLive, getNext, getOnDeck, lightingSummary, videoSummary } from "@/lib/types";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
+import type { EventRole } from "@/lib/event-context";
 import { useDisplayTimer, useDisplayClock } from "@/lib/display-engine/use-display-timer";
 import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
 import { deriveProgress, deriveAutoTimerInput, deriveStageStatus } from "@/lib/display-engine/live-progress";
@@ -29,9 +30,17 @@ import { LinkInvalid } from "@/components/auth/link-invalid";
  * status reuses the existing audioSummary/videoSummary/lightingSummary
  * helpers rather than duplicating that logic.
  */
-export default function AvDisplayClient({ token, eventId }: { token?: string; eventId?: string }) {
+export default function AvDisplayClient({
+  token,
+  eventId,
+  role,
+}: {
+  token?: string;
+  eventId?: string;
+  role?: EventRole;
+}) {
   return (
-    <DisplayEngineProvider token={token} eventId={eventId} displayType="av">
+    <DisplayEngineProvider token={token} eventId={eventId} displayType="av" role={role}>
       <AvDisplayInner token={token} eventId={eventId} />
     </DisplayEngineProvider>
   );

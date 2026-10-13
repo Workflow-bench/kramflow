@@ -34,5 +34,43 @@ export async function requireAuthUser(): Promise<NextResponse | { user: User }> 
   if (!user) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+  const blocked = requirePasswordCurrent(user);
+  if (blocked) return blocked;
   return { user };
+}
+
+// A collaborator invited via app/api/events/[eventId]/collaborators/
+// route.ts is confirmed immediately with a temporary password and
+// app_metadata.must_change_password=true. proxy.ts redirects flagged
+// *page* navigations to /set-password, but it explicitly exempts every
+// /api/ path (see proxy.ts) — so this is the actual boundary for every
+// route that authenticates through requireAuthUser() or
+// requireEventAccess(), the two shared guards that both call this.
+//
+// Correction (Codex Phase 1 review, KF-002/R2): an earlier version of this
+// comment claimed app/api/auth/set-password/route.ts *and*
+// app/api/invites/[token]/accept/route.ts were both a deliberate, narrow
+// exception to this check — wrong for the second one, and Codex caught it.
+// set-password is the real exception: it's the one operation a flagged
+// session must be able to reach to stop being flagged, so it
+// correctly does its own raw getUser() without this check. Invite
+// acceptance is not in that category — matching the invite's email proves
+// identity, not that the temporary password has been replaced, and both
+// the original Fix Guide and the master remediation contract require
+// acceptance to fail until it has. accept/route.ts now calls
+// requirePasswordCurrent() directly (it doesn't go through
+// requireAuthUser()/requireEventAccess() either, since it isn't
+// event-scoped and needs the user object before any event lookup) — see
+// its own comment. This file's job is exported helper + the two guards
+// that share it; routes with their own raw getUser() are responsible for
+// calling requirePasswordCurrent() themselves if they need it, and
+// set-password is the only one that's correctly exempt.
+export function requirePasswordCurrent(user: User): NextResponse | null {
+  if (user.app_metadata?.must_change_password) {
+    return NextResponse.json(
+      { ok: false, error: "Set a new password before continuing.", code: "must_change_password" },
+      { status: 403 }
+    );
+  }
+  return null;
 }

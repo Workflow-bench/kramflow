@@ -1,0 +1,127 @@
+[
+ {
+  "name": "viewport 1440x900 readback 1440x900",
+  "ok": true,
+  "detail": "{\"vw\":1440,\"vh\":900,\"sw\":1440,\"cw\":1440,\"h1\":\"92.16px\"}"
+ },
+ {
+  "name": "viewport 1440x900 no horizontal page scroll",
+  "ok": true,
+  "detail": "scrollWidth 1440 clientWidth 1440"
+ },
+ {
+  "name": "viewport 1440x900 no page errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "viewport 1366x768 readback 1366x768",
+  "ok": true,
+  "detail": "{\"vw\":1366,\"vh\":768,\"sw\":1366,\"cw\":1366,\"h1\":\"71.032px\"}"
+ },
+ {
+  "name": "viewport 1366x768 no horizontal page scroll",
+  "ok": true,
+  "detail": "scrollWidth 1366 clientWidth 1366"
+ },
+ {
+  "name": "viewport 1366x768 no page errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "viewport 375x812 readback 375x812",
+  "ok": true,
+  "detail": "{\"vw\":375,\"vh\":812,\"sw\":375,\"cw\":375,\"h1\":\"44px\"}"
+ },
+ {
+  "name": "viewport 375x812 no horizontal page scroll",
+  "ok": true,
+  "detail": "scrollWidth 375 clientWidth 375"
+ },
+ {
+  "name": "viewport 375x812 no page errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "viewport 320x640 readback 320x640",
+  "ok": true,
+  "detail": "{\"vw\":320,\"vh\":640,\"sw\":320,\"cw\":320,\"h1\":\"44px\"}"
+ },
+ {
+  "name": "viewport 320x640 no horizontal page scroll",
+  "ok": true,
+  "detail": "scrollWidth 320 clientWidth 320"
+ },
+ {
+  "name": "viewport 320x640 no page errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "shader draws while hero visible",
+  "ok": true,
+  "detail": "draws/s 60"
+ },
+ {
+  "name": "shader suspends while offscreen",
+  "ok": true,
+  "detail": "draws/s offscreen 0 (scrollY 5000) vs visible 60"
+ },
+ {
+  "name": "live reduce: data-motion off (CSS)",
+  "ok": true,
+  "detail": "motion off"
+ },
+ {
+  "name": "live reduce: smoother destroyed (GSAP)",
+  "ok": true,
+  "detail": "transform present false"
+ },
+ {
+  "name": "live reduce: pinned scene released (GSAP)",
+  "ok": true,
+  "detail": "pin spacers 0"
+ },
+ {
+  "name": "live reduce: shader stops (WebGL)",
+  "ok": true,
+  "detail": "draws/s 0"
+ },
+ {
+  "name": "restore: data-motion on",
+  "ok": true,
+  "detail": "motion on"
+ },
+ {
+  "name": "restore: smoother recreated",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "restore: pinned scene recreated",
+  "ok": true,
+  "detail": "pin spacers 1"
+ },
+ {
+  "name": "restore: shader resumes",
+  "ok": true,
+  "detail": "draws/s 60"
+ },
+ {
+  "name": "scene forward: caption advances through phases",
+  "ok": true,
+  "detail": "[\"Before the cue · Opening Keynote\",\"Console cut · Product Launch Demo\",\"Reaching the room\",\"Display views updated\"]"
+ },
+ {
+  "name": "scene back: caption retreats through phases",
+  "ok": true,
+  "detail": "[\"Display views updated\",\"Reaching the room\",\"Console cut · Product Launch Demo\",\"Before the cue · Opening Keynote\"]"
+ },
+ {
+  "name": "scene scroll range traversed",
+  "ok": true,
+  "detail": "peak scrollY 3600"
+ }
+]

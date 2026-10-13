@@ -1,0 +1,97 @@
+[
+ {
+  "name": "1 overlay covers from the very first sample (no hero flash)",
+  "ok": true,
+  "detail": "{\"t\":229,\"overlayOpacity\":\"1\",\"overlayScaleY\":1,\"arrivalRunning\":false,\"arrivalBoot\":true,\"wordText\":\"Plan\",\"wordOpacity\":\"0\"}"
+ },
+ {
+  "name": "1 all 4 words appear in sequence, in order",
+  "ok": true,
+  "detail": "[\"Plan\",\"Preview\",\"Rehearse\",\"Live\"]"
+ },
+ {
+  "name": "1 curtain collapses (scaleY -> ~0) before settling",
+  "ok": true,
+  "detail": "min scaleY 0"
+ },
+ {
+  "name": "1 settles: class removed, overlay invisible",
+  "ok": true,
+  "detail": "settledAt 3396ms"
+ },
+ {
+  "name": "1 total duration (informational, measured not enforced)",
+  "ok": true,
+  "detail": "settledAt 3396ms"
+ },
+ {
+  "name": "1 real hero eyebrow intact after wipe",
+  "ok": true,
+  "detail": "Live event operations"
+ },
+ {
+  "name": "1 storage written on completion",
+  "ok": true,
+  "detail": "stored 1"
+ },
+ {
+  "name": "1 no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "2 repeat visit: no loading screen",
+  "ok": true,
+  "detail": "{\"overlayOpacity\":\"0\",\"overlayScaleY\":1,\"arrivalRunning\":false,\"arrivalBoot\":false,\"wordText\":\"Plan\",\"wordOpacity\":\"0\"}"
+ },
+ {
+  "name": "3 deep link: no loading screen",
+  "ok": true,
+  "detail": "{\"overlayOpacity\":\"0\",\"overlayScaleY\":1,\"arrivalRunning\":false,\"arrivalBoot\":false,\"wordText\":\"Plan\",\"wordOpacity\":\"0\"}"
+ },
+ {
+  "name": "3 deep link: lands at target",
+  "ok": true,
+  "detail": "top 88"
+ },
+ {
+  "name": "4 was mid-sequence before interrupt",
+  "ok": true,
+  "detail": "{\"overlayOpacity\":\"1\",\"overlayScaleY\":1,\"arrivalRunning\":true,\"arrivalBoot\":true,\"wordText\":\"Plan\",\"wordOpacity\":\"1\"}"
+ },
+ {
+  "name": "4 interruption releases overlay (not stuck)",
+  "ok": true,
+  "detail": "{\"overlayOpacity\":\"0\",\"overlayScaleY\":1,\"arrivalRunning\":false,\"arrivalBoot\":false,\"wordText\":\"Plan\",\"wordOpacity\":\"0\"}"
+ },
+ {
+  "name": "4 interruption marks visit seen (by design)",
+  "ok": true,
+  "detail": "stored 1"
+ },
+ {
+  "name": "4 real CTA reachable after interrupt",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "4 no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "5 reduced motion: overlay never shows",
+  "ok": true,
+  "detail": "{\"overlayOpacity\":\"0\",\"overlayScaleY\":1,\"arrivalRunning\":false,\"arrivalBoot\":false,\"wordText\":\"Plan\",\"wordOpacity\":\"0\"}"
+ },
+ {
+  "name": "6 overlay visible at this point (sanity)",
+  "ok": true,
+  "detail": "{\"overlayOpacity\":\"1\",\"overlayScaleY\":1,\"arrivalRunning\":true,\"arrivalBoot\":true,\"wordText\":\"Plan\",\"wordOpacity\":\"1\"}"
+ },
+ {
+  "name": "6 overlay never captures pointer events",
+  "ok": true,
+  "detail": "pointer-events: none"
+ }
+]

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kramflow — Concept A: The Queue Itself</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    color: #111;
+    background: #fff;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+  .tag {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #777;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 6px;
+    margin-bottom: 20px;
+    font-weight: bold;
+  }
+  section { border-top: 1px solid #000; padding: 56px 0; }
+  section:first-of-type { border-top: none; }
+  h1, h2, h3 { font-weight: bold; margin: 0; }
+  p { color: #333; line-height: 1.5; margin: 0; }
+  .box {
+    border: 1px solid #000;
+    background: repeating-linear-gradient(45deg, #fff, #fff 8px, #f0f0f0 8px, #f0f0f0 16px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #555;
+    font-size: 13px;
+  }
+  .btn {
+    display: inline-block;
+    border: 1.5px solid #111;
+    padding: 12px 26px;
+    font-size: 14px;
+    font-weight: bold;
+    background: #fff;
+  }
+  .btn.primary { background: #111; color: #fff; }
+  .muted { color: #888; font-size: 13px; }
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0;
+    border-bottom: 1px solid #000;
+  }
+  nav .links { display: flex; gap: 28px; font-size: 14px; }
+  nav .logo { font-weight: bold; font-size: 18px; letter-spacing: -0.02em; }
+  footer { border-top: 1px solid #000; padding: 40px 0; font-size: 13px; color: #777; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .center { text-align: center; }
+  .small-caps { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #999; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav>
+    <div class="logo">KRAMFLOW</div>
+    <div class="links">
+      <span>Product</span><span>Displays</span><span>Pricing</span><span>Docs</span>
+    </div>
+    <div style="display:flex; gap:12px;">
+      <span class="btn" style="padding:8px 18px;">Sign in</span>
+      <span class="btn primary" style="padding:8px 18px;">Start free</span>
+    </div>
+  </nav>
+</div>
+
+<!-- HERO -->
+<div class="wrap">
+<section style="padding-top:64px; padding-bottom:48px;">
+  <div class="tag">HERO — headline + subhead + CTA (everything below fits one screen, ~1280×800)</div>
+  <div class="center" style="max-width:760px; margin:0 auto;">
+    <h1 style="font-size:46px; line-height:1.08;">What's live. What's next. On every screen in the room.</h1>
+    <p style="margin-top:18px; font-size:18px;">Kramflow is the production console for multi-day events — one operator runs the queue, every connected display reflects it in under a second.</p>
+    <div style="margin-top:26px; display:flex; gap:14px; justify-content:center;">
+      <span class="btn primary">Start running your event — free</span>
+      <span class="btn">See a live display</span>
+    </div>
+  </div>
+
+  <div class="box" style="height:360px; margin-top:40px; position:relative;">
+    LIVE-STATE MOCKUP — large TV-style display showing current cue in big type ("NOW: Keynote — Opening Remarks")
+    and a smaller "NEXT" line beneath it, plus a thin operator-console strip along the bottom edge of the same
+    graphic implying the console drives this screen directly
+  </div>
+</section>
+</div>
+
+<!-- TRUST STRIP -->
+<div class="wrap">
+<section style="padding:28px 0;">
+  <div class="tag">QUIET TRUST STRIP — one reassurance line, no logos, no noise</div>
+  <p class="center muted" style="font-size:14px;">Built for 200+ item cue sheets across multi-day, multi-session events — not a countdown timer stretched to fit.</p>
+</section>
+</div>
+
+<!-- HOW IT WORKS DIAGRAM -->
+<div class="wrap">
+<section>
+  <div class="tag">HOW IT WORKS — one diagram, operator console fans out to four displays</div>
+  <h2 style="font-size:28px; max-width:600px;">One operator. One queue. Every screen in sync.</h2>
+  <div style="display:flex; align-items:center; gap:18px; margin-top:40px;">
+    <div class="box" style="width:220px; height:140px; flex-shrink:0;">OPERATOR CONSOLE<br>(laptop / phone)</div>
+    <div style="font-size:28px; color:#999;">→</div>
+    <div class="box" style="height:140px; flex:1;">LIVE QUEUE (the shared source of truth — title, timing, owner, production needs per item)</div>
+    <div style="font-size:28px; color:#999;">→</div>
+    <div class="grid-4" style="flex:1;">
+      <div class="box" style="height:140px; font-size:11px;">GENERAL<br>lobby / public</div>
+      <div class="box" style="height:140px; font-size:11px;">AV<br>technical crew</div>
+      <div class="box" style="height:140px; font-size:11px;">GREEN ROOM<br>performers</div>
+      <div class="box" style="height:140px; font-size:11px;">PRESENTER<br>confidence monitor</div>
+    </div>
+  </div>
+  <p class="muted" style="margin-top:16px;">~1 second from console action to every screen updating.</p>
+</section>
+</div>
+
+<!-- OPERATOR FEATURES -->
+<div class="wrap">
+<section>
+  <div class="tag">FOR OPERATORS — feature trio, task-focused</div>
+  <h2 style="font-size:26px;">Run the show, not the spreadsheet.</h2>
+  <div class="grid-3" style="margin-top:32px;">
+    <div>
+      <div class="box" style="height:160px;">SCREENSHOT — drag-reorder queue, bulk select</div>
+      <h3 style="margin-top:14px; font-size:16px;">Reorder live, mid-show</h3>
+      <p style="margin-top:6px; font-size:14px;">Drag-and-drop the queue and bulk-edit items without stopping the program.</p>
+    </div>
+    <div>
+      <div class="box" style="height:160px;">SCREENSHOT — cascading schedule recalculation</div>
+      <h3 style="margin-top:14px; font-size:16px;">Timing that cascades</h3>
+      <p style="margin-top:6px; font-size:14px;">Change one item's duration and the rest of the day recalculates automatically.</p>
+    </div>
+    <div>
+      <div class="box" style="height:160px;">SCREENSHOT — dynamic add-item form with per-context fields</div>
+      <h3 style="margin-top:14px; font-size:16px;">Fields that fit the room</h3>
+      <p style="margin-top:6px; font-size:14px;">Mic counts, camera angles, slides — the form adapts to the auditorium and program type.</p>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- DISPLAYS FOR EVERYONE ELSE -->
+<div class="wrap">
+<section>
+  <div class="tag">FOR EVERYONE ELSE IN THE VENUE — no login, no app, just a link</div>
+  <h2 style="font-size:26px;">Performers, crew, and presenters never touch a console.</h2>
+  <p style="margin-top:10px; max-width:640px;">Share one link, a QR code, or a 6-digit TV code. Whoever opens it picks their screen.</p>
+  <div class="grid-4" style="margin-top:32px;">
+    <div class="box" style="height:180px; flex-direction:column;">GENERAL DISPLAY<br><span class="muted">public / lobby TV</span></div>
+    <div class="box" style="height:180px; flex-direction:column;">AV DISPLAY<br><span class="muted">technical requirements</span></div>
+    <div class="box" style="height:180px; flex-direction:column;">GREEN ROOM<br><span class="muted">"prepare now" cue for performers</span></div>
+    <div class="box" style="height:180px; flex-direction:column;">PRESENTER MONITOR<br><span class="muted">confidence monitor</span></div>
+  </div>
+</section>
+</div>
+
+<!-- CTA -->
+<div class="wrap">
+<section class="center">
+  <div class="tag">CLOSING CTA — single decisive action</div>
+  <h2 style="font-size:30px;">Your next event doesn't need a shouted spreadsheet.</h2>
+  <div style="margin-top:22px;">
+    <span class="btn primary">Start free — no credit card</span>
+  </div>
+</section>
+</div>
+
+<footer>
+  <div class="wrap" style="display:flex; justify-content:space-between;">
+    <div>KRAMFLOW</div>
+    <div>Product · Displays · Pricing · Docs · Sign in</div>
+  </div>
+</footer>
+
+</body>
+</html>

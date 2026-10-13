@@ -1,0 +1,168 @@
+{
+ "landing-desktop": {
+  "viewport": 1440,
+  "axNodes": 504,
+  "ignoredNodes": 116,
+  "headingCount": 11,
+  "headings": [
+   {
+    "level": 2,
+    "name": "Now you call the cue."
+   },
+   {
+    "level": 2,
+    "name": "Built for the live room."
+   },
+   {
+    "level": 2,
+    "name": "Built for the minute it goes wrong."
+   },
+   {
+    "level": 2,
+    "name": "When the room moves, Kramflow moves with it."
+   },
+   {
+    "level": 1,
+    "name": "Run the show from one screen."
+   },
+   {
+    "level": 2,
+    "name": "One cue. The room responds."
+   },
+   {
+    "level": 3,
+    "name": "Countdown that knows it is late ● LIVE"
+   },
+   {
+    "level": 3,
+    "name": "Reorder mid-show ● LIVE"
+   },
+   {
+    "level": 3,
+    "name": "One operator drives ● LIVE"
+   },
+   {
+    "level": 3,
+    "name": "Say it to the room ● LIVE"
+   },
+   {
+    "level": 3,
+    "name": "No login on the wall ● LIVE"
+   }
+  ],
+  "duplicateHeadings": [],
+  "landmarks": [
+   "main:",
+   "navigation:"
+  ],
+  "unnamedInteractive": 0,
+  "interactive": [
+   "link: Skip to content",
+   "link: Kramflow",
+   "link: ONE CUE",
+   "link: PRODUCT",
+   "link: FEATURES",
+   "link: LOG IN",
+   "link: Start free",
+   "link: OPERATOR LOG IN",
+   "button: Next",
+   "button: + 1 min",
+   "button: Reset",
+   "link: Start free",
+   "link: Start free"
+  ]
+ },
+ "landing-mobile": {
+  "viewport": 375,
+  "axNodes": 436,
+  "ignoredNodes": 89,
+  "headingCount": 11,
+  "headings": [
+   {
+    "level": 2,
+    "name": "One cue. The room responds."
+   },
+   {
+    "level": 2,
+    "name": "Now you call the cue."
+   },
+   {
+    "level": 2,
+    "name": "Built for the live room."
+   },
+   {
+    "level": 2,
+    "name": "Built for the minute it goes wrong."
+   },
+   {
+    "level": 2,
+    "name": "When the room moves, Kramflow moves with it."
+   },
+   {
+    "level": 1,
+    "name": "Run the show from one screen."
+   },
+   {
+    "level": 3,
+    "name": "Countdown that knows it is late ● LIVE"
+   },
+   {
+    "level": 3,
+    "name": "Reorder mid-show ● LIVE"
+   },
+   {
+    "level": 3,
+    "name": "One operator drives ● LIVE"
+   },
+   {
+    "level": 3,
+    "name": "Say it to the room ● LIVE"
+   },
+   {
+    "level": 3,
+    "name": "No login on the wall ● LIVE"
+   }
+  ],
+  "duplicateHeadings": [],
+  "landmarks": [
+   "main:",
+   "navigation:"
+  ],
+  "unnamedInteractive": 0,
+  "interactive": [
+   "link: Skip to content",
+   "link: Kramflow",
+   "button: Open menu",
+   "link: OPERATOR LOG IN",
+   "button: Next",
+   "button: + 1 min",
+   "button: Reset",
+   "link: Start free",
+   "link: Start free"
+  ]
+ },
+ "login": {
+  "viewport": 1280,
+  "axNodes": 46,
+  "ignoredNodes": 7,
+  "headingCount": 1,
+  "headings": [
+   {
+    "level": 1,
+    "name": "Log in to your account"
+   }
+  ],
+  "duplicateHeadings": [],
+  "landmarks": [
+   "main:"
+  ],
+  "unnamedInteractive": 0,
+  "interactive": [
+   "link: Kramflow",
+   "button: Log In",
+   "link: Sign up",
+   "button: Show password",
+   "link: Forgot password?"
+  ]
+ }
+}

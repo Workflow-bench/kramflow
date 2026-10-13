@@ -1,0 +1,111 @@
+▲ Next.js 16.3.5 (webpack)
+- Environments: .env.local
+✓ Running next.config.ts took 15ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 4.2s
+  Running TypeScript ...
+  Finished TypeScript in 1747ms ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/61) ...
+  Generating static pages using 11 workers (15/61) 
+  Generating static pages using 11 workers (30/61) 
+  Generating static pages using 11 workers (45/61) 
+✓ Generating static pages using 11 workers (61/61) in 389ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/ai/alert-draft
+├ ƒ /api/ai/cue-sheet-import
+├ ƒ /api/ai/cue-sheet-import/commit
+├ ƒ /api/ai/readiness-review
+├ ƒ /api/ai/session-report
+├ ƒ /api/ai/status
+├ ƒ /api/auditoriums
+├ ƒ /api/auth/login
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/resend
+├ ƒ /api/auth/reset
+├ ƒ /api/auth/set-password
+├ ƒ /api/auth/signup
+├ ƒ /api/cue-sheet/export
+├ ƒ /api/cue-sheet/upload
+├ ƒ /api/display-engine/broadcasts
+├ ƒ /api/display-engine/broadcasts/[id]
+├ ƒ /api/display-engine/broadcasts/[id]/acknowledge
+├ ƒ /api/display-engine/broadcasts/[id]/dismiss
+├ ƒ /api/display-engine/broadcasts/[id]/promote
+├ ƒ /api/display-engine/hold
+├ ƒ /api/display-engine/profiles
+├ ƒ /api/display-engine/profiles/[id]
+├ ƒ /api/display-engine/registry
+├ ƒ /api/display-engine/registry/[id]
+├ ƒ /api/display-engine/speaker-ready
+├ ƒ /api/display-engine/time
+├ ƒ /api/display-engine/timer
+├ ƒ /api/display-view
+├ ƒ /api/events
+├ ƒ /api/events/[eventId]
+├ ƒ /api/events/[eventId]/collaborators
+├ ƒ /api/events/[eventId]/integrations
+├ ƒ /api/events/[eventId]/integrations/[credentialId]
+├ ƒ /api/invites/[token]/accept
+├ ƒ /api/live
+├ ƒ /api/observability/report
+├ ƒ /api/partitions/[id]
+├ ƒ /api/programs
+├ ƒ /api/programs/[id]
+├ ƒ /api/programs/bulk
+├ ƒ /api/programs/move
+├ ƒ /api/programs/swap
+├ ƒ /api/sessions
+├ ƒ /api/sessions/[id]
+├ ƒ /api/share-links
+├ ƒ /api/share-links/[id]
+├ ƒ /api/tv/connect
+├ ƒ /api/v1/events/[eventId]/actions/[action]
+├ ƒ /api/v1/events/[eventId]/state
+├ ○ /apple-icon.png
+├ ƒ /auth/callback
+├ ƒ /av
+├ ƒ /custom
+├ ƒ /dashboard
+├ ○ /dev/components
+├ ○ /dev/import
+├ ○ /dev/import/console
+├ ○ /dev/modal
+├ ○ /dev/realtime
+├ ○ /dev/rehearsal
+├ ƒ /e/[eventId]/broadcast
+├ ƒ /e/[eventId]/displays
+├ ƒ /e/[eventId]/operator
+├ ƒ /e/[eventId]/operator/cue-sheet
+├ ƒ /e/[eventId]/operator/cue-sheet/print
+├ ƒ /e/[eventId]/operator/cue-sheet/report
+├ ƒ /e/[eventId]/rehearsal
+├ ƒ /e/[eventId]/remote
+├ ƒ /e/[eventId]/settings
+├ ƒ /general
+├ ƒ /green-room
+├ ○ /icon.svg
+├ ƒ /invite/[token]
+├ ○ /login
+├ ○ /opengraph-image
+├ ƒ /presenter
+├ ○ /reset
+├ ○ /robots.txt
+├ ƒ /screens
+├ ○ /set-password
+├ ○ /signup
+├ ○ /sitemap.xml
+└ ○ /tv
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

@@ -1,0 +1,313 @@
+{
+  "label": "after",
+  "viewports": [
+    {
+      "view": "1280x720",
+      "innerWidth": 1280,
+      "innerHeight": 720,
+      "scrollWidth": 1280,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "heroHeight": 720,
+      "apertureHeight": 228,
+      "apertureVisibleInFirstViewport": 228,
+      "apertureMask": "none",
+      "h1FontSize": "58.88px",
+      "ctaCount": 2,
+      "standbyOverlay": false
+    },
+    {
+      "view": "1440x900",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "heroHeight": 900,
+      "apertureHeight": 363,
+      "apertureVisibleInFirstViewport": 363,
+      "apertureMask": "linear-gradient(rgb(0, 0, 0) 0%, rgb(0, 0, 0) 84%, rgba(0, 0, 0, 0) 100%)",
+      "h1FontSize": "80.64px",
+      "ctaCount": 2,
+      "standbyOverlay": false
+    },
+    {
+      "view": "1920x1080",
+      "innerWidth": 1920,
+      "innerHeight": 1080,
+      "scrollWidth": 1920,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "heroHeight": 1080,
+      "apertureHeight": 520,
+      "apertureVisibleInFirstViewport": 520,
+      "apertureMask": "linear-gradient(rgb(0, 0, 0) 0%, rgb(0, 0, 0) 59%, rgba(0, 0, 0, 0) 100%)",
+      "h1FontSize": "92px",
+      "ctaCount": 2,
+      "standbyOverlay": false
+    },
+    {
+      "view": "1280x600-compact",
+      "innerWidth": 1280,
+      "innerHeight": 600,
+      "scrollWidth": 1280,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "heroHeight": 631,
+      "apertureHeight": 190,
+      "apertureVisibleInFirstViewport": 160,
+      "apertureMask": "none",
+      "h1FontSize": "48.64px",
+      "ctaCount": 2,
+      "standbyOverlay": false
+    },
+    {
+      "view": "375x812-mobile",
+      "innerWidth": 375,
+      "innerHeight": 812,
+      "scrollWidth": 375,
+      "horizontalOverflow": false,
+      "headerHeight": 77,
+      "heroHeight": 812,
+      "apertureHeight": 320,
+      "apertureVisibleInFirstViewport": 293,
+      "apertureMask": "linear-gradient(rgb(0, 0, 0) 0%, rgb(0, 0, 0) 23%, rgba(0, 0, 0, 0) 100%)",
+      "h1FontSize": "44px",
+      "ctaCount": 2,
+      "standbyOverlay": false
+    }
+  ],
+  "checks": {
+    "ambientMotion": {
+      "shaderMounted": true,
+      "meanChannelDiff_0s_to_2s": 1.392,
+      "meanChannelDiff_2s_to_4s": 1.922,
+      "meanChannelDiff_0s_to_4s": 1.283
+    },
+    "pause": {
+      "canvasBefore": true,
+      "whilePaused": {
+        "canvas": false,
+        "staticField": true,
+        "headingReadable": true,
+        "label": "Resume motion"
+      },
+      "canvasAfterResume": true
+    },
+    "reducedMotion": {
+      "canvas": false,
+      "staticField": true,
+      "h1Visible": true,
+      "motionControlText": "Motion off · system setting"
+    },
+    "reducedMotionRuntimeChange": {
+      "canvasAfterPreferenceAllowsMotion": true
+    },
+    "noWebGL": {
+      "webgl2": false,
+      "canvas": false,
+      "staticField": true,
+      "h1Visible": true,
+      "pageErrors": []
+    },
+    "cueExample": {
+      "initial": {
+        "shots": [
+          "console-prev",
+          "display-presenter-prev"
+        ],
+        "cue": "Cue 3 · Opening Keynote"
+      },
+      "advanced": {
+        "shots": [
+          "console",
+          "display-presenter"
+        ],
+        "cue": "Cue 4 · Product Launch Demo"
+      },
+      "perView": {
+        "AV": {
+          "shots": [
+            "console",
+            "display-av"
+          ],
+          "cue": "Cue 4 · Product Launch Demo"
+        },
+        "Green Room": {
+          "shots": [
+            "console",
+            "display-speaker-ready"
+          ],
+          "cue": "Cue 4 · Product Launch Demo"
+        },
+        "General": {
+          "shots": [
+            "console",
+            "display-general"
+          ],
+          "cue": "Cue 4 · Product Launch Demo"
+        },
+        "Presenter": {
+          "shots": [
+            "console",
+            "display-presenter"
+          ],
+          "cue": "Cue 4 · Product Launch Demo"
+        }
+      },
+      "keyboard": [
+        {
+          "selected": "Rehearse",
+          "focused": "Rehearse"
+        },
+        {
+          "selected": "Prepare",
+          "focused": "Prepare"
+        },
+        {
+          "selected": "Rehearse",
+          "focused": "Rehearse"
+        },
+        {
+          "selected": "Prepare",
+          "focused": "Prepare"
+        },
+        {
+          "selected": "Rehearse",
+          "focused": "Rehearse"
+        }
+      ],
+      "reset": {
+        "shots": [
+          "console-prev",
+          "display-presenter-prev"
+        ],
+        "cue": "Cue 3 · Opening Keynote"
+      },
+      "provenanceLabel": "Recorded product preview. No live event is changed."
+    },
+    "fullConsole": {
+      "open": {
+        "dialog": true,
+        "focusInsideDialog": true,
+        "bodyScrollLocked": true
+      },
+      "closed": {
+        "dialog": false,
+        "focusReturnedToTrigger": true,
+        "bodyScrollRestored": true
+      }
+    },
+    "anchors": {
+      "prepare": {
+        "exists": true,
+        "top": 96,
+        "navBottom": 77,
+        "obscured": false
+      },
+      "call": {
+        "exists": true,
+        "top": 96,
+        "navBottom": 77,
+        "obscured": false
+      },
+      "adapt": {
+        "exists": true,
+        "top": 96,
+        "navBottom": 75,
+        "obscured": false
+      },
+      "room": {
+        "exists": true,
+        "top": 96,
+        "navBottom": 71,
+        "obscured": false
+      },
+      "one-cue": {
+        "exists": true,
+        "top": 96,
+        "navBottom": 71,
+        "obscured": false
+      },
+      "product": {
+        "exists": true,
+        "top": 96,
+        "navBottom": 71,
+        "obscured": false
+      },
+      "features": {
+        "exists": true,
+        "top": 96,
+        "navBottom": 71,
+        "obscured": false
+      }
+    },
+    "keyboardOrder": [
+      {
+        "tag": "BUTTON",
+        "text": "Adjust the timer",
+        "href": null,
+        "focusRing": true
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Hold the room",
+        "href": null,
+        "focusRing": true
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Send a notice",
+        "href": null,
+        "focusRing": true
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Keep control clear",
+        "href": null,
+        "focusRing": true
+      },
+      {
+        "tag": "A",
+        "text": "Start free",
+        "href": "/signup",
+        "focusRing": true
+      },
+      {
+        "tag": "A",
+        "text": "Explore the show again",
+        "href": "#call",
+        "focusRing": true
+      },
+      {
+        "tag": "A",
+        "text": "Operator log in",
+        "href": "/login",
+        "focusRing": true
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Pause motion",
+        "href": null,
+        "focusRing": true
+      },
+      {
+        "tag": "BODY",
+        "text": "Skip to contentKramflowHow",
+        "href": null,
+        "focusRing": false
+      },
+      {
+        "tag": "A",
+        "text": "Skip to content",
+        "href": "#main-content",
+        "focusRing": true
+      }
+    ],
+    "destinations": {
+      "signup": 3,
+      "login": 2
+    }
+  },
+  "errors": []
+}

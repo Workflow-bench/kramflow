@@ -8,7 +8,7 @@ export function Input({
   size = "md",
   className,
   ...props
-}: Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> & { size?: "md" | "lg" }) {
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> & { size?: "md" | "lg" | "public" }) {
   return (
     <input
       className={cn(
@@ -27,6 +27,8 @@ export function Input({
         // size bump (2026-09-01 UI/UX audit finding #25's mobile half).
         size === "md" && "h-9 px-3 text-base sm:text-console-sm",
         size === "lg" && "h-14 px-4 text-lg rounded-card",
+        // Public form field: 48px high, 16px text (no iOS zoom), 10px corners (landing-auth D02).
+        size === "public" && "h-12 px-4 text-[16px] rounded-control",
         className
       )}
       {...props}

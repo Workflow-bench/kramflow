@@ -1,0 +1,142 @@
+{
+ "home-desk": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Run the showfrom one screen.",
+  "consoleErrors": []
+ },
+ "home-tab": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Run the showfrom one screen.",
+  "consoleErrors": []
+ },
+ "home-m375": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Run the showfrom one screen.",
+  "consoleErrors": []
+ },
+ "home-m320": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Run the showfrom one screen.",
+  "consoleErrors": []
+ },
+ "home-short": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Run the showfrom one screen.",
+  "consoleErrors": []
+ },
+ "login-desk": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Welcome back",
+  "consoleErrors": []
+ },
+ "login-tab": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Welcome back",
+  "consoleErrors": []
+ },
+ "login-m375": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Welcome back",
+  "consoleErrors": []
+ },
+ "login-m320": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Welcome back",
+  "consoleErrors": []
+ },
+ "login-short": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Welcome back",
+  "consoleErrors": []
+ },
+ "signup-desk": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Create your Kramflow account",
+  "consoleErrors": []
+ },
+ "signup-tab": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Create your Kramflow account",
+  "consoleErrors": []
+ },
+ "signup-m375": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Create your Kramflow account",
+  "consoleErrors": []
+ },
+ "signup-m320": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Create your Kramflow account",
+  "consoleErrors": []
+ },
+ "signup-short": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Create your Kramflow account",
+  "consoleErrors": []
+ },
+ "reset-desk": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Reset your password",
+  "consoleErrors": []
+ },
+ "reset-tab": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Reset your password",
+  "consoleErrors": []
+ },
+ "reset-m375": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Reset your password",
+  "consoleErrors": []
+ },
+ "reset-m320": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Reset your password",
+  "consoleErrors": []
+ },
+ "reset-short": {
+  "h1": 1,
+  "main": 1,
+  "overflowX": 0,
+  "h1Text": "Reset your password",
+  "consoleErrors": []
+ }
+}

@@ -1,0 +1,145 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import { RecordedView } from "./recorded-view";
+import { SegmentedSelector, type SegmentedItem } from "./segmented-selector";
+import type { ShotKey } from "./product-shot";
+import { useGsap } from "./use-gsap";
+import { revealSection } from "./reveal";
+
+/**
+ * Before doors — what the operator does before anyone is in the room.
+ *
+ * Compact by design (HOME-R05): this chapter sets up the cue stage that follows, so it
+ * states its job, offers the two preparation views and gets out of the way. The page's
+ * weight belongs to the cue change, not to a second large screenshot panel here. A
+ * centered, stacked version of this (intro above, one large capture below) was tried
+ * and reverted — it read as too tall a hold for a chapter whose whole job is to be
+ * brief, so the original two-column shape stays.
+ *
+ * Prepare/Rehearse are **homepage controls**, not a reproduction of the product's own
+ * navigation. They sit outside the capture, in the page's own control language, and all
+ * they do is choose which recorded screen is shown.
+ *
+ * The tab panel covers the whole changing region — the sentence, the capture and its
+ * caption (HOME-R07). It previously wrapped only the sentence, so a screen-reader user
+ * following the tabs was told about a panel that excluded the image the tabs actually
+ * changed.
+ *
+ * The capture card carries a thin inset top highlight in addition to its border and
+ * drop shadow — the quiet, almost-not-there edge light real glass/metal surfaces catch,
+ * the same cue Apple's own product cards use to read as a considered material rather
+ * than a flat screenshot in a box (developer.apple.com/design — materials & depth).
+ * No gradient wash behind the section: the hero-to-here transition previously carried
+ * one and it read as a visible seam rather than atmosphere, so it was removed rather
+ * than re-tuned. Any gradient this page adds going forward is built with ShaderGradient
+ * (https://github.com/ruucm/shadergradient), not a hand-rolled CSS radial stack — a
+ * standing choice for this project now, not a one-off.
+ *
+ * Claims: both sentences describe what the captured screens show. There is deliberately
+ * no import claim; the applicable behaviour for spreadsheet import was not verified, so
+ * it is not published.
+ */
+
+const VIEWS: readonly SegmentedItem[] = [
+  { value: "prepare", label: "Prepare" },
+  { value: "rehearse", label: "Rehearse" },
+];
+
+const DETAIL: Record<string, { shot: ShotKey; copy: string; caption: string }> = {
+  prepare: {
+    shot: "cueSheet",
+    copy: "Organise the session, its items, timings, and people in the cue sheet.",
+    caption: "Cue Sheet · Recorded product view",
+  },
+  rehearse: {
+    shot: "rehearsal",
+    copy: "Practice the cue sequence without changing the live displays.",
+    caption: "Rehearsal Mode · Recorded product view",
+  },
+};
+
+export function BeforeDoors() {
+  const [view, setView] = useState("prepare");
+  const [committedView, setCommittedView] = useState("prepare");
+  const [unavailable, setUnavailable] = useState<ShotKey | null>(null);
+  const detail = DETAIL[view];
+  const displayed = DETAIL[committedView];
+  const pending = detail.shot !== displayed.shot;
+  const displayedName = committedView === "rehearse" ? "Rehearsal Mode" : "Cue Sheet";
+  const requestedName = view === "rehearse" ? "Rehearsal Mode" : "Cue Sheet";
+  const caption = pending
+    ? unavailable === detail.shot
+      ? `${displayedName} · ${requestedName} unavailable`
+      : `${displayedName} · Loading ${requestedName}…`
+    : displayed.caption;
+  const onCommitted = useCallback((shot: ShotKey) => {
+    setCommittedView(shot === "rehearsal" ? "rehearse" : "prepare");
+    setUnavailable(null);
+  }, []);
+  const onUnavailable = useCallback((shot: ShotKey) => setUnavailable(shot), []);
+  function selectView(next: string) {
+    if (next === view) return;
+    setUnavailable(null);
+    setView(next);
+  }
+  const root = useRef<HTMLElement>(null);
+
+  useGsap(root, ({ gsap, ScrollTrigger, reduced }) => revealSection(root.current!, { gsap, ScrollTrigger, reduced }));
+
+  return (
+    <section ref={root} id="prepare" data-cue="Before doors" className="relative">
+      <div className="mx-auto w-full max-w-[1440px] px-6 py-16 sm:px-10 lg:py-20">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] lg:items-start lg:gap-20">
+          <div className="flex flex-col lg:order-2">
+            <h2 data-reveal="heading" className="mt-4 font-display max-w-[12ch] text-[clamp(2.125rem,3.6vw,3.5rem)] leading-[1.04] tracking-[-0.02em] text-primary">
+              Get the rundown ready.
+            </h2>
+            <p data-reveal="copy" className="mt-4 max-w-[40ch] text-[16px] leading-relaxed text-muted">
+              Build the cue sheet, then run the sequence end to end before anyone is in the room.
+            </p>
+            <SegmentedSelector
+              className="mt-6 self-start"
+              items={VIEWS}
+              value={view}
+              onChange={selectView}
+              label="Choose a preparation view"
+              idBase="before-doors"
+              panelId="before-doors-panel"
+            />
+          </div>
+
+          {/* One panel around everything the tabs change: sentence, capture and caption. */}
+          {/* Focusable: Tab previously skipped straight past the panel these tabs
+              control, so a keyboard user never reached the content they had just
+              selected (HF-05). */}
+          <div
+            id="before-doors-panel"
+            role="tabpanel"
+            tabIndex={0}
+            aria-labelledby={`before-doors-${view}`}
+            className="min-w-0 lg:order-1 rounded-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <p className="max-w-[52ch] text-[15px] leading-relaxed text-muted">{displayed.copy}</p>
+            <figure data-reveal="media" className="mt-4">
+              <div className="overflow-hidden rounded-panel border border-line bg-card shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_40px_120px_-48px_rgba(0,0,0,0.9)]">
+                <RecordedView
+                  shot={detail.shot}
+                  /* One fixed box for both states, so selecting a view never reflows the
+                     page. Both captures are scaled uniformly and clipped, never stretched. */
+                  ratio={2560 / 1760}
+                  sizes="(min-width: 1440px) 735px, (min-width: 1024px) 54vw, 92vw"
+                  onCommitted={onCommitted}
+                  onUnavailable={onUnavailable}
+                />
+              </div>
+              {/* Metadata describes committed pixels, including during a failed switch.
+                  Reserve two lines so status changes do not move the next chapter. */}
+              <figcaption role="status" className="mt-3 min-h-10 text-[13px] text-muted-2">{caption}</figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -1,0 +1,24 @@
+== FIRST IMPORT
+A_exit=0 B_exit=0
+ {"sessionIds": {"sat-am": "sat-am~69e2703f"}, "programsWritten": 1, "sessionsWritten": 1, "partitionsWritten": 0}
+00000000-0000-0000-0000-00000000000a|sat-am
+00000000-0000-0000-0000-00000000000b|sat-am~69e2703f
+== SAME EVENT
+A_exit=0 B_exit=0
+B-1|sat-am|1
+B-2|sat-am|2
+--- rows with A-prefixed names after B committed (must be 0): 0
+== VERSION
+--- session B (same read version 0) rows returned: 0
+1|countdown
+== MULTI OK
+A_exit=0 B_exit=0
+race-A|sat-am|1
+race-A|sat-pm|1
+race-B|sat-am~69e2703f|1
+race-B|sat-pm~69e2703f|1
+--- cross-tenant rows (must be 0): 0
+== MULTI B_FAIL
+A_exit=0 B_exit=3
+race-A|sat-am|1
+--- cross-tenant rows (must be 0): 0

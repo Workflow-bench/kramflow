@@ -1,6 +1,10 @@
 "use client";
+import { requestSignOut } from "@/lib/auth/sign-out";
+import { getRawSessionUserId, setSessionUserId } from "@/lib/auth/session-identity";
+import { createIdentityController, type AuthStatus, type IdentityController } from "@/lib/auth/identity-controller";
+import { resetRehearsalRuns } from "@/components/rehearsal/persisted-run";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { supabaseBrowser, refreshRealtimeAuth } from "@/lib/supabase/client";
 
@@ -22,50 +26,60 @@ import { supabaseBrowser, refreshRealtimeAuth } from "@/lib/supabase/client";
 // to "locked" so components like command-palette (`unlocked = status ===
 // "unlocked"`) react without a full reload.
 
-type Status = "checking" | "locked" | "unlocked";
+type Status = AuthStatus;
 
 interface AuthContextValue {
   status: Status;
-  lock: () => void;
+  lock: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<Status>("checking");
+  const controllerRef = useRef<IdentityController | null>(null);
 
   useEffect(() => {
     const supabase = supabaseBrowser();
+    // Ordering, identity and rehearsal-run clearing live in identity-controller.ts (tested).
+    const controller = createIdentityController({
+      getIdentity: getRawSessionUserId,
+      setIdentity: setSessionUserId,
+      resetRuns: resetRehearsalRuns,
+      setStatus,
+    });
+    controllerRef.current = controller;
+    const applyHydrate = controller.beginHydrate();
 
     supabase.auth.getSession().then((result: { data: { session: Session | null } }) => {
-      setStatus(result.data.session ? "unlocked" : "locked");
+      // A newer auth event that arrived first wins; a late getSession result is dropped.
+      applyHydrate(result);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-      setStatus(session ? "unlocked" : "locked");
-      // A session that changes *after* a channel already joined (sign-in
-      // on this tab with no reload, a token refresh, sign-out) needs its
-      // own explicit push — see lib/supabase/client.ts's realtimeReady()
-      // doc comment for why joining channels can't just rely on this
-      // firing eventually.
+    } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      controller.onEvent(event, session);
+      // A session that changes after a channel already joined needs its own explicit push
+      // (lib/supabase/client.ts realtimeReady()).
       refreshRealtimeAuth(session?.access_token ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      controller.dispose();
+      controllerRef.current = null;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  function lock() {
-    setStatus("locked");
-    // Server-side sign-out (clears the httpOnly session cookie proxy.ts
-    // and every API route's requireAuth() check depend on) plus a hard
-    // navigation to /login — not router.push, so proxy.ts re-evaluates
-    // fresh rather than a client transition racing ahead of the cookie
-    // actually being cleared.
-    fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-      window.location.href = "/login";
-    });
+  // Redirects home only after the server confirms the session was removed. A failed or
+  // unconfirmed sign-out returns false and leaves identity, runs and UI as they were.
+  async function lock(): Promise<boolean> {
+    const confirmed = await requestSignOut();
+    const applied = controllerRef.current?.signOut(confirmed) ?? false;
+    if (!applied) return false;
+    window.location.href = "/";
+    return true;
   }
 
   return <AuthContext.Provider value={{ status, lock }}>{children}</AuthContext.Provider>;

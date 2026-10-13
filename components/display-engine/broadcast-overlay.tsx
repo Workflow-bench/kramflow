@@ -7,6 +7,7 @@ import { useDisplayEngine, targetMatchesDisplay } from "@/lib/display-engine/sto
 import { useDisplayEngineIdentity } from "@/lib/display-engine/context";
 import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
 import type { BroadcastMessage, DisplayType } from "@/lib/display-engine/types";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 // Container stays fully opaque (bg-card/95 + blur, the same floating-chrome
@@ -34,9 +35,56 @@ export function BroadcastOverlay({
   size?: "default" | "large";
 }) {
   const { state, acknowledgeBroadcast, dismissBroadcast } = useDisplayEngine();
+  const toast = useToast();
   // A Share Display (token) is read-only and cannot dismiss a message for
-  // everyone; only an operator's own session preview offers Dismiss.
-  const canDismiss = !useDisplayEngineIdentity().token;
+  // everyone; only the event owner can. B002 left this as "visible to any
+  // authenticated session, server enforces the real boundary on click" —
+  // Codex's B002 review (B002-F1) correctly rejected that as a silent
+  // failed interaction: the server denies editor/viewer, but the click
+  // result was never read (see store.tsx's dismissBroadcast — it only
+  // console.errors), so the banner just sat there with no explanation.
+  //
+  // Fixed by threading a real, server-derived role down instead of
+  // reading it from lib/event-context.tsx's EventRoleContext (whose
+  // "owner" default, safe under the authenticated app/e/[eventId] layout,
+  // would be silently wrong here — B002's DECISIONS.md already identified
+  // this risk and correctly avoided it, just left the interaction itself
+  // broken). Each of the four display pages' own verifyDisplayAccess()
+  // Server Component call now resolves the real role for a session viewer
+  // (undefined for a token viewer — no role concept applies to them) and
+  // threads it through DisplayEngineProvider as an explicit prop — see
+  // lib/display-engine/context.tsx's DisplayEngineIdentity.role.
+  const { token, role } = useDisplayEngineIdentity();
+  const isOwnerSession = role === "owner";
+  // A session viewer who isn't the owner (editor/viewer) sees Dismiss
+  // disabled with a reason, matching the Remote page's own pattern for
+  // owner-only controls. A token (public) viewer never sees it at all —
+  // there's no "you" to explain a permission to; per-viewer role has no
+  // meaning for an anonymous share-link visit.
+  const showDisabledDismiss = !token && !isOwnerSession;
+  const [dismissing, setDismissing] = useState<string | null>(null);
+
+  async function handleDismiss(messageId: string) {
+    if (dismissing) return;
+    setDismissing(messageId);
+    try {
+      const res = await dismissBroadcast(messageId);
+      // Generic failure text only — this is a public-reachable surface for
+      // token viewers on other messages in the same overlay, and even an
+      // owner's own failed attempt doesn't need (and per the dismiss
+      // route's own anti-enumeration convention, the server doesn't send)
+      // any detail beyond "didn't work." No optimistic removal either way
+      // — the banner's presence is always driven by state.broadcasts.active
+      // from the realtime store, never mutated locally, so a failed write
+      // simply leaves it exactly as it was.
+      if (!res || !res.ok) {
+        toast.error("Couldn't dismiss. Try again.");
+      }
+    } finally {
+      setDismissing(null);
+    }
+  }
+
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -129,17 +177,37 @@ export function BroadcastOverlay({
                       </p>
                     )}
                   </div>
-                  {!message.persistent && canDismiss && (
+                  {!message.persistent && isOwnerSession && (
                     <button
                       type="button"
-                      onClick={() => dismissBroadcast(message.id)}
+                      onClick={() => handleDismiss(message.id)}
+                      disabled={dismissing === message.id}
+                      aria-label={dismissing === message.id ? "Dismissing…" : "Dismiss"}
                       className={cn(
-                        "text-muted hover:text-primary cursor-pointer shrink-0",
+                        "text-muted hover:text-primary cursor-pointer shrink-0 rounded-control disabled:opacity-60 disabled:cursor-not-allowed",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         size === "large" ? "text-body" : "text-caption"
                       )}
                     >
-                      Dismiss
+                      {dismissing === message.id ? "Dismissing…" : "Dismiss"}
                     </button>
+                  )}
+                  {!message.persistent && showDisabledDismiss && (
+                    // Not a disabled <button>: a disabled element is removed
+                    // from the tab order and never fires focus, so wrapping
+                    // one in MaybeTooltip (hover/focus-triggered) left sighted
+                    // keyboard users with no way to discover the reason —
+                    // Codex B003 review (B003-S3). Plain always-visible text
+                    // is legible to sighted keyboard users and screen readers
+                    // alike without pretending a control is operable.
+                    <span
+                      className={cn(
+                        "text-muted-2 max-w-[45%] text-right leading-snug",
+                        size === "large" ? "text-body" : "text-caption"
+                      )}
+                    >
+                      Only the owner can dismiss
+                    </span>
                   )}
                 </motion.div>
               );

@@ -1,0 +1,39 @@
+{
+  "batch": "B004",
+  "generated": "2026-09-30",
+  "repository_state": {
+    "branch": "fix/audit-remediation-phase1",
+    "base_sha_before_this_batch": "c6f3b9002ef5fcc825548f5493ee5b4bd2536ad4",
+    "intervening_work_check": "git log/git status at session start showed HEAD exactly at the reviewed SHA with a clean tracked tree (only unrelated untracked tool directories present) — nothing to reconcile before editing.",
+    "commits": [
+      { "sha": "07eb81c", "subject": "fix(a11y): discoverable non-owner dismiss reason, focus ring, toast live region" },
+      { "sha": "df09a4b", "subject": "fix(fixtures): strict project-URL guard, resumable lifecycle, ownership checks" },
+      { "sha": "2989b88", "subject": "docs: B004 source-coverage corrections, validator hardening, vendored source package" }
+    ],
+    "final_sha_this_batch": "2989b88b350ae6069c1f4e80f0c6c0f0aef2125e"
+  },
+  "repository_checks": {
+    "vitest": { "command": "npx vitest run", "files": 30, "tests": 341, "result": "PASS", "note": "was 308/29 at end of B003; +33 tests in the new docs/audit-remediation/fixtures/owner_floor_live_matrix.test.ts, all against fake in-memory db/fs seams — no real network or credentials" },
+    "typecheck": { "command": "npx tsc --noEmit", "result": "PASS" },
+    "lint": { "command": "npm run lint", "result": "PASS", "errors": 0, "warnings": 6, "note": "unchanged pre-existing baseline; one transient new warning (unused rowIdx in the new extract.mjs) was introduced and fixed within this same batch, not carried into the final state" },
+    "build_turbopack": { "command": "npm run build", "result": "PASS", "note": "reproduced clean twice in this session. B003's EPERM child-process/port-bind failure did NOT reproduce here, consistent with the Codex B003 review's own observation that it did not reproduce on the reviewer's host either. No Next/build configuration was changed to chase the earlier failure, per the B004 prompt's explicit instruction not to." },
+    "typecheck_sequential_post_build": { "command": "npx tsc --noEmit --incremental false", "result": "PASS", "note": "run immediately after a successful build, matching the Codex B003 review's exact verification procedure" },
+    "validate_ledger": { "command": "node docs/audit-remediation/validate_ledger.mjs", "result": "PASS", "note": "6 new checks added this batch: duplicate source keys, parent/child id collisions, resolvable locators against vendored source files, raw Lighthouse value agreement, empty acceptance criteria, reverse-map consistency — all real, run against the actual ledger/coverage data" }
+  },
+  "new_or_changed_test_files": [
+    { "file": "docs/audit-remediation/fixtures/owner_floor_live_matrix.test.ts", "tests_added": 33, "kind": "unit, fake in-memory db/fs seams (no real I/O)", "covers": "fixtures/owner_floor_live_matrix.mjs's URL guard, state-machine lifecycle, ownership verification, and partial-failure recovery (Codex B003 review findings B003-S1/S2)" }
+  ],
+  "ledger_and_coverage_changes": {
+    "source_coverage_entry_count": { "before": 517, "after": 540, "delta": "+23: 1 net new Lighthouse-split entry (LH-DESKTOP split into LH-DESKTOP-CONTRAST + LH-DESKTOP-PERFORMANCE) + 22 new FIX_GUIDE prose-paragraph entries" },
+    "task_ledger_totals": { "before": "{READY_FOR_CODEX:3, OPEN:29, BLOCKED_EXTERNAL:2, PRESERVE_PENDING_REVIEW:3, NOT_APPLICABLE:5} = 42 parent, 28 children", "after": "{READY_FOR_CODEX:3, OPEN:30, BLOCKED_EXTERNAL:2, PRESERVE_PENDING_REVIEW:3, NOT_APPLICABLE:5} = 42 parent, 29 children", "note": "KF-006's acceptance_criteria OPEN count unchanged at the parent level (content expanded, not added as a new row); +1 child (KF-036.9) per B003-F4, keeping the accepted 42-parent structure" },
+    "new_vendored_files": "docs/audit-remediation/source-package/ — 7 Markdown reports + 3 Lighthouse JSON reports (sha256-verified against PACKAGE_MANIFEST.json), plus the now-portable generator pipeline"
+  },
+  "live_verification": [
+    {
+      "id": "B004-no-live-execution",
+      "status": "NOT ATTEMPTED THIS BATCH",
+      "reason": "All B004 work is code, tests, and documentation. fixtures/owner_floor_live_matrix.mjs was corrected and unit-tested against fakes but not executed against the real dev project. KF-002's authorization request was updated but not executed. See BATCH_REPORT.md 'Remaining gaps' and item 4."
+    }
+  ],
+  "cleanup_performed": ["none — no live/DB state was created or touched in this batch"]
+}

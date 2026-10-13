@@ -10,5 +10,9 @@ export default async function GreenRoomDisplayPage({
   const { token, eventId } = await searchParams;
   const access = await verifyDisplayAccess(token, eventId);
   if (!access.ok) return <LinkInvalid reason={access.reason} />;
-  return token ? <GreenRoomDisplayClient token={token} /> : <GreenRoomDisplayClient eventId={access.eventId} />;
+  return token ? (
+    <GreenRoomDisplayClient token={token} />
+  ) : (
+    <GreenRoomDisplayClient eventId={access.eventId} role={access.role} />
+  );
 }

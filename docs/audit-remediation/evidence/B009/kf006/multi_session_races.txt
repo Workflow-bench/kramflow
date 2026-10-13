@@ -1,0 +1,22 @@
+== REVERSED: A=[sat-am sat-pm] B=[sat-pm sat-am]
+A_exit=0 B_exit=0
+--- stored sessions by event (event, session id, items):
+race-A|sat-am|1
+race-A|sat-pm|1
+race-B|sat-am~69e2703f|1
+race-B|sat-pm~69e2703f|1
+--- cross-tenant rows (must be 0): 0
+== OVERLAPPING: A=[sat-am sat-pm] B=[sat-pm fri-am]
+A_exit=0 B_exit=0
+--- stored sessions by event (event, session id, items):
+race-A|sat-am|1
+race-A|sat-pm|1
+race-B|fri-am|1
+race-B|sat-pm~69e2703f|1
+--- cross-tenant rows (must be 0): 0
+== ROLLBACK: B=[sat-am sat-pm] with an induced foreign reference, A holds
+A_exit=0 B_exit=3
+--- stored sessions by event (event, session id, items):
+race-A|sat-am|1
+race-A|sat-pm|1
+--- cross-tenant rows (must be 0): 0

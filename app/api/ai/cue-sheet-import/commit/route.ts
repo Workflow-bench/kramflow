@@ -30,11 +30,12 @@ export async function POST(request: Request) {
   const integrityError = checkCueSheetIntegrity(sheet);
   if (integrityError) return NextResponse.json({ ok: false, error: integrityError }, { status: 400 });
 
-  const result = await commitCueSheet(
-    auth.eventId,
-    sheet,
-    `AI import: ${sheet.sessions.length} sessions, ${sheet.programs.length} programs`
-  );
+  const result = await commitCueSheet(auth.eventId, auth.userId, sheet);
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
-  return NextResponse.json({ ok: true, sessionsWritten: result.sessionsWritten, programsWritten: result.programsWritten });
+  return NextResponse.json({
+    ok: true,
+    sessionsWritten: result.sessionsWritten,
+    programsWritten: result.programsWritten,
+    sessionIds: result.sessionIds,
+  });
 }

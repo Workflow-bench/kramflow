@@ -1,0 +1,52 @@
+{
+ "none": {
+  "headings": [],
+  "text": "Synthetic harness, development only. Fixture: none-cue. Not event data.Rehearsal Mode: Not LiveNothing here reaches a real display, share link, or the real Operator Console.Exit RehearsalNo session to rehearse yet. Add one in the Cue Sheet first.self.__next_r=\"mxzFoO_S2VMhcpSOdzDhn\";if(document.cook",
+  "network": []
+ },
+ "zero": {
+  "startButton": {
+   "disabled": true
+  },
+  "finishVisible": false,
+  "completionVisible": 0,
+  "network": []
+ },
+ "one": {
+  "finishEnabledAtCue1": true,
+  "completionCount": 1,
+  "summary": "1 of 1 cues completed. Nothing was sent to any live screen.",
+  "runAgain": true,
+  "exitLink": true,
+  "headings": [],
+  "network": []
+ },
+ "multi": {
+  "finishCountAtCue1": 0,
+  "finishEnabledAtLastCue": true,
+  "completionCount": 1,
+  "summary": "4 of 4 cues completed. Nothing was sent to any live screen.",
+  "runAgainReturnsToNotStarted": true,
+  "network": []
+ },
+ "jumpToFinish": {
+  "visible": true,
+  "completionCount": 1,
+  "network": []
+ },
+ "exitDialog": {
+  "alertdialogInAxTree": "Leave rehearsal?",
+  "focusInsideOnOpen": true,
+  "focusedElementOnOpen": "Leave rehearsal",
+  "backgroundAriaHidden": null,
+  "closedAfterEscape": true,
+  "focusReturnedToExitAfterEscape": "Exit Rehearsal",
+  "confirmedExitMarker": 1,
+  "network": []
+ },
+ "exitNoProgress": {
+  "isLink": true,
+  "href": "/e/synthetic-harness/operator",
+  "dialogOnOpen": 0
+ }
+}

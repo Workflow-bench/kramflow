@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const logActivity = vi.fn();
@@ -33,6 +34,14 @@ function makeQuery(table: string) {
     eq(column: string, value: unknown) {
       call.filters.push([column, value]);
       return query;
+    },
+    limit() {
+      return query;
+    },
+    // Awaiting a select with no single/maybeSingle returns every matching row.
+    then(resolve: (value: unknown) => unknown) {
+      const rows = table === "programs" ? programRows : sessionRows;
+      return resolve({ data: rows.filter((r) => call.filters.every(([c, v]) => r[c] === v)), error: null });
     },
     maybeSingle: async () => {
       if (table === "sessions") {
@@ -71,7 +80,7 @@ vi.mock("@/lib/supabase/server", () => ({
   supabaseAdmin: () => ({ from: (table: string) => makeQuery(table) }),
 }));
 
-const { runLiveAction } = await import("./route");
+const { runLiveAction } = await import("@/lib/server/live-action");
 
 const actionRequest = (body: Record<string, unknown>) =>
   new Request("http://x/api/live", { method: "PATCH", body: JSON.stringify(body) });
@@ -144,8 +153,9 @@ describe("runLiveAction event-scoping regressions", () => {
     );
 
     expect(res.status).toBe(200);
+    // Two landing/departure lookups plus the stored item count that bounds traversal.
     const programQueries = calls.filter((call) => call.table === "programs");
-    expect(programQueries).toHaveLength(2);
+    expect(programQueries).toHaveLength(3);
     for (const query of programQueries) {
       expect(query.filters).toContainEqual(["event_id", "event-a"]);
       expect(query.filters).toContainEqual(["session_id", "session-a"]);
@@ -166,5 +176,221 @@ describe("runLiveAction event-scoping regressions", () => {
     expect(res.status).toBe(423);
     expect(await res.json()).toMatchObject({ ok: false, error: "locked" });
     expect(calls.find((call) => call.table === "live_state" && call.op === "update")).toBeUndefined();
+  });
+});
+
+describe("runLiveAction start guard (Lane C live-start invariants)", () => {
+  const writesTo = (table: string) => calls.filter((c) => c.table === table && c.op === "update");
+
+  it("starts a runnable session of this event", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    liveState = activeLiveState({ progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(200);
+    expect(writesTo("live_state")).toHaveLength(1);
+  });
+
+  it("refuses to start a deleted session, writing nothing", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    sessionRows = [];
+    liveState = activeLiveState({ progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(404);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  it("refuses to start a session that belongs to another event, writing nothing", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    sessionRows = [{ id: "session-a", event_id: "event-b" }];
+    liveState = activeLiveState({ progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(404);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  it("refuses to start a session with no items, writing nothing", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    programRows = programRows.filter((p) => p.event_id !== "event-a");
+    liveState = activeLiveState({ progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(409);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  it("refuses to start with no active session", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    liveState = activeLiveState({ active_session_id: null, progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(409);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  it("refuses a malformed session id, writing nothing", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    liveState = activeLiveState({ active_session_id: " session-a ", progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(400);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  it("refuses to start a session whose items skip order 1, writing nothing", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    programRows = [{ id: "program-2", event_id: "event-a", session_id: "session-a", sort_order: 2 }];
+    liveState = activeLiveState({ progress_by_session: {} });
+    const res = await runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+    expect(res.status).toBe(409);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  const startWithOrders = (orders: number[]) => {
+    programRows = orders.map((o, i) => ({ id: `p${i}`, event_id: "event-a", session_id: "session-a", sort_order: o }));
+    liveState = activeLiveState({ progress_by_session: {} });
+    return runLiveAction(actionRequest({ eventId: "event-a", action: "start", clientId: "client-a" }));
+  };
+
+  it.each([
+    ["gap (1,3)", [1, 3]],
+    ["duplicate (1,1,2)", [1, 1, 2]],
+    ["zero-based (0,1,2)", [0, 1, 2]],
+    ["gap in the middle (1,2,4)", [1, 2, 4]],
+  ])("refuses to start a session with %s, writing nothing", async (_label, orders) => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    const res = await startWithOrders(orders);
+    expect(res.status).toBe(409);
+    expect(writesTo("live_state")).toHaveLength(0);
+  });
+
+  it("starts a session whose items are exactly 1..n, in any stored order", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    const res = await startWithOrders([3, 1, 2]);
+    expect(res.status).toBe(200);
+    expect(writesTo("live_state")).toHaveLength(1);
+  });
+
+  it("ignores a client maxOrder larger than the stored item count: next cannot pass the last item", async () => {
+    // Stored items: 1 and 2 (foreign-program is another event). Client claims 99.
+    liveState = activeLiveState({ progress_by_session: { "session-a": { currentOrder: 2, startedAt: "2026-01-01T00:00:00.000Z" } } });
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action: "next", maxOrder: 99, clientId: "client-a" }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(200);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(0);
+  });
+
+  it("finish sets the position past the stored count, not past a client-claimed maxOrder", async () => {
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action: "finish", maxOrder: 50, clientId: "client-a" }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(200);
+    const update = calls.find((c) => c.table === "live_state" && c.op === "update");
+    expect(update?.update?.progress_by_session).toEqual({ "session-a": { currentOrder: 3, startedAt: null } });
+  });
+
+  it("jumpTo rejects an order beyond the stored count even when the client claims a larger maxOrder", async () => {
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action: "jumpTo", order: 5, maxOrder: 9, clientId: "client-a" }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(400);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(0);
+  });
+
+  it.each([
+    ["next", { maxOrder: 1 }],
+    ["finish", { maxOrder: 1 }],
+    ["jumpTo", { order: 1, maxOrder: 1 }],
+  ])("%s on a session with no stored items (foreign to this event) is refused with no write", async (action, extra) => {
+    // The active session's items all belong to event-b, so event-a has none.
+    programRows = [{ id: "foreign", event_id: "event-b", session_id: "session-a", sort_order: 1 }];
+    liveState = activeLiveState({ progress_by_session: { "session-a": { currentOrder: 1, startedAt: "2026-01-01T00:00:00.000Z" } } });
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action, clientId: "client-a", ...extra }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(409);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(0);
+  });
+
+  // Edits to the active session, after a valid start, that leave a gap or a duplicate.
+  it("next refuses when an edit leaves a gap at the landing order, writing nothing", async () => {
+    // Stored orders are now 1 and 3 (order 2 was deleted). Position is at 1.
+    programRows = [
+      { id: "p1", event_id: "event-a", session_id: "session-a", sort_order: 1 },
+      { id: "p3", event_id: "event-a", session_id: "session-a", sort_order: 3 },
+    ];
+    liveState = activeLiveState({ progress_by_session: { "session-a": { currentOrder: 1, startedAt: "2026-01-01T00:00:00.000Z" } } });
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action: "next", maxOrder: 2, clientId: "client-a" }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(409);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(0);
+  });
+
+  it("previous refuses when an edit leaves a gap below the position, writing nothing", async () => {
+    programRows = [
+      { id: "p1", event_id: "event-a", session_id: "session-a", sort_order: 1 },
+      { id: "p3", event_id: "event-a", session_id: "session-a", sort_order: 3 },
+    ];
+    liveState = activeLiveState({ progress_by_session: { "session-a": { currentOrder: 3, startedAt: "2026-01-01T00:00:00.000Z" } } });
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action: "previous", minOrder: 1, clientId: "client-a" }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(409);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(0);
+  });
+
+  it("next still advances across a contiguous 1..n sequence after the same kind of edit fixes the gap", async () => {
+    programRows = [
+      { id: "p1", event_id: "event-a", session_id: "session-a", sort_order: 1 },
+      { id: "p2", event_id: "event-a", session_id: "session-a", sort_order: 2 },
+      { id: "p3", event_id: "event-a", session_id: "session-a", sort_order: 3 },
+    ];
+    liveState = activeLiveState({ progress_by_session: { "session-a": { currentOrder: 1, startedAt: "2026-01-01T00:00:00.000Z" } } });
+    const res = await runLiveAction(
+      actionRequest({ eventId: "event-a", action: "next", maxOrder: 3, clientId: "client-a" }),
+      { eventId: "event-a", userId: "user-a" }
+    );
+    expect(res.status).toBe(200);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(1);
+  });
+});
+
+const { PATCH } = await import("./route");
+
+// The public PATCH handler now delegates to lib/server/live-action.ts. These tests run
+// the real exported PATCH and check that authentication, tenant scope, the controller
+// lease and the mutation itself are unchanged by the move (no trusted-actor bypass).
+describe("PATCH entry point after the move to lib/server/live-action.ts", () => {
+  it("refuses an anonymous caller at the HTTP entry, writing nothing", async () => {
+    requireEventAccess.mockResolvedValue(NextResponse.json({ ok: false }, { status: 401 }));
+    const res = await PATCH(actionRequest({ eventId: "event-a", action: "next", maxOrder: 2, clientId: "client-a" }));
+    expect(res.status).toBe(401);
+    expect(calls.find((c) => c.table === "live_state" && c.op === "update")).toBeUndefined();
+  });
+
+  it("checks the requested event against the caller's access, and refuses a foreign event", async () => {
+    requireEventAccess.mockResolvedValue(NextResponse.json({ ok: false }, { status: 403 }));
+    const res = await PATCH(actionRequest({ eventId: "event-b", action: "next", maxOrder: 2, clientId: "client-a" }));
+    expect(res.status).toBe(403);
+    expect(requireEventAccess).toHaveBeenCalledWith("event-b", "owner");
+    expect(calls.find((c) => c.table === "live_state" && c.op === "update")).toBeUndefined();
+  });
+
+  it("keeps the controller lease: a non-controller client is refused with 423 and writes nothing", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    const res = await PATCH(actionRequest({ eventId: "event-a", action: "next", maxOrder: 2, clientId: "someone-else" }));
+    expect(res.status).toBe(423);
+    expect(calls.find((c) => c.table === "live_state" && c.op === "update")).toBeUndefined();
+  });
+
+  it("lets the controller and an owner mutate exactly as runLiveAction does", async () => {
+    requireEventAccess.mockResolvedValue({ eventId: "event-a", userId: "u1", role: "owner" });
+    const res = await PATCH(actionRequest({ eventId: "event-a", action: "next", maxOrder: 2, clientId: "client-a" }));
+    expect(res.status).toBe(200);
+    expect(calls.filter((c) => c.table === "live_state" && c.op === "update")).toHaveLength(1);
   });
 });

@@ -1,12 +1,13 @@
 "use client";
+import { requestSignOut } from "@/lib/auth/sign-out";
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Panel } from "@/components/ui/card";
-import { Wordmark } from "@/components/site/wordmark";
+import { PasswordInput } from "@/components/auth/password-input";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { safeNext } from "@/lib/safe-redirect";
+import { validatedNext, withNext } from "@/lib/auth/continuation";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -21,9 +22,15 @@ function SetPasswordForm() {
   const [submitting, setSubmitting] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
+  // Navigates to login only after the server confirms sign-out (KF-016 contract).
   async function handleLogout() {
     setLoggingOut(true);
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    setError(null);
+    if (!(await requestSignOut())) {
+      setLoggingOut(false);
+      setError("Couldn't sign you out. Try again.");
+      return;
+    }
     window.location.href = "/login";
   }
 
@@ -58,7 +65,8 @@ function SetPasswordForm() {
         // re-sign-in after it did not — so send them to log in with the
         // new password rather than a destination the now-stale session
         // can't actually reach.
-        window.location.href = "/login";
+        // Keeps the validated destination, so the next login continues where recovery began.
+        window.location.href = withNext("/login", validatedNext(rawNext));
         return;
       }
       // Hard navigation, same reasoning as login's own — proxy.ts needs to
@@ -72,23 +80,28 @@ function SetPasswordForm() {
   }
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
-      <div className="flex flex-col items-center w-full max-w-sm">
-        <Wordmark />
-        <p className="text-console-sm text-muted mt-2">Set your password</p>
-        <p className="text-console-meta text-muted-2 mt-1 text-center">
-          You&rsquo;re logged in with a temporary password. Choose a new one to continue.
-        </p>
-
-        <Panel className="w-full mt-8 p-6">
-          <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
+    <AuthShell
+      title="Set your password"
+      support="You are logged in with a temporary password. Choose a new one to continue."
+      footer={
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Not you? Log out
+        </button>
+      }
+    >
+      <form onSubmit={handleSubmit} className="flex w-full flex-col gap-5">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="password" className="text-console-meta text-muted-2">
+              <label htmlFor="password" className="text-[14px] leading-5 text-muted">
                 New password
               </label>
-              <Input
+              <PasswordInput
+                size="public"
                 id="password"
-                type="password"
                 autoComplete="new-password"
                 required
                 value={password}
@@ -103,12 +116,12 @@ function SetPasswordForm() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="confirmPassword" className="text-console-meta text-muted-2">
+              <label htmlFor="confirmPassword" className="text-[14px] leading-5 text-muted">
                 Confirm new password
               </label>
-              <Input
+              <PasswordInput
+                size="public"
                 id="confirmPassword"
-                type="password"
                 autoComplete="new-password"
                 required
                 value={confirmPassword}
@@ -123,35 +136,20 @@ function SetPasswordForm() {
             </div>
 
             {error && (
-              <p id="set-password-error" className="text-console-meta text-status-red" role="alert">
+              <p id="set-password-error" className="text-[14px] leading-5 text-status-red" role="alert">
                 {error}
               </p>
             )}
 
-            <Button type="submit" variant="primary" size="lg" loading={submitting} className="w-full mt-2">
-              Set Password &amp; Continue
-            </Button>
+            <AuthSubmitButton loading={submitting}>Set Password &amp; Continue</AuthSubmitButton>
           </form>
-        </Panel>
-
-        <p className="text-console-meta text-muted-2 mt-6">
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Not you? Log out
-          </button>
-        </p>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
 
 export default function SetPasswordPage() {
   return (
-    <Suspense fallback={<div className="h-screen w-screen bg-background" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-background" />}>
       <SetPasswordForm />
     </Suspense>
   );

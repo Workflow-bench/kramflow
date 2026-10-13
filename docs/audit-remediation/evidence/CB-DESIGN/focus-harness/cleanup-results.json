@@ -1,0 +1,24 @@
+{
+  "trigger-clicked-restores-trigger": "BUTTON#trigger|dialog:-|Open",
+  "upper-closes-lower-survives": "BUTTON#|dialog:Lower|",
+  "lower-unmounts-upper-survives": "BUTTON#|dialog:Upper|",
+  "both-closed-trigger-visible": "MAIN#main-content|dialog:-|HarnessOpenPag",
+  "trigger-hidden-fallback": "MAIN#main-content|dialog:-|HarnessOpenPag",
+  "trigger-disabled-fallback": "MAIN#main-content|dialog:-|HarnessOpenPag",
+  "trigger-removed-fallback": "MAIN#main-content|dialog:-|HarnessPage co",
+  "escape-closes-topmost": {
+    "upper": false,
+    "lower": true,
+    "active": "BUTTON#|dialog:Lower|"
+  },
+  "tab-trap-stays-in-dialog": [
+    "BUTTON#lower-a|dialog:Lower|Lower A",
+    "BUTTON#lower-b|dialog:Lower|Lower B",
+    "BUTTON#|dialog:Lower|",
+    "BUTTON#lower-a|dialog:Lower|Lower A"
+  ],
+  "inert-released-after-all-close": {
+    "during": 2,
+    "after": 0
+  }
+}

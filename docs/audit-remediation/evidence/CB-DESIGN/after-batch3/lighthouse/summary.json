@@ -1,0 +1,68 @@
+{
+  "mobile": [
+    {
+      "file": "mobile-simulated-run1.json",
+      "lcp_ms": 3383.1,
+      "fcp_ms": 1062.1,
+      "perf": 0.92,
+      "a11y": 1,
+      "cls": 0,
+      "lighthouse": "13.5.0",
+      "lcp_element": "<p class=\"mt-6 max-w-[38ch] text-base leading-relaxed text-muted sm:text-lg\">"
+    },
+    {
+      "file": "mobile-simulated-run2.json",
+      "lcp_ms": 3463.0,
+      "fcp_ms": 1064.0,
+      "perf": 0.91,
+      "a11y": 1,
+      "cls": 0,
+      "lighthouse": "13.5.0",
+      "lcp_element": "<p class=\"mt-6 max-w-[38ch] text-base leading-relaxed text-muted sm:text-lg\">"
+    },
+    {
+      "file": "mobile-simulated-run3.json",
+      "lcp_ms": 3454.8,
+      "fcp_ms": 1059.4,
+      "perf": 0.91,
+      "a11y": 1,
+      "cls": 0,
+      "lighthouse": "13.5.0",
+      "lcp_element": "<p class=\"mt-6 max-w-[38ch] text-base leading-relaxed text-muted sm:text-lg\">"
+    }
+  ],
+  "desktop": [
+    {
+      "file": "desktop-simulated-run1.json",
+      "lcp_ms": 716.8,
+      "fcp_ms": 291.4,
+      "perf": 1,
+      "a11y": 1,
+      "cls": 0,
+      "lighthouse": "13.5.0",
+      "lcp_element": "<span class=\"block\">"
+    },
+    {
+      "file": "desktop-simulated-run2.json",
+      "lcp_ms": 718.0,
+      "fcp_ms": 290.0,
+      "perf": 1,
+      "a11y": 1,
+      "cls": 0,
+      "lighthouse": "13.5.0",
+      "lcp_element": "<span class=\"block\">"
+    },
+    {
+      "file": "desktop-simulated-run3.json",
+      "lcp_ms": 747.3,
+      "fcp_ms": 323.1,
+      "perf": 1,
+      "a11y": 1,
+      "cls": 0,
+      "lighthouse": "13.5.0",
+      "lcp_element": "<span class=\"block\">"
+    }
+  ],
+  "mobile_median_lcp_ms": 3454.8,
+  "desktop_median_lcp_ms": 718.0
+}

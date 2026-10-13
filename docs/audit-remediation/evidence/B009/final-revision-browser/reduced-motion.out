@@ -1,0 +1,32 @@
+{
+  "reduce": {
+    "t200": {
+      "coverDisplay": "none",
+      "navCompact": "true",
+      "lightAnimDuration": "1e-05s",
+      "mqReduce": true
+    },
+    "after": {
+      "longTransitionEls": 0,
+      "scrollWidth": 0,
+      "errors": 0
+    },
+    "pageErrors": 0,
+    "sampleErrors": []
+  },
+  "no-preference": {
+    "t200": {
+      "coverDisplay": "flex",
+      "navCompact": "false",
+      "lightAnimDuration": "0.85s",
+      "mqReduce": false
+    },
+    "after": {
+      "longTransitionEls": 46,
+      "scrollWidth": 0,
+      "errors": 0
+    },
+    "pageErrors": 0,
+    "sampleErrors": []
+  }
+}

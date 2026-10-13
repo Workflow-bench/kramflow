@@ -1,0 +1,334 @@
+[
+  {
+    "pass": "sample-1",
+    "name": "hero eyebrow",
+    "fontSize": 13,
+    "large": false,
+    "brightestBackground": [
+      25,
+      21,
+      13
+    ],
+    "ratio": 4.68,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-1",
+    "name": "hero h1",
+    "fontSize": 80.64,
+    "large": true,
+    "brightestBackground": [
+      59,
+      45,
+      26
+    ],
+    "ratio": 11.63,
+    "required": 3,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-1",
+    "name": "hero body",
+    "fontSize": 19,
+    "large": false,
+    "brightestBackground": [
+      28,
+      22,
+      15
+    ],
+    "ratio": 6.69,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-1",
+    "name": "hero caption",
+    "fontSize": 13,
+    "large": false,
+    "brightestBackground": [
+      12,
+      11,
+      9
+    ],
+    "ratio": 5.06,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-1",
+    "name": "hero view-full button",
+    "fontSize": 13,
+    "large": false,
+    "brightestBackground": [
+      42,
+      31,
+      16
+    ],
+    "ratio": 6.02,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-1",
+    "name": "nav link",
+    "fontSize": 15,
+    "large": false,
+    "brightestBackground": [
+      18,
+      15,
+      11
+    ],
+    "ratio": 7.13,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-1",
+    "name": "nav log in",
+    "fontSize": 15,
+    "large": false,
+    "brightestBackground": [
+      12,
+      11,
+      9
+    ],
+    "ratio": 7.34,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-1",
+    "name": "hero quiet action",
+    "fontSize": 16,
+    "large": false,
+    "brightestBackground": [
+      12,
+      11,
+      9
+    ],
+    "ratio": 17.17,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-1",
+    "name": "closing h2",
+    "fontSize": 72,
+    "large": true,
+    "brightestBackground": [
+      16,
+      14,
+      10
+    ],
+    "ratio": 16.82,
+    "required": 3,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-1",
+    "name": "closing body",
+    "fontSize": 17,
+    "large": false,
+    "brightestBackground": [
+      12,
+      11,
+      9
+    ],
+    "ratio": 7.34,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-1",
+    "name": "motion control",
+    "fontSize": 13,
+    "large": false,
+    "brightestBackground": [
+      42,
+      37,
+      28
+    ],
+    "ratio": 13.28,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true,
+    "method": "own opaque background"
+  },
+  {
+    "pass": "sample-2",
+    "name": "hero eyebrow",
+    "fontSize": 13,
+    "large": false,
+    "brightestBackground": [
+      25,
+      21,
+      14
+    ],
+    "ratio": 4.68,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-2",
+    "name": "hero h1",
+    "fontSize": 80.64,
+    "large": true,
+    "brightestBackground": [
+      76,
+      56,
+      29
+    ],
+    "ratio": 9.69,
+    "required": 3,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-2",
+    "name": "hero body",
+    "fontSize": 19,
+    "large": false,
+    "brightestBackground": [
+      24,
+      19,
+      13
+    ],
+    "ratio": 6.89,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-2",
+    "name": "hero caption",
+    "fontSize": 13,
+    "large": false,
+    "brightestBackground": [
+      12,
+      11,
+      9
+    ],
+    "ratio": 5.06,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-2",
+    "name": "hero view-full button",
+    "fontSize": 13,
+    "large": false,
+    "brightestBackground": [
+      45,
+      32,
+      16
+    ],
+    "ratio": 5.91,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-2",
+    "name": "nav link",
+    "fontSize": 15,
+    "large": false,
+    "brightestBackground": [
+      18,
+      15,
+      11
+    ],
+    "ratio": 7.13,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-2",
+    "name": "nav log in",
+    "fontSize": 15,
+    "large": false,
+    "brightestBackground": [
+      12,
+      11,
+      9
+    ],
+    "ratio": 7.34,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-2",
+    "name": "hero quiet action",
+    "fontSize": 16,
+    "large": false,
+    "brightestBackground": [
+      12,
+      11,
+      9
+    ],
+    "ratio": 17.17,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-2",
+    "name": "closing h2",
+    "fontSize": 72,
+    "large": true,
+    "brightestBackground": [
+      16,
+      14,
+      10
+    ],
+    "ratio": 16.82,
+    "required": 3,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-2",
+    "name": "closing body",
+    "fontSize": 17,
+    "large": false,
+    "brightestBackground": [
+      12,
+      11,
+      9
+    ],
+    "ratio": 7.34,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true
+  },
+  {
+    "pass": "sample-2",
+    "name": "motion control",
+    "fontSize": 13,
+    "large": false,
+    "brightestBackground": [
+      42,
+      37,
+      28
+    ],
+    "ratio": 13.28,
+    "required": 4.5,
+    "pass_": true,
+    "shaderMounted": true,
+    "method": "own opaque background"
+  }
+]

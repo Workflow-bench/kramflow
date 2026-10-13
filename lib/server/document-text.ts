@@ -1,5 +1,7 @@
 import "server-only";
 import * as XLSX from "xlsx";
+import { XLSX_READ_OPTIONS, rowsLimitMessage, workbookLimitViolation, MAX_ROWS_PER_SHEET } from "@/lib/xlsx-limits";
+import { XlsxArchiveError, inspectXlsxArchive } from "@/lib/xlsx-archive";
 
 // Turns an uploaded document into plain text for the AI import. Spreadsheets
 // are flattened to CSV per sheet so the model sees rows and columns; text
@@ -11,8 +13,6 @@ export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 // import as a plausible but incomplete one.
 export const MAX_DOCUMENT_CHARS = 400_000;
 
-const MAX_SHEETS = 50;
-const MAX_ROWS_PER_SHEET = 5000;
 
 export class DocumentTextError extends Error {
   constructor(
@@ -34,19 +34,21 @@ export async function extractDocumentText(file: File): Promise<string> {
     // xlsx (SheetJS) has open advisories for hostile files; the size cap
     // above and the sheet/row ceilings below bound what it is asked to do,
     // as in lib/parse-cuesheet.ts.
-    const wb = XLSX.read(Buffer.from(await file.arrayBuffer()), { type: "buffer" });
-    if (wb.SheetNames.length > MAX_SHEETS) {
-      throw new DocumentTextError(`Too many sheets (${wb.SheetNames.length}). The limit is ${MAX_SHEETS}.`, 400);
+    const data = Buffer.from(await file.arrayBuffer());
+    // Preparse first: absolute extent and decompression budgets (B008-F1).
+    try {
+      const inspection = inspectXlsxArchive(new Uint8Array(data));
+      if (inspection.maxRow > MAX_ROWS_PER_SHEET) throw new DocumentTextError(rowsLimitMessage(inspection.maxRow), 400);
+    } catch (err) {
+      if (err instanceof XlsxArchiveError) throw new DocumentTextError(err.message, 400);
+      throw err;
     }
+    const wb = XLSX.read(data, XLSX_READ_OPTIONS);
+    const violation = workbookLimitViolation(wb);
+    if (violation) throw new DocumentTextError(violation, 400);
     const parts: string[] = [];
     for (const sheetName of wb.SheetNames) {
       const sheet = wb.Sheets[sheetName];
-      const ref = sheet["!ref"];
-      const range = ref ? XLSX.utils.decode_range(ref) : null;
-      const rowCount = range ? range.e.r - range.s.r + 1 : 0;
-      if (rowCount > MAX_ROWS_PER_SHEET) {
-        throw new DocumentTextError(`Sheet "${sheetName}" has too many rows (${rowCount}). The limit is ${MAX_ROWS_PER_SHEET}.`, 400);
-      }
       parts.push(`## Sheet: ${sheetName}\n${XLSX.utils.sheet_to_csv(sheet, { blankrows: false })}`);
     }
     text = parts.join("\n\n");

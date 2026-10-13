@@ -1,0 +1,35 @@
+{
+ "A_progress": {
+  "cue": "SYNTHETIC cue 2",
+  "keys": [
+   "kf-rehearsal-run:synthetic-user-a:synthetic-harness"
+  ]
+ },
+ "afterTokenRefreshAndReload_A": {
+  "cue": "SYNTHETIC cue 2",
+  "keys": [
+   "kf-rehearsal-run:synthetic-user-a:synthetic-harness"
+  ]
+ },
+ "afterSignedInB": {
+  "cue": null,
+  "keys": []
+ },
+ "B_afterFailedSignOutAndReload": {
+  "cue": "SYNTHETIC cue 2",
+  "keys": [
+   "kf-rehearsal-run:synthetic-user-b:synthetic-harness"
+  ]
+ },
+ "afterConfirmedSignOut": {
+  "keys": []
+ },
+ "A_signInAgain": {
+  "cue": null,
+  "keys": []
+ },
+ "staleCuesAfterRelogin": {
+  "notice": true,
+  "cue": null
+ }
+}

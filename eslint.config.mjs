@@ -32,6 +32,7 @@ const CONSOLE_SURFACE_GLOBS = [
   "app/e/*/displays/**/*.{ts,tsx}",
   "app/e/*/settings/**/*.{ts,tsx}",
   "app/e/*/rehearsal/**/*.{ts,tsx}",
+  "components/rehearsal/**/*.{ts,tsx}",
   "app/login/**/*.{ts,tsx}",
   "app/signup/**/*.{ts,tsx}",
   "app/invite/**/*.{ts,tsx}",
@@ -66,6 +67,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Evidence only: Playwright/CDP capture scripts (CommonJS, run by hand) and generated
+    // harness bundles. Not product code. Product code, tests and repo tooling stay linted.
+    "docs/audit-remediation/evidence/**",
   ]),
   {
     files: CONSOLE_SURFACE_GLOBS,

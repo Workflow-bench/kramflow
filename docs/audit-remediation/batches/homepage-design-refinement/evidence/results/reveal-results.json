@@ -1,0 +1,62 @@
+[
+ {
+  "name": "1 hero h1 never fades (no reveal attached)",
+  "ok": true,
+  "detail": "[\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\"]"
+ },
+ {
+  "name": "1 no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "2 below-fold heading starts hidden (opacity 0)",
+  "ok": true,
+  "detail": "before 0"
+ },
+ {
+  "name": "2 below-fold heading reveals on scroll (opacity 1)",
+  "ok": true,
+  "detail": "after 1"
+ },
+ {
+  "name": "2 does not re-hide scrolling back then forward",
+  "ok": true,
+  "detail": "back 1 forward 1"
+ },
+ {
+  "name": "2 no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "3 stagger items start hidden",
+  "ok": true,
+  "detail": "[\"0\",\"0\",\"0\"]"
+ },
+ {
+  "name": "3 stagger items all reveal",
+  "ok": true,
+  "detail": "[\"1\",\"1\",\"1\"]"
+ },
+ {
+  "name": "4 reduced motion: below-fold heading already visible",
+  "ok": true,
+  "detail": "o1 1"
+ },
+ {
+  "name": "4 reduced motion: stagger items already visible",
+  "ok": true,
+  "detail": "o2 1"
+ },
+ {
+  "name": "5 reaches before-doors by keyboard",
+  "ok": true,
+  "detail": "focused true"
+ },
+ {
+  "name": "5 keyboard focus reveals media before scroll",
+  "ok": true,
+  "detail": "before 0 after 1"
+ }
+]

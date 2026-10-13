@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
+import { useToast } from "@/components/ui/toast";
 import {
   FileSpreadsheet,
   FlaskConical,
@@ -12,7 +13,7 @@ import {
   Megaphone,
   MonitorPlay,
   Settings as SettingsIcon,
-  Lock,
+  LogOut,
   Calendar,
   Search,
 } from "lucide-react";
@@ -47,6 +48,7 @@ export function CommandPalette() {
   const router = useRouter();
   const eventId = useEventId();
   const { status, lock } = useAuth();
+  const toast = useToast();
   const { selectSession } = useEventStore();
   const sessions = useSessions();
 
@@ -141,10 +143,10 @@ export function CommandPalette() {
       },
     }));
     const utilityCommands: Command[] = [
-      { id: "lock", label: "Lock", hint: "Sign out of the operator PIN", icon: <Lock className="h-4 w-4" strokeWidth={2} />, run: () => { lock(); setOpen(false); } },
+      { id: "lock", label: "Log out", hint: "Sign out of this account", icon: <LogOut className="h-4 w-4" strokeWidth={2} />, run: () => { setOpen(false); void lock().then((ok) => { if (!ok) toast.error("Couldn't log out. Try again."); }); } },
     ];
     return [...routes, ...sessionCommands, ...utilityCommands];
-  }, [sessions, router, selectSession, lock, eventId]);
+  }, [sessions, router, selectSession, lock, eventId, toast]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

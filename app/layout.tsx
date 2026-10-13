@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { SITE_ORIGIN } from "@/lib/site-origin";
 import { Inter, IBM_Plex_Mono, Archivo } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
 import { MotionPreferences } from "@/components/motion-preferences";
@@ -41,31 +42,34 @@ const TITLE = "KramFlow";
 const DESCRIPTION =
   "KramFlow is a live-event operating system for coordinating stage managers, AV operators, and performers across TV displays and mobile control.";
 
-// Phase 8 flagged metadataBase/canonical as absent because no production
-// domain was confirmed to exist yet. Phase 5 confirmed www.kramflow.me is
-// live, so this fills that gap. og:image is still intentionally omitted —
-// no designed 1200x630 social-card asset exists in this repo, and inventing
-// one would be exactly the fabricated brand asset both passes were told not
-// to create.
+// metadataBase/canonical: www.kramflow.me is live. og:image and
+// twitter:image come from app/opengraph-image.tsx (1200x630, typographic,
+// set in the product's own graphite and live green); the favicon set is
+// app/icon.svg, app/favicon.ico and app/apple-icon.png.
+export const viewport: Viewport = {
+  themeColor: "#0c0b09",
+  colorScheme: "dark",
+};
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.kramflow.me"),
+  metadataBase: new URL(SITE_ORIGIN),
   title: {
     default: TITLE,
     template: "%s · KramFlow",
   },
   description: DESCRIPTION,
-  alternates: {
-    canonical: "/",
-  },
+  applicationName: TITLE,
+  keywords: ["run of show", "cue sheet", "stage manager", "live event", "confidence monitor", "event production"],
+  // No root canonical: a root canonical would be inherited by every private route.
+  // The homepage sets its own canonical in app/page.tsx (B006-F2 policy).
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
     siteName: TITLE,
     type: "website",
-    url: "/",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
   },
@@ -77,7 +81,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${plexMono.variable} ${archivo.variable} dark h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${plexMono.variable} ${archivo.variable} dark h-full antialiased`}
+      // The homepage's inline boot script (components/site/arrival-boot-script.tsx)
+      // adds `arrival-boot` to this element before React hydrates, on purpose — it
+      // has to run before first paint to cover the hero before the browser ever
+      // paints it (see that file's comment). React's hydration diff then sees a
+      // className that doesn't match what it rendered server-side on this one
+      // element and warns; the mismatch is expected and harmless (a decorative class,
+      // not content), so it's suppressed here rather than fixed by not doing the
+      // thing the script exists to do. Scoped to this element only — it does not
+      // suppress mismatches anywhere else in the tree.
+      suppressHydrationWarning
+    >
       {/* overflow-x-hidden: tooltips (components/ui/tooltip.tsx) stay mounted
           at opacity-0 rather than unmounted, centered on their trigger via
           left-1/2 -translate-x-1/2 with whitespace-nowrap — one anchored

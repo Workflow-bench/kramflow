@@ -1,0 +1,51 @@
+{
+ "start": {
+  "bgInAx": true,
+  "inert": 0
+ },
+ "lowerOpen": {
+  "bgInAx": false,
+  "inert": 8,
+  "dialogs": [
+   "dialog:Manage links"
+  ],
+  "focus": ""
+ },
+ "upperOpen": {
+  "bgInAx": false,
+  "lowerDoneInAx": false,
+  "dialogs": [
+   "alertdialog:Revoke link?"
+  ],
+  "focus": "Cancel",
+  "inert": 9
+ },
+ "afterEscapeUpper": {
+  "upperOpen": false,
+  "lowerStillOpen": true,
+  "bgInAx": false,
+  "lowerDoneInAx": true,
+  "focus": "Revoke link",
+  "inert": 8
+ },
+ "afterCancelUpper": {
+  "bgInAx": false,
+  "lowerDoneInAx": true,
+  "focus": "Revoke link",
+  "inert": 8
+ },
+ "afterConfirmUpper": {
+  "revoked": "revoked: 1",
+  "bgInAx": false,
+  "lowerDoneInAx": true,
+  "focus": "Revoke link",
+  "inert": 8
+ },
+ "afterCloseLower": {
+  "bgInAx": true,
+  "inert": 0,
+  "focus": "Manage links",
+  "dialogs": []
+ },
+ "backgroundWorksAfterClose": "background clicks: 1"
+}

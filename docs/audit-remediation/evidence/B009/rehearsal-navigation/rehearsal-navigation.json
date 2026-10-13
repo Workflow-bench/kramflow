@@ -1,0 +1,39 @@
+{
+ "A_noProgressReload": {
+  "prompts": []
+ },
+ "B_progressReload": {
+  "before": "SYNTHETIC cue 1",
+  "prompts": [
+   "beforeunload"
+  ],
+  "afterDismissedReload": "SYNTHETIC cue 1",
+  "note": "dismissed prompt keeps the page"
+ },
+ "C_progressInAppLink": {
+  "before": "SYNTHETIC cue 1",
+  "urlAfter": "/dev/import",
+  "promptsShown": [],
+  "progressProtected": false,
+  "note": "no confirmation: in-app Link discards progress"
+ },
+ "D_backAfterInAppLink": {
+  "url": "/dev/rehearsal",
+  "progressRestored": "SYNTHETIC cue 1",
+  "notStarted": 0,
+  "rehearsing": 1,
+  "prompts": []
+ },
+ "F_resetAfterBack": {
+  "notStartedAfterReset": 1,
+  "progressAfterReset": "SYNTHETIC cue 1"
+ },
+ "E_exitCancelKeepsProgress": {
+  "progressAfterCancel": "SYNTHETIC cue 1",
+  "prompts": []
+ },
+ "G_confirmedExitClearsRun": {
+  "storedKeysAfterExit": [],
+  "prompts": []
+ }
+}

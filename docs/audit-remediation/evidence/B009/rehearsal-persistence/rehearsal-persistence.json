@@ -1,0 +1,63 @@
+{
+ "S1_reloadSameIdentity": {
+  "beforeReload": "SYNTHETIC cue 2",
+  "afterReload": "SYNTHETIC cue 2",
+  "prompts": [
+   "beforeunload"
+  ]
+ },
+ "S2_otherIdentity": {
+  "cueShown": null,
+  "notStarted": 1,
+  "keysForB": [
+   "kf-rehearsal-run:synthetic-user-a:synthetic-harness"
+  ]
+ },
+ "S3_backToA": {
+  "cue": "SYNTHETIC cue 2",
+  "keys": [
+   "kf-rehearsal-run:synthetic-user-a:synthetic-harness"
+  ]
+ },
+ "S4_cueChanged": {
+  "staleNotice": true,
+  "cueShown": null,
+  "notStarted": 1
+ },
+ "S5_freshRunOnChangedCues": {
+  "cueAfterReload": "SYNTHETIC cue 2",
+  "staleNoticeAfterReload": 0
+ },
+ "S6_reset": {
+  "resetDialogOpened": 1,
+  "cueAfterCancel": "SYNTHETIC cue 2",
+  "notStartedAfterConfirm": 1,
+  "keys": [
+   "kf-rehearsal-run:synthetic-user-a:synthetic-harness"
+  ]
+ },
+ "S7_signOut": {
+  "keysBefore": [
+   "kf-rehearsal-run:synthetic-user-a:synthetic-harness"
+  ],
+  "keysAfter": []
+ },
+ "S7_afterReload": {
+  "cue": null,
+  "notStarted": 1
+ },
+ "S8_noIdentity": {
+  "keysWritten": [],
+  "cue": "SYNTHETIC cue 2"
+ },
+ "S9_confirmedExit": {
+  "keysAfterExit": []
+ },
+ "browserDialogs": [
+  "beforeunload",
+  "beforeunload",
+  "beforeunload",
+  "beforeunload",
+  "beforeunload"
+ ]
+}

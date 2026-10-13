@@ -1,0 +1,16 @@
+{
+ "open": {
+  "dialogs": [
+   "dialog:Manage links"
+  ],
+  "backgroundInAx": false,
+  "inert": 8,
+  "focusInside": true
+ },
+ "afterEscape": {
+  "dialogs": [],
+  "backgroundInAx": true,
+  "inert": 0,
+  "focus": "Manage links"
+ }
+}

@@ -1,0 +1,6 @@
+# Regenerable intermediate artifacts — see build_coverage.mjs's $schema_note
+# for the exact regeneration command. Not committed: large, fully derived
+# from the vendored source-package/*.md files, and would just be diff noise.
+extracted.json
+classified.json
+unmapped.json

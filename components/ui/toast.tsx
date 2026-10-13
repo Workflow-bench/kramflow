@@ -61,7 +61,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none">
+      {/* role=status + aria-live=polite: a toast's content previously had no
+          live-region semantics, so a screen-reader user only ever learned of
+          one by its on-screen appearance (Codex B003 review, B003-S3 —
+          "use an appropriately scoped accessible announcement rather than
+          asserting screen-reader feedback from appearance alone"). Polite,
+          not assertive: a toast is informational feedback (e.g. a failed
+          dismiss), not urgent enough to interrupt whatever the user is
+          already doing. */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none"
+      >
         <AnimatePresence>
           {items.map((item) => (
             <motion.div

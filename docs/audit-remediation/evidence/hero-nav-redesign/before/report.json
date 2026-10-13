@@ -1,0 +1,181 @@
+{
+  "label": "before",
+  "measured": [
+    {
+      "view": "1280x800",
+      "innerWidth": 1280,
+      "innerHeight": 800,
+      "scrollWidth": 1280,
+      "horizontalOverflow": false,
+      "headerHeight": 86,
+      "h1FontSize": "89.6px",
+      "h1Top": 166.390625
+    },
+    {
+      "view": "1440x900",
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "scrollWidth": 1440,
+      "horizontalOverflow": false,
+      "headerHeight": 86,
+      "h1FontSize": "96px",
+      "h1Top": 166.390625
+    },
+    {
+      "view": "1920x1080",
+      "innerWidth": 1920,
+      "innerHeight": 1080,
+      "scrollWidth": 1920,
+      "horizontalOverflow": false,
+      "headerHeight": 86,
+      "h1FontSize": "96px",
+      "h1Top": 166.390625
+    },
+    {
+      "view": "1280x600-short",
+      "innerWidth": 1280,
+      "innerHeight": 600,
+      "scrollWidth": 1280,
+      "horizontalOverflow": false,
+      "headerHeight": 86,
+      "h1FontSize": "89.6px",
+      "h1Top": 166.390625
+    },
+    {
+      "view": "375x812-regression",
+      "innerWidth": 375,
+      "innerHeight": 812,
+      "scrollWidth": 375,
+      "horizontalOverflow": false,
+      "headerHeight": 89,
+      "h1FontSize": "44px",
+      "h1Top": 173.1875
+    }
+  ],
+  "checks": {
+    "reducedMotionHeadlineVisible": {
+      "opacity": "1",
+      "visible": true
+    },
+    "keyboardOrder": [
+      {
+        "tag": "A",
+        "text": "Kramflow",
+        "href": "/",
+        "outline": true,
+        "top": 19,
+        "height": 48
+      },
+      {
+        "tag": "A",
+        "text": "One cue",
+        "href": "#one-cue",
+        "outline": true,
+        "top": 23,
+        "height": 38
+      },
+      {
+        "tag": "A",
+        "text": "Product",
+        "href": "#product",
+        "outline": true,
+        "top": 23,
+        "height": 38
+      },
+      {
+        "tag": "A",
+        "text": "Features",
+        "href": "#features",
+        "outline": true,
+        "top": 23,
+        "height": 38
+      },
+      {
+        "tag": "A",
+        "text": "Log in",
+        "href": "/login",
+        "outline": true,
+        "top": 23,
+        "height": 38
+      },
+      {
+        "tag": "A",
+        "text": "Start free",
+        "href": "/signup",
+        "outline": true,
+        "top": 22,
+        "height": 41
+      },
+      {
+        "tag": "A",
+        "text": "StandbyGoStart free",
+        "href": "/signup",
+        "outline": true,
+        "top": 291,
+        "height": 62
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Next",
+        "href": null,
+        "outline": true,
+        "top": 432,
+        "height": 36
+      },
+      {
+        "tag": "BUTTON",
+        "text": "+ 1 min",
+        "href": null,
+        "outline": true,
+        "top": 432,
+        "height": 36
+      }
+    ],
+    "anchors": {
+      "one-cue": {
+        "exists": true,
+        "top": 0,
+        "navBottom": 80,
+        "obscured": true
+      },
+      "product": {
+        "exists": true,
+        "top": 0,
+        "navBottom": 76,
+        "obscured": true
+      },
+      "features": {
+        "exists": true,
+        "top": 0,
+        "navBottom": 76,
+        "obscured": true
+      }
+    }
+  },
+  "contrast": {
+    "nodes": [
+      {
+        "text": "Run the showfrom one screen.",
+        "fontSize": 96,
+        "large": true,
+        "color": "rgb(244, 239, 229)",
+        "fgLum": 0.8662324332861235
+      },
+      {
+        "text": "● LIVE·DAY 1 MORNING·4 / 7·1M BE",
+        "fontSize": 11,
+        "large": false,
+        "color": "rgb(138, 128, 112)",
+        "fgLum": 0.22011468585733832
+      },
+      {
+        "text": "The live operations system for s",
+        "fontSize": 18,
+        "large": false,
+        "color": "rgb(167, 157, 139)",
+        "fgLum": 0.3419351170866317
+      }
+    ]
+  },
+  "errors": []
+}

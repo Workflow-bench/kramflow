@@ -10,5 +10,9 @@ export default async function AvDisplayPage({
   const { token, eventId } = await searchParams;
   const access = await verifyDisplayAccess(token, eventId);
   if (!access.ok) return <LinkInvalid reason={access.reason} />;
-  return token ? <AvDisplayClient token={token} /> : <AvDisplayClient eventId={access.eventId} />;
+  return token ? (
+    <AvDisplayClient token={token} />
+  ) : (
+    <AvDisplayClient eventId={access.eventId} role={access.role} />
+  );
 }

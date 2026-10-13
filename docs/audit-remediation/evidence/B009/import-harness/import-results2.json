@@ -1,0 +1,47 @@
+{
+ "A_happyPath": {
+  "previewShown": true,
+  "openButtons": 2,
+  "listed": [
+   "The import wrote 2 sessions. Pick one to open in the console. Nothing goes live until you choose.",
+   "SYNTHETIC Sat • AM2 itemsOpen console",
+   "SYNTHETIC Sat • AM",
+   "SYNTHETIC Sat • PM1 itemOpen console",
+   "SYNTHETIC Sat • PM"
+  ],
+  "selectedBeforeAnyClick": "selectSession calls: none",
+  "outcome": "SYNTHETIC Sat • PM: makes this session live (explicit click), then opens the console",
+  "selectedAfterExplicitClick": "selectSession calls: sat-pm~harness",
+  "apiRequests": [],
+  "axDialogs": 0
+ },
+ "B_parseError": {
+  "error": {
+   "text": "SYNTHETIC parse error: row 3 has no session label",
+   "role": "alert",
+   "live": null
+  },
+  "confirmAvailable": 0,
+  "importStepShown": 0,
+  "apiRequests": []
+ },
+ "C_commitError": {
+  "error": {
+   "text": "SYNTHETIC commit failed; nothing was written",
+   "role": "alert"
+  },
+  "importStepShown": 0,
+  "previewStillShown": 1,
+  "apiRequests": []
+ },
+ "D_runningSession": {
+  "outcome": "SYNTHETIC Sat • AM: does not switch the running session: \"SYNTHETIC Sat • AM is not live. Switch sessions in the console.\"",
+  "selectSessionCalls": "selectSession calls: none",
+  "apiRequests": []
+ },
+ "E_locked": {
+  "outcome": "SYNTHETIC Sat • AM: refused: locked by another operator; stays on the cue sheet",
+  "selectSessionCalls": "selectSession calls: none",
+  "apiRequests": []
+ }
+}

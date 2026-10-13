@@ -1,0 +1,23 @@
+{
+ "noJs": {
+  "h1Text": "Run the showfrom one screen.",
+  "h1Visible": true,
+  "lineOpacity": "matrix(1, 0, 0, 1, 0, 0)",
+  "riseOpacity": "1",
+  "reduceMatch": false
+ },
+ "js": {
+  "h1Text": "Run the showfrom one screen.",
+  "h1Visible": true,
+  "lineOpacity": "matrix(1, 0, 0, 1, 0, 0)",
+  "riseOpacity": "1",
+  "reduceMatch": false
+ },
+ "noJsReduced": {
+  "h1Text": "Run the showfrom one screen.",
+  "h1Visible": true,
+  "lineOpacity": "none",
+  "riseOpacity": "1",
+  "reduceMatch": true
+ }
+}

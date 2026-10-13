@@ -1,0 +1,89 @@
+{
+  "batch": "B002",
+  "generated": "2026-09-30",
+  "repository_state": {
+    "branch": "fix/audit-remediation-phase1",
+    "commits": [
+      { "sha": "e355f48", "subject": "fix(permissions): require owner for speaker-ready and broadcast dismiss" },
+      { "sha": "47d7ac1", "subject": "fix(auth): close the invite-acceptance must_change_password bypass" },
+      { "sha": "6bc9205", "subject": "fix(integrations): unconditionally gate v1 control actions, not just creation" }
+    ],
+    "dirty_tree_before_ledger_commit": "docs/audit-remediation/ additions only"
+  },
+  "repository_checks": {
+    "vitest": { "command": "npx vitest run", "files": 29, "tests": 300, "result": "PASS", "note": "was 262/26 files before B002; +38 tests across 3 new files (15 owner-floor-matrix, 17 v1 actions, 6 invite-accept)" },
+    "typecheck": { "command": "npx tsc --noEmit", "result": "PASS" },
+    "lint": { "command": "npm run lint", "result": "PASS", "errors": 0, "warnings": 6, "note": "identical set to the original audit's pre-existing baseline; none introduced by B001 or B002" },
+    "build": { "command": "npm run build", "result": "PASS" }
+  },
+  "new_or_changed_test_files": [
+    { "file": "app/api/display-engine/owner-floor-matrix.test.ts", "tests": 15, "kind": "real-guard integration (DB mocked, auth/role logic real)", "covers": "KF-001" },
+    { "file": "app/api/display-engine/token-authority.test.ts", "tests": 35, "kind": "wiring (requireEventAccess mocked)", "covers": "KF-001 (updated: all 4 cases now minRole owner)" },
+    { "file": "app/api/v1/events/[eventId]/actions/[action]/route.test.ts", "tests": 17, "kind": "route unit, credential/live-action mocked", "covers": "KF-003" },
+    { "file": "app/api/invites/[token]/accept/route.test.ts", "tests": 6, "kind": "route unit, DB/auth mocked", "covers": "KF-002" },
+    { "file": "lib/server/require-auth.test.ts", "tests": 8, "kind": "unit (B001, unchanged)", "covers": "KF-002 shared guard" },
+    { "file": "lib/server/require-event-access.test.ts", "tests": 8, "kind": "real role-matrix unit (B001, unchanged)", "covers": "KF-001/KF-002 shared guard" }
+  ],
+  "live_verification": [
+    {
+      "id": "KF-001-live-viewer",
+      "environment": "dev Supabase qofggbarsdiovzqwgkpz, real dev server, real login session",
+      "actor": "phase1-viewer-test@kramflow.test (real viewer collaborator on event 0fe1ce24-...)",
+      "actions": ["PATCH /api/display-engine/hold", "PATCH /api/display-engine/timer", "PATCH /api/display-engine/speaker-ready"],
+      "expected": "403 for all three",
+      "observed": "403 {ok:false,error:\"Unauthorized\"} for all three",
+      "result": "PASS"
+    },
+    {
+      "id": "KF-001-live-editor",
+      "actor": "phase1-editor-test@kramflow.test (real editor collaborator)",
+      "actions": ["PATCH hold", "PATCH timer", "PATCH speaker-ready", "POST broadcasts/.../dismiss (nonexistent id)", "GET /api/display-view"],
+      "expected": "403/403/403/404/200",
+      "observed": "403/403/403/404 {error:\"Broadcast not found\"}/200",
+      "result": "PASS"
+    },
+    {
+      "id": "KF-001-live-owner-persistence",
+      "actor": "demo1@kramflow.test (real owner)",
+      "actions": ["GET display-view (before)", "PATCH speaker-ready programId=owner-persist-probe ready=true", "GET display-view (after)"],
+      "expected": "probe marker absent before, present after",
+      "observed": "beforeHasProbe:false, afterHasProbe:true",
+      "result": "PASS — independent persistence proof, not a status-code assumption",
+      "cleanup": "probe set back to ready:false in a follow-up call"
+    },
+    {
+      "id": "KF-003-live-valid-credential",
+      "actor": "a real, valid, non-revoked integration_credentials row inserted directly for event 0fe1ce24-...",
+      "actions": ["POST actions/start", "POST actions/hold", "POST actions/resume", "POST actions/next", "GET /state", "POST actions/hold with an invalid token"],
+      "expected": "403 coming_soon x4, 200 for state, 401 for invalid token",
+      "observed": "exactly that",
+      "result": "PASS"
+    },
+    {
+      "id": "KF-003-live-zero-mutation",
+      "actions": ["GET /state (before)", "POST all 4 actions", "GET /state (after)"],
+      "expected": "live_state.version/paused_at/active_session_id unchanged",
+      "observed": "version 447->447, paused_at and active_session_id byte-identical",
+      "result": "PASS — direct mutation-absence proof"
+    },
+    {
+      "id": "KF-003-live-revoke",
+      "actions": ["DELETE /api/events/[eventId]/integrations/[id] for the test credential"],
+      "expected": "200",
+      "observed": "200 {ok:true}",
+      "result": "PASS — revoke path exercised and confirmed working post-fix"
+    },
+    {
+      "id": "KF-002-live-flagged-denial",
+      "result": "NOT OBTAINED",
+      "reason": "provisioning a disposable flagged test account + pending invite was blocked by this session's own permission classifier (Modify Shared Resources); not retried through another path per that tool's instruction",
+      "substitute_evidence": "app/api/invites/[token]/accept/route.test.ts — 6 unit tests against the real, unmocked route logic"
+    }
+  ],
+  "cleanup_performed": [
+    "deleted event_collaborators rows for phase1-viewer-test@kramflow.test and phase1-editor-test@kramflow.test on event 0fe1ce24-...",
+    "revoked the test integration credential via the real DELETE endpoint",
+    "reset the speaker_ready probe value to false",
+    "left the two .test-TLD auth accounts in place as a reusable fixture (see DECISIONS.md) — not deleted"
+  ]
+}

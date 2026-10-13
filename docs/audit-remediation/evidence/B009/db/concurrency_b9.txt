@@ -1,0 +1,16 @@
+# B009 local Postgres concurrency evidence (disposable database b9_same, Postgres 16.15, real psql sessions)
+Command: bash <setup script> (creates b9_same from schema_mirror.sql, the migration, seed_race.sql, display_type_state_mirror.sql, seed_dts.sql), then race_same_event.sh and race_version.sh. Scripts are in docs/audit-remediation/migrations/tests/concurrency/.
+Evidence class: REAL LOCAL DATABASE with two concurrent sessions. Not Supabase runtime proof.
+
+== SAME EVENT: two imports into race-A
+A_exit=0 B_exit=0
+--- stored programs for event (name, session, sort_order):
+B-1|sat-am|1
+B-2|sat-am|2
+--- rows with A-prefixed names after B committed (must be 0): 0
+== VERSION RACE on display_type_state (race-A, presenter)
+--- session A (first writer, version 0 -> 1) output:
+1
+--- session B (same read version 0) rows returned: 0
+--- stored version and mode after both:
+1|countdown
