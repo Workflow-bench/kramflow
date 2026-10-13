@@ -78,8 +78,12 @@ test.describe("auth golden path", () => {
     await page.goto("/dashboard");
     await expect(page.getByRole("heading", { name: eventName })).toBeVisible();
 
+    // Logout hard-navigates to "/" (components/auth/auth-context.tsx), not
+    // "/login" — "/" is the public marketing homepage since the landing
+    // redesign (app/page.tsx), so a logged-out visitor lands there, not on
+    // the login form directly.
     await page.getByRole("button", { name: "Log Out" }).click();
-    await page.waitForURL("/login");
+    await page.waitForURL("/");
 
     await page.goto("/dashboard");
     await page.waitForURL(/\/login/);
