@@ -1,0 +1,32 @@
+[
+ {
+  "name": "room scene still advances through phases",
+  "ok": true,
+  "detail": "[\"Before the cue · Opening Keynote\",\"Console cut · Product Launch Demo\",\"Reaching the room\",\"Display views updated\"]"
+ },
+ {
+  "name": "all reveal targets visible after scrolling through",
+  "ok": true,
+  "detail": "[[\"heading\",\"1\"],[\"copy\",\"1\"],[\"media\",\"1\"],[\"heading\",\"1\"],[\"media\",\"1\"],[\"heading\",\"1\"],[\"copy\",\"1\"],[\"stagger\",\"1\"],[\"heading\",\"1\"],[\"copy\",\"1\"]]"
+ },
+ {
+  "name": "dialog opens",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "dialog closes with Escape",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "deep link #features still lands at 88px",
+  "ok": true,
+  "detail": "top 88"
+ },
+ {
+  "name": "no console errors across smoke run",
+  "ok": true,
+  "detail": ""
+ }
+]

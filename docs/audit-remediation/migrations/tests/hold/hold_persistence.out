@@ -1,0 +1,68 @@
+BEGIN
+CREATE TABLE
+CREATE TABLE
+INSERT 0 2
+INSERT 0 4
+CREATE FUNCTION
+psql:docs/audit-remediation/migrations/tests/hold/hold_persistence.sql:37: NOTICE:  PASS: activation writes exactly one row
+ _check 
+--------
+ 
+(1 row)
+
+psql:docs/audit-remediation/migrations/tests/hold/hold_persistence.sql:48: NOTICE:  PASS: deactivation keeps the message and clears active
+ _check 
+--------
+ 
+(1 row)
+
+INSERT 0 4
+INSERT 0 0
+psql:docs/audit-remediation/migrations/tests/hold/hold_persistence.sql:58: NOTICE:  PASS: provisioning creates four rows once, idempotently
+ _check 
+--------
+ 
+(1 row)
+
+psql:docs/audit-remediation/migrations/tests/hold/hold_persistence.sql:65: NOTICE:  PASS: hold after provisioning writes one row
+ _check 
+--------
+ 
+(1 row)
+
+psql:docs/audit-remediation/migrations/tests/hold/hold_persistence.sql:72: NOTICE:  PASS: write to a non-existent event matches zero rows
+ _check 
+--------
+ 
+(1 row)
+
+psql:docs/audit-remediation/migrations/tests/hold/hold_persistence.sql:77: NOTICE:  PASS: activating A left B presenter hold untouched
+ _check 
+--------
+ 
+(1 row)
+
+psql:docs/audit-remediation/migrations/tests/hold/hold_persistence.sql:83: NOTICE:  PASS: cross-tenant predicate (A row, B id) matches zero rows
+ _check 
+--------
+ 
+(1 row)
+
+psql:docs/audit-remediation/migrations/tests/hold/hold_persistence.sql:88: NOTICE:  PASS: presenter hold leaves general inactive
+ _check 
+--------
+ 
+(1 row)
+
+psql:docs/audit-remediation/migrations/tests/hold/hold_persistence.sql:95: NOTICE:  PASS: unknown display type writes nothing
+ _check 
+--------
+ 
+(1 row)
+
+                        result                        
+------------------------------------------------------
+ hold_persistence: ALL PASSED (local postgres mirror)
+(1 row)
+
+ROLLBACK

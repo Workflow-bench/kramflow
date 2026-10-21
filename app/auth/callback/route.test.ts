@@ -30,12 +30,26 @@ describe("GET /auth/callback redirect target", () => {
     }
   );
 
-  it("sends a failed exchange to login regardless of next", async () => {
+  it("a failed exchange with an off-site next goes to login with a generic marker and no destination", async () => {
     exchangeCodeForSession.mockResolvedValue({ error: new Error("expired") });
-    expect(location(await call("code=abc&next=https://evil.com"))).toBe("https://www.kramflow.me/login");
+    expect(location(await call("code=abc&next=https://evil.com"))).toBe("https://www.kramflow.me/login?link=expired");
   });
 
-  it("sends a missing code to login", async () => {
+  it("a failed exchange keeps a validated same-origin next for login to continue to", async () => {
+    exchangeCodeForSession.mockResolvedValue({ error: new Error("already used") });
+    expect(location(await call("code=abc&next=/e/123/operator"))).toBe(
+      "https://www.kramflow.me/login?link=expired&next=%2Fe%2F123%2Foperator"
+    );
+  });
+
+  it("a reused code (second exchange fails) is treated the same as expired, with no provider detail in the URL", async () => {
+    exchangeCodeForSession.mockResolvedValue({ error: new Error("code verifier mismatch: secret-detail") });
+    const target = location(await call("code=abc&next=/dashboard"));
+    expect(target).toBe("https://www.kramflow.me/login?link=expired&next=%2Fdashboard");
+    expect(target).not.toContain("secret-detail");
+  });
+
+  it("sends a missing code to login without the expired marker", async () => {
     expect(location(await call("next=/dashboard"))).toBe("https://www.kramflow.me/login");
   });
 });

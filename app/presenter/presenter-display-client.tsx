@@ -5,6 +5,7 @@ import { getSessionById } from "@/lib/data/sessions";
 import { getLive, getNext } from "@/lib/types";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
+import type { EventRole } from "@/lib/event-context";
 import { useDisplayTimer, useDisplayClock, formatClock } from "@/lib/display-engine/use-display-timer";
 import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
 import { deriveProgress, deriveAutoTimerInput, deriveStageStatus } from "@/lib/display-engine/live-progress";
@@ -51,9 +52,17 @@ function countdownFontSize(text: string, minRem: number, maxRem: number, baseVw:
   return `clamp(${minRem}rem, ${vw}vw, ${maxRem}rem)`;
 }
 
-export default function PresenterDisplayClient({ token, eventId }: { token?: string; eventId?: string }) {
+export default function PresenterDisplayClient({
+  token,
+  eventId,
+  role,
+}: {
+  token?: string;
+  eventId?: string;
+  role?: EventRole;
+}) {
   return (
-    <DisplayEngineProvider token={token} eventId={eventId} displayType="presenter">
+    <DisplayEngineProvider token={token} eventId={eventId} displayType="presenter" role={role}>
       <PresenterDisplayInner token={token} eventId={eventId} />
     </DisplayEngineProvider>
   );

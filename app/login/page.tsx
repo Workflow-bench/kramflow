@@ -4,16 +4,23 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Panel } from "@/components/ui/card";
+import { PasswordInput } from "@/components/auth/password-input";
 import { useToast } from "@/components/ui/toast";
-import { Wordmark } from "@/components/site/wordmark";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { safeNext } from "@/lib/safe-redirect";
+import { validatedNext, withNext } from "@/lib/auth/continuation";
 
 function LoginForm() {
   const searchParams = useSearchParams();
   const rawNext = searchParams.get("next");
   const next = safeNext(rawNext);
+  // Recovery keeps the same validated destination: Forgot password → reset → set-password.
+  const resetHref = withNext("/reset", validatedNext(rawNext));
+  // Set by the auth callback when an emailed link could not be used. The text is
+  // deliberately generic: it does not say whether an account exists or which
+  // failure happened (expired, already used, or invalid).
+  const linkExpired = searchParams.get("link") === "expired";
 
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
@@ -84,118 +91,98 @@ function LoginForm() {
   }
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-background px-6">
-      <div className="flex flex-col items-center w-full max-w-sm">
-        {/* The one recovery path missing from this page for anyone who
-            landed here by accident or a stray bookmark — there was
-            previously no way back to the public site short of editing the
-            URL (2026-09-01 UI/UX audit finding #17).
-            Now the shared `Wordmark`, not a hardcoded "KramFlow" string —
-            this was the only place on the site still spelling the brand
-            with a capital F, and the only place using the console's own
-            type scale (`text-console-md`) for what is, here, the brand
-            mark rather than an operational label. Same component the
-            landing nav/footer render, same focus ring. */}
-        <Link
-          href="/"
-          className="-my-3 rounded-chip py-3 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          <Wordmark />
-        </Link>
-        <p className="text-console-sm text-muted mt-2">Log in to your account</p>
+    <AuthShell
+      title="Welcome back"
+      support="Log in to continue your show."
+      footer={
+        <>
+          New to Kramflow?{" "}
+          <Link href={`/signup${rawNext ? `?next=${encodeURIComponent(next)}` : ""}`} className="text-primary hover:underline">
+            Create an account
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="flex w-full flex-col gap-5">
+        {linkExpired && (
+          <p role="status" className="rounded-control border border-line-soft bg-raised/60 px-4 py-3 text-[14px] leading-5 text-muted">
+            That link has expired or was already used.{" "}
+            <Link href={resetHref} className="text-primary hover:underline">Request a new link</Link>.
+          </p>
+        )}
 
-        {/* A Panel surface, not the bare background the rest of this form
-            floated on — every other authenticated route in the product now
-            renders its content inside a bg-card/bordered surface, and a
-            visitor's very first screen looking visually disconnected from
-            the product it leads into was a real, if easy to overlook, gap
-            (2026-09 convergence sprint, Workstream 7). The field anatomy
-            inside (label/Input/aria-describedby wiring) is untouched on
-            purpose — that's a deliberate a11y implementation, not
-            something to "consistency"-migrate into a different pattern. */}
-        <Panel className="w-full mt-8 p-6">
-        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-console-meta text-muted-2">
-              Email
-            </label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setShowResend(false);
-              }}
-              disabled={submitting}
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? "login-error" : undefined}
-            />
-          </div>
+        <div className="flex flex-col gap-2">
+          <label htmlFor="email" className="text-[14px] leading-5 text-muted">
+            Email
+          </label>
+          <Input
+            id="email"
+            size="public"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setShowResend(false);
+            }}
+            disabled={submitting}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "login-error" : undefined}
+          />
+        </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-console-meta text-muted-2">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between gap-4">
+            <label htmlFor="password" className="text-[14px] leading-5 text-muted">
               Password
             </label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setShowResend(false);
-              }}
-              disabled={submitting}
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? "login-error" : undefined}
-            />
+            <Link href={resetHref} className="text-[14px] leading-5 text-primary hover:underline">
+              Forgot password?
+            </Link>
           </div>
+          <PasswordInput
+            id="password"
+            size="public"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setShowResend(false);
+            }}
+            disabled={submitting}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "login-error" : undefined}
+          />
+        </div>
 
-          {/* Persistent (not a toast) and tied to both fields via
-              aria-describedby — previously a failed login rendered this
-              text but never marked the fields themselves invalid, so a
-              screen-reader user tabbing back to correct a field wouldn't
-              hear anything wrong with it (2026-09-01 UI/UX audit finding
-              #16). */}
-          {error && (
-            <p id="login-error" className="text-console-meta text-status-red" role="alert">
-              {error}
-            </p>
-          )}
+        {/* Persistent (not a toast) and tied to both fields via aria-describedby, so a
+            screen-reader user returning to a field hears what is wrong with it. */}
+        {error && (
+          <p id="login-error" className="text-[14px] leading-5 text-status-red" role="alert">
+            {error}
+          </p>
+        )}
 
-          {showResend && (
-            <p className="text-console-meta text-muted-2">
-              If your account isn&apos;t confirmed yet,{" "}
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={resending || !email.trim()}
-                className="text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                resend the confirmation email
-              </button>
-              .
-            </p>
-          )}
+        {showResend && (
+          <p className="text-[14px] leading-5 text-muted-2">
+            If your account isn&apos;t confirmed yet,{" "}
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resending || !email.trim()}
+              className="text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              resend the confirmation email
+            </button>
+            .
+          </p>
+        )}
 
-          <Button type="submit" variant="primary" size="lg" loading={submitting} className="w-full mt-2">
-            Log In
-          </Button>
-        </form>
-        </Panel>
-
-        <p className="text-console-meta text-muted-2 mt-6">
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-primary hover:underline">
-            Sign up
-          </Link>
-        </p>
-      </div>
-    </div>
+        <AuthSubmitButton loading={submitting}>Log In</AuthSubmitButton>
+      </form>
+    </AuthShell>
   );
 }
 
@@ -204,7 +191,7 @@ export default function LoginPage() {
     // useSearchParams requires a Suspense boundary during static
     // generation — the fallback matches the form's own background so
     // there's no flash between it and the real form on hydration.
-    <Suspense fallback={<div className="h-screen w-screen bg-background" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-background" />}>
       <LoginForm />
     </Suspense>
   );

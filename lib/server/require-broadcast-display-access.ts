@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { verifyDisplayAccess, verifySessionAccess, type DisplayAccessResult } from "@/lib/server/verify-display-access";
+import type { EventRole } from "@/lib/server/require-event-access";
 
 // Shared by the broadcast routes: resolve the broadcast's own event, then
 // require that the caller's access maps to that same event. Token-or-session
@@ -43,9 +44,18 @@ export function requireBroadcastDisplayAccess(
   return requireBroadcastAccess(broadcastId, () => verifyDisplayAccess(token, requestedEventId));
 }
 
+// Audit remediation KF-001 / R1 (Codex Phase 1 review): dismiss "removes
+// the message from active everywhere (not just on one screen)" (see its
+// own route comment) — shared operational state, the same class as
+// hold/timer, not a local per-viewer acknowledgement (that's
+// requireBroadcastDisplayAccess/acknowledge, scoped to one displayId and
+// correctly left token-allowed below). minRole defaults to "viewer" so
+// nothing else calling this changes; dismiss passes "owner" explicitly,
+// symmetric with sending a broadcast already requiring owner.
 export function requireBroadcastSessionAccess(
   broadcastId: string,
-  requestedEventId: string | undefined
+  requestedEventId: string | undefined,
+  minRole: EventRole = "viewer"
 ): Promise<NextResponse | { eventId: string }> {
-  return requireBroadcastAccess(broadcastId, () => verifySessionAccess(requestedEventId));
+  return requireBroadcastAccess(broadcastId, () => verifySessionAccess(requestedEventId, minRole));
 }

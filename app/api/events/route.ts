@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuthUser } from "@/lib/server/require-auth";
 import { eventLimitForTier } from "@/lib/server/plan-limits";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { provisionDisplayTypeRows } from "@/lib/server/display-type-state";
 
 // GET — every event this operator can actually open: owned, plus accepted
 // collaborations. Previously owner-only ("fixing collaborator visibility
@@ -105,11 +106,17 @@ export async function POST(request: Request) {
     admin.from("live_state").insert({ event_id: event.id }),
     admin.from("display_state").insert({ event_id: event.id }),
   ]);
-  if (liveStateResult.error || displayStateResult.error) {
+  const displayTypeResult = liveStateResult.error || displayStateResult.error
+    ? null
+    : await provisionDisplayTypeRows(admin, event.id);
+  if (liveStateResult.error || displayStateResult.error || (displayTypeResult && !displayTypeResult.ok)) {
     // Roll back the event row rather than leave a half-provisioned event
     // an operator can select but that 500s the moment they open it.
     await admin.from("events").delete().eq("id", event.id);
-    const message = liveStateResult.error?.message ?? displayStateResult.error?.message ?? "Failed to provision event";
+    const message =
+      liveStateResult.error?.message ??
+      displayStateResult.error?.message ??
+      (displayTypeResult && !displayTypeResult.ok ? displayTypeResult.error : "Failed to provision event");
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 

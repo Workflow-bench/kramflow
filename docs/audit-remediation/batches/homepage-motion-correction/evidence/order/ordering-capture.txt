@@ -1,0 +1,19 @@
+ORDER capture (dev copy with marker logs; see report). Strict Mode dev, breakpoint rebuild, hard reload:
+ORDER smoother-create
+ORDER ctx-build content-transform=yes
+ORDER smoother-kill
+ORDER smoother-create
+ORDER ctx-build content-transform=yes
+ORDER ctx-build content-transform=yes
+-- breakpoint to 900px (smoother must be killed)
+ORDER smoother-kill
+ORDER ctx-build content-transform=no
+-- back to 1440px (smoother must be created before scenes)
+ORDER smoother-create
+ORDER ctx-build content-transform=yes
+-- hard reload
+ORDER smoother-create
+ORDER smoother-kill
+ORDER smoother-create
+ORDER ctx-build content-transform=yes
+ORDER ctx-build content-transform=yes

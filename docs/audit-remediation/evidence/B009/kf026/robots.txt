@@ -1,0 +1,8 @@
+User-Agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /e/
+Disallow: /invite/
+Disallow: /api/
+Disallow: /dev/
+

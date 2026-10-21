@@ -1,0 +1,33 @@
+{
+  "source_zip": {
+    "path_at_intake": "/Users/deeppatel/Documents/Codex/2026-09-27/referenced-chatgpt-conversation-this-is-an-2/outputs/KRAMFLOW_AUDIT_PACKAGE.zip",
+    "sha256": "0cee90139ca628b05baaae31f066f811344db71cb4a11e8544ea6d9198f42ad7",
+    "matches_master_prompt_baseline_hash": true,
+    "verified_by": "shasum -a 256, run directly against the file at intake — not assumed from the master prompt's stated value"
+  },
+  "members": [
+    { "name": "KRAMFLOW_AUDIT_CHECKLIST.md", "bytes": 3861, "sha256": "b8e5dfe9620facaf951361cd085feb96e42d9598bcc77f54c2086a1dfcaa8e7d" },
+    { "name": "KRAMFLOW_EVIDENCE_INDEX.md", "bytes": 5273, "sha256": "8ee9b8925349c250a722f06d138acb49f14420b2fa8ae1eb493d27d644bacab4" },
+    { "name": "KRAMFLOW_FIX_GUIDE.md", "bytes": 16066, "sha256": "47e7a15f7d3a99ef309c7b20de4e285a70ee11a884b136cb8807d8b1fdf73ef0" },
+    { "name": "KRAMFLOW_FIX_SUMMARY.md", "bytes": 8058, "sha256": "0b22ad54b253b8acbdea037be024881699231705b158980532dd6dbf7c9448ba" },
+    { "name": "KRAMFLOW_FULL_AUDIT.md", "bytes": 41079, "sha256": "7b34ac2363a9268c4f0ee3b2ab24df79f610ca6c9bb70e5940e6305b5492a6c6" },
+    { "name": "KRAMFLOW_SECOND_PASS_ADDENDUM.md", "bytes": 4196, "sha256": "a90e2408b6fc296cfef3a6af5b8f78da7dc41c16088f1e06ed01641d6f4c5ec7" },
+    { "name": "KRAMFLOW_TEST_MATRIX.md", "bytes": 8105, "sha256": "db4ef7519f3a8f83fc930a354d4f7eae505b91c9f56fd530a4a862c4561a6141" },
+    { "name": "kramflow-lighthouse-desktop.report.html", "bytes": 754211, "sha256": "20fda9fb94663b3c4215a309c1dbdb3b73140c086ae49dbd6d447003838a3166" },
+    { "name": "kramflow-lighthouse-desktop.report.json", "bytes": 699641, "sha256": "b954bfc08f82392e4e4a10878d774a7de1e8fb435c42215614a37b037949253b" },
+    { "name": "kramflow-lighthouse-mobile-rerun.report.html", "bytes": 766478, "sha256": "654e03c078fbf69b1abdf8ad5e08d92b6923f50d7000665fcffcaaee8e5c952a" },
+    { "name": "kramflow-lighthouse-mobile-rerun.report.json", "bytes": 693132, "sha256": "2175f60d8d8b47cf6558e6a67928b9948e245ec497ba5597cc3517fe1ceef00e" },
+    { "name": "kramflow-lighthouse-mobile.report.html", "bytes": 683071, "sha256": "2376316bb73ca76444902ce1085bc72411b52056c00d1cc4ca5dd3fd890a4814" },
+    { "name": "kramflow-lighthouse-mobile.report.json", "bytes": 611034, "sha256": "ffdbaa37cdfe09d28256eae85943e542d9e700636c2451ac5b32af7b18497a26" }
+  ],
+  "missing_or_corrupt": [],
+  "note": "Original screenshots referenced by the reports are not included in this ZIP — the consolidated image-derived checklist inside the reports is the only representation of them; this manifest does not and cannot claim to have seen the original captures.",
+  "intake_date": "2026-09-30",
+  "repository_at_intake": {
+    "path": "/Users/deeppatel/Documents/AI/Shibir/stageflow",
+    "branch": "fix/audit-remediation-phase1",
+    "head_before_this_rework": "b72f0dd1780051bf99423cf353b90c61af0b2f33",
+    "audited_baseline_head": "02669143dcd7677efb7c6ed83bc7b23d056780a6",
+    "note": "The audit's own stated baseline branch (docs/finalize-project-documentation) and this repo's current working branch differ by name only — both point at commit history that includes 02669143... as an ancestor; verified via git merge-base, not assumed."
+  }
+}

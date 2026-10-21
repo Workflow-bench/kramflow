@@ -1,0 +1,117 @@
+[
+ {
+  "name": "A product settles at 88px header offset",
+  "ok": true,
+  "detail": "product top 88"
+ },
+ {
+  "name": "A no drift after settle (last 1s)",
+  "ok": true,
+  "detail": "range 0px"
+ },
+ {
+  "name": "A no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "A positions",
+  "ok": true,
+  "detail": "y@900ms=1655 final=1655"
+ },
+ {
+  "name": "B Home cancels: no movement in last 1s",
+  "ok": true,
+  "detail": "drift 0px, y 4536->0"
+ },
+ {
+  "name": "B Home: no return jump after 900ms window",
+  "ok": true,
+  "detail": "y@1200=0 y@2000=0"
+ },
+ {
+  "name": "B no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "C wheel interrupt: settles without snapping back",
+  "ok": true,
+  "detail": "range 0px"
+ },
+ {
+  "name": "C no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "D no scroll writes after route exit",
+  "ok": true,
+  "detail": "0 -> 0"
+ },
+ {
+  "name": "D back restores #features hash",
+  "ok": true,
+  "detail": "hash #features"
+ },
+ {
+  "name": "D back: lands at 88px and settles",
+  "ok": true,
+  "detail": "top 88 range 0px"
+ },
+ {
+  "name": "D no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "E direct #features lands at 88px",
+  "ok": true,
+  "detail": "top 88"
+ },
+ {
+  "name": "E direct #features no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "E direct #product lands at 88px",
+  "ok": true,
+  "detail": "top 88"
+ },
+ {
+  "name": "E direct #product no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "F resize below breakpoint: stable, no stale write",
+  "ok": true,
+  "detail": "range 0px"
+ },
+ {
+  "name": "F smoother torn down at mobile width",
+  "ok": true,
+  "detail": "transform=''"
+ },
+ {
+  "name": "F F no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "G reduced-motion mid-navigation: no stale write",
+  "ok": true,
+  "detail": "range 0px"
+ },
+ {
+  "name": "G reduced-motion: motion flag off",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "G no console errors",
+  "ok": true,
+  "detail": ""
+ }
+]

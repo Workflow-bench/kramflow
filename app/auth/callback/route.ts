@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
-import { safeNext } from "@/lib/safe-redirect";
+import { isSafeRedirect, safeNext } from "@/lib/safe-redirect";
 
 // The one place a Supabase-Auth-sent email link (collaborator invite,
 // password recovery, email change) lands before handing off to wherever it
@@ -23,8 +23,15 @@ export async function GET(request: Request) {
     }
   }
 
-  // No code, or the exchange failed (expired/already-used link) — send them
-  // to login rather than the invite/reset page itself, which would just
-  // read as signed-out and confusingly ask them to start over anyway.
-  return NextResponse.redirect(new URL("/login", url.origin));
+  // No code, or the exchange failed (expired or already-used link). Send the
+  // visitor to login with the validated destination kept, so a successful login
+  // continues where the link was meant to go. `link=expired` is a generic marker:
+  // it does not say whether the account exists or which failure occurred.
+  if (!code) return NextResponse.redirect(new URL("/login", url.origin));
+  const failure = new URL("/login", url.origin);
+  failure.searchParams.set("link", "expired");
+  // Only a raw next that passed validation is carried. The fallback is not.
+  const rawNext = url.searchParams.get("next");
+  if (rawNext && isSafeRedirect(rawNext)) failure.searchParams.set("next", rawNext);
+  return NextResponse.redirect(failure);
 }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { ParsedPartition, ParsedProgram, ParsedSession } from "@/lib/parse-cuesheet";
 import type { Session } from "@/lib/types";
+import { replacedSessions, type ImportDone } from "@/lib/cue-sheet-import-result";
 
 interface AiPreview {
   sessions: ParsedSession[];
@@ -27,7 +28,7 @@ export function AiImportPanel({
 }: {
   eventId: string;
   sessions: Session[];
-  onDone: () => void;
+  onDone: (done: ImportDone) => void;
   onCancel: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
@@ -98,15 +99,13 @@ export function AiImportPanel({
         setError(data?.error ?? "Failed to import. Try again.");
         return;
       }
-      onDone();
+      onDone({ sessionIds: data.sessionIds ?? {}, sessions: kept.sessions, programs: kept.programs });
     } catch {
       setError("Couldn't reach the server. Try again.");
     } finally {
       setBusy(false);
     }
   }
-
-  const existingIds = new Set(sessions.map((s) => s.id));
 
   if (!preview || !kept) {
     return (
@@ -145,7 +144,8 @@ export function AiImportPanel({
     );
   }
 
-  const replacing = kept.sessions.filter((s) => existingIds.has(s.id));
+  // Matched by labels: a repeat import is stored under an event-scoped id.
+  const replacing = kept.sessions.filter((s) => replacedSessions(sessions, [s]).length > 0);
 
   return (
     <div className="flex flex-col gap-4">

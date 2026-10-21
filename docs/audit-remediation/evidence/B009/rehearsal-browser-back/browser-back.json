@@ -1,0 +1,46 @@
+{
+ "A_progressBeforeNavigate": {
+  "url": "/dev/rehearsal?fixture=multi",
+  "notStarted": 0,
+  "rehearsing": 1,
+  "cue": "SYNTHETIC cue 1",
+  "dialogOpen": false
+ },
+ "B_afterNavigateAway": {
+  "url": "/dev/import?live=none",
+  "notStarted": 0,
+  "rehearsing": 0,
+  "cue": null,
+  "dialogOpen": false
+ },
+ "C_afterBack_freshState": {
+  "url": "/dev/rehearsal?fixture=multi",
+  "notStarted": 1,
+  "rehearsing": 0,
+  "cue": "SYNTHETIC cue 1",
+  "dialogOpen": false
+ },
+ "D_dialogOpenBeforeNavigate": {
+  "url": "/dev/rehearsal?fixture=multi",
+  "notStarted": 0,
+  "rehearsing": 1,
+  "cue": "SYNTHETIC cue 1",
+  "dialogOpen": true
+ },
+ "E_backWithDialogOpen": {
+  "url": "/dev/rehearsal?fixture=multi",
+  "notStarted": 1,
+  "rehearsing": 0,
+  "cue": "SYNTHETIC cue 1",
+  "dialogOpen": false
+ },
+ "F_forwardToImport": {
+  "url": "/dev/import?live=none",
+  "notStarted": 0,
+  "rehearsing": 0,
+  "cue": null,
+  "dialogOpen": false
+ },
+ "browserDialogs": [],
+ "liveOrMutatingRequests": []
+}

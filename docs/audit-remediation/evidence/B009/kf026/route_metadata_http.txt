@@ -1,0 +1,57 @@
+== / 200 
+<title>KramFlow</title>
+<link rel="canonical" href="https://www.kramflow.me"/>
+property="og:url" content="https://www.kramflow.me"/>
+property="og:site_name" content="KramFlow"/>
+property="og:type" content="website"/>
+== /login 200 
+<title>Log In · KramFlow</title>
+<meta name="robots" content="noindex, nofollow"/>
+property="og:site_name" content="KramFlow"/>
+property="og:type" content="website"/>
+== /signup 200 
+<title>Sign Up · KramFlow</title>
+<meta name="robots" content="noindex, nofollow"/>
+property="og:site_name" content="KramFlow"/>
+property="og:type" content="website"/>
+== /reset 200 
+<title>Reset password · KramFlow</title>
+<meta name="robots" content="noindex, nofollow"/>
+property="og:site_name" content="KramFlow"/>
+property="og:type" content="website"/>
+== /set-password 200 
+<title>Set Password · KramFlow</title>
+<meta name="robots" content="noindex, nofollow"/>
+property="og:site_name" content="KramFlow"/>
+property="og:type" content="website"/>
+== /tv 200 
+<title>Connect this display · KramFlow</title>
+<meta name="robots" content="noindex, nofollow"/>
+property="og:site_name" content="KramFlow"/>
+property="og:type" content="website"/>
+== /screens 200 
+<title>Choose a Screen · KramFlow</title>
+<meta name="robots" content="noindex, nofollow"/>
+property="og:site_name" content="KramFlow"/>
+property="og:type" content="website"/>
+== /presenter 307 http://localhost:3920/login
+== /invite/SAMPLE-TOKEN-123 200 
+<title>Invitation · KramFlow</title>
+<meta name="robots" content="noindex, nofollow"/>
+property="og:site_name" content="KramFlow"/>
+property="og:type" content="website"/>
+== /dashboard 307 http://localhost:3920/login?next=%2Fdashboard
+== /e/00000000-0000-0000-0000-000000000001/operator 307 http://localhost:3920/login?next=%2Fe%2F00000000-0000-0000-0000-000000000001%2Foperator
+== /dev/components 404 
+<meta name="robots" content="noindex"/>
+<title>Component catalog · KramFlow</title>
+<meta name="robots" content="noindex, nofollow"/>
+property="og:site_name" content="KramFlow"/>
+property="og:type" content="website"/>
+== /no-such-page 404 
+<meta name="robots" content="noindex"/>
+<title>KramFlow</title>
+property="og:site_name" content="KramFlow"/>
+property="og:type" content="website"/>
+== /robots.txt 200 
+== /sitemap.xml 200 

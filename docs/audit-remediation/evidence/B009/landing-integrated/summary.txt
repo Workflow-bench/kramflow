@@ -1,0 +1,8 @@
+{"file":"desktop-run1.json","form":"desktop","perf":0.99,"a11y":0.96,"lcp":692,"cls":0,"tbt":0,"unusedJsKiB":51,"contrastItems":11}
+{"file":"desktop-run2.json","form":"desktop","perf":0.99,"a11y":0.96,"lcp":695,"cls":0,"tbt":0,"unusedJsKiB":51,"contrastItems":11}
+{"file":"desktop-run3.json","form":"desktop","perf":0.99,"a11y":0.96,"lcp":694,"cls":0,"tbt":0,"unusedJsKiB":51,"contrastItems":11}
+{"file":"mobile-run1.json","form":"mobile","perf":0.92,"a11y":0.96,"lcp":3281,"cls":0,"tbt":26,"unusedJsKiB":51,"contrastItems":7}
+{"file":"mobile-run2.json","form":"mobile","perf":0.91,"a11y":0.96,"lcp":3413,"cls":0,"tbt":13,"unusedJsKiB":51,"contrastItems":7}
+{"file":"mobile-run3.json","form":"mobile","perf":0.92,"a11y":0.96,"lcp":3329,"cls":0,"tbt":10,"unusedJsKiB":51,"contrastItems":7}
+mobile runs 3 median LCP 3329 median perf 0.92 median TBT 13 max CLS 0 median unusedJsKiB 51
+desktop runs 3 median LCP 694 median perf 0.99 median TBT 0 max CLS 0 median unusedJsKiB 51

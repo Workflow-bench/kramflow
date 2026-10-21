@@ -1,0 +1,9 @@
+# KF-010 browser error-boundary capture (B009, local production build)
+Route: /zz-error-probe (TEMPORARY, removed in the commit that adds this file)
+Build: production build of the working tree at c576fe3 plus the temporary probe route; server: next start on localhost.
+Identity: anonymous. Fixture: a client component that throws during the client render only.
+Observed: role=alert boundary shown, 'Try again' present; browser issued fetch to /api/observability/report (initiator fetch).
+Captured record (server log, already redacted by the endpoint):
+[report] {"name":"Error","message":"probe render failure for [email] token=[redacted] event [id]","stack":"Error: probe render failure for [email] token=[redacted] event [id]\n    at http://localhost:3932/_next/static/chunks/3szwdbhf2it59.js:1:181\n    at aS (http://localhost:3932/_next/static/chunks/3z6h-42vc8z6q.js:31:62449)\n    at o1 (http://localhost:3932/_next/static/chunks/3z6h-42vc8z6q.js:31:82742)\n    at id (http://localhost:3932/_next/static/chunks/3z6h-42vc8z6q.js:31:94431)\n    at sh (http://localhost:3932/_next/static/chunks/3z6h-42vc8z6q.js:31:137815)\n    at http://localhost:3932/_next/static/chunks/3z6h-42vc8z6q.js:31:137660\n    at sm (http://localhost:3932/_next/static/chunks/3z6h-42vc8z6q.js:31:137668)\n    at sr (http://localhost:3932/_next/static/chunks/3z6h-42vc8z6q.js:31:133582)\n    at sq (http://localhost:3932/_next/static/chunks/3z6h-42vc8z6q.js:31:159376)\n    at MessagePort.O (http://localhost:3932/_next/static/chunks/3z6h-42vc8z6q.js:1:3356)","route":"/zz-error-probe","action":"render","release":"unknown","environment":"production","source":"client","at":"2026-10-04T23:34:16.550Z"}
+Secrets absent from the server log (count of raw token, email and event-id matches): 0
+Not verified: provider ingestion, source-map resolution, alert delivery (external).

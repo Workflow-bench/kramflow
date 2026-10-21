@@ -1,0 +1,13 @@
+A_exit=0 B_exit=0
+--- A:
+ 
+(1 row)
+
+--- B:
+ {"sessionIds": {"sat-am": "sat-am~69e2703f"}, "programsWritten": 1, "sessionsWritten": 1, "partitionsWritten": 0}
+(1 row)
+
+--- sessions after race:
+00000000-0000-0000-0000-00000000000a|sat-am
+00000000-0000-0000-0000-00000000000b|sat-am~69e2703f
+SETUP_AND_RACE_DONE

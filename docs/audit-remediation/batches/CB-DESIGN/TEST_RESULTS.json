@@ -1,0 +1,110 @@
+{
+  "base_original": "cb7737e",
+  "resumed_from": "54d1fc5318ece4e1bcb1217fe040797430e0d8a9",
+  "branch": "integrate/ui-revamp-landing",
+  "wip_tracked_patch_sha256": "d0af67e724f3fe6dfa4e05f00d8f2436eee12ae4a324219bd61302c4412e1f35",
+  "finalSHA": "a07cf3a075427caecaeb0bbbdfb447be1be28c99",
+  "status": "NOT_COMPLETE",
+  "kf023": {
+    "status": "OPEN",
+    "target_ms": 2500,
+    "mobile_simulated_lcp_runs_ms": [
+      3383.1,
+      3463.0,
+      3454.8
+    ],
+    "mobile_simulated_median_ms": 3454.8,
+    "desktop_simulated_lcp_runs_ms": [
+      716.8,
+      718.0,
+      747.3
+    ],
+    "desktop_simulated_median_ms": 718.0,
+    "lighthouse": "13.5.0",
+    "throttling": "simulated default",
+    "raw": "evidence/CB-DESIGN/after-batch3/lighthouse/"
+  },
+  "gates": {
+    "tsc_noEmit": "pass",
+    "vitest": {
+      "files": 58,
+      "tests": 638,
+      "result": "pass"
+    },
+    "eslint": {
+      "errors": 0,
+      "warnings": 5,
+      "note": "pre-existing window.location navigation warnings; evidence excluded from lint"
+    },
+    "next_build": "pass",
+    "validate_ledger": "PASS",
+    "production_dev_routes_404": {
+      "/dev": 404,
+      "/dev/components": 404,
+      "/dev/modal": 404,
+      "/dev/realtime": 404,
+      "/dev/import": 404,
+      "/dev/import/console": 404,
+      "/dev/rehearsal": 404,
+      "/api/dev-harness": 404,
+      "positive_control_/login": 200
+    },
+    "harness_asset_string_scan": "not_performed"
+  },
+  "browser": {
+    "viewports": [
+      "1280x800",
+      "768x1024",
+      "375x812",
+      "320x640",
+      "1280x600"
+    ],
+    "pages": [
+      "landing",
+      "login",
+      "signup",
+      "reset",
+      "set-password"
+    ],
+    "horizontal_overflow": false,
+    "report": "evidence/CB-DESIGN/after-batch3/browser/browser-report.json"
+  },
+  "real_dom_focus": {
+    "scenarios": 9,
+    "result": "pass",
+    "evidence": "evidence/CB-DESIGN/focus-harness/cleanup-results.json"
+  },
+  "packages": {
+    "1": "PRIOR",
+    "2": "PRIOR",
+    "3": "PRIOR",
+    "4": "VERIFIED",
+    "5": "PARTIAL",
+    "6": "VERIFIED",
+    "7": "PARTIAL",
+    "8": "PARTIAL",
+    "9": "VERIFIED",
+    "10": "PARTIAL",
+    "11": "PARTIAL",
+    "12": "PARTIAL",
+    "13": "PARTIAL",
+    "14": "PARTIAL_KF023_OPEN",
+    "15": "PARTIAL"
+  },
+  "codex_verified": false,
+  "self_approved": false,
+  "not_verified": [
+    "controlled signup/reset/reauth submit states",
+    "menu and dialog keyboard in final build",
+    "mobile tablist arrows and focus wrap",
+    "local cue propagation",
+    "reduced-motion captures",
+    "200 percent zoom",
+    "screen reader",
+    "composite contrast (D11)",
+    "password toggle behaviour",
+    "hashed-asset harness scan",
+    "hawkscan"
+  ],
+  "hawkscan": "unavailable: HAWK_API_KEY not configured in session"
+}

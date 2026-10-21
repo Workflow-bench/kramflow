@@ -1,0 +1,62 @@
+[
+ {
+  "name": "1 overlay becomes visible during entrance",
+  "ok": true,
+  "detail": "[\"0\",\"0\",\"0\",\"0\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\",\"1\"]"
+ },
+ {
+  "name": "1 overlay cycles through words (transform changes)",
+  "ok": true,
+  "detail": "[\"none\",\"matrix(1, 0, 0, 1, 0, 0)\",\"matrix(1, 0, 0, 1, 0, -15.9348)\",\"matrix(1, 0, 0, 1, 0, -16)\",\"matrix(1, 0, 0, 1, 0, -23.2924)\",\"matrix(1, 0, 0, 1, 0, -32)\",\"matrix(1, 0, 0, 1, 0, -47.9989)\",\"matrix(1, 0, 0, 1, 0, -48)\"]"
+ },
+ {
+  "name": "1 overlay released, real label intact",
+  "ok": true,
+  "detail": "{\"after\":{\"overlayOpacity\":\"0\",\"transform\":\"none\"},\"eyebrowText\":\"Live event operations\"}"
+ },
+ {
+  "name": "1 storage written on completion",
+  "ok": true,
+  "detail": "stored 1"
+ },
+ {
+  "name": "1 no console errors",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "2 repeat visit: overlay never shows",
+  "ok": true,
+  "detail": "{\"overlayOpacity\":\"0\",\"transform\":\"none\"}"
+ },
+ {
+  "name": "3 deep link: lands on target (top~88)",
+  "ok": true,
+  "detail": "top 88"
+ },
+ {
+  "name": "3 deep link: entrance did not run",
+  "ok": true,
+  "detail": "{\"overlayOpacity\":\"0\",\"transform\":\"none\"}"
+ },
+ {
+  "name": "4 interruption: overlay released (not stuck)",
+  "ok": true,
+  "detail": "{\"overlayOpacity\":\"0\",\"transform\":\"none\"}"
+ },
+ {
+  "name": "4 interruption: real label visible underneath",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "name": "5 reduced motion: overlay never shows",
+  "ok": true,
+  "detail": "{\"overlayOpacity\":\"0\",\"transform\":\"none\"}"
+ },
+ {
+  "name": "5 reduced motion: real label reads immediately",
+  "ok": true,
+  "detail": "Live event operations"
+ }
+]

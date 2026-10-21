@@ -1,0 +1,549 @@
+<title>Kramflow Landing Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" integrity="sha384-g4NTh/Iv5PPU4xPyhEWqPcwtNXOvdaDI8LLnyYfyNZOjKJeYQyjzQ9X5275eBjpt" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" integrity="sha384-Z3REaz79l2IaAZqJsSABtTbhjgOUYyV3p90XNnAPCSHg3EMTz1fouunq9WZRtj3d" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<style>
+/* ===========================================================================
+   DESIGN PLAN
+   Layout concept: asymmetric technical hero (headline+CTA split, not centered),
+   a single-sentence 3-step scroll narrative with a morphing console panel,
+   then alternating full-width feature bands of increasing density (grouped
+   list -> dense capability grid -> side-by-side audience panels), closing on
+   a quiet reliability statement rather than fabricated logos/testimonials.
+   The accent vocabulary (on-air green / standby amber) is borrowed directly
+   from the product's own real cue-state semantics, not an arbitrary brand
+   color, so the marketing page and the console it's selling speak one
+   visual language.
+   =========================================================================== */
+:root {
+  --bg: #0b0c0b;
+  --bg-raised: #131412;
+  --bg-panel: #161816;
+  --line: rgba(237, 240, 235, 0.11);
+  --line-soft: rgba(237, 240, 235, 0.06);
+  --fg: #edf0eb;
+  --fg-muted: #9a9e96;
+  --fg-faint: #6b6f67;
+  --accent: #3ddc84;      /* on-air green — the product's own "live" signal */
+  --accent-dim: #2a9d5f;
+  --warn: #e0a942;        /* standby amber — the product's own "next" signal */
+  --font-display: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-body: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+p { margin: 0; line-height: 1.6; }
+a { color: inherit; text-decoration: none; }
+img, svg { max-width: 100%; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 24px; }
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(61,220,132,0.15); }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 22px; border-radius: 10px; font-family: var(--font-body); font-weight: 600;
+  font-size: 14.5px; cursor: pointer; border: 1px solid transparent; white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: #06130c; }
+.btn-primary:hover { background: #55e698; }
+.btn-ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+.btn-ghost:hover { border-color: rgba(237,240,235,0.3); }
+.icon { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+section { position: relative; }
+.section-pad { padding-block: 96px; }
+@media (max-width: 720px) { .section-pad { padding-block: 64px; } .wrap { padding-inline: 18px; } }
+
+/* NAV */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+.nav.scrolled { background: rgba(11,12,11,0.86); backdrop-filter: blur(10px); border-color: var(--line); }
+.nav-row { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+.wordmark { display: flex; align-items: center; gap: 9px; font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+.wordmark .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--accent); }
+.nav-links { display: flex; align-items: center; gap: 28px; font-size: 14px; color: var(--fg-muted); }
+.nav-links a:hover { color: var(--fg); }
+.nav-actions { display: flex; align-items: center; gap: 14px; }
+.nav-actions .btn-ghost { padding: 9px 16px; font-size: 13.5px; }
+.nav-actions .btn-primary { padding: 9px 18px; font-size: 13.5px; }
+@media (max-width: 860px) { .nav-links { display: none; } }
+
+/* HERO */
+.hero { padding-top: 64px; padding-bottom: 0; }
+.hero-top { display: grid; grid-template-columns: 1.3fr 1fr; gap: 48px; align-items: end; padding-bottom: 56px; }
+.hero h1 { font-size: clamp(2.6rem, 5vw, 4.4rem); line-height: 1.02; font-weight: 700; }
+.hero h1 .accent { color: var(--accent); font-style: normal; }
+.hero-side { display: flex; flex-direction: column; gap: 18px; padding-bottom: 6px; }
+.hero-side p { color: var(--fg-muted); font-size: 16px; max-width: 38ch; }
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+@media (max-width: 860px) { .hero-top { grid-template-columns: 1fr; gap: 24px; } }
+
+.console-shell {
+  border: 1px solid var(--line); border-radius: 18px 18px 0 0; background: var(--bg-panel);
+  box-shadow: 0 -40px 120px -40px rgba(61,220,132,0.08), inset 0 1px 0 rgba(255,255,255,0.04);
+  overflow: hidden; display: grid; grid-template-columns: 220px 1fr 260px;
+}
+.console-rail { border-right: 1px solid var(--line-soft); padding: 18px 10px; display: flex; flex-direction: column; gap: 4px; }
+.console-rail-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; font-size: 13px; color: var(--fg-faint); }
+.console-rail-item.active { background: var(--bg-raised); color: var(--fg); }
+.console-main { padding: 22px 26px; border-right: 1px solid var(--line-soft); }
+.console-main .live-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.live-pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-display); font-size: 11px; letter-spacing: 0.08em; color: var(--accent); background: rgba(61,220,132,0.1); border: 1px solid rgba(61,220,132,0.3); padding: 4px 9px; border-radius: 999px; }
+.live-pill .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.8s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.console-main h4 { font-family: var(--font-body); font-weight: 700; font-size: 18px; margin-bottom: 4px; }
+.console-main .meta { color: var(--fg-faint); font-size: 13px; margin-bottom: 20px; }
+.timer { font-family: var(--font-display); font-weight: 700; font-size: 44px; font-variant-numeric: tabular-nums; margin-bottom: 18px; }
+.cue-list { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.cue-row { display: flex; justify-content: space-between; padding: 9px 10px; border-radius: 7px; color: var(--fg-faint); }
+.cue-row.current { background: rgba(61,220,132,0.08); color: var(--fg); border: 1px solid rgba(61,220,132,0.22); }
+.cue-row.next { color: var(--warn); }
+.console-side { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.console-side .label { font-family: var(--font-display); font-size: 10.5px; letter-spacing: 0.1em; color: var(--fg-faint); text-transform: uppercase; margin-bottom: 6px; }
+.display-chip { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; padding: 8px 10px; background: var(--bg-raised); border-radius: 8px; border: 1px solid var(--line-soft); }
+.display-chip .on { color: var(--accent); font-family: var(--font-display); font-size: 10.5px; }
+@media (max-width: 860px) { .console-shell { grid-template-columns: 1fr; } .console-rail, .console-main { border-right: none; border-bottom: 1px solid var(--line-soft); } }
+
+/* NARRATIVE STEPS */
+.narrative { padding-block: 120px; border-top: 1px solid var(--line-soft); }
+.narrative-sentence { font-family: var(--font-display); font-size: clamp(1.5rem, 3vw, 2.4rem); line-height: 1.35; max-width: 20ch; margin-bottom: 56px; }
+.narrative-sentence .step { color: var(--fg-faint); transition: color 0.4s ease; }
+.narrative-sentence .step.active { color: var(--accent); }
+.narrative-sentence .num { font-size: 0.5em; vertical-align: super; opacity: 0.6; }
+.narrative-panels { position: relative; height: 320px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg-panel); overflow: hidden; }
+.narrative-panel { position: absolute; inset: 0; padding: 28px; opacity: 0; transition: opacity 0.5s ease; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.narrative-panel.active { opacity: 1; }
+.narrative-panel .tag { font-family: var(--font-display); font-size: 11px; color: var(--fg-faint); letter-spacing: 0.08em; }
+.narrative-panel .big { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+
+/* STAT STRIP */
+.stats { border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); padding-block: 48px; }
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+.stat-num { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.6rem, 3vw, 2.2rem); color: var(--fg); font-variant-numeric: tabular-nums; }
+.stat-label { color: var(--fg-faint); font-size: 13px; margin-top: 4px; }
+@media (max-width: 720px) { .stats-row { grid-template-columns: 1fr 1fr; row-gap: 28px; } }
+
+/* FEATURE CATEGORY */
+.icon-row { display: flex; gap: 10px; margin-bottom: 28px; }
+.icon-badge { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); }
+.icon-badge.b1 { background: rgba(61,220,132,0.1); color: var(--accent); }
+.icon-badge.b2 { background: rgba(224,169,66,0.1); color: var(--warn); }
+.icon-badge.b3 { background: rgba(120,160,255,0.1); color: #86a3ff; }
+.icon-badge.b4 { background: rgba(255,120,160,0.1); color: #ff8fb0; }
+.feature-head { max-width: 46ch; margin-bottom: 48px; }
+.feature-head h2 { font-size: clamp(1.8rem, 3.4vw, 2.7rem); font-family: var(--font-body); font-weight: 700; margin-bottom: 14px; }
+.feature-head p { color: var(--fg-muted); font-size: 16px; }
+.feature-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px 48px; }
+.feature-item h3 { font-family: var(--font-body); font-size: 16.5px; font-weight: 700; margin-bottom: 7px; }
+.feature-item p { color: var(--fg-muted); font-size: 14.5px; }
+@media (max-width: 760px) { .feature-list { grid-template-columns: 1fr; } }
+
+/* CAPABILITY GRID */
+.cap-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); border-radius: 14px; overflow: hidden; }
+.cap-card { background: var(--bg); padding: 22px; display: flex; flex-direction: column; gap: 10px; }
+.cap-card .icon { color: var(--fg-muted); }
+.cap-card h4 { font-family: var(--font-body); font-size: 14.5px; font-weight: 700; }
+.cap-card p { font-size: 13px; color: var(--fg-faint); }
+@media (max-width: 920px) { .cap-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .cap-grid { grid-template-columns: 1fr; } }
+
+/* AUDIENCE SPLIT */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line-soft); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.split-col { background: var(--bg-panel); padding: 36px; display: flex; flex-direction: column; gap: 14px; }
+.split-col .eyebrow { margin-bottom: 4px; }
+.split-col h3 { font-family: var(--font-body); font-size: 24px; font-weight: 700; }
+.split-col p { color: var(--fg-muted); font-size: 14.5px; max-width: 40ch; }
+.split-visual { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-raised); padding: 16px; font-family: var(--font-display); font-size: 12.5px; color: var(--fg-faint); }
+@media (max-width: 800px) { .split { grid-template-columns: 1fr; } }
+
+/* SPOTLIGHT (prepare/rehearse) */
+.spotlight-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 32px; }
+.toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
+.toggle button { font-family: var(--font-body); font-size: 13.5px; font-weight: 600; padding: 8px 16px; border-radius: 7px; background: transparent; color: var(--fg-faint); border: none; cursor: pointer; }
+.toggle button.active { background: var(--bg-raised); color: var(--fg); }
+.spotlight-panel { border: 1px solid var(--line); border-radius: 16px; background: var(--bg-panel); padding: 40px; min-height: 220px; display: flex; align-items: center; }
+.spotlight-panel .mono { font-family: var(--font-display); font-size: 13px; color: var(--fg-faint); line-height: 2; }
+.spotlight-panel .mono .hl { color: var(--accent); }
+
+/* RELIABILITY */
+.reliability { border-top: 1px solid var(--line-soft); }
+.reliability-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: start; }
+.reliability h2 { font-size: clamp(1.8rem, 3.2vw, 2.5rem); font-family: var(--font-body); font-weight: 700; margin-bottom: 16px; max-width: 16ch; }
+.reliability-facts { display: flex; flex-direction: column; gap: 20px; }
+.fact { display: flex; gap: 14px; }
+.fact .icon { color: var(--accent); margin-top: 2px; }
+.fact h4 { font-size: 14.5px; font-weight: 700; margin-bottom: 4px; }
+.fact p { font-size: 13.5px; color: var(--fg-faint); }
+@media (max-width: 800px) { .reliability-grid { grid-template-columns: 1fr; gap: 32px; } }
+
+/* CLOSE */
+.close-section { text-align: center; padding-block: 120px; border-top: 1px solid var(--line-soft); }
+.close-section h2 { font-size: clamp(2rem, 4vw, 3rem); font-family: var(--font-body); font-weight: 800; max-width: 18ch; margin: 0 auto 18px; }
+.close-section p { color: var(--fg-muted); margin-bottom: 28px; }
+.close-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+/* FOOTER */
+footer { border-top: 1px solid var(--line-soft); padding-block: 40px; }
+.footer-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+.footer-row .wordmark { opacity: 0.7; }
+.footer-links { display: flex; gap: 20px; font-size: 13px; color: var(--fg-faint); }
+
+[data-reveal] { opacity: 0; transform: translateY(18px); }
+@media (prefers-reduced-motion: reduce) { [data-reveal] { opacity: 1 !important; transform: none !important; } }
+</style>
+
+<!-- NAV -->
+<nav class="nav" id="nav">
+  <div class="wrap nav-row">
+    <div class="wordmark"><span class="dot"></span>Kramflow</div>
+    <div class="nav-links">
+      <a href="#product">Product</a>
+      <a href="#capabilities">Capabilities</a>
+      <a href="#audiences">For your team</a>
+      <a href="#reliability">Reliability</a>
+    </div>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="#">Log in</a>
+      <a class="btn btn-primary" href="#">Start free</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="wrap hero-top">
+    <h1>Call it.<br>Every screen <span class="accent">follows.</span></h1>
+    <div class="hero-side">
+      <p>Kramflow replaces the run-of-show spreadsheet that gets shouted across a green room. One operator drives the queue; every connected display reflects it in under a second.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#">Start free</a>
+        <a class="btn btn-ghost" href="#product">See it run</a>
+      </div>
+    </div>
+  </div>
+  <div class="wrap" id="product">
+    <div class="console-shell" data-reveal>
+      <div class="console-rail">
+        <div class="console-rail-item active">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+          Console
+        </div>
+        <div class="console-rail-item">
+          <svg class="icon" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Cue Sheet
+        </div>
+        <div class="console-rail-item">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Displays
+        </div>
+        <div class="console-rail-item">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+          Rehearsal
+        </div>
+      </div>
+      <div class="console-main">
+        <div class="live-row">
+          <span class="live-pill"><span class="pulse"></span>LIVE NOW</span>
+          <span style="color:var(--fg-faint);font-family:var(--font-display);font-size:12px;">Day 1 · Morning Session</span>
+        </div>
+        <h4>Product Launch Demo</h4>
+        <div class="meta">Rafael Costa · 1m behind schedule</div>
+        <div class="timer">13:51</div>
+        <div class="cue-list">
+          <div class="cue-row">3 · Opening Keynote</div>
+          <div class="cue-row current">4 · Product Launch Demo</div>
+          <div class="cue-row next">5 · Coffee Break</div>
+          <div class="cue-row">6 · Panel: Scaling Live Events</div>
+        </div>
+      </div>
+      <div class="console-side">
+        <div>
+          <div class="label">Connected displays</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="display-chip">General <span class="on">● ON</span></div>
+            <div class="display-chip">AV <span class="on">● ON</span></div>
+            <div class="display-chip">Green Room <span class="on">● ON</span></div>
+            <div class="display-chip">Presenter <span class="on">● ON</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- NARRATIVE -->
+<section class="narrative">
+  <div class="wrap" style="display:grid; grid-template-columns: 1fr 1.2fr; gap: 56px; align-items: start;">
+    <div>
+      <p class="narrative-sentence">
+        Kramflow <span class="step" data-step="0">queues the show<span class="num">01</span></span>,
+        <span class="step" data-step="1"> calls each cue live<span class="num">02</span></span>, and
+        <span class="step" data-step="2"> keeps every screen in sync<span class="num">03</span>.</span>
+      </p>
+    </div>
+    <div class="narrative-panels" id="narrativePanels">
+      <div class="narrative-panel active" data-panel="0">
+        <div class="tag">01 — BEFORE DOORS</div>
+        <div class="big">7 items planned · 2h 25m</div>
+        <p style="color:var(--fg-faint);font-size:13px;">Build the cue sheet, set timings and owners, before anyone is in the room.</p>
+      </div>
+      <div class="narrative-panel" data-panel="1">
+        <div class="tag">02 — ON AIR</div>
+        <div class="big">4 · Product Launch Demo <span style="color:var(--accent)">● LIVE</span></div>
+        <p style="color:var(--fg-faint);font-size:13px;">One tap advances the cue. The countdown and every display update together.</p>
+      </div>
+      <div class="narrative-panel" data-panel="2">
+        <div class="tag">03 — THE ROOM RESPONDS</div>
+        <div class="big">General · AV · Green Room · Presenter</div>
+        <p style="color:var(--fg-faint);font-size:13px;">Four surfaces, one state. No relay, no lag, no one left checking a different screen.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="stats">
+  <div class="wrap stats-row">
+    <div data-reveal><div class="stat-num">4</div><div class="stat-label">display surfaces, one state</div></div>
+    <div data-reveal><div class="stat-num">&lt;1s</div><div class="stat-label">cue-to-display sync</div></div>
+    <div data-reveal><div class="stat-num">200+</div><div class="stat-label">cues per event, no slowdown</div></div>
+    <div data-reveal><div class="stat-num">0</div><div class="stat-label">spreadsheets shouted across a room</div></div>
+  </div>
+</section>
+
+<!-- FEATURE CATEGORY -->
+<section class="section-pad" id="capabilities">
+  <div class="wrap">
+    <div class="icon-row" data-reveal>
+      <div class="icon-badge b1"><svg class="icon" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
+      <div class="icon-badge b2"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></div>
+      <div class="icon-badge b3"><svg class="icon" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+      <div class="icon-badge b4"><svg class="icon" viewBox="0 0 24 24"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg></div>
+    </div>
+    <div class="feature-head" data-reveal>
+      <h2>There's more to running a show than a countdown.</h2>
+      <p>The queue is the product. Timers, displays and rehearsal are all properties of it, not bolted-on extras.</p>
+    </div>
+    <div class="feature-list">
+      <div class="feature-item" data-reveal>
+        <h3>A real cue sheet, not a timer list</h3>
+        <p>Drag-reorder, bulk edit, and a schedule that recalculates itself when one item runs long.</p>
+      </div>
+      <div class="feature-item" data-reveal>
+        <h3>Dynamic per-event fields</h3>
+        <p>Mic requirements, slides, lighting, camera angle — the Add Item form adapts to the production.</p>
+      </div>
+      <div class="feature-item" data-reveal>
+        <h3>Sections within a session</h3>
+        <p>Multi-day, multi-session events with partitions — not a single flat list pretending to scale.</p>
+      </div>
+      <div class="feature-item" data-reveal>
+        <h3>No-login venue displays</h3>
+        <p>A share link, QR code, or 6-digit TV code — nobody in the room needs an account to see what's next.</p>
+      </div>
+      <div class="feature-item" data-reveal>
+        <h3>Rehearsal without the risk</h3>
+        <p>Run the full sequence end to end without ever touching a connected display.</p>
+      </div>
+      <div class="feature-item" data-reveal>
+        <h3>Built for 200+ item events</h3>
+        <p>Not a toy countdown tool retrofitted with a queue — the queue was the starting point.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CAPABILITY GRID -->
+<section class="section-pad">
+  <div class="wrap">
+    <div class="feature-head" data-reveal>
+      <h2 style="max-width:30ch;">Everything an operator reaches for mid-show.</h2>
+    </div>
+    <div class="cap-grid" data-reveal>
+      <div class="cap-card"><svg class="icon" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><h4>Bulk edit</h4><p>Multi-select and change timing, owner or status across items at once.</p></div>
+      <div class="cap-card"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h1v1H9zM14 9h1v1h-1zM9 14h1v1H9zM14 14h1v1h-1z"/></svg><h4>Share link &amp; QR</h4><p>Generate or revoke display access in one click, per event.</p></div>
+      <div class="cap-card"><svg class="icon" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><h4>Live alerts</h4><p>Broadcast a note to the whole crew without leaving the console.</p></div>
+      <div class="cap-card"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><h4>Multi-day events</h4><p>Friday Evening, Saturday Morning — each its own session, one event.</p></div>
+      <div class="cap-card"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg><h4>Auto-recalculating schedule</h4><p>One item runs long — the rest of the queue shifts, instantly, for everyone.</p></div>
+      <div class="cap-card"><svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg><h4>Status at a glance</h4><p>Current, next, on deck, done — every item's state, without asking.</p></div>
+      <div class="cap-card"><svg class="icon" viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg><h4>Held or jumped, freely</h4><p>Hold on an item or jump straight to any point — displays follow instantly.</p></div>
+      <div class="cap-card"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0113 0"/></svg><h4>Multi-tenant by default</h4><p>Any operator signs up and runs their own events — isolated, by design.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- AUDIENCE SPLIT -->
+<section class="section-pad" id="audiences">
+  <div class="wrap">
+    <div class="feature-head" data-reveal>
+      <h2 style="max-width:28ch;">Two very different distances from the screen.</h2>
+    </div>
+    <div class="split" data-reveal>
+      <div class="split-col">
+        <span class="eyebrow"><span class="dot"></span>THE OPERATOR</span>
+        <h3>Drives the whole show.</h3>
+        <p>Laptop at the console or phone backstage. Task-focused, trained on the tool, back in it across every day of a multi-day event.</p>
+        <div class="split-visual">▸ Next &nbsp;&nbsp; ▸ Hold &nbsp;&nbsp; ▸ Jump to item &nbsp;&nbsp; ▸ Raise alert</div>
+      </div>
+      <div class="split-col">
+        <span class="eyebrow" style="color:var(--warn)"><span class="dot" style="background:var(--warn)"></span>EVERYONE ELSE IN THE VENUE</span>
+        <h3>Never touches the interface.</h3>
+        <p>Performers, AV crew, presenters, attendees — glancing at a TV or confidence monitor. Reached by link, QR, or a 6-digit TV code. No account, ever.</p>
+        <div class="split-visual">General · AV · Green Room · Presenter — no login</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SPOTLIGHT: PREPARE / REHEARSE -->
+<section class="section-pad">
+  <div class="wrap">
+    <div class="spotlight-head" data-reveal>
+      <div class="feature-head" style="margin-bottom:0;">
+        <h2 style="max-width:24ch;">Get the rundown ready.</h2>
+        <p>Build the cue sheet, then run it end to end before anyone is in the room.</p>
+      </div>
+      <div class="toggle" id="prepToggle">
+        <button class="active" data-view="prepare">Prepare</button>
+        <button data-view="rehearse">Rehearse</button>
+      </div>
+    </div>
+    <div class="spotlight-panel" data-reveal>
+      <div class="mono" id="prepContent">
+        <div><span class="hl">7 of 7</span> items · 2h 25m planned</div>
+        <div>1 — Doors and Walk-in Music · 8:55am · 30m</div>
+        <div>2 — Welcome and Housekeeping · 9:25am · 5m</div>
+        <div>3 — Opening Keynote · 9:30am · 25m</div>
+        <div><span class="hl">4 — Product Launch Demo · CURRENT</span> · 9:55am · 20m</div>
+        <div>5 — Coffee Break · NEXT · 10:15am · 15m</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RELIABILITY -->
+<section class="section-pad reliability" id="reliability">
+  <div class="wrap reliability-grid">
+    <div data-reveal>
+      <span class="eyebrow"><span class="dot"></span>BUILT FOR LIVE</span>
+      <h2 style="margin-top:14px;">Built the way a live show actually demands it.</h2>
+      <p style="color:var(--fg-muted);font-size:15px;max-width:38ch;">No analytics dashboards, no settings-heavy admin on the TV surfaces. Dark mode only. Readable from fifteen feet, understood in three seconds.</p>
+    </div>
+    <div class="reliability-facts" data-reveal>
+      <div class="fact">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <div><h4>Real-time, not polled-and-hoped</h4><p>Every connected display reflects the live state within about a second of a cue change.</p></div>
+      </div>
+      <div class="fact">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        <div><h4>Isolated by tenant, at the database layer</h4><p>Multi-tenant since day one — not a UI toggle bolted on after the fact.</p></div>
+      </div>
+      <div class="fact">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <div><h4>Three seconds to understand</h4><p>Every display answers exactly two questions: what's happening now, and what's next.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CLOSE -->
+<section class="close-section">
+  <div class="wrap">
+    <h2>Stop shouting the spreadsheet across the room.</h2>
+    <p>Free for your first event. No credit card.</p>
+    <div class="close-actions">
+      <a class="btn btn-primary" href="#">Start free</a>
+      <a class="btn btn-ghost" href="#">Talk to us</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap footer-row">
+    <div class="wordmark"><span class="dot"></span>Kramflow</div>
+    <div class="footer-links">
+      <a href="#">Product</a>
+      <a href="#">Log in</a>
+      <a href="#">Start free</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+gsap.registerPlugin(ScrollTrigger);
+var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Nav background on scroll
+var nav = document.getElementById('nav');
+window.addEventListener('scroll', function () {
+  nav.classList.toggle('scrolled', window.scrollY > 8);
+}, { passive: true });
+
+if (!reduced) {
+  document.querySelectorAll('[data-reveal]').forEach(function (el) {
+    gsap.to(el, {
+      opacity: 1, y: 0, duration: 0.7, ease: 'power2.out',
+      scrollTrigger: { trigger: el, start: 'top 85%', once: true }
+    });
+  });
+} else {
+  document.querySelectorAll('[data-reveal]').forEach(function (el) {
+    el.style.opacity = 1; el.style.transform = 'none';
+  });
+}
+
+// Narrative 3-step scroll sync
+var steps = document.querySelectorAll('.narrative-sentence .step');
+var panels = document.querySelectorAll('.narrative-panel');
+function setStep(i) {
+  steps.forEach(function (s, idx) { s.classList.toggle('active', idx === i); });
+  panels.forEach(function (p, idx) { p.classList.toggle('active', idx === i); });
+}
+if (!reduced) {
+  ScrollTrigger.create({
+    trigger: '.narrative',
+    start: 'top center',
+    end: 'bottom center',
+    onUpdate: function (self) {
+      var i = Math.min(2, Math.floor(self.progress * 3));
+      setStep(i);
+    }
+  });
+}
+
+// Prepare/Rehearse toggle
+var prepData = {
+  prepare: '<div><span class="hl">7 of 7</span> items · 2h 25m planned</div><div>1 — Doors and Walk-in Music · 8:55am · 30m</div><div>2 — Welcome and Housekeeping · 9:25am · 5m</div><div>3 — Opening Keynote · 9:30am · 25m</div><div><span class="hl">4 — Product Launch Demo · CURRENT</span> · 9:55am · 20m</div><div>5 — Coffee Break · NEXT · 10:15am · 15m</div>',
+  rehearse: '<div><span class="hl">Rehearsal Mode</span> · displays not affected</div><div>3 — Opening Keynote · run-through 1 of 2</div><div><span class="hl">4 — Product Launch Demo · REHEARSING</span></div><div>5 — Coffee Break · queued</div><div style="margin-top:10px;color:var(--fg-faint);">Practice the sequence end to end without changing what the room sees.</div>'
+};
+document.querySelectorAll('#prepToggle button').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('#prepToggle button').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('prepContent').innerHTML = prepData[btn.dataset.view];
+  });
+});
+</script>

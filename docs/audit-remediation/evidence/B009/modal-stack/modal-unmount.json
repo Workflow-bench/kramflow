@@ -1,0 +1,31 @@
+{
+ "A_open": {
+  "inert": 9,
+  "bgInAx": false
+ },
+ "A_afterUnmount": {
+  "inert": 0,
+  "bgInAx": true,
+  "dialogs": [],
+  "focus": "Manage links",
+  "bgClickable": "background clicks: 1"
+ },
+ "B_upperOpen": {
+  "inert": 10,
+  "dialogs": [
+   "alertdialog:Revoke link?"
+  ]
+ },
+ "B_afterUnmountLowerWhileUpperOpen": {
+  "inert": 9,
+  "bgInAx": false,
+  "upperOpen": true,
+  "focus": "Cancel"
+ },
+ "B_afterUpperClosed": {
+  "inert": 0,
+  "bgInAx": true,
+  "focus": "BODY"
+ },
+ "pageErrors": []
+}

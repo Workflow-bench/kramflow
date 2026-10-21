@@ -10,5 +10,9 @@ export default async function PresenterDisplayPage({
   const { token, eventId } = await searchParams;
   const access = await verifyDisplayAccess(token, eventId);
   if (!access.ok) return <LinkInvalid reason={access.reason} />;
-  return token ? <PresenterDisplayClient token={token} /> : <PresenterDisplayClient eventId={access.eventId} />;
+  return token ? (
+    <PresenterDisplayClient token={token} />
+  ) : (
+    <PresenterDisplayClient eventId={access.eventId} role={access.role} />
+  );
 }

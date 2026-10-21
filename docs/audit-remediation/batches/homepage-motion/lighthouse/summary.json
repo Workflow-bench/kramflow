@@ -1,0 +1,154 @@
+{
+  "baseline-desktop": {
+    "lcp": {
+      "median": 759.104,
+      "spread": [
+        756.578,
+        1059.296
+      ]
+    },
+    "cls": {
+      "median": 0,
+      "spread": [
+        0,
+        0
+      ]
+    },
+    "tbt": {
+      "median": 0,
+      "spread": [
+        0,
+        115.0
+      ]
+    },
+    "perf": {
+      "median": 0.98,
+      "spread": [
+        0.98,
+        1
+      ]
+    },
+    "a11y": {
+      "median": 0.97,
+      "spread": [
+        0.97,
+        0.97
+      ]
+    },
+    "n": 3
+  },
+  "baseline-mobile": {
+    "lcp": {
+      "median": 3691.366,
+      "spread": [
+        3690.402,
+        3858.618
+      ]
+    },
+    "cls": {
+      "median": 0,
+      "spread": [
+        0,
+        0
+      ]
+    },
+    "tbt": {
+      "median": 6,
+      "spread": [
+        5,
+        7
+      ]
+    },
+    "perf": {
+      "median": 0.9,
+      "spread": [
+        0.88,
+        0.9
+      ]
+    },
+    "a11y": {
+      "median": 0.97,
+      "spread": [
+        0.97,
+        0.97
+      ]
+    },
+    "n": 3
+  },
+  "after-desktop": {
+    "lcp": {
+      "median": 759.171,
+      "spread": [
+        757.782,
+        1000.88
+      ]
+    },
+    "cls": {
+      "median": 0,
+      "spread": [
+        0,
+        0
+      ]
+    },
+    "tbt": {
+      "median": 0,
+      "spread": [
+        0,
+        70
+      ]
+    },
+    "perf": {
+      "median": 1,
+      "spread": [
+        0.98,
+        1
+      ]
+    },
+    "a11y": {
+      "median": 1,
+      "spread": [
+        1,
+        1
+      ]
+    },
+    "n": 3
+  },
+  "after-mobile": {
+    "lcp": {
+      "median": 3766.992,
+      "spread": [
+        3765.801,
+        3836.146
+      ]
+    },
+    "cls": {
+      "median": 0,
+      "spread": [
+        0,
+        0
+      ]
+    },
+    "tbt": {
+      "median": 7,
+      "spread": [
+        4,
+        20.5
+      ]
+    },
+    "perf": {
+      "median": 0.89,
+      "spread": [
+        0.88,
+        0.89
+      ]
+    },
+    "a11y": {
+      "median": 0.97,
+      "spread": [
+        0.97,
+        0.97
+      ]
+    },
+    "n": 3
+  }
+}

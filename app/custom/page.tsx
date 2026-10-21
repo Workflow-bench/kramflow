@@ -20,6 +20,6 @@ export default async function CustomDisplayPage({
   return token ? (
     <CustomDisplayClient token={token} profileId={profileId} />
   ) : (
-    <CustomDisplayClient eventId={access.eventId} profileId={profileId} />
+    <CustomDisplayClient eventId={access.eventId} profileId={profileId} role={access.role} />
   );
 }

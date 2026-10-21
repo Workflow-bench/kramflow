@@ -6,6 +6,7 @@ import { getSessionById } from "@/lib/data/sessions";
 import { getLive, getNext, getOnDeck } from "@/lib/types";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { DisplayEngineProvider } from "@/lib/display-engine/context";
+import type { EventRole } from "@/lib/event-context";
 import { useDisplayClock, formatClock } from "@/lib/display-engine/use-display-timer";
 import { useDisplayCommands } from "@/lib/display-engine/use-display-commands";
 import { deriveStageStatus } from "@/lib/display-engine/live-progress";
@@ -41,9 +42,17 @@ function parseTimeToday(label: string, nowMs: number): number | null {
   const now = new Date(nowMs);
   return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, minutes, 0, 0).getTime();
 }
-export default function GeneralDisplayClient({ token, eventId }: { token?: string; eventId?: string }) {
+export default function GeneralDisplayClient({
+  token,
+  eventId,
+  role,
+}: {
+  token?: string;
+  eventId?: string;
+  role?: EventRole;
+}) {
   return (
-    <DisplayEngineProvider token={token} eventId={eventId} displayType="general">
+    <DisplayEngineProvider token={token} eventId={eventId} displayType="general" role={role}>
       <GeneralDisplayInner token={token} eventId={eventId} />
     </DisplayEngineProvider>
   );

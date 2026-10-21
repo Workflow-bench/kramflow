@@ -1,0 +1,11 @@
+{
+ "triggerText": "SYNTHETIC day • SYNTHETIC session A",
+ "triggerAriaHasPopup": "listbox",
+ "startedOnDefault": true,
+ "defaultTitleCount": 2,
+ "afterChange": {
+  "notStarted": 1,
+  "titleB": 2
+ },
+ "mutatingRequests": 0
+}

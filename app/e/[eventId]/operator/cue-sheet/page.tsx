@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus, Clock, RotateCcw, ClipboardList } from "lucide-react";
 import {
   DndContext,
@@ -23,6 +24,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useSessions, refetchSessions } from "@/lib/use-sessions";
 import { useEventId, useCanEdit, useIsOwner } from "@/lib/event-context";
 import { useConnectionStatus, useEventStore } from "@/lib/store";
+import { useControlLock } from "@/lib/use-control-lock";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -44,12 +46,16 @@ import {
 import { ProgramForm } from "@/components/forms/program-form";
 import { SessionForm } from "@/components/forms/session-form";
 import { AiImportPanel } from "@/components/forms/ai-import-panel";
+import { UploadPanel } from "@/components/cue-sheet/upload-panel";
+import { ImportCompleteStep } from "@/components/cue-sheet/import-complete";
+import { planOpenConsole } from "@/lib/cue-sheet-open";
 import { useAiEnabled } from "@/lib/use-ai-enabled";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import type { ProgramInput } from "@/lib/validation/program";
-import type { ParsedProgram, ParsedSession } from "@/lib/parse-cuesheet";
+import type { ParsedProgram } from "@/lib/parse-cuesheet";
+import { importedSessionChoices, type ImportDone, type ImportedSessionChoice } from "@/lib/cue-sheet-import-result";
 import type { Partition, Session } from "@/lib/types";
 import { colorTagLabel, colorTagTone } from "@/lib/color-tags";
 import { cn } from "@/lib/utils";
@@ -222,10 +228,15 @@ export default function CueSheetPage() {
   // gates it "owner", the same tier every sequencing action requires), not
   // a content-edit — canEdit ("editor" or above) isn't sufficient here.
   const canResetSession = useIsOwner();
-  const { state, resetSession } = useEventStore();
+  const { state, resetSession, selectSession, claimControl } = useEventStore();
+  const { lockedByOther } = useControlLock(state);
+  const router = useRouter();
   const sessions = useSessions();
   const toast = useToast();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  // Set after a successful import. Lists every session the import wrote, under
+  // the id it was stored under, so the operator picks which one to open.
+  const [importResult, setImportResult] = useState<ImportedSessionChoice[] | null>(null);
   const activeSessionId = selectedSessionId ?? sessions[0]?.id ?? "";
 
   const [rows, setRows] = useState<ProgramRow[] | null>(null);
@@ -281,6 +292,37 @@ export default function CueSheetPage() {
   // rows with the wrong session's items (real network jitter can reorder
   // responses relative to request order).
   const latestRequestedSessionId = useRef<string | null>(null);
+
+  // Opens the console on a chosen session. A session that is not live is made
+  // live only when no other session has started, so a running show is never
+  // switched by an import. If one has started, the console opens unchanged and
+  // the operator switches from its session switcher, which asks first.
+  async function openConsole(choice: ImportedSessionChoice) {
+    const liveId = state.activeSessionId;
+    const liveHasStarted = (state.progressBySession[liveId]?.currentOrder ?? null) !== null;
+    const plan = planOpenConsole({
+      chosenStoredId: choice.storedId,
+      liveId,
+      lockedByOther,
+      liveHasStarted,
+      dayLabel: choice.dayLabel,
+      sessionLabel: choice.sessionLabel,
+    });
+    if (plan.kind === "refuse-locked") {
+      toast.error("Locked by another operator", { label: "Take Over", onClick: () => claimControl(true) });
+      return;
+    }
+    if (plan.kind === "toast-then-navigate") toast.info(plan.message);
+    if (plan.kind === "select-then-navigate") {
+      const ok = await selectSession(choice.storedId);
+      if (!ok) {
+        toast.error("Couldn't make that session live. Take control in the console, then try again.");
+        return;
+      }
+    }
+    setImportResult(null);
+    router.push(`/e/${eventId}/operator`);
+  }
 
   async function loadRows(sessionId: string) {
     latestRequestedSessionId.current = sessionId;
@@ -797,14 +839,18 @@ export default function CueSheetPage() {
             </div>
           )}
           {(() => {
-            const handleImported = () => {
+            const handleImported = (done: ImportDone) => {
               setPanel("none");
-              toast.success("Cue sheet imported");
-              // An import can create new sessions, not just items in an
-              // existing one — same refetch-race reasoning as session
-              // creation above.
+              const choices = importedSessionChoices(done.sessionIds, done.sessions, done.programs);
+              // Refetch first: an import can create sessions, not just items.
               refetchSessions(eventId);
-              if (activeSessionId) loadRows(activeSessionId);
+              setImportResult(choices);
+              // The cue-sheet view follows the import. Only the view moves here;
+              // what displays show changes only when the operator picks a session.
+              if (choices[0]) {
+                setSelectedSessionId(choices[0].storedId);
+                loadRows(choices[0].storedId);
+              }
             };
             return aiEnabled && importMode === "ai" ? (
               <AiImportPanel eventId={eventId} sessions={sessions} onDone={handleImported} onCancel={() => setPanel("none")} />
@@ -812,6 +858,16 @@ export default function CueSheetPage() {
               <UploadPanel eventId={eventId} sessions={sessions} onDone={handleImported} onCancel={() => setPanel("none")} />
             );
           })()}
+        </Modal>
+
+        {/* Post-import step. Lists the sessions the import wrote and makes the
+            live session an explicit choice: "Open console" is the only action
+            that changes what displays show, and it asks the server to make the
+            chosen session live before it navigates. */}
+        <Modal open={importResult !== null} onClose={() => setImportResult(null)} title="Import complete" size="md">
+          {importResult && (
+            <ImportCompleteStep choices={importResult} onOpen={openConsole} onStay={() => setImportResult(null)} />
+          )}
         </Modal>
 
         {/* Add/Edit Item is a genuinely multi-step configuration task the
@@ -1715,209 +1771,6 @@ function BulkEditPanel({
           Cancel
         </Button>
       </div>
-    </div>
-  );
-}
-
-function UploadPanel({
-  eventId,
-  sessions,
-  onDone,
-  onCancel,
-}: {
-  eventId: string;
-  sessions: Session[];
-  onDone: () => void;
-  onCancel: () => void;
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<{ sessions: ParsedSession[]; programs: ParsedProgram[]; errors: { index: number; name: string; errors: string[] }[] } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handlePreview() {
-    if (!file) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const body = new FormData();
-      body.append("file", file);
-      body.append("eventId", eventId);
-      const res = await fetch("/api/cue-sheet/upload?dryRun=1", { method: "POST", body });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Failed to parse file");
-        return;
-      }
-      setPreview(data);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleConfirm() {
-    if (!file) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const body = new FormData();
-      body.append("file", file);
-      body.append("eventId", eventId);
-      const res = await fetch("/api/cue-sheet/upload", { method: "POST", body });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Failed to import");
-        return;
-      }
-      onDone();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Import is a wholesale replace, not a merge — /api/cue-sheet/upload's
-  // own comment confirms it ("replaces each affected session's programs
-  // wholesale") and session ids are a deterministic slug of day+session
-  // label (lib/parse-cuesheet.ts, matching session-form.tsx's own id
-  // scheme), so a parsed session whose label matches one that already
-  // exists *will* land on that same id and silently delete its current
-  // items. The preview never said so — this makes the real consequence
-  // visible before Confirm rather than after.
-  const existingIds = new Set(sessions.map((s) => s.id));
-  const sessionVerdicts = preview?.sessions.map((s) => ({
-    session: s,
-    replaces: existingIds.has(s.id),
-    itemCount: preview.programs.filter((p) => p.session_id === s.id).length,
-  }));
-
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Report finding #8 — no downloadable template or example existed
-          anywhere, so a first-time import meant guessing the expected
-          format. This is the exact file lib/parse-cuesheet.ts's
-          resolveColumns() expects (verified by round-tripping it through
-          the real parser, not just eyeballed), with one filled example
-          row showing a real item and a break. */}
-      <a
-        href="/templates/kramflow-cue-sheet-template.xlsx"
-        download
-        className="self-start text-console-sm text-accent hover:underline underline-offset-2"
-      >
-        Download the import template (.xlsx)
-      </a>
-      <input
-        type="file"
-        accept=".xlsx"
-        onChange={(e) => {
-          setFile(e.target.files?.[0] ?? null);
-          setPreview(null);
-        }}
-        className="text-console-sm text-muted file:mr-4 file:h-9 file:px-4 file:rounded-control file:border-0 file:bg-primary file:text-background file:font-medium file:cursor-pointer cursor-pointer"
-      />
-
-      {error && <p className="text-console-meta text-status-red">{error}</p>}
-
-      {!preview && (
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" onClick={handlePreview} disabled={!file} loading={busy}>
-            Preview
-          </Button>
-          <Button variant="ghost" onClick={onCancel} disabled={busy}>
-            Cancel
-          </Button>
-        </div>
-      )}
-
-      {preview && (
-        <div className="flex flex-col gap-4">
-          <p className="text-console-sm text-muted">
-            Parsed {preview.sessions.length} sessions, {preview.programs.length} items.
-            {preview.errors.length > 0 && (
-              <span className="text-status-red"> {preview.errors.length} rows have validation errors.</span>
-            )}
-          </p>
-
-          {/* Import replaces, it never merges — a session whose day/session
-              label matches one that already exists lands on that session's
-              real id and its current items are deleted and replaced by
-              what's parsed here. Previously unstated; this is the real
-              consequence, not a hedge. */}
-          {sessionVerdicts && sessionVerdicts.some((v) => v.replaces) && (
-            <div className="rounded-panel border border-status-orange/30 bg-status-orange/10 px-4 py-3 flex flex-col gap-1.5">
-              <p className="text-console-sm text-status-orange font-medium">This replaces existing sessions</p>
-              <ul className="text-console-meta text-status-orange flex flex-col gap-0.5">
-                {sessionVerdicts
-                  .filter((v) => v.replaces)
-                  .map((v) => (
-                    <li key={v.session.id}>
-                      &ldquo;{v.session.day_label} • {v.session.session_label}&rdquo;, its current items are deleted
-                      and replaced with {v.itemCount} from this file.
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          )}
-
-          {preview.errors.length > 0 && (
-            <ul className="text-console-meta text-status-red flex flex-col gap-1 max-h-40 overflow-y-auto">
-              {preview.errors.map((e) => (
-                <li key={e.index}>
-                  Row {e.index + 1} ({e.name || "untitled"}): {e.errors.join(", ")}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* Report finding #9 — Preview previously showed only aggregate
-              counts, so committing an import was still a leap of faith
-              about what would actually land in the cue sheet. Now shows
-              the real mapped rows — exactly what Confirm Import will
-              create — grouped by the session they'll land in. */}
-          <div className="max-h-80 overflow-y-auto rounded-panel border border-line-soft">
-            {preview.sessions.map((session) => (
-              <div key={session.id}>
-                <div className="sticky top-0 bg-raised px-3 py-1.5 text-console-meta text-muted-2 uppercase tracking-wide border-b border-line-soft">
-                  {session.day_label} • {session.session_label}
-                </div>
-                <table className="w-full text-console-sm">
-                  <thead>
-                    <tr className="text-console-meta text-muted-2 text-left">
-                      <th className="px-3 py-1.5 font-normal">#</th>
-                      <th className="px-3 py-1.5 font-normal">Item</th>
-                      <th className="px-3 py-1.5 font-normal">Presenter</th>
-                      <th className="px-3 py-1.5 font-normal">Duration</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.programs
-                      .filter((p) => p.session_id === session.id)
-                      .map((p, i) => (
-                        <tr key={i} className="border-t border-line-soft">
-                          <td className="px-3 py-1.5 text-muted-2">{p.sort_order}</td>
-                          <td className="px-3 py-1.5 text-primary">
-                            {p.name}
-                            {p.type === "break" && <span className="text-muted-2"> (break)</span>}
-                          </td>
-                          <td className="px-3 py-1.5 text-muted">{p.presenter ?? "—"}</td>
-                          <td className="px-3 py-1.5 text-muted tabular-nums">{p.duration ? `${p.duration}m` : "—"}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button variant="primary" onClick={handleConfirm} disabled={preview.errors.length > 0} loading={busy}>
-              Confirm import
-            </Button>
-            <Button variant="ghost" onClick={onCancel} disabled={busy}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

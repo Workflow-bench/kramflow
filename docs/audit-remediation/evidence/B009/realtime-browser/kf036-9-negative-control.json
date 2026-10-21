@@ -1,0 +1,17 @@
+{
+ "firstConnectRace": {
+  "afterHydrate": "none",
+  "beforeFirstSubscribed": "none",
+  "afterFirstSubscribed": "none",
+  "channels": "1",
+  "expected": "b-1 visible after first SUBSCRIBED without another mutation"
+ },
+ "reconnect": {
+  "duringDrop": "none",
+  "afterReconnect": "none"
+ },
+ "unsubscribe": {
+  "channelsAfter": "0"
+ },
+ "pageErrors": []
+}

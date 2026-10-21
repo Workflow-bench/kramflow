@@ -1,4 +1,5 @@
 "use client";
+import { requestSignOut } from "@/lib/auth/sign-out";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -83,10 +84,19 @@ function AutoAccept({ token, eventName }: { token: string; eventName: string }) 
 
 function EmailMismatch({ invitedEmail, loggedInEmail }: { invitedEmail: string; loggedInEmail: string }) {
   const [loggingOut, setLoggingOut] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
 
+  // Navigates to login only after the server confirms the current session is
+  // gone. A failed sign-out leaves the user on this page with the reason shown,
+  // rather than sending them to login while still signed in as the wrong account.
   async function handleSwitch() {
     setLoggingOut(true);
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    setSwitchError(null);
+    if (!(await requestSignOut())) {
+      setLoggingOut(false);
+      setSwitchError("Couldn't sign you out. Try again.");
+      return;
+    }
     window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
   }
 
@@ -100,6 +110,7 @@ function EmailMismatch({ invitedEmail, loggedInEmail }: { invitedEmail: string; 
       <Button variant="secondary" size="lg" loading={loggingOut} onClick={handleSwitch}>
         Log Out &amp; Switch Accounts
       </Button>
+      {switchError && <p role="alert" className="text-caption text-status-red">{switchError}</p>}
     </div>
   );
 }

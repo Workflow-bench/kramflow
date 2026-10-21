@@ -1,0 +1,2 @@
+# Raw Playwright recordings are large (about 120 MB). They stay local; the scripts in ../scripts regenerate them.
+**/*.webm

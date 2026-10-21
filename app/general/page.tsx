@@ -20,5 +20,9 @@ export default async function GeneralDisplayPage({
   const { token, eventId } = await searchParams;
   const access = await verifyDisplayAccess(token, eventId);
   if (!access.ok) return <LinkInvalid reason={access.reason} />;
-  return token ? <GeneralDisplayClient token={token} /> : <GeneralDisplayClient eventId={access.eventId} />;
+  return token ? (
+    <GeneralDisplayClient token={token} />
+  ) : (
+    <GeneralDisplayClient eventId={access.eventId} role={access.role} />
+  );
 }

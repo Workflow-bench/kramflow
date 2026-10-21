@@ -1,0 +1,8 @@
+{"file":"desktop-run1.json","form":"desktop","perf":1,"a11y":1,"lcp":793,"cls":0,"tbt":0,"unusedJsKiB":62,"contrast":0}
+{"file":"desktop-run2.json","form":"desktop","perf":1,"a11y":1,"lcp":792,"cls":0,"tbt":0,"unusedJsKiB":62,"contrast":0}
+{"file":"desktop-run3.json","form":"desktop","perf":1,"a11y":1,"lcp":792,"cls":0,"tbt":0,"unusedJsKiB":62,"contrast":0}
+{"file":"mobile-run1.json","form":"mobile","perf":0.92,"a11y":1,"lcp":3319,"cls":0,"tbt":11,"unusedJsKiB":62,"contrast":0}
+{"file":"mobile-run2.json","form":"mobile","perf":0.92,"a11y":1,"lcp":3316,"cls":0,"tbt":14,"unusedJsKiB":62,"contrast":0}
+{"file":"mobile-run3.json","form":"mobile","perf":0.92,"a11y":1,"lcp":3314,"cls":0,"tbt":10,"unusedJsKiB":62,"contrast":0}
+mobile median LCP 3316 median perf 0.92 runs 3
+desktop median LCP 792 median perf 1 runs 3

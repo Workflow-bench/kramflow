@@ -1,9 +1,14 @@
 "use client";
 
+import { createSliceSequencer, refetchOnSubscribe, type ChannelStatus } from "./first-connect";
 import { useMemo, useSyncExternalStore } from "react";
 import type { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import { getTransport, type TransportStatus } from "./transport";
 import { supabaseBrowser } from "@/lib/supabase/client";
+
+// Every remote call goes through this factory. Product code uses the browser
+// client; tests replace it through __testing.setRemoteClient (KF-036.9 seam).
+let remoteClientFactory: () => ReturnType<typeof supabaseBrowser> = () => supabaseBrowser();
 import { fetchDisplayViewPolled } from "@/lib/shared-display-view-poll";
 import { isDefinitiveAccessDenial, whileAccessValid } from "./access-gate";
 import { createInitialEngineState } from "./defaults";
@@ -259,6 +264,38 @@ interface EngineInstance {
   // access-denial response (F-10 follow-up, Phase 7C.1) without a second
   // interval ever existing to leak.
   pollIntervalId?: ReturnType<typeof setInterval>;
+  // One ordering guard per slice: a response applies only if no newer request for the
+  // same slice has already applied (KF-036.9 stale ordering).
+  sequencers: Record<SliceKey, ReturnType<typeof createSliceSequencer>>;
+  // The open Realtime channel, so teardown can remove it.
+  channel?: unknown;
+  // Set on teardown. Responses that arrive after it are dropped, so a request made for
+  // one identity or session cannot write into a later one.
+  closed: boolean;
+}
+
+type SliceKey = "state" | "typeState" | "registry" | "broadcasts";
+
+function newSequencers(): Record<SliceKey, ReturnType<typeof createSliceSequencer>> {
+  return { state: createSliceSequencer(), typeState: createSliceSequencer(), registry: createSliceSequencer(), broadcasts: createSliceSequencer() };
+}
+
+function beginSlice(inst: EngineInstance, key: SliceKey): number {
+  return inst.sequencers[key].begin();
+}
+
+// Applies one slice's response if it is still the newest for that slice and the
+// instance is open. Returns whether it was applied.
+function commitSlice(inst: EngineInstance, key: SliceKey, seq: number, patch: Partial<RemoteSlice>): boolean {
+  if (inst.closed) return false;
+  const applied = inst.sequencers[key].accept(seq, () => {
+    inst.remoteSlice = { ...inst.remoteSlice, ...patch };
+  });
+  if (applied) {
+    rebuild(inst);
+    runSchedulerCheck(inst);
+  }
+  return applied;
 }
 
 const instances = new Map<string, EngineInstance>();
@@ -281,6 +318,8 @@ function getInstance(identity: DisplayEngineIdentity): EngineInstance {
       remoteHydrated: false,
       schedulerRunning: false,
       accessDenied: false,
+      sequencers: newSequencers(),
+      closed: false,
     };
     instances.set(key, inst);
   }
@@ -330,7 +369,7 @@ async function fetchDisplayTypeStateRow(
   displayType: Exclude<DisplayType, "custom"> | undefined
 ): Promise<{ hold: HoldState; timer: TimerState } | null> {
   if (!displayType) return null;
-  const client = supabaseBrowser();
+  const client = remoteClientFactory();
   const { data, error } = await client
     .from("display_type_state")
     .select("hold, timer")
@@ -351,7 +390,13 @@ async function fetchDisplayTypeStateRow(
 }
 
 async function fetchRemoteSliceViaSupabase(inst: EngineInstance, eventId: string) {
-  const client = supabaseBrowser();
+  const client = remoteClientFactory();
+  const seq = {
+    state: beginSlice(inst, "state"),
+    typeState: beginSlice(inst, "typeState"),
+    registry: beginSlice(inst, "registry"),
+    broadcasts: beginSlice(inst, "broadcasts"),
+  };
   const [stateRes, registryRes, broadcastsRes, typeStateRow] = await Promise.all([
     client.from("display_state").select("*").eq("event_id", eventId).single(),
     client.from("display_registry").select("*").eq("event_id", eventId),
@@ -376,7 +421,16 @@ async function fetchRemoteSliceViaSupabase(inst: EngineInstance, eventId: string
   const merged: DisplayStateRow = typeStateRow
     ? { ...stateRow, hold: typeStateRow.hold, timer: typeStateRow.timer }
     : stateRow;
-  applyRemoteRows(inst, merged, (registryRes.data ?? []) as RegistryRow[], (broadcastsRes.data ?? []) as BroadcastRow[]);
+  commitSlice(inst, "state", seq.state, { speakerReady: stateRow.speaker_ready });
+  commitSlice(inst, "typeState", seq.typeState, { timer: merged.timer, hold: merged.hold });
+  commitSlice(inst, "registry", seq.registry, { registry: registryRowsToMap((registryRes.data ?? []) as RegistryRow[]) });
+  commitSlice(inst, "broadcasts", seq.broadcasts, { broadcastRows: (broadcastsRes.data ?? []) as BroadcastRow[] });
+}
+
+function registryRowsToMap(rows: RegistryRow[]): Record<string, DisplayInstance> {
+  const registry: Record<string, DisplayInstance> = {};
+  for (const row of rows) registry[row.id] = rowToInstance(row);
+  return registry;
 }
 
 // Scoped counterparts to fetchRemoteSliceViaSupabase, one per table, for
@@ -389,7 +443,8 @@ async function fetchRemoteSliceViaSupabase(inst: EngineInstance, eventId: string
 // hadn't actually changed. Each of these only re-fetches the one table
 // its own listener fired for, merging into the existing remoteSlice.
 async function fetchDisplayStateSlice(inst: EngineInstance, eventId: string) {
-  const client = supabaseBrowser();
+  const seq = beginSlice(inst, "state");
+  const client = remoteClientFactory();
   const { data, error } = await client.from("display_state").select("*").eq("event_id", eventId).single();
   if (error) {
     console.error("[display-engine] fetch display_state failed:", error);
@@ -398,35 +453,30 @@ async function fetchDisplayStateSlice(inst: EngineInstance, eventId: string) {
   // Only speaker_ready comes from display_state now — hold/timer live in
   // display_type_state, refreshed by fetchDisplayTypeStateSlice below.
   const stateRow = data as DisplayStateRow;
-  inst.remoteSlice = { ...inst.remoteSlice, speakerReady: stateRow.speaker_ready };
-  rebuild(inst);
-  runSchedulerCheck(inst);
+  commitSlice(inst, "state", seq, { speakerReady: stateRow.speaker_ready });
 }
 
 async function fetchDisplayTypeStateSlice(inst: EngineInstance, eventId: string) {
+  const seq = beginSlice(inst, "typeState");
   const row = await fetchDisplayTypeStateRow(eventId, inst.identity.displayType);
   if (!row) return;
-  inst.remoteSlice = { ...inst.remoteSlice, timer: row.timer, hold: row.hold };
-  rebuild(inst);
-  runSchedulerCheck(inst);
+  commitSlice(inst, "typeState", seq, { timer: row.timer, hold: row.hold });
 }
 
 async function fetchRegistrySlice(inst: EngineInstance, eventId: string) {
-  const client = supabaseBrowser();
+  const seq = beginSlice(inst, "registry");
+  const client = remoteClientFactory();
   const { data, error } = await client.from("display_registry").select("*").eq("event_id", eventId);
   if (error) {
     console.error("[display-engine] fetch display_registry failed:", error);
     return;
   }
-  const registry: Record<string, DisplayInstance> = {};
-  for (const row of (data ?? []) as RegistryRow[]) registry[row.id] = rowToInstance(row);
-  inst.remoteSlice = { ...inst.remoteSlice, registry };
-  rebuild(inst);
-  runSchedulerCheck(inst);
+  commitSlice(inst, "registry", seq, { registry: registryRowsToMap((data ?? []) as RegistryRow[]) });
 }
 
 async function fetchBroadcastsSlice(inst: EngineInstance, eventId: string) {
-  const client = supabaseBrowser();
+  const seq = beginSlice(inst, "broadcasts");
+  const client = remoteClientFactory();
   const { data, error } = await client
     .from("display_broadcasts")
     .select("*")
@@ -436,12 +486,18 @@ async function fetchBroadcastsSlice(inst: EngineInstance, eventId: string) {
     console.error("[display-engine] fetch display_broadcasts failed:", error);
     return;
   }
-  inst.remoteSlice = { ...inst.remoteSlice, broadcastRows: (data ?? []) as BroadcastRow[] };
-  rebuild(inst);
-  runSchedulerCheck(inst);
+  commitSlice(inst, "broadcasts", seq, { broadcastRows: (data ?? []) as BroadcastRow[] });
 }
 
 async function fetchRemoteSliceViaPoll(inst: EngineInstance) {
+  // Sequence numbers are taken before the request, so an older poll response that
+  // lands after a newer one cannot overwrite it (KF-036.9).
+  const seq = {
+    state: beginSlice(inst, "state"),
+    typeState: beginSlice(inst, "typeState"),
+    registry: beginSlice(inst, "registry"),
+    broadcasts: beginSlice(inst, "broadcasts"),
+  };
   try {
     const base = inst.identity.token
       ? `token=${encodeURIComponent(inst.identity.token)}`
@@ -482,34 +538,25 @@ async function fetchRemoteSliceViaPoll(inst: EngineInstance) {
       return;
     }
     if (!data.displayState) return;
-    applyRemoteRows(inst, data.displayState, data.displayRegistry ?? [], data.displayBroadcasts ?? []);
+    commitSlice(inst, "state", seq.state, { speakerReady: data.displayState.speaker_ready });
+    commitSlice(inst, "typeState", seq.typeState, { timer: data.displayState.timer, hold: data.displayState.hold });
+    commitSlice(inst, "registry", seq.registry, { registry: registryRowsToMap(data.displayRegistry ?? []) });
+    commitSlice(inst, "broadcasts", seq.broadcasts, { broadcastRows: data.displayBroadcasts ?? [] });
   } catch (err) {
     console.error("[display-engine] poll failed:", err);
   }
 }
 
-function applyRemoteRows(inst: EngineInstance, stateRow: DisplayStateRow, registryRows: RegistryRow[], broadcastRows: BroadcastRow[]) {
-  const registry: Record<string, DisplayInstance> = {};
-  for (const row of registryRows) registry[row.id] = rowToInstance(row);
-
-  inst.remoteSlice = {
-    registry,
-    timer: stateRow.timer,
-    hold: stateRow.hold,
-    speakerReady: stateRow.speaker_ready,
-    broadcastRows,
-  };
-  rebuild(inst);
-  runSchedulerCheck(inst);
-}
 
 function ensureRemoteConnected(inst: EngineInstance) {
   if (inst.initialized || typeof window === "undefined") return;
   inst.initialized = true;
+  inst.closed = false;
+  if (isHarnessIdentity(inst.identity)) return;
 
   if (inst.identity.eventId) {
     const eventId = inst.identity.eventId;
-    const channel = supabaseBrowser()
+    const channel = remoteClientFactory()
       .channel(`display-engine-sync:${eventId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "display_state", filter: `event_id=eq.${eventId}` }, () =>
         fetchDisplayStateSlice(inst, eventId)
@@ -553,16 +600,18 @@ function ensureRemoteConnected(inst: EngineInstance) {
     // poll path (fetchRemoteSliceViaPoll, below) has no such floor — it
     // picked up the same change within one 2.5s poll cycle regardless of
     // blip length.
-    let wasEverConnected = false;
+    // Every SUBSCRIBED refetches, the first one included. The hydrate snapshot
+    // can predate the subscription, and Realtime does not replay a change made in
+    // between, so a first-connect refetch is what closes the gap (KF-036.9).
+    // Policy: refetchOnSubscribe in first-connect.ts, reproduced in its tests.
+    inst.channel = channel;
     channel.subscribe((status: `${REALTIME_SUBSCRIBE_STATES}`) => {
-      if (status === "SUBSCRIBED") {
-        if (wasEverConnected) {
-          fetchDisplayStateSlice(inst, eventId);
-          fetchRegistrySlice(inst, eventId);
-          fetchBroadcastsSlice(inst, eventId);
-          if (displayType) fetchDisplayTypeStateSlice(inst, eventId);
-        }
-        wasEverConnected = true;
+      if (inst.closed) return;
+      if (refetchOnSubscribe(status as ChannelStatus)) {
+        fetchDisplayStateSlice(inst, eventId);
+        fetchRegistrySlice(inst, eventId);
+        fetchBroadcastsSlice(inst, eventId);
+        if (displayType) fetchDisplayTypeStateSlice(inst, eventId);
       }
     });
   } else if (inst.identity.token) {
@@ -627,13 +676,18 @@ function subscribe(inst: EngineInstance, callback: () => void): () => void {
       localSlice = stored;
     }
   }
-  if (!inst.remoteHydrated && inst.identity.eventId) {
+  if (!inst.remoteHydrated && inst.identity.eventId && !isHarnessIdentity(inst.identity)) {
     inst.remoteHydrated = true;
     fetchRemoteSliceViaSupabase(inst, inst.identity.eventId).then(callback);
   }
   rebuild(inst);
 
-  return () => inst.listeners.delete(callback);
+  return () => {
+    inst.listeners.delete(callback);
+    // Last listener gone: release the Realtime channel and the poll, and drop any
+    // response still in flight (KF-036.9 cleanup).
+    if (inst.listeners.size === 0) teardownRemote(inst);
+  };
 }
 
 // A stable reference, not a fresh createInitialEngineState() call each
@@ -855,6 +909,9 @@ function runSchedulerCheck(inst: EngineInstance) {
 }
 
 function dismissBroadcast(identity: DisplayEngineIdentity, id: string) {
+  // Harness identity: no network. Reports the same null a transport failure
+  // produces, so the caller's real error path runs (see broadcast-overlay.tsx).
+  if (isHarnessIdentity(identity)) return Promise.resolve(null);
   return postJson(`/api/display-engine/broadcasts/${id}/dismiss`, identityBody(identity));
 }
 
@@ -972,6 +1029,58 @@ export function useTransportStatus(): TransportStatus {
   return useSyncExternalStore(subscribeStatus, getStatusSnapshot, getServerStatusSnapshot);
 }
 
+// ---------------------------------------------------------------------------
+// Dev-only rendered-evidence harness seam (not used by any product code path)
+// ---------------------------------------------------------------------------
+//
+// /dev/components' catalog renders real canonical components with synthetic
+// data — no auth, no live event (see that page's own header comment). Every
+// other catalog entry can do that with plain props; BroadcastOverlay can't,
+// since it reads all of its data from useDisplayEngine()/
+// useDisplayEngineIdentity() rather than accepting it as props. This gives
+// the catalog page exactly one seam to seed a synthetic active broadcast for
+// a single reserved, obviously-fake identity — never a real eventId — so
+// the Dismiss states (owner/non-owner/token) can be captured as real
+// rendered browser evidence (Codex B005 prompt item 3) without creating or
+// touching any live Supabase row. Guarded to only ever touch
+// HARNESS_EVENT_ID's own module-scoped instance; throws otherwise.
+export const HARNESS_EVENT_ID = "00000000-0000-0000-0000-000000000000";
+export const HARNESS_TOKEN = "harness-token-not-a-real-share-link-0000";
+
+export function isHarnessIdentity(identity: DisplayEngineIdentity): boolean {
+  // Development/test only: in production the reserved sentinels are ordinary
+  // identities, so product behavior is never altered by this seam (B005-S4).
+  if (process.env.NODE_ENV === "production") return false;
+  return identity.eventId === HARNESS_EVENT_ID || identity.token === HARNESS_TOKEN;
+}
+
+export function seedHarnessBroadcast(identity: DisplayEngineIdentity, row: Partial<BroadcastRow> & { id: string }) {
+  if (!isHarnessIdentity(identity)) {
+    throw new Error("seedHarnessBroadcast only operates on the reserved HARNESS_EVENT_ID/HARNESS_TOKEN identities — refusing to touch any other instance.");
+  }
+  const inst = getInstance(identity);
+  const fullRow: BroadcastRow = {
+    type: "info",
+    title: "Harness broadcast",
+    message: "Synthetic message for rendered-evidence capture.",
+    icon: null,
+    priority: 2,
+    target: { kind: "all" },
+    created_at: new Date().toISOString(),
+    expires_at: null,
+    duration_seconds: null,
+    acknowledgement_required: false,
+    persistent: false,
+    acknowledged_by: [],
+    scheduled_for: null,
+    status: "sent",
+    dismissed_at: null,
+    ...row,
+  };
+  inst.remoteSlice = { ...inst.remoteSlice, broadcastRows: [fullRow] };
+  rebuild(inst);
+}
+
 export function targetMatchesDisplay(target: BroadcastTarget, display: DisplayInstance, groups: Record<string, DisplayGroup>): boolean {
   switch (target.kind) {
     case "all":
@@ -986,3 +1095,32 @@ export function targetMatchesDisplay(target: BroadcastTarget, display: DisplayIn
       return false;
   }
 }
+
+// Releases everything the remote path holds for an instance. Outstanding responses
+// are dropped by the closed flag; the next subscribe starts a fresh channel and
+// hydrate.
+function teardownRemote(inst: EngineInstance) {
+  inst.closed = true;
+  if (inst.pollIntervalId !== undefined) {
+    clearInterval(inst.pollIntervalId);
+    inst.pollIntervalId = undefined;
+  }
+  if (inst.channel !== undefined) {
+    remoteClientFactory().removeChannel(inst.channel as Parameters<ReturnType<typeof supabaseBrowser>["removeChannel"]>[0]);
+    inst.channel = undefined;
+  }
+  inst.initialized = false;
+  inst.remoteHydrated = false;
+}
+
+// Test seam for the real store logic (KF-036.9). Not used by product code.
+export const __testing = {
+  setRemoteClient(factory: () => ReturnType<typeof supabaseBrowser>) {
+    remoteClientFactory = factory;
+  },
+  getInstance,
+  subscribe,
+  reset() {
+    instances.clear();
+  },
+};
