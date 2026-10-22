@@ -228,9 +228,13 @@ function PresenterDisplayInner({ token, eventId }: { token?: string; eventId?: s
                       {mode === "countdown" || mode === "program" ? timer.label : formatClock(timer.elapsedSeconds)}
                     </p>
                     <p className="text-subtitle uppercase tracking-wide text-muted-2 mt-4">
+                      {/* Review 17: paused state belongs beside the number
+                          the presenter is actually reading, not only in a
+                          corner pill 10ft away. */}
+                      {appState.pausedAt && <span className="text-status-orange">Paused · </span>}
                       {mode === "countdown" || mode === "program"
                         ? timer.isOverrun
-                          ? "over"
+                          ? "over time · wrap up"
                           : "remaining"
                         : mode === "session"
                           ? "session elapsed"

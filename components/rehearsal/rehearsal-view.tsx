@@ -232,8 +232,11 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
         // Operator's real mobile order — would teach the wrong scan
         // pattern, defeating this page's whole purpose as a safe practice
         // run for live muscle memory.
-        <div className="flex-1 lg:grid lg:grid-cols-[1fr_380px] flex flex-col">
-          <div className="order-2 lg:order-1 min-w-0 px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
+        // Review F3: at xl this is now the Console's own three-column
+        // arrangement (Program | Live | Controls) so positions transfer
+        // 1:1 to the real show; lg keeps live+controls stacked on the right.
+        <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[1fr_380px] lg:grid-rows-[auto_1fr] lg:[grid-template-areas:'list_live''list_controls'] xl:grid-cols-[1fr_minmax(340px,0.9fr)_320px] xl:grid-rows-1 xl:[grid-template-areas:'list_live_controls']">
+          <div className="order-3 lg:order-none lg:[grid-area:list] min-w-0 px-4 sm:px-6 xl:px-12 py-6 xl:py-8">
             {sessions.length > 1 && (
               <SessionSelect sessions={sessions} activeSessionId={activeSessionId} onChange={(id) => {
                 setSessionId(id);
@@ -269,7 +272,7 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
             </ul>
           </div>
 
-          <div className="order-1 lg:order-2 lg:border-l border-line-soft min-w-0 px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex flex-col gap-8">
+          <div className="order-1 lg:order-none lg:[grid-area:live] lg:border-l border-line-soft min-w-0 px-4 sm:px-6 xl:px-10 py-6 xl:py-8 flex flex-col gap-8">
             {state.alert && <AlertBanner alert={state.alert} />}
 
             {/* Phase 7a correction: this used to carry the same
@@ -349,7 +352,12 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
 
               <RunPosition next={next} onDeck={onDeck} />
             </section>
+          </div>
 
+          <div className="order-2 lg:order-none lg:[grid-area:controls] lg:border-l xl:border-l border-line-soft min-w-0 px-4 sm:px-6 xl:px-8 py-6 xl:py-8 flex flex-col gap-8">
+            <p className="text-console-sm text-status-orange">
+              Rehearsal · cues and alerts here stay in this tab. No real display changes.
+            </p>
             <section className="flex flex-col gap-3">
               <SectionLabel>Controls</SectionLabel>
               <div className="flex flex-col gap-3">
@@ -364,9 +372,19 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
                     <ChevronRight className="h-4 w-4" strokeWidth={2} />
                   </Button>
                 ) : (
-                  <Button variant="primary" size="lg" onClick={next_} disabled={isFinished}>
-                    Next
-                    <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    onClick={next_}
+                    disabled={isFinished}
+                    className="h-auto min-h-14 py-2.5 flex-col gap-0.5"
+                    aria-label={next ? `Next cue: ${next.title}` : "Next cue"}
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      Next cue
+                      <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                    </span>
+                    {next && <span className="text-console-sm font-normal opacity-75 max-w-full truncate">{next.title}</span>}
                   </Button>
                 )}
                 <div className="grid grid-cols-2 gap-3">

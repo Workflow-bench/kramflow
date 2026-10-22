@@ -79,6 +79,25 @@ export default function PricingPage() {
               Start free
             </SiteAction>
           </div>
+
+          {/* Review 02: answer the two questions a buyer asks next, using
+              only what's actually true today. No invented prices. */}
+          <dl className="mt-10 flex flex-col gap-6 text-[14px] leading-relaxed">
+            <div>
+              <dt className="font-display text-[16px] text-primary">What counts as one event?</dt>
+              <dd className="mt-1 text-muted">
+                One show with all its days and sessions, for example a three-day conference with morning and
+                evening sessions.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-display text-[16px] text-primary">What happens after my first event?</dt>
+              <dd className="mt-1 text-muted">
+                Pricing for later events hasn&apos;t been announced yet. We never ask for a card, so nothing can be
+                charged without you choosing a plan first.
+              </dd>
+            </div>
+          </dl>
         </div>
       </section>
     </main>

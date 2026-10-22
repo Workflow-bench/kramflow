@@ -7,7 +7,6 @@ import { Button, LinkButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { OperationalStatus } from "@/components/ui/operational-status";
-import { Tooltip } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { OverflowMenu } from "@/components/ui/overflow-menu";
@@ -268,50 +267,27 @@ function EventRow({ event, onRequestDelete }: { event: EventSummary; onRequestDe
       <div className="flex items-center gap-1.5 shrink-0 ml-auto">
         <LinkButton href={`/e/${event.id}/operator`} variant="primary" size="sm">
           <Gauge className="h-3.5 w-3.5" strokeWidth={2} />
-          Open Console
+          {event.isLive ? "Run show" : "Open Console"}
         </LinkButton>
 
-        {/* Quick links to Cue Sheet/Remote/Displays — visible from sm: up,
-            where a row has the horizontal room for them without crowding
-            the primary action. Below sm:, they're one tap further away
-            (Open Console, then EventNav's own mobile menu) rather than
-            adding a 4th/5th icon to an already-narrow row — the exact
-            "cramped icon soup" this phase was asked to avoid. */}
-        <div className="hidden sm:flex items-center gap-1.5">
-          <Tooltip content="Cue Sheet">
-            <LinkButton href={`/e/${event.id}/operator/cue-sheet`} variant="secondary" size="sm" square aria-label="Cue Sheet">
-              <FileSpreadsheet className="h-3.5 w-3.5" strokeWidth={2} />
-            </LinkButton>
-          </Tooltip>
-          <Tooltip content="Remote: one-handed mobile control">
-            <LinkButton href={`/e/${event.id}/remote`} variant="secondary" size="sm" square aria-label="Remote">
-              <Smartphone className="h-3.5 w-3.5" strokeWidth={2} />
-            </LinkButton>
-          </Tooltip>
-          <Tooltip content="Displays">
-            <LinkButton href={`/e/${event.id}/displays`} variant="secondary" size="sm" square aria-label="Displays">
-              <MonitorPlay className="h-3.5 w-3.5" strokeWidth={2} />
-            </LinkButton>
-          </Tooltip>
-        </div>
-
-        {/* Share Link and Delete are owner-only server-side
-            (requireEventAccess(eventId, "owner") in both routes) — hidden
-            here too so a collaborator never sees an action that would just
-            403. Folded into one overflow trigger rather than more row
-            icons: unlike Cue Sheet/Remote/Displays (clicked constantly),
-            these two are genuinely low-frequency — exactly what
-            OverflowMenu's own doc comment reserves it for. */}
-        {isOwner && (
-          <OverflowMenu
-            iconOnly
-            label="More actions"
-            items={[
-              { label: "Share Display Link", icon: Link2, onClick: () => setShareOpen(true) },
-              { label: "Delete Event", icon: Trash2, onClick: onRequestDelete, tone: "danger" },
-            ]}
-          />
-        )}
+        {/* Review F6/07: one clear primary per row; the other event
+            destinations are named in one menu instead of three unlabeled
+            icons repeated on every row. Delete stays last and owner-only. */}
+        <OverflowMenu
+          iconOnly
+          label={`More for ${event.name}`}
+          items={[
+            { label: "Cue Sheet", icon: FileSpreadsheet, href: `/e/${event.id}/operator/cue-sheet` },
+            { label: "Remote", icon: Smartphone, href: `/e/${event.id}/remote` },
+            { label: "Displays", icon: MonitorPlay, href: `/e/${event.id}/displays` },
+            ...(isOwner
+              ? [
+                  { label: "Share Display Link", icon: Link2, onClick: () => setShareOpen(true) },
+                  { label: "Delete Event", icon: Trash2, onClick: onRequestDelete, tone: "danger" as const },
+                ]
+              : []),
+          ]}
+        />
       </div>
       {isOwner && <ShareLinkPanel eventId={event.id} open={shareOpen} onOpenChange={setShareOpen} />}
     </div>

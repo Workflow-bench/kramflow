@@ -39,6 +39,9 @@
   --color-raised: #2a251c;
   --color-line: #3a3327;
   --color-line-soft: #211d16;
+  /* Form-control boundary: 3.3:1 on background (WCAG 1.4.11). --color-line
+     stays the quiet divider; a field edge must be findable. */
+  --color-line-field: #6b6252;
 
   /* Text. All three verified >=4.5:1 on background, card, and card-hover. */
   --color-primary: #f4efe5;
@@ -98,6 +101,7 @@
   --color-raised: var(--color-raised);
   --color-line: var(--color-line);
   --color-line-soft: var(--color-line-soft);
+  --color-line-field: var(--color-line-field);
   --color-primary: var(--color-primary);
   --color-muted: var(--color-muted);
   --color-muted-2: var(--color-muted-2);

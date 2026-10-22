@@ -13,7 +13,7 @@ export function Textarea({
       rows={rows}
       className={cn(
         // text-base below sm: — same iOS zoom-on-focus fix as Input.
-        "w-full rounded-control bg-background border border-line px-3 py-2 text-base sm:text-console-sm text-primary",
+        "w-full rounded-control bg-background border border-line-field px-3 py-2 text-base sm:text-console-sm text-primary",
         // max-h + overflow-y-auto caps the manual resize-y drag handle —
         // without it, dragging past a modal's height (e.g. Add/Edit Item's
         // Remarks field, above its sticky Save/Cancel footer) grows the

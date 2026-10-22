@@ -142,20 +142,32 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
                 </>
               )}
 
-              {cueTarget && (
+              {cueTarget && (() => {
+                // Review 19: fixed scan order (sound, picture, light, camera,
+                // curtains) with empty rows dropped, so a crew member reads
+                // only what actually needs doing.
+                const rows = [
+                  { label: "Microphone / Track", value: audioSummary(cueTarget.audio) },
+                  { label: "Video / Presentation", value: videoSummary(cueTarget.video) },
+                  { label: "Lighting", value: lightingSummary(cueTarget.lights) ?? "" },
+                  { label: "Camera Angle", value: cueTarget.cameraAngle ?? "" },
+                  { label: "Curtains", value: cueTarget.curtains ? (cueTarget.curtains === "open" ? "Open" : "Closed") : "" },
+                ].filter((r) => r.value && r.value !== "None");
+                return (
                 <div className="mt-8 pt-6 border-t border-white/10">
                   <p className="text-caption uppercase tracking-wide text-muted-2">
-                    Prep Requirements: {cueTarget.title}
+                    {cueTarget.id === live?.id ? "Requirements for current cue" : "Prepare for next cue"}
                   </p>
-                  <div className="mt-3 divide-y divide-white/5">
-                    <RequirementRow label="Microphone / Track" value={audioSummary(cueTarget.audio)} />
-                    <RequirementRow label="Video / Presentation" value={videoSummary(cueTarget.video)} />
-                    <RequirementRow label="Lighting" value={lightingSummary(cueTarget.lights) ?? "None"} />
-                    {cueTarget.cameraAngle && <RequirementRow label="Camera Angle" value={cueTarget.cameraAngle} />}
-                    {cueTarget.curtains && (
-                      <RequirementRow label="Curtains" value={cueTarget.curtains === "open" ? "Open" : "Closed"} />
-                    )}
-                  </div>
+                  <p className="text-title text-primary mt-1">{cueTarget.title}</p>
+                  {rows.length === 0 ? (
+                    <p className="text-body text-muted mt-3">No AV requirements for this cue.</p>
+                  ) : (
+                    <div className="mt-3 divide-y divide-white/5">
+                      {rows.map((r) => (
+                        <RequirementRow key={r.label} label={r.label} value={r.value} />
+                      ))}
+                    </div>
+                  )}
                   {cueTarget.stageNotes && (
                     <div className="mt-4">
                       <p className="text-caption uppercase tracking-wide text-muted-2">Operator Notes</p>
@@ -163,7 +175,8 @@ function AvDisplayInner({ token, eventId }: { token?: string; eventId?: string }
                     </div>
                   )}
                 </div>
-              )}
+                );
+              })()}
             </div>
 
             <div className="min-h-0 flex flex-col justify-center gap-6">

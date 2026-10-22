@@ -160,7 +160,17 @@ function SignupForm() {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             disabled={submitting}
+            aria-describedby="confirm-help"
           />
+          {/* Review 13: say whether they match while typing, not only after
+              a failed submit. */}
+          <p id="confirm-help" className="text-[13px] leading-5 text-muted-2" aria-live="polite">
+            {confirmPassword.length === 0
+              ? "Type the same password again."
+              : confirmPassword === password
+                ? "Passwords match."
+                : "Passwords don't match yet."}
+          </p>
         </div>
 
         {error && (

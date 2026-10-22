@@ -160,10 +160,16 @@ function CustomDisplayInner({
           {appState.alert && <AlertBanner alert={appState.alert} className="mt-6" />}
 
           {!loaded ? null : !profile ? (
-            <div className="flex-1 flex items-center justify-center">
-              <p className="text-body text-muted-2">
-                {profileId ? "This display's profile could not be loaded." : "No display profile selected."}
+            // Review 21: a viewer screen can't fix this itself, so it says
+            // what's happening and where the fix lives, then stays calm.
+            <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 px-8">
+              <p className="text-title text-primary">Waiting for setup</p>
+              <p className="text-body text-muted max-w-xl">
+                {profileId
+                  ? "This screen's layout couldn't be loaded. The operator can reassign it from Displays → Display Profiles."
+                  : "No layout is assigned to this screen yet. The operator can pick one from Displays → Display Profiles."}
               </p>
+              {display?.name && <p className="text-caption uppercase tracking-wide text-muted-2 mt-2">{display.name}</p>}
             </div>
           ) : (
             <CustomLayoutRenderer

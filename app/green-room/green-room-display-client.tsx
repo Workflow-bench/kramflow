@@ -159,15 +159,19 @@ function GreenRoomDisplayInner({ token, eventId }: { token?: string; eventId?: s
                     {timer.isOverrun ? `+${timer.label}` : timer.label}
                   </p>
                   <p className="text-caption uppercase tracking-wide text-muted-2 mt-2">
-                    {timer.isOverrun ? "over, counting down until called" : "remaining, counting down until called"}
+                    {appState.pausedAt
+                      ? "Paused · clock stopped"
+                      : timer.isOverrun
+                        ? "Over time · wrap up"
+                        : "Remaining · clock running"}
                   </p>
                 </>
               )}
 
-              {live && (
+              {live && effectiveNotes(appState, live) && (
                 <div className="mt-8 pt-6 border-t border-white/10 max-w-lg">
                   <p className="text-caption uppercase tracking-wide text-muted-2">Operator Notes</p>
-                  <p className="text-body text-muted mt-2">{effectiveNotes(appState, live) || "No notes"}</p>
+                  <p className="text-body text-muted mt-2">{effectiveNotes(appState, live)}</p>
                 </div>
               )}
             </div>

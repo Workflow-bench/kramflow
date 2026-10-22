@@ -40,9 +40,9 @@ export function TvConnectForm() {
         router.push(data.href);
         return;
       }
-      setError(data.error ?? "Invalid or expired code.");
+      setError(data.error ?? "That code is invalid or has expired. Ask the operator for a fresh one.");
     } catch {
-      setError("Could not reach KramFlow. Check the connection and try again.");
+      setError("Couldn't reach Kramflow. Check this screen's internet connection and try again.");
     }
     setBusy(false);
   }
@@ -64,6 +64,12 @@ export function TvConnectForm() {
         value={formatTvCode(digits)}
         onChange={(e) => {
           setDigits(digitsOnly(e.target.value));
+          setError(null);
+        }}
+        onPaste={(e) => {
+          // A pasted "482-731" or "Code: 482 731" still lands as six digits.
+          e.preventDefault();
+          setDigits(digitsOnly(e.clipboardData.getData("text")));
           setError(null);
         }}
         // Explicit rather than relying on the browser's implicit form
@@ -88,6 +94,11 @@ export function TvConnectForm() {
       <Button type="submit" variant="primary" size="xl" loading={busy} className="w-full max-w-md">
         Connect
       </Button>
+      {/* Review 22: say where the code comes from, so a crew member at a
+          venue TV isn't left guessing who to ask. */}
+      <p className="text-body text-muted-2 text-center max-w-md">
+        Codes come from the operator: Event → Displays → Share Display Link. Each code is valid for a limited time.
+      </p>
     </form>
   );
 }

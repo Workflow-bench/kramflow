@@ -12,7 +12,7 @@ export function Input({
   return (
     <input
       className={cn(
-        "w-full rounded-control bg-background border border-line text-primary",
+        "w-full rounded-control bg-background border border-line-field text-primary",
         "placeholder:text-muted-2 outline-none",
         "transition-[border-color,box-shadow] duration-[110ms] ease-out",
         // Focus is the accent, never a status hue — a blue ring on a focused

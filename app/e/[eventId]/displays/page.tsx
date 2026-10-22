@@ -270,76 +270,12 @@ export default function DisplayManagerPage() {
       <EventShellHeader title="Displays" connectionStatus={toConnectionStatus(transportStatus)} />
 
       <div className="px-4 sm:px-6 xl:px-12 py-8">
-        <SectionLabel>Preview a display</SectionLabel>
-        <div className="flex flex-wrap gap-2 mt-3">
-          {PREVIEW_LINKS.map(({ path, label, icon: Icon }) => (
-            <LinkButton
-              key={path}
-              href={`${path}?eventId=${encodeURIComponent(eventId)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              variant="secondary"
-              size="sm"
-            >
-              <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-              {label}
-            </LinkButton>
-          ))}
-          {/* A single "+" trigger for custom displays, not one tile per
-              profile — a flat list of profile-name tiles read as just
-              more fixed screens next to Presenter/AV/etc. This opens a
-              dropdown to pick an existing profile to preview, or jump
-              straight into creating one (under your own name) when there
-              isn't one yet — see CustomDisplayPreviewMenu's own comment. */}
-          <CustomDisplayPreviewMenu
-            eventId={eventId}
-            profiles={profileOptions}
-            onCreateProfile={() => profilePanelRef.current?.openCreate()}
-          />
-        </div>
-
-        {/* Phase 7d: Share Display Link and Broadcast Center were each their
-            own bordered Panel, stacked above the fleet — two entry-point
-            "cards" competing with the fleet itself for the first thing an
-            operator's eye lands on. Same unboxed row treatment now, driven
-            by the same field/row grammar as the rest of the redesigned
-            product; ShareLinkPanel's own Modal/ConfirmDialog (unchanged) is
-            just externally triggered instead of wrapped in a second card. */}
-        <div className="mt-6 flex flex-col">
-          <div className="flex items-center justify-between gap-4 flex-wrap py-3 border-b border-line-soft">
-            <div className="flex items-center gap-3 min-w-0">
-              <Link2 className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
-              <div className="min-w-0">
-                <p className="text-console-sm text-primary">Share Display Link</p>
-                <p className="text-console-meta text-muted-2">No-login link + QR for a TV or tablet to pick a screen.</p>
-              </div>
-            </div>
-            <Button variant="secondary" size="sm" className="shrink-0" onClick={() => setShareLinkOpen(true)}>
-              <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
-              Manage Links
-            </Button>
-          </div>
-          <div className="flex items-center justify-between gap-4 flex-wrap py-3 border-b border-line-soft">
-            <div className="flex items-center gap-3 min-w-0">
-              <Megaphone className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
-              <div className="min-w-0">
-                <p className="text-console-sm text-primary">Broadcast Center</p>
-                <p className="text-console-meta text-muted-2">Push alerts, reminders, and emergency overrides to every display.</p>
-              </div>
-            </div>
-            <LinkButton href={`/e/${eventId}/broadcast`} className="shrink-0" variant="secondary" size="sm">
-              Open Broadcast Center
-            </LinkButton>
-          </div>
-          <DisplayProfilePanel ref={profilePanelRef} eventId={eventId} isOwner={isOwner} onChange={reloadProfileOptions} />
-        </div>
-        <ShareLinkPanel eventId={eventId} open={shareLinkOpen} onOpenChange={setShareLinkOpen} />
 
         {/* Fleet summary — triage before configuration. Real counts derived
             from each display's own heartbeat age, not a separate invented
             health system; "N online/stale/offline" only render once
             there's at least one registered display to summarize. */}
-        <div className="flex items-start justify-between gap-4 flex-wrap mt-8">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3 flex-wrap">
             <SectionLabel>Display Fleet</SectionLabel>
             {displays.length > 0 && (
@@ -456,6 +392,77 @@ export default function DisplayManagerPage() {
             })}
           </div>
         )}
+
+        {/* Review 06: readiness first, setup second. Everything below is
+            configuration an operator does once, not something checked
+            under pressure, so it no longer sits above the fleet. */}
+        <div className="mt-12 pt-8 border-t border-line-soft">
+        <SectionLabel>Set up screens</SectionLabel>
+        <p className="text-console-meta text-muted-2 mt-1">Open a browser preview of each output, share a link or TV code, or build a custom layout.</p>
+        <div className="flex flex-wrap gap-2 mt-4">
+          {PREVIEW_LINKS.map(({ path, label, icon: Icon }) => (
+            <LinkButton
+              key={path}
+              href={`${path}?eventId=${encodeURIComponent(eventId)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="secondary"
+              size="sm"
+            >
+              <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+              {label}
+            </LinkButton>
+          ))}
+          {/* A single "+" trigger for custom displays, not one tile per
+              profile — a flat list of profile-name tiles read as just
+              more fixed screens next to Presenter/AV/etc. This opens a
+              dropdown to pick an existing profile to preview, or jump
+              straight into creating one (under your own name) when there
+              isn't one yet — see CustomDisplayPreviewMenu's own comment. */}
+          <CustomDisplayPreviewMenu
+            eventId={eventId}
+            profiles={profileOptions}
+            onCreateProfile={() => profilePanelRef.current?.openCreate()}
+          />
+        </div>
+
+        {/* Phase 7d: Share Display Link and Broadcast Center were each their
+            own bordered Panel, stacked above the fleet — two entry-point
+            "cards" competing with the fleet itself for the first thing an
+            operator's eye lands on. Same unboxed row treatment now, driven
+            by the same field/row grammar as the rest of the redesigned
+            product; ShareLinkPanel's own Modal/ConfirmDialog (unchanged) is
+            just externally triggered instead of wrapped in a second card. */}
+        <div className="mt-6 flex flex-col">
+          <div className="flex items-center justify-between gap-4 flex-wrap py-3 border-b border-line-soft">
+            <div className="flex items-center gap-3 min-w-0">
+              <Link2 className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
+              <div className="min-w-0">
+                <p className="text-console-sm text-primary">Share Display Link</p>
+                <p className="text-console-meta text-muted-2">No-login link + QR for a TV or tablet to pick a screen.</p>
+              </div>
+            </div>
+            <Button variant="secondary" size="sm" className="shrink-0" onClick={() => setShareLinkOpen(true)}>
+              <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
+              Manage Links
+            </Button>
+          </div>
+          <div className="flex items-center justify-between gap-4 flex-wrap py-3 border-b border-line-soft">
+            <div className="flex items-center gap-3 min-w-0">
+              <Megaphone className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
+              <div className="min-w-0">
+                <p className="text-console-sm text-primary">Broadcast Center</p>
+                <p className="text-console-meta text-muted-2">Push alerts, reminders, and emergency overrides to every display.</p>
+              </div>
+            </div>
+            <LinkButton href={`/e/${eventId}/broadcast`} className="shrink-0" variant="secondary" size="sm">
+              Open Broadcast Center
+            </LinkButton>
+          </div>
+          <DisplayProfilePanel ref={profilePanelRef} eventId={eventId} isOwner={isOwner} onChange={reloadProfileOptions} />
+        </div>
+        <ShareLinkPanel eventId={eventId} open={shareLinkOpen} onOpenChange={setShareLinkOpen} />
+        </div>
       </div>
 
       {previewing && (
@@ -673,11 +680,27 @@ function DisplayRow({
             <ChevronDown className="h-4 w-4 text-muted-2 shrink-0" strokeWidth={2} />
           )}
         </button>
-        <Button variant="primary" size="sm" onClick={onPreview} className="shrink-0" aria-label={`Preview ${display.name}`}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onPreview}
+          className="shrink-0"
+          aria-label={`Browser preview of ${display.name}`}
+          title="Shows what this output renders in your browser. It doesn't confirm the physical screen is on."
+        >
           <Eye className="h-3.5 w-3.5" strokeWidth={2} />
-          <span className="hidden sm:inline">Preview</span>
+          <span className="hidden sm:inline">Browser preview</span>
         </Button>
       </div>
+
+      {/* Review F8: an offline row says what we actually know and what to
+          check, instead of only a red chip. */}
+      {status === "offline" && !expanded && (
+        <p className="px-3 pb-3 -mt-1 text-console-meta text-muted">
+          Last contact {formatRelativeAge(now - Date.parse(display.lastSeenAt))}. Check the device is powered on and
+          its browser is still open on this output, then use Reload to refresh it when it reconnects.
+        </p>
+      )}
 
       {expanded && (
         <div className="px-3 pb-5 pt-1 flex flex-col gap-5">

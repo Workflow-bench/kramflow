@@ -381,10 +381,21 @@ export function EventSettingsPanel({
             </FormField>
 
             {isOwner && (
-              <div>
-                <Button type="submit" variant="secondary" size="sm" loading={savingDetails} disabled={!name.trim() || !detailsDirty}>
-                  Save
+              // Review 11: the save state is always stated, not inferred from
+              // whether a grey button happens to be enabled.
+              <div className="flex items-center gap-3">
+                <Button
+                  type="submit"
+                  variant={detailsDirty ? "primary" : "secondary"}
+                  size="sm"
+                  loading={savingDetails}
+                  disabled={!name.trim() || !detailsDirty}
+                >
+                  Save changes
                 </Button>
+                <p className="text-console-meta text-muted-2" role="status">
+                  {!name.trim() ? "Event name is required." : detailsDirty ? "Unsaved changes" : "All changes saved"}
+                </p>
               </div>
             )}
           </form>

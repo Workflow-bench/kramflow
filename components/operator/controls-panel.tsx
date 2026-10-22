@@ -70,6 +70,7 @@ export function ControlsPanel({
   const max = session.items.length;
   const isFinished = currentOrder !== null && currentOrder > max;
   const isLastItem = currentOrder === max;
+  const nextItem = currentOrder === null ? null : session.items.find((i) => i.order === currentOrder + 1) ?? null;
 
   const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
   // Disables the button that triggered a request until it resolves, so a
@@ -326,6 +327,16 @@ export function ControlsPanel({
         )}
 
         <div className="flex flex-col gap-3">
+          {/* Review F1: Next/Prev/Hold still route a click to the Take
+              Control prompt when the lease isn't ours, but they must not
+              *look* live. Muted + one plain sentence saying why. */}
+          {!readOnly && !iHaveControl && currentOrder !== null && !isFinished && (
+            <p className="text-console-sm text-muted">
+              {lockedByOther
+                ? `${controllerName ?? "Another operator"} is running cues. Take over to use these controls.`
+                : "Take control to run cues from this screen."}
+            </p>
+          )}
           {currentOrder === null ? (
             <Button
               variant="primary"
@@ -344,14 +355,20 @@ export function ControlsPanel({
               ) : (
                 <>
                   <Button
-                    variant="primary"
+                    variant={iHaveControl || readOnly ? "primary" : "secondary"}
                     size="lg"
-                    className="w-full"
+                    className="w-full h-auto min-h-14 py-2.5 flex-col gap-0.5"
                     disabled={isLastItem || pending !== null || readOnly}
                     onClick={() => run("next", () => next(max))}
+                    aria-label={nextItem ? `Next cue: ${nextItem.title}` : "Next cue"}
                   >
-                    Next
-                    <ChevronRight className="h-5 w-5" strokeWidth={2} />
+                    <span className="inline-flex items-center gap-1.5">
+                      Next cue
+                      <ChevronRight className="h-5 w-5" strokeWidth={2} />
+                    </span>
+                    {nextItem && (
+                      <span className="text-console-sm font-normal opacity-75 max-w-full truncate">{nextItem.title}</span>
+                    )}
                   </Button>
                   {isLastItem && (
                     <Button

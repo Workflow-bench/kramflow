@@ -18,6 +18,13 @@ export default function CueSheetPrintPage() {
   const eventId = useEventId();
   const sessions = useSessions();
   const [eventName, setEventName] = useState("");
+  // Review 14: a printout has to say which version it is. Captured once on
+  // mount so the header and the paper agree.
+  const [generatedAt] = useState(() => {
+    const d = new Date();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return `${d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} (${tz})`;
+  });
 
   useEffect(() => {
     fetch(`/api/events/${eventId}`)
@@ -41,6 +48,9 @@ export default function CueSheetPrintPage() {
 
       <div className="max-w-4xl mx-auto px-6 py-8 print:p-0 print:max-w-none">
         <h1 className="text-2xl font-semibold">{eventName || "Cue Sheet"}</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          Cue sheet · printed {generatedAt}. Times are the planned schedule, not what actually ran.
+        </p>
 
         {sessions.length === 0 && <p className="mt-4 text-neutral-500">No sessions to print yet.</p>}
 
@@ -53,20 +63,29 @@ export default function CueSheetPrintPage() {
                 {session.dayLabel} • {session.sessionLabel}
               </h2>
               <table className="w-full mt-3 text-sm border-collapse">
-                <thead>
+                {/* table-header-group repeats this header on every printed
+                    page, including the session name, so page 3 still says
+                    which session it belongs to. */}
+                <thead className="[display:table-header-group]">
+                  <tr className="hidden print:table-row">
+                    <th colSpan={5} className="pb-1 text-left text-xs font-medium text-neutral-500">
+                      {eventName ? `${eventName} · ` : ""}
+                      {session.dayLabel} • {session.sessionLabel}
+                    </th>
+                  </tr>
                   <tr className="text-left text-neutral-500 border-b border-neutral-300">
                     <th className="py-1.5 pr-2 font-normal w-8">#</th>
                     <th className="py-1.5 pr-2 font-normal w-20">Start</th>
                     <th className="py-1.5 pr-2 font-normal">Item</th>
                     <th className="py-1.5 pr-2 font-normal">Presenter</th>
-                    <th className="py-1.5 pr-2 font-normal w-16 text-right">Dur</th>
+                    <th className="py-1.5 pr-2 font-normal w-20 text-right">Duration</th>
                   </tr>
                 </thead>
                 <tbody>
                   {session.items.length === 0 && (
                     <tr>
                       <td colSpan={5} className="py-3 text-neutral-400">
-                        No items in this session.
+                        No cues in this session.
                       </td>
                     </tr>
                   )}

@@ -57,9 +57,19 @@ function ResetForm() {
       }
     >
       {sent ? (
-        <p role="status" className="rounded-control border border-line-soft bg-raised/60 px-4 py-3 text-[14px] leading-5 text-primary">
-          {GENERIC_RESET_MESSAGE}
-        </p>
+        // Review 13: recovery stays understandable when email is slow.
+        <div className="flex w-full flex-col gap-4">
+          <p role="status" className="rounded-control border border-line-soft bg-raised/60 px-4 py-3 text-[14px] leading-5 text-primary">
+            {GENERIC_RESET_MESSAGE}
+          </p>
+          <p className="text-[13px] leading-5 text-muted-2">
+            Emails can take a few minutes. Check spam or promotions, and make sure {email || "the address"} is the one on
+            your account.
+          </p>
+          <Button type="button" variant="secondary" size="public" className="w-full" onClick={() => setSent(false)}>
+            Use a different email or send again
+          </Button>
+        </div>
       ) : (
         <form onSubmit={handleSubmit} className="flex w-full flex-col gap-5" noValidate>
           <div className="flex flex-col gap-2">

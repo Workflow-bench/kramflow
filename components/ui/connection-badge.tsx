@@ -4,8 +4,12 @@ import { cn, formatRelativeAge } from "@/lib/utils";
 
 export type ConnectionBadgeStatus = "connected" | "reconnecting" | "disconnected";
 
+// Review F2: "Synced" read as "every screen got it" while a target display
+// sat offline beside it. This badge only knows about *this* console's link
+// to the server, so it says exactly that; display health lives in
+// TargetHealthSummary, never here.
 const COPY: Record<ConnectionBadgeStatus, string> = {
-  connected: "Synced",
+  connected: "Console online",
   reconnecting: "Reconnecting…",
   disconnected: "Disconnected",
 };
@@ -138,7 +142,7 @@ export function ConnectionBadge({
       )}
       title={
         status === "connected"
-          ? "Live-synced with the server"
+          ? "This console is connected and your changes are saving. Display health is reported separately."
           : "Lost the live connection to the backend. Actions may not be reaching the server, and this screen may be showing stale data."
       }
     >

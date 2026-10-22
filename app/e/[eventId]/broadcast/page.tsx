@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { AlertTriangle, Copy, Send, Sparkles, Star, Trash2, X } from "lucide-react";
 import { useIsOwner } from "@/lib/event-context";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
-import { useDisplayEngine, useTransportStatus } from "@/lib/display-engine/store";
+import { useDisplayEngine, useTransportStatus, targetMatchesDisplay } from "@/lib/display-engine/store";
 import { getDisplayStatus, type DisplayHealth } from "@/lib/display-engine/use-register-display";
 import type { TransportStatus } from "@/lib/display-engine/transport";
 import {
@@ -135,6 +135,14 @@ export default function BroadcastCenterPage() {
   }, [engine.registry]);
 
   const [draft, setDraft] = useState<BroadcastDraft>(EMPTY_DRAFT);
+  // Review F4: the Send button itself names its destination, so a wrong
+  // target or an unreachable screen is visible at the moment of commit.
+  const sendDestination = useMemo(() => {
+    const matched = Object.values(engine.registry).filter((d) => targetMatchesDisplay(draft.target, d, engine.groups));
+    const offline = matched.filter((d) => getDisplayStatus(d, Date.now()) === "offline").length;
+    const noun = `${matched.length} display${matched.length === 1 ? "" : "s"}`;
+    return offline > 0 ? `${noun} · ${offline} offline` : noun;
+  }, [engine.registry, engine.groups, draft.target]);
   const aiEnabled = useAiEnabled();
   const { draft: requestAiDraft, drafting: aiDrafting } = useAlertDraft();
   const [aiInstruction, setAiInstruction] = useState("");
@@ -576,6 +584,29 @@ export default function BroadcastCenterPage() {
                       />
                     </FormField>
                   </div>
+                </div>
+
+                {/* Review F4: routine messages need what/who/severity only.
+                    Timing, persistence, scheduling and icon stay one click
+                    away, opened automatically if a draft already uses them. */}
+                <details
+                  className="group pt-1 border-t border-line-soft"
+                  open={
+                    scheduleEnabled ||
+                    draft.persistent ||
+                    draft.acknowledgementRequired ||
+                    draft.expiresInMinutes != null ||
+                    draft.durationSeconds != null ||
+                    !!draft.icon ||
+                    undefined
+                  }
+                >
+                  <summary className="mt-3 flex items-center justify-between cursor-pointer list-none rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                    <SectionLabel>Timing, persistence &amp; schedule</SectionLabel>
+                    <span className="text-console-meta text-muted-2 group-open:hidden">Show</span>
+                    <span className="text-console-meta text-muted-2 hidden group-open:inline">Hide</span>
+                  </summary>
+                <div className="flex flex-col gap-4 mt-4">
                   <FormField label="Icon (optional)">
                     <Input
                       value={draft.icon ?? ""}
@@ -584,10 +615,6 @@ export default function BroadcastCenterPage() {
                       className="max-w-40"
                     />
                   </FormField>
-                </div>
-
-                <div className="flex flex-col gap-4 pt-1 border-t border-line-soft">
-                  <SectionLabel className="mt-3">Duration &amp; Persistence</SectionLabel>
                   <div className="grid grid-cols-2 gap-4">
                     <FormField label="Expires in (min)">
                       <Input
@@ -639,6 +666,7 @@ export default function BroadcastCenterPage() {
                     )}
                   </div>
                 </div>
+                </details>
 
                 {/* Preview — the same styling BroadcastOverlay itself renders
                     with (BROADCAST_TYPE_META), not a separately-invented
@@ -689,7 +717,7 @@ export default function BroadcastCenterPage() {
                       loading={sending}
                     >
                       <Send className="h-4 w-4" strokeWidth={2} />
-                      {isScheduling ? "Schedule" : "Send Now"}
+                      {isScheduling ? `Schedule for ${sendDestination}` : `Send to ${sendDestination}`}
                     </Button>
                   </MaybeTooltip>
                   <Button

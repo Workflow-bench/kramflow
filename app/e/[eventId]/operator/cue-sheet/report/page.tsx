@@ -13,9 +13,9 @@ import { AiReportSummary } from "@/components/operator/ai-report-summary";
 
 const EXCEPTION_LABEL: Record<ItemVariance["exception"], string> = {
   none: "",
-  "in-progress": "in progress",
-  "not-reached": "not yet reached",
-  skipped: "never run",
+  "in-progress": "In progress",
+  "not-reached": "Not started",
+  skipped: "Skipped",
   interrupted: "interrupted",
 };
 
@@ -42,6 +42,11 @@ export default function TimingReportPage() {
   const sessions = useSessions();
   const { state } = useEventStore();
   const [eventName, setEventName] = useState("");
+  const [generatedAt] = useState(() => {
+    const d = new Date();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return `${d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} (${tz})`;
+  });
 
   useEffect(() => {
     fetch(`/api/events/${eventId}`)
@@ -65,7 +70,15 @@ export default function TimingReportPage() {
 
       <div className="max-w-3xl mx-auto px-6 py-8 print:p-0 print:max-w-none">
         <h1 className="text-2xl font-semibold">{eventName || "Timing Report"}</h1>
-        <p className="text-neutral-500 text-sm mt-1">Planned vs. actual: one section per session, most recent run only.</p>
+        <p className="text-neutral-500 text-sm mt-1">
+          Show report · planned vs. actual, most recent run of each session · generated {generatedAt}.
+        </p>
+        {/* Review 14: the sign convention is stated once, up front, so a
+            printed "+5m" can't be read either way. */}
+        <p className="text-neutral-500 text-sm mt-1">
+          Variance = actual − planned. <span className="text-orange-700">+ over</span> means it ran long;{" "}
+          <span className="text-blue-700">− under</span> means it ran short.
+        </p>
 
         {sessions.length === 0 && <p className="mt-4 text-neutral-500">No sessions to report on yet.</p>}
 
@@ -147,7 +160,7 @@ function SessionReportSection({ session, state, isFirst }: { session: Session; s
               }
             />
             <Stat
-              label="Completed items"
+              label="Cues completed"
               value={`${report.items.filter((i) => i.exception === "none").length}/${report.items.length}`}
             />
           </div>
@@ -162,10 +175,10 @@ function SessionReportSection({ session, state, isFirst }: { session: Session; s
 
           {/* ITEM-BY-ITEM VARIANCE */}
           <table className="w-full mt-5 text-sm border-collapse">
-            <thead>
+            <thead className="[display:table-header-group]">
               <tr className="text-left text-neutral-500 border-b border-neutral-300">
                 <th className="py-1.5 pr-2 font-normal w-8">#</th>
-                <th className="py-1.5 pr-2 font-normal">Item</th>
+                <th className="py-1.5 pr-2 font-normal">Cue</th>
                 <th className="py-1.5 pr-2 font-normal w-16 text-right">Planned</th>
                 <th className="py-1.5 pr-2 font-normal w-16 text-right">Actual</th>
                 <th className="py-1.5 pr-2 font-normal w-24 text-right">Variance</th>
@@ -183,7 +196,7 @@ function SessionReportSection({ session, state, isFirst }: { session: Session; s
                     {item.plannedMinutes > 0 ? `${item.plannedMinutes}m` : "—"}
                   </td>
                   <td className="py-1.5 pr-2 tabular-nums text-neutral-500 text-right">
-                    {item.actualMinutes !== null ? `${item.actualMinutes}m` : "—"}
+                    {item.actualMinutes !== null ? `${item.actualMinutes}m` : <span className="text-neutral-400">—</span>}
                   </td>
                   <td className="py-1.5 pr-2 tabular-nums text-right">
                     {item.varianceMinutes !== null ? (

@@ -1,27 +1,29 @@
 /**
- * A temporary but *intentional* wordmark, replacing the Lucide
- * `CirclePower` icon that had been standing in as the brand.
+ * The real wordmark, replacing the placeholder that stood in since launch
+ * (the square-cue-mark + "Kramflow" in Archivo — see git history for its
+ * own reasoning). Bilingual lockup: ક્રમ (Gujarati, the product's actual
+ * name) set beside "Flow" (Archivo, the product's own display face) - no
+ * icon, no cue-mark square. Two separate font-family spans, not one string
+ * in a mixed-script font, because no single typeface here carries both
+ * scripts - Archivo has no Gujarati glyphs, Noto Sans Gujarati has no
+ * Latin display cut worth using for "Flow".
  *
- * Kramflow has no designed logo — `logo.svg` at the repo root is an
- * unrelated "CF Monogram" and the favicon is a different mark again. The
- * honest options were to keep dressing a generic icon-library glyph as an
- * identity, or to set the name properly and let the typography carry it
- * until a real mark exists. This is the second.
- *
- * The cue mark before the name is a square, not a circle. A circle in
- * this palette reads as a status dot — the product uses exactly that for
- * "display online" — whereas a small filled square is the mark used to
- * flag a cue. It is drawn in the live green, because the one idea the
- * brand has is that something is happening right now.
- *
- * This is a placeholder with a point of view, and it is still a launch
- * item: a real mark, a matching favicon and an OG image are unbuilt.
+ * The Gujarati sits at ~1.13x the Latin's font-size with a small downward
+ * nudge: set at equal em-size, Gujarati reads visibly smaller/lighter than
+ * Latin caps (it has no true cap-height the way Latin does), so matching
+ * pixel size rather than optical size reads as two mismatched weights
+ * side by side.
  */
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-2.5 ${className}`}>
-      <span aria-hidden="true" className="h-[7px] w-[7px] rounded-[1px] bg-status-green" />
-      <span className="font-display text-[17px] tracking-[-0.03em] text-primary">Kramflow</span>
+    <span className={`inline-flex items-baseline gap-[0.2em] ${className}`}>
+      <span
+        className="text-[19px] font-bold leading-none text-primary relative top-[1px]"
+        style={{ fontFamily: "var(--font-gujarati), sans-serif" }}
+      >
+        ક્રમ
+      </span>
+      <span className="font-display text-[17px] font-bold leading-none tracking-[-0.02em] text-primary">Flow</span>
     </span>
   );
 }

@@ -97,7 +97,7 @@ export function Select({
         aria-expanded={open}
         aria-label={aria["aria-label"]}
         className={cn(
-          "w-full flex items-center justify-between gap-2 rounded-control bg-raised border border-line text-primary cursor-pointer",
+          "w-full flex items-center justify-between gap-2 rounded-control bg-raised border border-line-field text-primary cursor-pointer",
           "transition-[background-color,border-color] duration-[110ms] ease-out",
           "hover:bg-card-hover hover:border-white/20",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",

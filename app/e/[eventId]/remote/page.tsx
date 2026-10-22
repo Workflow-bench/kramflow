@@ -514,13 +514,24 @@ export default function RemotePage() {
               </MaybeTooltip>
             )}
 
+            {/* Review 12: same ownership truth as the Console, in one line
+                right above the button it governs. */}
+            {isOwner && !iHaveControl && (
+              <p className="mb-2 text-console-sm text-muted text-center">
+                {lockedByOther
+                  ? "Another operator is running cues. Tap a control to take over."
+                  : "You don't have control yet. Tap a control to take it."}
+              </p>
+            )}
             <MaybeTooltip when={!isOwner} content={OWNER_ONLY_NOTE}>
               <BigActionButton
                 onClick={() => run("next", () => next(max))}
-                className="h-28"
+                className="h-28 flex-col gap-1"
                 disabled={!isOwner || isLastItem || pending !== null}
+                aria-label={next_ ? `Next cue: ${next_.title}` : "Next cue"}
               >
-                Next
+                <span>Next cue</span>
+                {next_ && <span className="text-console-sm font-normal opacity-75 max-w-full truncate px-4">{next_.title}</span>}
               </BigActionButton>
             </MaybeTooltip>
 

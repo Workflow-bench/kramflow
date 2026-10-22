@@ -65,11 +65,12 @@ export default function AboutPage() {
           Built to replace the spreadsheet shouted across a green room.
         </h1>
         <p className="mt-6 max-w-[60ch] text-[16px] leading-relaxed text-muted">
-          Kramflow is a real-time production console. An operator drives a queue of program items through a live
-          show, and every connected display - audience-facing, crew-facing, or performer-facing - reflects that
-          state within about a second, with zero manual relay. Not a generic countdown-timer tool retrofitted with a
-          queue, and not a generic event-management tool retrofitted with live sync: the queue is the product, and
-          everything else is a property of it.
+          One operator calls the cue. The presenter&apos;s confidence monitor, the green room and the AV desk all
+          update on their own, so nobody has to run between rooms to pass it on.
+        </p>
+        <p className="mt-4 max-w-[60ch] text-[16px] leading-relaxed text-muted">
+          Under the hood, Kramflow is a live queue of cues. Every screen is a different view of that one queue,
+          built for whoever is looking at it.
         </p>
       </section>
 

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { SITE_ORIGIN } from "@/lib/site-origin";
-import { Inter, IBM_Plex_Mono, Archivo } from "next/font/google";
+import { Inter, IBM_Plex_Mono, Archivo, Noto_Sans_Gujarati } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
 import { MotionPreferences } from "@/components/motion-preferences";
 import "./globals.css";
@@ -36,6 +36,15 @@ const archivo = Archivo({
   variable: "--font-archivo",
   subsets: ["latin"],
   weight: ["500", "600", "700"],
+});
+
+// The wordmark's Gujarati half (components/site/wordmark.tsx). Only loaded
+// for the handful of glyphs the mark actually sets - weight 700 to match
+// Archivo's heaviest loaded cut, not the full UI-text weight range.
+const notoSansGujarati = Noto_Sans_Gujarati({
+  variable: "--font-gujarati",
+  subsets: ["gujarati"],
+  weight: ["700"],
 });
 
 const TITLE = "KramFlow";
@@ -83,7 +92,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${plexMono.variable} ${archivo.variable} dark h-full antialiased`}
+      className={`${inter.variable} ${plexMono.variable} ${archivo.variable} ${notoSansGujarati.variable} dark h-full antialiased`}
       // The homepage's inline boot script (components/site/arrival-boot-script.tsx)
       // adds `arrival-boot` to this element before React hydrates, on purpose — it
       // has to run before first paint to cover the hero before the browser ever

@@ -639,24 +639,30 @@ export default function CueSheetPage() {
   // than kept at permanent equal weight with Session/Import/Add item in the
   // sticky row below. This is also what keeps that row reliably one line
   // at every breakpoint — see the row's own comment on why that matters.
-  const moreItems: OverflowMenuItem[] = [
+  // Review 05: one named menu for moving data in and out, kept apart from
+  // session admin below, so "Add cue" is the only primary on the bar.
+  const ioItems: OverflowMenuItem[] = [
+    ...(canEdit ? [{ label: "Import cue sheet…", icon: Upload, onClick: () => setPanel("upload") }] : []),
     {
-      label: "Export Excel",
+      label: "Export to Excel",
       icon: Download,
       href: `/api/cue-sheet/export?eventId=${encodeURIComponent(eventId)}`,
     },
     {
-      label: "Export PDF",
+      label: "Print cue sheet (PDF)",
       icon: Printer,
       href: `/e/${eventId}/operator/cue-sheet/print`,
       target: "_blank",
     },
     {
-      label: "Timing Report",
+      label: "Show report: planned vs actual",
       icon: Clock,
       href: `/e/${eventId}/operator/cue-sheet/report`,
       target: "_blank",
     },
+  ];
+
+  const moreItems: OverflowMenuItem[] = [
     ...(canEdit
       ? [{ label: "New session", icon: CalendarPlus, onClick: () => setPanel("create-session") }]
       : []),
@@ -731,20 +737,11 @@ export default function CueSheetPage() {
                 aria-label="Session"
                 className="w-40 sm:w-64"
               />
-              <OverflowMenu items={moreItems} iconOnly label="More session actions" />
+              {moreItems.length > 0 && <OverflowMenu items={moreItems} iconOnly label="Session actions" />}
             </div>
           )}
           <div className="flex items-center gap-2 shrink-0">
-            {canEdit && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setPanel(panel === "upload" ? "none" : "upload")}
-              >
-                <Upload className="h-4 w-4" strokeWidth={2} />
-                <span className="hidden sm:inline">Import</span>
-              </Button>
-            )}
+            <OverflowMenu items={ioItems} label="Import / export" />
             {canEdit && (
               <Button
                 variant="primary"
@@ -753,7 +750,7 @@ export default function CueSheetPage() {
                 disabled={!activeSessionId}
               >
                 <Plus className="h-4 w-4" strokeWidth={2} />
-                Add item
+                Add cue
               </Button>
             )}
           </div>
@@ -1072,12 +1069,12 @@ export default function CueSheetPage() {
               {!loadingRows && rows?.length === 0 && (
                 <EmptyState
                   title="This session is empty"
-                  body="Add items one at a time, or import an existing rundown from Excel."
+                  body="Add cues one at a time, or import an existing rundown from Excel."
                   action={
                     <div className="flex items-center gap-2">
                       <Button variant="primary" size="sm" onClick={() => setPanel("create")}>
                         <Plus className="h-4 w-4" strokeWidth={2} />
-                        Add item
+                        Add cue
                       </Button>
                       <Button variant="secondary" size="sm" onClick={() => setPanel("upload")}>
                         <Upload className="h-4 w-4" strokeWidth={2} />

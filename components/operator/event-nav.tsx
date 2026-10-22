@@ -28,11 +28,21 @@ function destinationFor(pathname: string): Destination {
 // SlidersHorizontal, each already assigned) and reads as a control panel.
 // See DESIGN.md's canonical destination-icon table — this is the one
 // entry that changed; every other destination was already consistent.
-const TABS: { id: Destination; label: string; path: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }[] = [
-  { id: "console", label: "Console", path: "/operator", icon: Gauge },
-  { id: "cue-sheet", label: "Cue Sheet", path: "/operator/cue-sheet", icon: FileSpreadsheet },
-  { id: "displays", label: "Displays", path: "/displays", icon: MonitorPlay },
-  { id: "settings", label: "Settings", path: "/settings", icon: SettingsIcon },
+// Review F5: destinations named by the job (Plan the show, Run the show,
+// manage Displays) rather than by screen name. Same four routes; Plan
+// leads because a show is planned before it's run. `title` keeps the old
+// screen name findable for anyone who learned it.
+const TABS: {
+  id: Destination;
+  label: string;
+  title: string;
+  path: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+}[] = [
+  { id: "cue-sheet", label: "Plan", title: "Plan: cue sheet", path: "/operator/cue-sheet", icon: FileSpreadsheet },
+  { id: "console", label: "Run", title: "Run: operator console", path: "/operator", icon: Gauge },
+  { id: "displays", label: "Displays", title: "Displays and broadcast", path: "/displays", icon: MonitorPlay },
+  { id: "settings", label: "Settings", title: "Event settings", path: "/settings", icon: SettingsIcon },
 ];
 
 // The one shared top-level nav row for every in-event screen — Console,
@@ -73,6 +83,7 @@ export function EventNav() {
             size="sm"
             className="rounded-full"
             aria-current={active === tab.id ? "page" : undefined}
+            title={tab.title}
           >
             <tab.icon className="h-3.5 w-3.5" strokeWidth={2} />
             <span>{tab.label}</span>

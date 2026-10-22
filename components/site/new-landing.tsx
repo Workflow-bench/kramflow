@@ -500,13 +500,9 @@ function Nav() {
         }}
       >
         <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
-          <div ref={wordmarkRef} style={{ display: "flex", alignItems: "center", gap: 9, fontWeight: 700, fontSize: 15 }}>
-            <span style={{ width: 20, height: 20, borderRadius: 6, background: ACCENT, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-              <svg viewBox="0 0 24 24" width={12} height={12} stroke="#06130c" fill="none" strokeWidth={2.2}>
-                <path d="M5 12l5 5L19 7" />
-              </svg>
-            </span>
-            Kramflow
+          <div ref={wordmarkRef} style={{ display: "flex", alignItems: "baseline", gap: "0.2em", fontWeight: 700 }}>
+            <span style={{ fontFamily: "var(--font-gujarati), sans-serif", fontSize: 17, position: "relative", top: 1 }}>ક્રમ</span>
+            <span style={{ fontFamily: "var(--font-archivo), var(--font-sans)", fontSize: 15, letterSpacing: "-0.02em" }}>Flow</span>
           </div>
           <div ref={linksRef} className="hc-nav-links" style={{ display: "flex", alignItems: "center", gap: 28, fontSize: 14, color: MUTED }}>
             {[
@@ -586,14 +582,14 @@ function Hero() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16, paddingBottom: 6 }}>
             <p ref={subRef} style={{ color: MUTED, fontSize: 15.5, maxWidth: "38ch", margin: 0, lineHeight: 1.6 }}>
-              Plan the cue sheet, call it live, every connected screen follows - no more spreadsheet shouted across a green room.
+              Build your cue sheet. Call the next cue. Presenters, backstage and AV all see the right information, live.
             </p>
             <div ref={actionsRef} style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <a href="/signup" className="hc-btn-primary" style={{ padding: "12px 22px", borderRadius: 10, fontWeight: 600, fontSize: 14.5, textDecoration: "none" }}>
                 Start free
               </a>
               <a href="#console" className="hc-btn-ghost" style={{ padding: "12px 22px", borderRadius: 10, fontWeight: 600, fontSize: 14.5, color: PRIMARY }}>
-                See it run
+                See the console
               </a>
             </div>
           </div>
@@ -1385,13 +1381,9 @@ function NewLandingFooter() {
           gap: 16,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 9, fontWeight: 700, fontSize: 15, color: PRIMARY, opacity: 0.7 }}>
-          <span style={{ width: 20, height: 20, borderRadius: 6, background: ACCENT, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-            <svg viewBox="0 0 24 24" width={12} height={12} stroke="#06130c" fill="none" strokeWidth={2.2}>
-              <path d="M5 12l5 5L19 7" />
-            </svg>
-          </span>
-          Kramflow
+        <div style={{ display: "flex", alignItems: "baseline", gap: "0.2em", fontWeight: 700, color: PRIMARY, opacity: 0.7 }}>
+          <span style={{ fontFamily: "var(--font-gujarati), sans-serif", fontSize: 17, position: "relative", top: 1 }}>ક્રમ</span>
+          <span style={{ fontFamily: "var(--font-archivo), var(--font-sans)", fontSize: 15, letterSpacing: "-0.02em" }}>Flow</span>
         </div>
         <div style={{ display: "flex", gap: 20, fontSize: 13, color: MUTED }}>
           <a href="#console" className="hc-nav-link" style={{ textDecoration: "none" }}>Product</a>
