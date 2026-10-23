@@ -58,7 +58,7 @@ function parseMagnitude(raw: string): number | null {
  * touch targets, no precision row. Console gets the full control,
  * including the collapsed-by-default precision entry.
  */
-export function TimeCorrectionControl({ compact = false }: { compact?: boolean }) {
+export function TimeCorrectionControl({ compact = false, dense = false }: { compact?: boolean; dense?: boolean }) {
   const { state, correctTimer } = useEventStore();
   const { lockedByOther } = useControlLock(state);
   const eventId = useEventId();
@@ -139,7 +139,15 @@ export function TimeCorrectionControl({ compact = false }: { compact?: boolean }
           toggle don't all fit in Live Now's own column; wrapping the
           toggle onto its own line reads cleanly, an overflowing row
           forcing page-level horizontal scroll does not. */}
-      <div className={cn("flex flex-wrap items-center gap-1.5", compact && "gap-2")}>
+      {/* `dense` (Console's compact Run layouts, F01): the four common
+          nudges and the precise toggle share one row so the timer block
+          costs less height above the transport. */}
+      <div
+        className={cn(
+          dense ? "grid grid-cols-[repeat(4,minmax(0,1fr))_auto] items-center gap-1.5" : "flex flex-wrap items-center gap-1.5",
+          compact && "gap-2"
+        )}
+      >
         {QUICK_DELTAS.map((delta) => (
           <Button
             key={delta}
@@ -148,7 +156,7 @@ export function TimeCorrectionControl({ compact = false }: { compact?: boolean }
             disabled={disabled}
             onClick={() => void apply(delta)}
             aria-label={`Correct timer ${formatSigned(delta)} seconds`}
-            className={compact ? "flex-1" : undefined}
+            className={compact ? "flex-1" : dense ? "px-1.5 min-w-0" : undefined}
           >
             {delta < 0 ? <Minus className="h-3.5 w-3.5" strokeWidth={2.5} /> : <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />}
             {formatSigned(delta)}

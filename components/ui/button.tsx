@@ -78,7 +78,7 @@ function buttonClasses({
     //     used on its own.
     variant === "danger-minor" && "text-status-red hover:bg-status-red/10",
     variant === "danger" && "bg-status-red/12 text-status-red border border-status-red/25 hover:bg-status-red/20",
-    variant === "danger-solid" && "bg-status-red text-white hover:bg-status-red/90",
+    variant === "danger-solid" && "bg-danger-solid text-white hover:bg-danger-solid-hover",
     className
   );
 }

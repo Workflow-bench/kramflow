@@ -114,7 +114,7 @@ export function ConnectionBadge({
           "fixed z-40 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full px-4 py-2 text-caption font-semibold uppercase tracking-wide",
           "shadow-float",
           tone === "orange" && "bg-status-orange text-background",
-          tone === "red" && "bg-status-red text-white",
+          tone === "red" && "bg-danger-solid text-white",
           className
         )}
         style={{ top: "clamp(10px, 1.5vw, 18px)" }}

@@ -145,23 +145,28 @@ export function ControlLeaseStatus({
     <div
       key={stateKey}
       className={cn(
-        "flex flex-col gap-2.5 rounded-control border border-line bg-raised/60 px-3 py-3 animate-rise",
+        // F01: one row (wrapping only when the column is too narrow) so the
+        // ownership state costs less height above Next/Previous/Hold.
+        "flex flex-wrap items-center gap-x-3 gap-y-2.5 rounded-control border border-line bg-raised/60 px-3 py-2.5 animate-rise",
         className
       )}
     >
-      <div className="flex items-start gap-2.5">
-        <Unlock className="h-4 w-4 text-muted-2 shrink-0 mt-0.5" strokeWidth={2} />
+      <div className="flex items-start gap-2.5 min-w-[11rem] flex-1">
+        <Unlock className="h-4 w-4 text-muted-2 shrink-0 mt-0.5" strokeWidth={2} aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="text-console-sm font-medium text-primary">No one has control</p>
-          <p className="text-console-meta text-muted-2 mt-0.5">
-            Claim it so another operator can&apos;t interrupt the sequence.
+          {/* Short screens (≤700px tall, e.g. a 1024×600 tablet) drop this
+              explanation so Next/Previous/Hold stay nearer the fold; the
+              Controls help tooltip still explains claiming. */}
+          <p className="text-console-meta text-muted-2 mt-0.5 [@media(max-height:700px)]:hidden">
+            Claim control so other operators can&apos;t override your cues. They can still take over.
           </p>
         </div>
       </div>
       {/* No icon here (the row above already carries one) — at Controls'
           own floor (280px, CONTROLS_MIN) a second icon plus the loading
           spinner crowds "Take Control" into wrapping across two lines. */}
-      <Button variant="primary" size="sm" className="w-full" onClick={onTakeControl} loading={busy} disabled={busy}>
+      <Button variant="primary" size="sm" className="shrink-0" onClick={onTakeControl} loading={busy} disabled={busy}>
         Take Control
       </Button>
     </div>

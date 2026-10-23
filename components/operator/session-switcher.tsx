@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { deriveSessionLifecycle, isRunning, LIFECYCLE_LABEL } from "@/lib/session-lifecycle";
 import { useSessions } from "@/lib/use-sessions";
 import { useEventStore } from "@/lib/store";
 import { useControlLock } from "@/lib/use-control-lock";
@@ -72,14 +73,19 @@ export function SessionSwitcher() {
           // "(in progress)" simultaneously despite only one being the
           // session actually live on every display (2026-09-01 UI/UX audit
           // finding #14 — reproduced exactly, not overstated).
-          const isLive = active && progress && progress.currentOrder !== null && progress.currentOrder <= s.items.length;
+          // F03: shared derivation (lib/session-lifecycle.ts), so this,
+          // Run and Dashboard agree on Live / On hold / Finished.
+          const lifecycle = active
+            ? deriveSessionLifecycle({ currentOrder: progress?.currentOrder, itemCount: s.items.length, pausedAt: state.pausedAt })
+            : null;
+          const isLive = lifecycle !== null && isRunning(lifecycle);
           return (
             <button
               key={s.id}
               type="button"
               onClick={() => handleClick(s.id, `${s.dayLabel} ${s.sessionLabel}`)}
               aria-current={active ? "true" : undefined}
-              aria-label={`${s.dayLabel} ${s.sessionLabel}${isLive ? " (in progress)" : ""}`}
+              aria-label={`${s.dayLabel} ${s.sessionLabel}${lifecycle && lifecycle !== "not-started" ? ` (${LIFECYCLE_LABEL[lifecycle].toLowerCase()})` : ""}`}
               className={cn(
                 "shrink-0 rounded-control border px-2.5 py-1.5 text-left cursor-pointer",
                 "transition-[background-color,border-color] duration-[110ms] ease-out",
@@ -96,7 +102,10 @@ export function SessionSwitcher() {
                   {s.dayLabel}
                 </span>
                 {isLive && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-status-green" aria-hidden="true" />
+                  <span
+                    className={cn("h-1.5 w-1.5 rounded-full", lifecycle === "on-hold" ? "bg-status-orange" : "bg-status-green")}
+                    aria-hidden="true"
+                  />
                 )}
               </span>
               <p className={cn("text-console-meta", active ? "text-muted" : "text-muted-2")}>{s.sessionLabel}</p>

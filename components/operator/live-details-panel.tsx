@@ -28,13 +28,17 @@ import { cn } from "@/lib/utils";
 export function LiveDetailsPanel({
   session,
   hideNotes = false,
+  compact = false,
 }: {
   session: Session;
-  /** Mobile-only: Notes renders separately via <LiveNotes> further down the
-   *  page instead of inline here — see operator/page.tsx's mobile ordering
-   *  comment for why. Desktop/tablet never pass this, so their layout is
-   *  unchanged. */
+  /** Notes renders separately via <LiveNotes> further down the page instead
+   *  of inline here — see operator/page.tsx's ordering comments. */
   hideNotes?: boolean;
+  /** F01 (2026-10 review): constrained layouts (tablet column, phone) put
+   *  ownership + transport directly after the timer, so Next/On deck moves
+   *  out (rendered via <LiveRunPosition> after Controls) and spacing
+   *  tightens. Wide desktop keeps the full panel. */
+  compact?: boolean;
 }) {
   const { state } = useEventStore();
   const live = getLive(session, state);
@@ -95,43 +99,50 @@ export function LiveDetailsPanel({
           requirement, previously unaddressed. aria-atomic=false so only the
           part that actually changed (title, or the countdown ticking) is
           announced, not the whole block every second. */}
-      <div aria-live="polite" aria-atomic="false">
+      {/* Only the identity block is a live region. The countdown used to sit
+          inside it too, which made screen readers announce every second. */}
+      <div aria-live="polite" aria-atomic="true">
         {live.kicker && <p className="text-console-meta text-muted-2 mt-3">{live.kicker}</p>}
-        <p className="text-console-lg font-semibold text-primary mt-1">{live.title}</p>
+        <p className="text-console-lg font-semibold text-primary mt-1 break-words">{live.title}</p>
         {live.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
+      </div>
+      <div>
         <DriftLine program={live} state={state} />
-        <ProjectedFinishLine session={session} state={state} />
+        {!compact && <ProjectedFinishLine session={session} state={state} />}
 
         {live.type === "item" && live.durationMinutes > 0 && (
-          <div className="mt-6 sm:mt-8">
+          <div className={compact ? "mt-3" : "mt-6 sm:mt-8"}>
             <p
               className={cn(
-                "text-console-headline tabular-nums transition-colors duration-200",
+                // Smaller clock on short screens (≤700px tall) to keep the
+                // transport above the fold; still the largest text in view.
+                "text-console-headline [@media(max-height:700px)]:text-[3rem] [@media(max-height:700px)]:leading-none tabular-nums transition-colors duration-200",
                 severity === "overrun" ? "text-status-red" : severity === "approaching" ? "text-status-orange" : "text-primary"
               )}
             >
               {countdown.isOverrun ? "+" : ""}
               {formatClock(countdown.remainingSeconds)}
             </p>
-            <div className="mt-3">
+            <div className={compact ? "mt-2" : "mt-3"}>
               <ProgressBar
                 fraction={countdown.fraction}
                 tone={state.pausedAt ? "orange" : severity === "overrun" ? "red" : severity === "approaching" ? "orange" : "green"}
               />
             </div>
-            <p className="text-console-meta text-muted mt-2">
+            <p className={cn("text-console-meta text-muted", compact ? "mt-1" : "mt-2")}>
+              {state.pausedAt ? "On hold · " : ""}
               {countdown.isOverrun ? "over" : "remaining"}
             </p>
-            <div className="mt-4">
-              <TimeCorrectionControl />
+            <div className={compact ? "mt-2" : "mt-4"}>
+              <TimeCorrectionControl dense={compact} />
             </div>
           </div>
         )}
       </div>
 
-      <RunPosition next={next} onDeck={onDeck} currentDriftMinutes={currentDriftMinutes} />
+      {!compact && <RunPosition next={next} onDeck={onDeck} currentDriftMinutes={currentDriftMinutes} />}
 
-      {!hideNotes && (
+      {!hideNotes && !compact && (
         <div className="mt-10 flex-1 flex flex-col min-h-0">
           <LiveNotesFields session={session} />
         </div>
@@ -208,6 +219,25 @@ function LiveNotesFields({ session }: { session: Session }) {
         className="mt-3 flex-1 min-h-24 bg-card resize-none"
       />
     </>
+  );
+}
+
+// Next / On deck on its own, for compact layouts that place it after the
+// transport controls (see LiveDetailsPanel's `compact`).
+export function LiveRunPosition({ session }: { session: Session }) {
+  const { state } = useEventStore();
+  const live = getLive(session, state);
+  const currentOrder = state.progressBySession[state.activeSessionId]?.currentOrder ?? null;
+  if (currentOrder === null || !live || currentOrder > session.items.length) return null;
+  return (
+    <div>
+      <ProjectedFinishLine session={session} state={state} />
+      <RunPosition
+        next={getNext(session, state)}
+        onDeck={getOnDeck(session, state)}
+        currentDriftMinutes={driftMinutes(live, state)}
+      />
+    </div>
   );
 }
 

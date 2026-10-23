@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useMenuKeyboard } from "@/lib/use-menu-keyboard";
 import Link from "next/link";
 import { LayoutGrid, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,11 @@ export function CustomDisplayPreviewMenu({
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const closeMenu = useCallback(() => setOpen(false), []);
+  // F11: APG menu keyboard model (focus first item, arrows, Escape -> trigger).
+  useMenuKeyboard({ open, menuRef, triggerRef, onClose: closeMenu });
 
   useEffect(() => {
     if (!open) return;
@@ -57,8 +63,9 @@ export function CustomDisplayPreviewMenu({
       <Button
         variant="secondary"
         size="sm"
+        ref={triggerRef}
         onClick={() => setOpen((v) => !v)}
-        aria-haspopup="true"
+        aria-haspopup="menu"
         aria-expanded={open}
       >
         <Plus className="h-3.5 w-3.5" strokeWidth={2} />
@@ -67,19 +74,25 @@ export function CustomDisplayPreviewMenu({
 
       {open && (
         <div
+          ref={menuRef}
           role="menu"
           aria-label="Preview a custom display"
           className="absolute left-0 top-full z-30 mt-1.5 min-w-[16rem] max-w-[20rem] rounded-panel bg-card border border-line shadow-float py-1 motion-safe:animate-rise"
         >
           {profiles.length === 0 ? (
             <div className="flex flex-col gap-2 px-3.5 py-3">
-              <p className="text-console-sm text-primary">No custom profiles yet</p>
-              <p className="text-console-meta text-muted-2">
-                A profile is a custom display you build from widgets, under whatever name you give it.
+              <p id="custom-profile-empty-help" className="text-console-sm text-primary">
+                No custom profiles yet.{" "}
+                <span className="text-console-meta text-muted-2">
+                  A profile is a custom display you build from widgets, under whatever name you give it.
+                </span>
               </p>
               <Button
                 variant="primary"
                 size="sm"
+                role="menuitem"
+                tabIndex={-1}
+                aria-describedby="custom-profile-empty-help"
                 className="mt-1 self-start"
                 onClick={() => {
                   setOpen(false);
@@ -99,8 +112,9 @@ export function CustomDisplayPreviewMenu({
                   target="_blank"
                   rel="noopener noreferrer"
                   role="menuitem"
+                  tabIndex={-1}
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-2.5 px-3.5 py-2 text-console-sm text-primary hover:bg-card-hover transition-colors truncate"
+                  className="flex items-center gap-2.5 px-3.5 py-2 text-console-sm text-primary hover:bg-card-hover focus-visible:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent transition-colors truncate"
                 >
                   <LayoutGrid className="h-3.5 w-3.5 shrink-0 text-muted-2" strokeWidth={2} />
                   <span className="truncate">{p.name}</span>
@@ -110,13 +124,14 @@ export function CustomDisplayPreviewMenu({
               <button
                 type="button"
                 role="menuitem"
+                  tabIndex={-1}
                 onClick={() => {
                   setOpen(false);
                   onCreateProfile();
                 }}
                 className={cn(
                   "w-full flex items-center gap-2.5 px-3.5 py-2 text-console-sm text-muted-2",
-                  "hover:text-primary hover:bg-card-hover transition-colors"
+                  "hover:text-primary hover:bg-card-hover focus-visible:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent transition-colors"
                 )}
               >
                 <Plus className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />

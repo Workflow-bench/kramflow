@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
+import { usePrefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
 import { ShaderGradientCanvas, ShaderGradient } from "@shadergradient/react";
 import {
   ListChecks,
@@ -33,9 +34,11 @@ let scrollTriggerRegistered = false;
    on individual elements. Wired to GSAP's own ticker (the documented integration
    recipe) so ScrollTrigger's scroll position stays in sync with Lenis's eased
    value instead of the raw, unsmoothed one. */
-function useLenisSmoothScroll() {
+function useLenisSmoothScroll(reduced: boolean) {
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // R11: re-runs when the preference changes; turning reduced motion on
+    // mid-visit tears Lenis down and returns native scrolling.
+    if (reduced) return;
     if (!scrollTriggerRegistered) {
       gsap.registerPlugin(ScrollTrigger);
       scrollTriggerRegistered = true;
@@ -53,7 +56,7 @@ function useLenisSmoothScroll() {
       gsap.ticker.remove(onTick);
       lenis.destroy();
     };
-  }, []);
+  }, [reduced]);
 }
 
 /**
@@ -118,12 +121,13 @@ const BUTTON_STYLES = `
      loop point is invisible. Linear timing, not an eased curve: an eased
      loop visibly lurches at the seam every cycle, linear is what makes
      "infinite" actually read as continuous. */
-  .hc-marquee-track { animation: hc-marquee 38s linear infinite; }
-  .hc-marquee-row:hover .hc-marquee-track, .hc-marquee-row:focus-within .hc-marquee-track { animation-play-state: paused; }
-  @keyframes hc-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-  @media (prefers-reduced-motion: reduce) {
-    .hc-marquee-track { animation: none; }
-  }
+  /* F02 (2026-10 review): was an infinite marquee with a cloned, focusable
+     copy of every card — 16 tab stops for 8 non-interactive cards, and a
+     focused card could slide behind the edge mask. Now one static,
+     responsive list: each feature appears once, in reading order, with no
+     motion to pause and nothing to tab through. */
+  .hc-reach-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; list-style: none; margin: 0; padding: 0; }
+  @media (prefers-reduced-motion: reduce) { .hc-reach-card, .hc-reach-card:hover { transition: none; transform: none; } }
 
   .hc-reach-card { transition: transform ${CINEMATIC}, border-color ${CINEMATIC}, box-shadow ${CINEMATIC}; }
   .hc-reach-card:hover { transform: translateY(-6px); border-color: rgba(48,209,88,0.45); box-shadow: 0 32px 70px -30px rgba(0,0,0,0.8), 0 0 0 1px rgba(48,209,88,0.08); }
@@ -193,7 +197,16 @@ const BUTTON_STYLES = `
 `;
 
 export function NewLanding() {
-  useLenisSmoothScroll();
+  const reducedMotion = usePrefersReducedMotion();
+  useLenisSmoothScroll(reducedMotion);
+  // R11: if reduced motion is switched on mid-visit, finish any running GSAP
+  // entrance immediately and drop scroll-driven triggers, leaving the static
+  // end state. (Each section also checks the preference at mount.)
+  useEffect(() => {
+    if (!reducedMotion) return;
+    gsap.globalTimeline.getChildren(true, true, true).forEach((t) => t.progress(1));
+    ScrollTrigger.getAll().forEach((st) => st.kill(false));
+  }, [reducedMotion]);
   return (
     <div style={{ background: BG, color: PRIMARY, minHeight: "100vh", fontFamily: "var(--font-sans), -apple-system, sans-serif", position: "relative", overflowX: "hidden" }}>
       <style>{BUTTON_STYLES}</style>
@@ -418,6 +431,8 @@ function useMagnetic<T extends HTMLElement>(strength = 0.3) {
 }
 
 function HeroBackdrop() {
+  // R11: the shader pauses when reduced motion is on, including mid-visit.
+  const reducedMotion = usePrefersReducedMotion();
   return (
     <div
       aria-hidden
@@ -438,7 +453,7 @@ function HeroBackdrop() {
         <ShaderGradient
           control="props"
           type="waterPlane"
-          animate="on"
+          animate={reducedMotion ? "off" : "on"}
           uSpeed={0.12}
           uStrength={2.2}
           uDensity={1.4}
@@ -826,10 +841,12 @@ function NarrativeSection() {
   );
 }
 
+const CONTACT_URL = process.env.NEXT_PUBLIC_CONTACT_URL || null;
+
 const STATS = [
   { num: "4", label: "display surfaces, one state" },
-  { num: "<1s", label: "cue-to-display sync" },
-  { num: "200+", label: "cues per event, no slowdown" },
+  { num: "6", label: "digit TV code to connect a screen" },
+  { num: "0", label: "logins needed on venue screens" },
   { num: "1", label: "source of truth, for everyone in the room" },
 ] as const;
 
@@ -1051,18 +1068,10 @@ const REACH_ITEMS = [
 /**
  * "Everything an operator reaches for mid-show." - ported from concept-4.
  * html's own pill-scroll section (same eight capabilities, same copy), but
- * that prototype's version is a manually drag-scrolled row with a snap
- * point per card and a fade only on the right edge - a static list someone
- * has to reach out and scrub through. This upgrades it to what "mid-show,
- * reflexive" actually calls for: the row drifts on its own (CSS keyframe,
- * not GSAP - a plain linear loop is cheaper and reads smoother than
- * animating this many elements every frame), looping seamlessly (two
- * copies of the list back to back, translated by exactly one copy's
- * width), and pauses the instant a cursor or focus lands on it so nothing
- * scrolls out from under someone mid-read. Each card also gets its own
- * hover: a lift, an accent border, and its icon tinting to the product's
- * live-green, matching the hover language already used on this page's
- * buttons and nav links (same CINEMATIC easing, not a new motion feel).
+ * Rendered as a static responsive list (F02, 2026-10 review) rather than
+ * the earlier self-scrolling marquee: every capability is visible once, in
+ * reading order, with no motion to pause and no cloned tab stops. Cards
+ * keep their hover lift and accent border.
  */
 function ReachSection() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -1105,25 +1114,13 @@ function ReachSection() {
           </h2>
         </div>
 
-        <div
-          ref={rowRef}
-          className="hc-marquee-row"
-          style={{
-            position: "relative",
-            maskImage: "linear-gradient(to right, transparent, black 48px, black calc(100% - 48px), transparent)",
-            WebkitMaskImage: "linear-gradient(to right, transparent, black 48px, black calc(100% - 48px), transparent)",
-            padding: "4px 24px",
-          }}
-        >
-          <div className="hc-marquee-track" style={{ display: "flex", gap: 20, width: "max-content" }}>
-            {[...REACH_ITEMS, ...REACH_ITEMS].map(({ title, body, Icon }, i) => (
-              <div
-                key={`${title}-${i}`}
+        <div ref={rowRef} style={{ padding: "4px 24px" }}>
+          <ul className="hc-reach-list" aria-label="Quick actions">
+            {REACH_ITEMS.map(({ title, body, Icon }) => (
+              <li
+                key={title}
                 className="hc-reach-card hc-glass"
-                tabIndex={0}
                 style={{
-                  flex: "0 0 auto",
-                  width: 272,
                   borderRadius: 14,
                   border: `1px solid ${LINE_SOFT}`,
                   padding: 22,
@@ -1131,6 +1128,7 @@ function ReachSection() {
               >
                 <span
                   className="hc-reach-icon"
+                  aria-hidden="true"
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -1146,11 +1144,11 @@ function ReachSection() {
                 >
                   <Icon size={17} strokeWidth={2} />
                 </span>
-                <h4 style={{ fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 700, margin: "0 0 8px", color: PRIMARY, letterSpacing: "-0.01em" }}>{title}</h4>
+                <h3 style={{ fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 700, margin: "0 0 8px", color: PRIMARY, letterSpacing: "-0.01em" }}>{title}</h3>
                 <p style={{ fontSize: 13, color: MUTED, margin: 0, lineHeight: 1.55 }}>{body}</p>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </div>
     </section>
@@ -1158,7 +1156,10 @@ function ReachSection() {
 }
 
 const RELIABILITY_FACTS = [
-  { title: "Real-time, not polled-and-hoped", body: "Every connected display reflects the live state within about a second of a cue change." },
+  // F12: displays read state by polling (lib/use-display-view.ts, 2.5s), so
+  // no sub-second or "not polled" promise. Each display shows how fresh its
+  // last update is, which is the honest guarantee.
+  { title: "Every screen updates on its own", body: "Cue changes update connected displays automatically, with nothing relayed by hand. Each display shows when its last update arrived." },
   { title: "Isolated by tenant, at the database layer", body: "Multi-tenant since day one, not a UI toggle bolted on after the fact." },
   { title: "Three seconds to understand", body: "Every display answers exactly two questions: what's happening now, and what's next." },
 ] as const;
@@ -1250,6 +1251,8 @@ function ReliabilitySection() {
  *  strength, no scrim needed) and masked on both edges so it reads as an
  *  ambient glow behind the close rather than a second hero. */
 function ClosingBackdrop() {
+  // R11: the shader pauses when reduced motion is on, including mid-visit.
+  const reducedMotion = usePrefersReducedMotion();
   return (
     <div
       aria-hidden
@@ -1265,7 +1268,7 @@ function ClosingBackdrop() {
         <ShaderGradient
           control="props"
           type="waterPlane"
-          animate="on"
+          animate={reducedMotion ? "off" : "on"}
           uSpeed={0.08}
           uStrength={1.6}
           uDensity={1.2}
@@ -1354,9 +1357,14 @@ function ClosingSection() {
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </a>
-          <a href="#" className="hc-btn-ghost" style={{ padding: "18px 32px", borderRadius: 12, fontWeight: 600, fontSize: 17, color: PRIMARY }}>
-            Talk to us
-          </a>
+          {/* F12: "Talk to us" pointed at "#" and bounced to the top of the
+              page. It renders only once a real contact destination is
+              configured, never a guessed address. */}
+          {CONTACT_URL && (
+            <a href={CONTACT_URL} className="hc-btn-ghost" style={{ padding: "18px 32px", borderRadius: 12, fontWeight: 600, fontSize: 17, color: PRIMARY }}>
+              Talk to us
+            </a>
+          )}
         </div>
       </div>
     </section>

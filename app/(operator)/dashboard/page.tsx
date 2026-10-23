@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { deriveSessionLifecycle, isRunning, type SessionLifecycle } from "@/lib/session-lifecycle";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
 import { LockButton } from "@/components/dashboard/lock-button";
 import { HelpMenu } from "@/components/dashboard/help-menu";
@@ -53,32 +54,50 @@ export default async function DashboardPage() {
   const [sessionsResult, programsResult, liveStateResult] = eventIds.length
     ? await Promise.all([
         admin.from("sessions").select("id, event_id").in("event_id", eventIds),
-        admin.from("programs").select("event_id").in("event_id", eventIds),
-        admin.from("live_state").select("event_id, active_session_id, progress_by_session").in("event_id", eventIds),
+        admin.from("programs").select("event_id, session_id").in("event_id", eventIds),
+        admin.from("live_state").select("event_id, active_session_id, progress_by_session, paused_at").in("event_id", eventIds),
       ])
     : [{ data: [] }, { data: [] }, { data: [] }];
 
   const sessionCounts = new Map<string, number>();
   for (const s of sessionsResult.data ?? []) sessionCounts.set(s.event_id, (sessionCounts.get(s.event_id) ?? 0) + 1);
   const itemCounts = new Map<string, number>();
-  for (const p of programsResult.data ?? []) itemCounts.set(p.event_id, (itemCounts.get(p.event_id) ?? 0) + 1);
-  const liveEventIds = new Set(
-    (liveStateResult.data ?? [])
-      .filter((row) => {
-        const progress = row.active_session_id
-          ? (row.progress_by_session as Record<string, { currentOrder: number | null }>)?.[row.active_session_id]
-          : null;
-        return progress?.currentOrder != null;
+  const sessionItemCounts = new Map<string, number>();
+  for (const p of (programsResult.data ?? []) as { event_id: string; session_id: string | null }[]) {
+    itemCounts.set(p.event_id, (itemCounts.get(p.event_id) ?? 0) + 1);
+    if (p.session_id) sessionItemCounts.set(p.session_id, (sessionItemCounts.get(p.session_id) ?? 0) + 1);
+  }
+  // F03: the active session's lifecycle comes from the same derivation Run
+  // and the session switcher use, so a finished active session no longer
+  // reads LIVE here just because its progress entry is non-null.
+  const lifecycleByEvent = new Map<string, SessionLifecycle>();
+  for (const row of (liveStateResult.data ?? []) as {
+    event_id: string;
+    active_session_id: string | null;
+    progress_by_session: Record<string, { currentOrder: number | null }> | null;
+    paused_at: string | null;
+  }[]) {
+    if (!row.active_session_id) continue;
+    lifecycleByEvent.set(
+      row.event_id,
+      deriveSessionLifecycle({
+        currentOrder: row.progress_by_session?.[row.active_session_id]?.currentOrder ?? null,
+        itemCount: sessionItemCounts.get(row.active_session_id) ?? 0,
+        pausedAt: row.paused_at,
       })
-      .map((row) => row.event_id)
-  );
+    );
+  }
 
-  const eventsWithReadiness = events.map((e) => ({
-    ...e,
-    sessionCount: sessionCounts.get(e.id) ?? 0,
-    itemCount: itemCounts.get(e.id) ?? 0,
-    isLive: liveEventIds.has(e.id),
-  }));
+  const eventsWithReadiness = events.map((e) => {
+    const lifecycle = lifecycleByEvent.get(e.id) ?? "not-started";
+    return {
+      ...e,
+      sessionCount: sessionCounts.get(e.id) ?? 0,
+      itemCount: itemCounts.get(e.id) ?? 0,
+      lifecycle,
+      isLive: isRunning(lifecycle),
+    };
+  });
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { useDisplayEngine, targetMatchesDisplay } from "@/lib/display-engine/store";
+import { isUnexpired } from "@/lib/display-engine/broadcast-status";
 import { useDisplayEngineIdentity } from "@/lib/display-engine/context";
 import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
-import type { BroadcastMessage, DisplayType } from "@/lib/display-engine/types";
+import type { DisplayType } from "@/lib/display-engine/types";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
@@ -18,11 +19,6 @@ import { cn } from "@/lib/utils";
 // this exact styling (via the same BROADCAST_TYPE_META) rather than a
 // separately-invented mockup.
 
-function effectiveExpiry(message: BroadcastMessage): number | null {
-  if (message.durationSeconds !== null) return Date.parse(message.createdAt) + message.durationSeconds * 1000;
-  if (message.expiresAt) return Date.parse(message.expiresAt);
-  return null;
-}
 
 export function BroadcastOverlay({
   displayId,
@@ -94,8 +90,7 @@ export function BroadcastOverlay({
 
   const display = state.registry[displayId];
   const targeted = state.broadcasts.active.filter((message) => {
-    const expiry = effectiveExpiry(message);
-    if (expiry !== null && now > expiry) return false;
+    if (!isUnexpired(message, now)) return false;
     if (!display) {
       return (
         message.target.kind === "all" ||
@@ -117,7 +112,7 @@ export function BroadcastOverlay({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-status-red text-white text-center px-16"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-danger-solid text-white text-center px-16"
           >
             <AlertTriangle className="h-20 w-20 mb-8" strokeWidth={1.5} />
             <h1 className="text-hero">{emergency.title}</h1>
@@ -126,7 +121,7 @@ export function BroadcastOverlay({
               <button
                 type="button"
                 onClick={() => acknowledgeBroadcast(emergency.id, displayId)}
-                className="mt-12 rounded-full bg-white text-status-red px-8 py-4 text-subtitle font-semibold cursor-pointer"
+                className="mt-12 rounded-full bg-white text-danger-solid px-8 py-4 text-subtitle font-semibold cursor-pointer"
               >
                 Acknowledge
               </button>

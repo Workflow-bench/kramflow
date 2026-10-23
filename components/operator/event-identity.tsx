@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useMenuKeyboard } from "@/lib/use-menu-keyboard";
 import Link from "next/link";
 import { ChevronDown, LayoutGrid } from "lucide-react";
 import { useEventId } from "@/lib/event-context";
@@ -35,6 +36,11 @@ export function EventIdentity() {
   const [currentName, setCurrentName] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const closeMenu = useCallback(() => setOpen(false), []);
+  // F11: APG menu keyboard model (focus first item, arrows, Escape -> trigger).
+  useMenuKeyboard({ open, menuRef, triggerRef, onClose: closeMenu });
 
   useEffect(() => {
     let cancelled = false;
@@ -101,8 +107,9 @@ export function EventIdentity() {
         <Button
           variant="ghost"
           size="sm"
+          ref={triggerRef}
           onClick={() => setOpen((v) => !v)}
-          aria-haspopup="true"
+          aria-haspopup="menu"
           aria-expanded={open}
           className="min-w-0 max-w-[12rem] sm:max-w-[16rem]"
         >
@@ -112,7 +119,8 @@ export function EventIdentity() {
 
         {open && (
           <div
-            role="menu"
+            ref={menuRef}
+          role="menu"
             aria-label="Switch event"
             className="absolute left-0 top-full z-30 mt-1.5 min-w-[14rem] max-w-[20rem] rounded-panel bg-card border border-line shadow-float py-1 motion-safe:animate-rise"
           >
@@ -126,8 +134,9 @@ export function EventIdentity() {
                   key={e.id}
                   href={`/e/${e.id}/operator`}
                   role="menuitem"
+                  tabIndex={-1}
                   onClick={() => setOpen(false)}
-                  className="block px-3 py-2 text-console-sm text-primary hover:bg-card-hover transition-colors truncate"
+                  className="block px-3 py-2 text-console-sm text-primary hover:bg-card-hover focus-visible:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent transition-colors truncate"
                 >
                   {e.name}
                 </Link>
@@ -137,8 +146,9 @@ export function EventIdentity() {
             <Link
               href="/dashboard"
               role="menuitem"
+                  tabIndex={-1}
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-3 py-2 text-console-sm text-muted-2 hover:text-primary hover:bg-card-hover transition-colors"
+              className="flex items-center gap-2.5 px-3 py-2 text-console-sm text-muted-2 hover:text-primary hover:bg-card-hover focus-visible:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent transition-colors"
             >
               <LayoutGrid className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
               All events

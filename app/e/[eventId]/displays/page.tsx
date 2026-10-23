@@ -21,7 +21,6 @@ import { OperationalStatus } from "@/components/ui/operational-status";
 import { type ConnectionBadgeStatus } from "@/components/ui/connection-badge";
 import { SectionLabel } from "@/components/ui/section-label";
 import { MaybeTooltip, Tooltip } from "@/components/ui/tooltip";
-import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { isTopmostOverlay, popOverlay, pushOverlay } from "@/components/ui/overlay-stack";
 import { useDialogFocus } from "@/components/ui/use-dialog-focus";
@@ -109,6 +108,13 @@ export default function DisplayManagerPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | DisplayHealth>("all");
   const [shareLinkOpen, setShareLinkOpen] = useState(false);
+  // Shown in the first-screen guide; read after mount so server and client
+  // render the same markup.
+  const [tvUrl, setTvUrl] = useState<string | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTvUrl(`${window.location.origin}/tv`);
+  }, []);
   const profilePanelRef = useRef<DisplayProfilePanelHandle>(null);
   // Just the id/name pairs a custom display's own type row needs to offer
   // a profile picker — DisplayProfilePanel owns the full list/create/edit/
@@ -342,11 +348,50 @@ export default function DisplayManagerPage() {
         )}
 
         {displays.length === 0 ? (
-          <EmptyState
-            className="mt-6"
-            title="No displays have registered yet"
-            body="Open a display route (e.g. /presenter) on a device to see it here. Registration happens automatically, no setup step needed."
-          />
+          // F13 (2026-10 review): first-run guidance in plain steps using the
+          // tools that already exist (share link/QR, 6-digit TV code), no
+          // route jargon and no promise beyond what the fleet list observes.
+          <section className="mt-6 rounded-panel border border-line-soft bg-card px-5 py-5" aria-labelledby="first-screen-heading">
+            <h2 id="first-screen-heading" className="text-console-md text-primary font-medium">
+              Connect your first screen
+            </h2>
+            <ol className="mt-4 flex flex-col gap-4 text-console-sm">
+              <li className="flex gap-3">
+                <span className="tnum text-muted shrink-0 w-5">1.</span>
+                <span className="text-muted">
+                  <span className="text-primary">Choose what the screen shows.</span> Presenter (confidence monitor), Green
+                  Room (backstage), AV (crew requirements) or General (lobby). A share link or TV code opens a picker on the screen to choose its role.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="tnum text-muted shrink-0 w-5">2.</span>
+                <span className="text-muted">
+                  <span className="text-primary">Open it on the device.</span> Share a link or QR code, or generate a 6-digit
+                  code and type it on the TV&apos;s &ldquo;Connect this display&rdquo; page
+                  {tvUrl && (
+                    <>
+                      {" "}at <span className="text-primary break-all">{tvUrl}</span>
+                    </>
+                  )}
+                  . No login needed on the screen.
+                  <span className="mt-2 flex">
+                    <Button variant="secondary" size="sm" onClick={() => setShareLinkOpen(true)}>
+                      <Link2 className="h-3.5 w-3.5" strokeWidth={2} />
+                      Share link or TV code
+                    </Button>
+                  </span>
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="tnum text-muted shrink-0 w-5">3.</span>
+                <span className="text-muted">
+                  <span className="text-primary">Check it appears here as Online.</span> Each connected screen is listed with
+                  its role and when it was last heard from. A browser preview on this computer doesn&apos;t count as the
+                  physical screen.
+                </span>
+              </li>
+            </ol>
+          </section>
         ) : visibleDisplays.length === 0 ? (
           <p className="text-console-sm text-muted-2 mt-6">No displays are currently {filter}.</p>
         ) : (

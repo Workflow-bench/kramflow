@@ -98,7 +98,6 @@ export function EventNav() {
             <button
               type="button"
               onClick={toggle}
-              aria-haspopup="true"
               aria-expanded={open}
               aria-label={`Navigate — currently ${activeTab.label}`}
               className="flex items-center gap-1.5 rounded-control border border-line-soft bg-card/50 px-2.5 py-1.5 text-console-sm text-primary hover:bg-card-hover transition-colors"
@@ -109,7 +108,9 @@ export function EventNav() {
             </button>
           )}
         >
-          <div className="min-w-[12rem]" role="menu" aria-label="Navigate">
+          {/* F11: a disclosure of links, not a menu (it never had menuitem
+              children or menu keyboard behavior). */}
+          <nav className="min-w-[12rem]" aria-label="Event destinations">
             {TABS.map((tab) => (
               <LinkButton
                 key={tab.id}
@@ -135,7 +136,7 @@ export function EventNav() {
               <Smartphone className="h-3.5 w-3.5" strokeWidth={2} />
               <span>Remote</span>
             </LinkButton>
-          </div>
+          </nav>
         </Popover>
       </div>
 

@@ -17,9 +17,8 @@ import { TargetHealthSummary } from "@/components/display-engine/target-health-s
 import { SessionReadiness } from "./session-readiness";
 import { AiReadinessReview } from "./ai-readiness-review";
 import { JumpControl } from "./jump-control";
-import { AlertComposer } from "./alert-composer";
+import { MessagesPanel } from "./messages-panel";
 import { ActivityLog } from "./activity-log";
-import { OperatorBroadcastPanel } from "@/components/display-engine/operator-broadcast-panel";
 import { useToast } from "@/components/ui/toast";
 import type { Session } from "@/lib/types";
 
@@ -244,7 +243,7 @@ export function ControlsPanel({
           card inside this card. Now it's the only box in this column,
           exactly where the Von Restorff emphasis it's built for should
           land. */}
-      <div className="flex flex-col gap-3 sm:gap-4">
+      <div className={hideSecondaryTools ? "flex flex-col gap-2.5" : "flex flex-col gap-3 sm:gap-4"}>
         <div className="flex items-center gap-1.5">
           <SectionLabel>Controls</SectionLabel>
           {/* Shortcuts demoted to a tooltip rather than sitting inline next
@@ -327,16 +326,10 @@ export function ControlsPanel({
         )}
 
         <div className="flex flex-col gap-3">
-          {/* Review F1: Next/Prev/Hold still route a click to the Take
-              Control prompt when the lease isn't ours, but they must not
-              *look* live. Muted + one plain sentence saying why. */}
-          {!readOnly && !iHaveControl && currentOrder !== null && !isFinished && (
-            <p className="text-console-sm text-muted">
-              {lockedByOther
-                ? `${controllerName ?? "Another operator"} is running cues. Take over to use these controls.`
-                : "Take control to run cues from this screen."}
-            </p>
-          )}
+          {/* Ownership is explained once, by ControlLeaseStatus directly
+              above. Next drops from primary to secondary emphasis while the
+              lease isn't ours; any transport click still routes to the
+              Take Control prompt. */}
           {currentOrder === null ? (
             <Button
               variant="primary"
@@ -423,10 +416,8 @@ export function ControlsPanel({
           </div>
 
           <div className="border-t border-line-soft pt-8">
-            <AlertComposer />
+            <MessagesPanel />
           </div>
-
-          <OperatorBroadcastPanel />
 
           <div className="border-t border-line-soft pt-8">
             <ActivityLog />
@@ -437,7 +428,7 @@ export function ControlsPanel({
       <ConfirmDialog
         open={confirmKind === "start"}
         title="Start the session?"
-        description="This puts the first item live on every connected display."
+        description="This puts the first cue live on every connected display."
         confirmLabel="Start"
         loading={pending === "start"}
         onConfirm={async () => {
@@ -488,14 +479,23 @@ export function ControlsPanel({
 // these is already a fully self-contained component with no dependency on
 // ControlsPanel's own local state (claim/release/pending/etc.), so this is
 // a plain re-render, not a second copy of any control logic.
-export function ControlsSecondaryTools({ session }: { session: Session }) {
+export function ControlsSecondaryTools({
+  session,
+  includeMessages = true,
+}: {
+  session: Session;
+  /** R3: phone layout renders Messages (with Emergency) on its own, outside
+   *  the collapsed More Tools, so urgent access never hides behind it. */
+  includeMessages?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-10">
       <JumpControl max={session.items.length} />
-      <div className="border-t border-line-soft pt-8">
-        <AlertComposer />
-      </div>
-      <OperatorBroadcastPanel />
+      {includeMessages && (
+        <div className="border-t border-line-soft pt-8">
+          <MessagesPanel />
+        </div>
+      )}
       <div className="border-t border-line-soft pt-8">
         <ActivityLog />
       </div>

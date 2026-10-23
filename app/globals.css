@@ -42,11 +42,20 @@
   /* Form-control boundary: 3.3:1 on background (WCAG 1.4.11). --color-line
      stays the quiet divider; a field edge must be findable. */
   --color-line-field: #6b6252;
+  /* Solid destructive fill for white labels: 6.55:1 (status-red #ff453a
+     with white was 3.41:1). status-red stays the semantic hue for text,
+     tints and outlines. */
+  --color-danger-solid: #b42324;
+  --color-danger-solid-hover: #9c1d1e;
 
   /* Text. All three verified >=4.5:1 on background, card, and card-hover. */
   --color-primary: #f4efe5;
   --color-muted: #a79d8b; /* 7.6:1 on bg, 7.1:1 on card */
-  --color-muted-2: #8a8070; /* 5.2:1 on bg, 4.9:1 on card, 4.5:1 on raised */
+  /* F10 (2026-10 review): was #8a8070, which measured 3.92:1 on raised and
+     4.36:1 on card-hover — below 4.5:1 for the small metadata it carries on
+     those surfaces. Smallest shift that clears every surface it sits on:
+     6.24:1 bg, 5.83:1 card, 5.38:1 card-hover, 4.83:1 raised (sRGB WCAG). */
+  --color-muted-2: #9a907e;
 
   /* ── Show state. Same four roles operators are trained on (a live show is
        the wrong place to retrain muscle memory) — now the real macOS 26
@@ -102,6 +111,8 @@
   --color-line: var(--color-line);
   --color-line-soft: var(--color-line-soft);
   --color-line-field: var(--color-line-field);
+  --color-danger-solid: var(--color-danger-solid);
+  --color-danger-solid-hover: var(--color-danger-solid-hover);
   --color-primary: var(--color-primary);
   --color-muted: var(--color-muted);
   --color-muted-2: var(--color-muted-2);

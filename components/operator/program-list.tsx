@@ -116,7 +116,9 @@ function BreakRow({
         onClick ? "cursor-pointer hover:bg-card-hover" : "cursor-default",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         status === "live" && "bg-status-green/10",
-        status === "done" && "opacity-55"
+        // R9: done rows recede via the muted token, not opacity (55% opacity
+        // took muted metadata to ~2.6:1).
+        status === "done" && "[&_p]:text-muted-2 [&_span]:text-muted-2"
       )}
     >
       <span className="tnum w-6 text-console-meta text-muted-2 shrink-0 text-right">{program.order}</span>
@@ -164,7 +166,9 @@ function ItemRow({
         // an item is routinely current *and* running long, and those are
         // two different facts that must not share one colour channel.
         status === "live" && "bg-status-green/10",
-        status === "done" && "opacity-55"
+        // R9: done rows recede via the muted token, not opacity (55% opacity
+        // took muted metadata to ~2.6:1).
+        status === "done" && "[&_p]:text-muted-2 [&_span]:text-muted-2"
       )}
     >
       <span className="relative tnum w-6 text-console-meta text-muted-2 shrink-0 pt-0.5 sm:pt-0 text-right">

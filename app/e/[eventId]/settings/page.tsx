@@ -125,7 +125,6 @@ export default function EventSettingsPage() {
               <button
                 type="button"
                 onClick={toggle}
-                aria-haspopup="true"
                 aria-expanded={open}
                 aria-label={`Settings section — currently ${active.label}`}
                 className={cn(
@@ -139,14 +138,13 @@ export default function EventSettingsPage() {
               </button>
             )}
           >
-            <div role="menu" aria-label="Settings sections">
+            <div role="group" aria-label="Settings sections">
               {visibleSections.map((s) => (
                 <button
                   key={s.id}
                   type="button"
-                  role="menuitem"
                   onClick={() => setSection(s.id)}
-                  aria-current={active.id === s.id ? "page" : undefined}
+                  aria-current={active.id === s.id ? "true" : undefined}
                   className={cn(
                     "flex w-full items-center gap-2.5 px-3 py-2.5 text-console-sm text-left transition-colors cursor-pointer",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset",

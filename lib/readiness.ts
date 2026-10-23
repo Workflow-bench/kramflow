@@ -41,7 +41,7 @@ export function computeSessionReadiness(
     checks.push({
       id: "durations",
       status: "warn",
-      detail: `${missingDuration} item${missingDuration === 1 ? "" : "s"} missing a duration`,
+      detail: `${missingDuration} cue${missingDuration === 1 ? "" : "s"} missing a duration`,
     });
   }
 

@@ -14,8 +14,10 @@ import { useOperatorColumnLayout } from "@/lib/use-operator-column-layout";
 import { ProgramList } from "@/components/operator/program-list";
 import { SessionPopover } from "@/components/operator/session-popover";
 import { EventShellHeader } from "@/components/operator/event-shell-header";
-import { LiveDetailsPanel, LiveNotes } from "@/components/operator/live-details-panel";
+import { LiveDetailsPanel, LiveNotes, LiveRunPosition } from "@/components/operator/live-details-panel";
 import { ControlsPanel, ControlsSecondaryTools } from "@/components/operator/controls-panel";
+import { MessagesPanel } from "@/components/operator/messages-panel";
+import { MessageDraftsProvider } from "@/lib/message-drafts";
 import { OperatorColumns } from "@/components/operator/operator-columns";
 import { OperatorLayoutMenu } from "@/components/operator/operator-layout-menu";
 import { ProgressFooter } from "@/components/ui/progress-footer";
@@ -70,6 +72,9 @@ export default function OperatorPage() {
   }, [lastAction]);
 
   return (
+    // Owns unsent Messages drafts above every responsive branch below;
+    // keyed by event so drafts never carry over to another event.
+    <MessageDraftsProvider key={eventId}>
     <main className="min-h-screen xl:h-screen xl:overflow-hidden bg-background flex flex-col">
       <EventShellHeader
         title="Operator Console"
@@ -162,6 +167,7 @@ export default function OperatorPage() {
         </footer>
       )}
     </main>
+    </MessageDraftsProvider>
   );
 }
 
@@ -267,11 +273,28 @@ function OperatorGrid({
     // brief's priority order rather than re-deriving it — see the Phase 5
     // report's Known issues.
     return (
+      // F01 (2026-10 review): at 1200x750 Next started at y1001 because
+      // Notes and Next/On deck sat between the timer and the transport.
+      // Compact order: current cue -> timer -> authority/transport ->
+      // next/on deck -> notes. Secondary tools stay in Controls below.
       <div className="flex-1 grid grid-cols-[1fr_380px]">
         {program}
         <div className="border-l border-line-soft flex flex-col">
-          <div className="border-b border-line-soft">{liveDetails}</div>
-          {controls}
+          <div className="px-4 sm:px-6 pt-5 pb-4">
+            <LiveDetailsPanel session={session} compact />
+          </div>
+          <div className="px-4 sm:px-6 pb-2">
+            <ControlsPanel session={session} broadcastAction={broadcastAction} hideSecondaryTools />
+          </div>
+          <div className="border-t border-line-soft px-4 sm:px-6 py-5">
+            <LiveRunPosition session={session} />
+          </div>
+          <div className="border-t border-line-soft px-4 sm:px-6 py-5">
+            <LiveNotes session={session} />
+          </div>
+          <div className="border-t border-line-soft px-4 sm:px-6 py-5">
+            <ControlsSecondaryTools session={session} />
+          </div>
         </div>
       </div>
     );
@@ -297,11 +320,19 @@ function OperatorGrid({
   // regardless of scroll position.
   return (
     <div className="flex-1 flex flex-col">
-      <div className="border-b border-line-soft px-4 sm:px-6 py-5 sm:py-6">
-        <LiveDetailsPanel session={session} hideNotes />
+      <div className="px-4 sm:px-6 pt-4 pb-3">
+        <LiveDetailsPanel session={session} compact />
       </div>
-      <div className="border-b border-line-soft px-4 sm:px-6 py-5 sm:py-6">
+      <div className="border-b border-line-soft px-4 sm:px-6 pb-5">
         <ControlsPanel session={session} broadcastAction={broadcastAction} hideSecondaryTools />
+      </div>
+      <div className="border-b border-line-soft px-4 sm:px-6 py-5">
+        <LiveRunPosition session={session} />
+      </div>
+      {/* R3: Messages + Emergency stay visible by name on phones, not inside
+          the collapsed More Tools below. */}
+      <div className="border-b border-line-soft px-4 sm:px-6 py-5">
+        <MessagesPanel />
       </div>
       {program}
       <div className="border-t border-line-soft px-4 sm:px-6 py-6">
@@ -343,7 +374,7 @@ function MoreTools({ session }: { session: Session }) {
       </button>
       {open && (
         <div id="operator-more-tools" className="mt-6 motion-safe:animate-rise">
-          <ControlsSecondaryTools session={session} />
+          <ControlsSecondaryTools session={session} includeMessages={false} />
         </div>
       )}
     </div>

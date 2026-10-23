@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { MoreHorizontal } from "lucide-react";
 import { Button } from "./button";
 import { cn } from "@/lib/utils";
 import { useDismissOnOutsideOrEscape } from "@/lib/use-dismiss-on-outside-or-escape";
+import { useMenuKeyboard } from "@/lib/use-menu-keyboard";
 
 export interface OverflowMenuItem {
   label: string;
@@ -36,6 +37,7 @@ export function OverflowMenu({
   items,
   label = "More",
   iconOnly = false,
+  compactBelowSm = false,
   triggerIcon: TriggerIcon = MoreHorizontal,
 }: {
   items: OverflowMenuItem[];
@@ -43,6 +45,9 @@ export function OverflowMenu({
   /** Icon-only trigger (no visible "More" text) for tight command rows —
    *  the accessible name still carries `label`. */
   iconOnly?: boolean;
+  /** Show the text label from sm: up only; below that the trigger is
+   *  icon-only (accessible name still `label`). */
+  compactBelowSm?: boolean;
   /** Override the trigger's icon — the "more actions" `MoreHorizontal`
    *  glyph is right for an overflow-actions menu, wrong for a menu that's
    *  itself the primary entry point (e.g. Help). Defaults to
@@ -50,22 +55,57 @@ export function OverflowMenu({
   triggerIcon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 }) {
   const [open, setOpen] = useState(false);
+  const [initialFocus, setInitialFocus] = useState<"first" | "last">("first");
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  const close = useCallback(() => setOpen(false), []);
 
-  useDismissOnOutsideOrEscape(rootRef, open, () => setOpen(false));
+  // F11: complete APG menu button — named trigger with expanded state and
+  // relationship, focus into the menu on open, arrow/Home/End movement,
+  // Escape back to the trigger (lib/use-menu-keyboard.ts).
+  useDismissOnOutsideOrEscape(rootRef, open, (reason) => {
+    setOpen(false);
+    if (reason === "escape") triggerRef.current?.focus();
+  });
+  useMenuKeyboard({ open, menuRef, triggerRef, onClose: close, initialFocus });
 
   return (
     <div ref={rootRef} className="relative">
-      <Button variant="ghost" size="sm" square={iconOnly} aria-label={iconOnly ? label : undefined} onClick={() => setOpen((v) => !v)}>
-        <TriggerIcon className="h-4 w-4" strokeWidth={2} />
-        {!iconOnly && label}
+      <Button
+        ref={triggerRef}
+        variant="ghost"
+        size="sm"
+        square={iconOnly}
+        aria-label={iconOnly || compactBelowSm ? label : undefined}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        onClick={() => {
+          setInitialFocus("first");
+          setOpen((v) => !v);
+        }}
+        onKeyDown={(e) => {
+          if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+            e.preventDefault();
+            setInitialFocus(e.key === "ArrowUp" ? "last" : "first");
+            setOpen(true);
+          }
+        }}
+      >
+        <TriggerIcon className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+        {!iconOnly && (compactBelowSm ? <span className="hidden sm:inline">{label}</span> : label)}
       </Button>
       {open && (
         <div
+          ref={menuRef}
+          id={menuId}
           role="menu"
+          aria-label={label}
           className={cn(
-            // kramflow-v3: same material as select.tsx's dropdown.
-            "absolute right-0 z-30 mt-1.5 min-w-[11rem] rounded-panel bg-card/90 backdrop-blur-xl border border-line shadow-float py-1",
+            // Solid surface (AD03): menus float over operational content.
+            "absolute right-0 z-30 mt-1.5 min-w-[11rem] rounded-panel bg-card border border-line shadow-float py-1",
             "motion-safe:animate-rise"
           )}
         >
@@ -77,10 +117,11 @@ export function OverflowMenu({
                 target={item.target}
                 rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
                 role="menuitem"
+                tabIndex={-1}
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-3 py-2 text-console-sm text-primary hover:bg-card-hover transition-colors"
+                className="flex items-center gap-2.5 px-3 py-2 text-console-sm text-primary hover:bg-card-hover focus-visible:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent transition-colors"
               >
-                <item.icon className="h-4 w-4 shrink-0 text-muted-2" strokeWidth={2} />
+                <item.icon className="h-4 w-4 shrink-0 text-muted-2" strokeWidth={2} aria-hidden="true" />
                 {item.label}
               </Link>
             ) : (
@@ -88,12 +129,17 @@ export function OverflowMenu({
                 key={item.label}
                 type="button"
                 role="menuitem"
+                tabIndex={-1}
                 onClick={() => {
                   setOpen(false);
+                  // Return focus to the trigger so keyboard users aren't
+                  // dropped at the top of the page; an item that opens its
+                  // own dialog moves focus again from there.
+                  triggerRef.current?.focus();
                   item.onClick?.();
                 }}
                 className={cn(
-                  "w-full flex items-center gap-2.5 px-3 py-2 text-console-sm text-left cursor-pointer hover:bg-card-hover transition-colors",
+                  "w-full flex items-center gap-2.5 px-3 py-2 text-console-sm text-left cursor-pointer hover:bg-card-hover focus-visible:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent transition-colors",
                   item.tone === "danger" ? "text-status-red" : "text-primary"
                 )}
               >

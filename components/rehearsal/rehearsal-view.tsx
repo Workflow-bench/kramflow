@@ -174,19 +174,25 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
           does NOT do. This is the one visual element in this feature that
           matters most: Dev's own ask was that a rehearsal mode needs to be
           impossible to mistake for the real console. */}
-      <div
-        className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-black/20"
-        style={{
-          background:
-            "repeating-linear-gradient(135deg, var(--color-status-orange) 0px, var(--color-status-orange) 14px, #1a1206 14px, #1a1206 28px)",
-        }}
-      >
-        <div className="flex items-center gap-2.5 text-background font-semibold">
-          <FlaskConical className="h-4.5 w-4.5 shrink-0" strokeWidth={2.5} />
-          <span className="text-console-sm uppercase tracking-wide bg-background/90 text-status-orange px-2.5 py-1 rounded-chip">
-            Rehearsal Mode: Not Live
+      {/* F14 (2026-10 review): explanatory text now sits on a solid,
+          readable surface; the hazard stripe survives only as a narrow top
+          edge accent. The words carry the mode, not the color alone. */}
+      <div className="sticky top-0 z-30 border-b border-status-orange/40 bg-[#2a1d08]">
+        <div
+          aria-hidden="true"
+          className="h-1.5"
+          style={{
+            background:
+              "repeating-linear-gradient(135deg, var(--color-status-orange) 0px, var(--color-status-orange) 10px, #1a1206 10px, #1a1206 20px)",
+          }}
+        />
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <FlaskConical className="h-4.5 w-4.5 shrink-0 text-status-orange" strokeWidth={2.5} aria-hidden="true" />
+          <span className="text-console-sm font-semibold uppercase tracking-wide text-status-orange shrink-0">
+            Rehearsal · Not live
           </span>
-          <span className="hidden sm:inline text-console-meta text-background/80">
+          <span className="hidden sm:inline text-console-meta text-primary/85">
             Nothing here reaches a real display, share link, or the real Operator Console.
           </span>
         </div>
@@ -201,6 +207,7 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
             Exit Rehearsal
           </LinkButton>
         )}
+        </div>
       </div>
 
       {runStale && (
@@ -299,7 +306,11 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
                 </SectionLabel>
                 {state.pausedAt && <OperationalStatus kind="hold" />}
               </div>
-              <div aria-live="polite" aria-atomic="false">
+              {/* R11: the live region holds cue identity only (kicker, title,
+                  presenter), same as Console's LiveDetailsPanel. The ticking
+                  countdown sits outside it so screen readers aren't fed a new
+                  announcement every second. */}
+              <div aria-live="polite" aria-atomic="true">
                 {/* Same kicker line Console's Live Now shows above its own
                     title (components/operator/live-details-panel.tsx) —
                     both read the identical Program.kicker field through
@@ -309,6 +320,9 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
                 <p className="text-console-lg font-semibold text-primary mt-1">
                   {isFinished ? "Rehearsal complete" : live ? live.title : "—"}
                 </p>
+                {live?.presenter && !isFinished && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
+              </div>
+              <div>
                 {isFinished && (() => {
                   const sum = completionSummary({ sessionLabel: session?.sessionLabel ?? "", max });
                   return (
@@ -323,8 +337,6 @@ export function RehearsalView({ eventId, sessions, onExit }: { eventId: string; 
                     </div>
                   );
                 })()}
-                {live?.presenter && <p className="text-console-sm text-muted mt-2">{live.presenter}</p>}
-
                 {live && live.type === "item" && live.durationMinutes > 0 && (() => {
                   const severity = countdownSeverity(countdown.remainingSeconds, countdown.isOverrun);
                   return (

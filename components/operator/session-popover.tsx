@@ -26,12 +26,13 @@ export function SessionPopover() {
   return (
     <Popover
       align="start"
+      label="Choose session"
       className="w-[min(92vw,28rem)] p-2"
       trigger={({ open, toggle }) => (
         <button
           type="button"
           onClick={toggle}
-          aria-haspopup="true"
+          aria-haspopup="dialog"
           aria-expanded={open}
           className="flex items-center gap-1.5 rounded-control border border-line-soft bg-raised/60 px-2.5 py-1.5 text-console-sm text-primary hover:bg-card-hover transition-colors max-w-[12rem] sm:max-w-[18rem]"
         >

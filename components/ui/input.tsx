@@ -1,3 +1,6 @@
+"use client";
+
+import { useFormField } from "./form-field";
 import { cn } from "@/lib/utils";
 
 // "lg" is the Remote/TV counterpart to Button's size scale — added so
@@ -7,10 +10,17 @@ import { cn } from "@/lib/utils";
 export function Input({
   size = "md",
   className,
+  id,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedBy,
   ...props
 }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> & { size?: "md" | "lg" | "public" }) {
+  const field = useFormField();
   return (
     <input
+      id={id ?? field?.id}
+      aria-invalid={ariaInvalid ?? (field?.invalid || undefined)}
+      aria-describedby={[ariaDescribedBy, field?.errorId].filter(Boolean).join(" ") || undefined}
       className={cn(
         "w-full rounded-control bg-background border border-line-field text-primary",
         "placeholder:text-muted-2 outline-none",

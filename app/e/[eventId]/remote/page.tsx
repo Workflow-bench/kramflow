@@ -628,7 +628,7 @@ export default function RemotePage() {
       <ConfirmDialog
         open={confirmKind === "start"}
         title="Start the session?"
-        description="This puts the first item live on every connected display."
+        description="This puts the first cue live on every connected display."
         confirmLabel="Start"
         onConfirm={() => {
           setConfirmKind(null);

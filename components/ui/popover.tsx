@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useDismissOnOutsideOrEscape } from "@/lib/use-dismiss-on-outside-or-escape";
 import { cn } from "@/lib/utils";
 
@@ -22,23 +22,45 @@ export function Popover({
   children,
   align = "start",
   className,
+  label,
 }: {
   /** Render-prop so the trigger can reflect open state (chevron rotation, aria-expanded). */
   trigger: (state: { open: boolean; toggle: () => void }) => ReactNode;
   children: ReactNode;
   align?: "start" | "end";
   className?: string;
+  /** F11: names the popup. With a label it's a named non-modal dialog;
+   *  without one it's a plain disclosure region (e.g. a list of links),
+   *  never an unnamed dialog. */
+  label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  useDismissOnOutsideOrEscape(rootRef, open, () => setOpen(false));
+  const popupRef = useRef<HTMLDivElement>(null);
+  // A named dialog takes focus on open (APG); a plain disclosure doesn't.
+  useEffect(() => {
+    if (!open || !label) return;
+    const id = setTimeout(
+      () => popupRef.current?.querySelector<HTMLElement>("button, a[href], input, [tabindex]:not([tabindex='-1'])")?.focus(),
+      0
+    );
+    return () => clearTimeout(id);
+  }, [open, label]);
+  useDismissOnOutsideOrEscape(rootRef, open, (reason) => {
+    setOpen(false);
+    // Return focus to whatever opened it (the trigger is the root's first
+    // focusable element) so Escape never drops keyboard focus.
+    if (reason === "escape") rootRef.current?.querySelector<HTMLElement>("button, a, [tabindex]")?.focus();
+  });
 
   return (
     <div className="relative inline-block" ref={rootRef}>
       {trigger({ open, toggle: () => setOpen((v) => !v) })}
       {open && (
         <div
-          role="dialog"
+          ref={popupRef}
+          role={label ? "dialog" : undefined}
+          aria-label={label}
           className={cn(
             "absolute top-full z-30 mt-1.5 rounded-panel bg-card border border-line shadow-float py-1 motion-safe:animate-rise",
             align === "start" ? "left-0" : "right-0",

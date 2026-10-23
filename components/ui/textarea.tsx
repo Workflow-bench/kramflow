@@ -1,3 +1,6 @@
+"use client";
+
+import { useFormField } from "./form-field";
 import { cn } from "@/lib/utils";
 
 // Input's multi-line counterpart — same tokens, so a form mixing single-
@@ -6,10 +9,17 @@ import { cn } from "@/lib/utils";
 export function Textarea({
   className,
   rows = 3,
+  id,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedBy,
   ...props
 }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const field = useFormField();
   return (
     <textarea
+      id={id ?? field?.id}
+      aria-invalid={ariaInvalid ?? (field?.invalid || undefined)}
+      aria-describedby={[ariaDescribedBy, field?.errorId].filter(Boolean).join(" ") || undefined}
       rows={rows}
       className={cn(
         // text-base below sm: — same iOS zoom-on-focus fix as Input.

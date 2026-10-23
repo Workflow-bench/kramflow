@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ChevronDown, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { SectionLabel } from "@/components/ui/section-label";
 import { MaybeTooltip } from "@/components/ui/tooltip";
 import { useDisplayEngine } from "@/lib/display-engine/store";
 import { EMERGENCY_PRESETS, type BroadcastType } from "@/lib/display-engine/types";
+import { patchBroadcast, useMessageDrafts } from "@/lib/message-drafts";
 import { BROADCAST_TYPE_META } from "@/lib/display-engine/broadcast-style";
 import { useEventId, useEventRole } from "@/lib/event-context";
 import { cn } from "@/lib/utils";
@@ -30,7 +31,17 @@ const QUICK_TYPES: BroadcastType[] = ["info", "reminder", "warning", "success"];
  * full Broadcast Center (/broadcast) stays linked for scheduling,
  * templates, drafts, history, and per-display targeting.
  */
-export function OperatorBroadcastPanel() {
+export function OperatorBroadcastPanel({
+  section = "all",
+  embedded = false,
+}: {
+  /** F09: the Messages region (components/operator/messages-panel.tsx)
+   *  renders the routine form and the emergency presets in different
+   *  places; "all" keeps the original combined panel. */
+  section?: "all" | "form" | "emergency";
+  /** Skip the collapsible wrapper and heading — the host provides them. */
+  embedded?: boolean;
+} = {}) {
   const eventId = useEventId();
   // Broadcasts are owner-gated server-side (requireEventAccess(eventId,
   // "owner") in api/display-engine/broadcasts/route.ts) — an editor could
@@ -42,49 +53,57 @@ export function OperatorBroadcastPanel() {
   const registeredCount = Object.keys(engine.registry).length;
   const toast = useToast();
   const [expanded, setExpanded] = useState(false);
-  const [type, setType] = useState<BroadcastType>("info");
-  const [title, setTitle] = useState("");
-  const [message, setMessage] = useState("");
+  // Routine form draft lives in the event's Messages store
+  // (lib/message-drafts.tsx) so a responsive remount doesn't drop it.
+  const { drafts, update, claim, release } = useMessageDrafts();
+  const { type, title, message, sending } = drafts.broadcast;
+  const setType = (v: BroadcastType) => update(patchBroadcast({ type: v }));
+  const setTitle = (v: string) => update(patchBroadcast({ title: v }));
+  const setMessage = (v: string) => update(patchBroadcast({ message: v }));
   const emergencyConfirm = useConfirmDialog<(typeof EMERGENCY_PRESETS)[number]>();
-  const [emergencySending, setEmergencySending] = useState(false);
-  // Ref, not just `emergencySending` — ConfirmDialog's confirm button has no
-  // disabled-while-submitting state of its own, so a rapid multi-click
-  // burst fires onConfirm several times before React commits the `loading`
-  // prop's disabled attribute. QA_REPORT.md BUG-3: reproduced live here (3
-  // clicks -> 3 duplicate live emergency broadcasts) before this guard
-  // existed; see the identical pattern in components/operator/jump-control.tsx.
-  const emergencySendingRef = useRef(false);
-
-  const [sending, setSending] = useState(false);
+  // In the shared store with a claim/release guard, not local state: a rapid
+  // multi-click burst fires onConfirm before React disables the button (3
+  // clicks -> 3 live emergency broadcasts, QA_REPORT.md BUG-3), and a layout
+  // remount mid-send must not re-arm the presets either.
+  const emergencySending = drafts.emergencySending;
 
   async function send() {
-    if (!title.trim() || sending) return;
-    setSending(true);
-    const res = await sendBroadcast({
-      type,
-      title: title.trim(),
-      message: message.trim(),
-      icon: null,
-      priority: 2,
-      target: { kind: "all" },
-      expiresInMinutes: null,
-      durationSeconds: null,
-      acknowledgementRequired: false,
-      persistent: false,
-      scheduledFor: null,
-    });
-    setSending(false);
-    if (res && res.ok) {
-      setTitle("");
-      setMessage("");
+    if (!title.trim() || !claim("broadcastSending")) return;
+    update(patchBroadcast({ sending: true }));
+    let ok = false;
+    try {
+      const res = await sendBroadcast({
+        type,
+        title: title.trim(),
+        message: message.trim(),
+        icon: null,
+        priority: 2,
+        target: { kind: "all" },
+        expiresInMinutes: null,
+        durationSeconds: null,
+        acknowledgementRequired: false,
+        persistent: false,
+        scheduledFor: null,
+      });
+      ok = Boolean(res && res.ok);
+    } finally {
+      release("broadcastSending");
+      update(patchBroadcast({ sending: false, ...(ok ? { title: "", message: "" } : {}) }));
+    }
+    if (ok) {
       toast.success("Broadcast sent");
     } else {
       toast.error("Couldn't send the broadcast. Try again.");
     }
   }
 
+  const showForm = section !== "emergency";
+  const showEmergency = section !== "form";
+  const isOpen = embedded || expanded;
+
   return (
-    <div className="border-t border-line-soft pt-8">
+    <div className={embedded ? undefined : "border-t border-line-soft pt-8"}>
+      {!embedded && (
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -97,9 +116,12 @@ export function OperatorBroadcastPanel() {
           strokeWidth={2}
         />
       </button>
+      )}
 
-      {expanded && (
-        <div className="mt-4 flex flex-col gap-3">
+      {isOpen && (
+        <div className={cn("flex flex-col gap-3", !embedded && "mt-4")}>
+          {showForm && (
+          <>
           <div className="flex flex-wrap gap-2">
             {QUICK_TYPES.map((t) => (
               <button
@@ -110,8 +132,9 @@ export function OperatorBroadcastPanel() {
                 className={cn(
                   "rounded-full px-3 py-1.5 text-console-meta font-semibold uppercase tracking-wide transition-opacity cursor-pointer whitespace-nowrap",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                  BROADCAST_TYPE_META[t].accentClass,
-                  type !== t && "opacity-40"
+                  // Same fix as the Quick alert severities: unselected
+                  // options are full-strength neutral, not a 40%-opacity tone.
+                  type === t ? BROADCAST_TYPE_META[t].accentClass : "border border-line-soft text-muted hover:text-primary"
                 )}
               >
                 {BROADCAST_TYPE_META[t].label}
@@ -147,15 +170,18 @@ export function OperatorBroadcastPanel() {
           >
             More options: schedule, templates, target one display →
           </Link>
+          </>
+          )}
 
-          <div className="border-t border-line-soft pt-3 mt-1">
+          {showEmergency && (
+          <div className={cn(showForm && "border-t border-line-soft pt-3 mt-1")}>
             <div className="flex flex-wrap gap-2">
               {EMERGENCY_PRESETS.map((preset) => (
                 <MaybeTooltip key={preset.label} when={readOnly} content="Only the event owner can send broadcasts">
                   <button
                     type="button"
                     onClick={() => emergencyConfirm.request(preset)}
-                    disabled={readOnly}
+                    disabled={readOnly || emergencySending}
                     className="flex items-center gap-1.5 rounded-full bg-status-red/15 text-status-red px-3 py-1.5 text-console-meta font-semibold cursor-pointer hover:bg-status-red/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-status-red/15"
                   >
                     <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
@@ -165,6 +191,7 @@ export function OperatorBroadcastPanel() {
               ))}
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -179,24 +206,27 @@ export function OperatorBroadcastPanel() {
         loading={emergencySending}
         onConfirm={async () => {
           const preset = emergencyConfirm.pending;
-          if (!preset || emergencySendingRef.current) return;
-          emergencySendingRef.current = true;
-          setEmergencySending(true);
-          const res = await sendBroadcast({
-            type: "emergency",
-            title: preset.title,
-            message: preset.message,
-            icon: null,
-            priority: 3,
-            target: { kind: "all" },
-            expiresInMinutes: null,
-            durationSeconds: null,
-            acknowledgementRequired: true,
-            persistent: true,
-            scheduledFor: null,
-          });
-          emergencySendingRef.current = false;
-          setEmergencySending(false);
+          if (!preset || !claim("emergencySending")) return;
+          update((prev) => ({ ...prev, emergencySending: true }));
+          let res: Awaited<ReturnType<typeof sendBroadcast>> | undefined;
+          try {
+            res = await sendBroadcast({
+              type: "emergency",
+              title: preset.title,
+              message: preset.message,
+              icon: null,
+              priority: 3,
+              target: { kind: "all" },
+              expiresInMinutes: null,
+              durationSeconds: null,
+              acknowledgementRequired: true,
+              persistent: true,
+              scheduledFor: null,
+            });
+          } finally {
+            release("emergencySending");
+            update((prev) => ({ ...prev, emergencySending: false }));
+          }
           emergencyConfirm.cancel();
           if (res && res.ok) toast.success("Emergency broadcast sent");
           else toast.error("Couldn't send the emergency broadcast. Try again immediately.");

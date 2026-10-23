@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/toast";
 import { ShareLinkPanel } from "./share-link-panel";
 import { GettingStartedChecklist } from "./getting-started-checklist";
 import { cn } from "@/lib/utils";
+import type { SessionLifecycle } from "@/lib/session-lifecycle";
 
 export type EventRole = "owner" | "editor" | "viewer";
 
@@ -37,6 +38,8 @@ export interface EventSummary {
   sessionCount?: number;
   itemCount?: number;
   isLive?: boolean;
+  /** Active session's show state (lib/session-lifecycle.ts) — F03. */
+  lifecycle?: SessionLifecycle;
 }
 
 // Every event this operator can actually open — owned, plus accepted
@@ -233,7 +236,7 @@ function EventRow({ event, onRequestDelete }: { event: EventSummary; onRequestDe
       : `Created ${new Date(event.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`,
     event.venue || null,
     event.sessionCount !== undefined ? `${event.sessionCount} session${event.sessionCount === 1 ? "" : "s"}` : null,
-    event.sessionCount !== undefined ? `${event.itemCount ?? 0} item${event.itemCount === 1 ? "" : "s"}` : null,
+    event.sessionCount !== undefined ? `${event.itemCount ?? 0} cue${event.itemCount === 1 ? "" : "s"}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -254,7 +257,13 @@ function EventRow({ event, onRequestDelete }: { event: EventSummary; onRequestDe
           <h3 className={cn("text-console-row truncate", event.isLive ? "text-primary font-semibold" : "text-primary font-medium")}>
             {event.name}
           </h3>
-          {event.isLive && <OperationalStatus kind="live" />}
+          {event.lifecycle === "live" && <OperationalStatus kind="live" />}
+          {event.lifecycle === "on-hold" && <OperationalStatus kind="hold" />}
+          {/* F03: scoped to the active session, never "event completed" —
+              later sessions may still be ahead. */}
+          {event.lifecycle === "finished" && (
+            <Badge tone="muted">Session finished</Badge>
+          )}
           {!isOwner && (
             <Badge tone="muted" className="capitalize">
               {event.role}
@@ -265,10 +274,19 @@ function EventRow({ event, onRequestDelete }: { event: EventSummary; onRequestDe
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-        <LinkButton href={`/e/${event.id}/operator`} variant="primary" size="sm">
-          <Gauge className="h-3.5 w-3.5" strokeWidth={2} />
-          {event.isLive ? "Run show" : "Open Console"}
-        </LinkButton>
+        {/* F08: an event with no cues yet starts in Plan; anything with
+            cues opens Run. Run stays one menu item away either way. */}
+        {(event.itemCount ?? 1) === 0 ? (
+          <LinkButton href={`/e/${event.id}/operator/cue-sheet`} variant="primary" size="sm">
+            <FileSpreadsheet className="h-3.5 w-3.5" strokeWidth={2} />
+            Plan event
+          </LinkButton>
+        ) : (
+          <LinkButton href={`/e/${event.id}/operator`} variant="primary" size="sm">
+            <Gauge className="h-3.5 w-3.5" strokeWidth={2} />
+            {event.isLive ? "Run show" : "Open Run"}
+          </LinkButton>
+        )}
 
         {/* Review F6/07: one clear primary per row; the other event
             destinations are named in one menu instead of three unlabeled
@@ -277,7 +295,9 @@ function EventRow({ event, onRequestDelete }: { event: EventSummary; onRequestDe
           iconOnly
           label={`More for ${event.name}`}
           items={[
-            { label: "Cue Sheet", icon: FileSpreadsheet, href: `/e/${event.id}/operator/cue-sheet` },
+            (event.itemCount ?? 1) === 0
+              ? { label: "Run", icon: Gauge, href: `/e/${event.id}/operator` }
+              : { label: "Plan (cue sheet)", icon: FileSpreadsheet, href: `/e/${event.id}/operator/cue-sheet` },
             { label: "Remote", icon: Smartphone, href: `/e/${event.id}/remote` },
             { label: "Displays", icon: MonitorPlay, href: `/e/${event.id}/displays` },
             ...(isOwner

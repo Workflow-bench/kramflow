@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus, Clock, RotateCcw, ClipboardList } from "lucide-react";
+import { deriveSessionLifecycle, LIFECYCLE_LABEL } from "@/lib/session-lifecycle";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ArrowDown, ArrowDownUp, ArrowUp, GripVertical, Plus, Upload, Download, Printer, Pencil, Trash2, CalendarPlus, Clock, RotateCcw, ClipboardList } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -59,6 +60,7 @@ import { importedSessionChoices, type ImportDone, type ImportedSessionChoice } f
 import type { Partition, Session } from "@/lib/types";
 import { colorTagLabel, colorTagTone } from "@/lib/color-tags";
 import { cn } from "@/lib/utils";
+import { viewedSessionChanged } from "./viewed-session-reset";
 
 // Above this count, a bulk delete gets a confirm dialog in addition to the
 // Undo toast every delete already gets — the toast alone is the right-sized
@@ -233,11 +235,25 @@ export default function CueSheetPage() {
   const router = useRouter();
   const sessions = useSessions();
   const toast = useToast();
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  // F06 (2026-10 review): the session being *viewed* in Plan is its own
+  // state, separate from the live session. It lives in the URL (?session=)
+  // so reload and Back/Forward across pages keep it (picking a session
+  // replaces the entry rather than adding history), and in per-tab storage
+  // so a Plan link without the param (the nav tab) returns to it.
+  // Viewing never changes the live session and grants nothing: the URL is
+  // navigation only, every edit still goes through the same API checks.
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(() => searchParams.get("session"));
+  const [viewNotice, setViewNotice] = useState<string | null>(null);
   // Set after a successful import. Lists every session the import wrote, under
   // the id it was stored under, so the operator picks which one to open.
   const [importResult, setImportResult] = useState<ImportedSessionChoice[] | null>(null);
-  const activeSessionId = selectedSessionId ?? sessions[0]?.id ?? "";
+  const liveSessionInList = sessions.some((s) => s.id === state.activeSessionId) ? state.activeSessionId : null;
+  const selectedIsValid = selectedSessionId !== null && sessions.some((s) => s.id === selectedSessionId);
+  const activeSessionId =
+    (selectedIsValid || sessions.length === 0 ? selectedSessionId : null) ?? liveSessionInList ?? sessions[0]?.id ?? "";
+  const viewStorageKey = `kf:viewSession:${eventId}`;
 
   const [rows, setRows] = useState<ProgramRow[] | null>(null);
   const [loadingRows, setLoadingRows] = useState(false);
@@ -345,8 +361,80 @@ export default function CueSheetPage() {
     // Standard fetch-on-mount pattern, not the derived-state anti-pattern
     // this rule targets — loadRows' setLoadingRows(true) is a side effect
     // of kicking off the fetch, not a synchronous state derivation.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (activeSessionId && rows === null) loadRows(activeSessionId);
+    // Refetch whenever the effective session differs from the last one
+    // requested (F06: the viewed session can resolve after a first fetch,
+    // e.g. an invalid ?session= falling back once sessions load).
+    if (activeSessionId && (rows === null || latestRequestedSessionId.current !== activeSessionId)) loadRows(activeSessionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSessionId]);
+
+  // Reset per-session view state whenever the effective session changes,
+  // whichever path changed it (see viewed-session-reset.ts).
+  const lastViewedSessionId = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = lastViewedSessionId.current;
+    // `||`, not `??`: activeSessionId is "" while sessions are empty, and
+    // "" -> id is a first resolution, not a change.
+    const next = activeSessionId || null;
+    if (next === null) return;
+    lastViewedSessionId.current = next;
+    if (!viewedSessionChanged(prev, next)) return;
+    setSelected(new Set());
+    setSearch("");
+    setBulkEditOpen(false);
+    lastSelectedId.current = null;
+  }, [activeSessionId]);
+
+  // F06: a ?session= change on this same route (e.g. a link or Back/Forward
+  // between two Plan URLs) updates the viewed session instead of being
+  // ignored after mount.
+  const sessionParam = searchParams.get("session");
+  useEffect(() => {
+    if (sessionParam && sessionParam !== selectedSessionId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedSessionId(sessionParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionParam]);
+
+  // F06: restore the last viewed session for this tab when the URL doesn't
+  // name one (e.g. arriving from the Plan nav tab).
+  useEffect(() => {
+    if (searchParams.get("session") || sessions.length === 0) return;
+    let stored: string | null = null;
+    try {
+      stored = sessionStorage.getItem(viewStorageKey);
+    } catch {}
+    if (stored && stored !== activeSessionId && sessions.some((s) => s.id === stored)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedSessionId(stored);
+      loadRows(stored);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessions.length]);
+
+  // F06: a viewed session that no longer exists falls back deliberately and
+  // says so, instead of silently showing a different session.
+  useEffect(() => {
+    if (selectedSessionId && sessions.length > 0 && !selectedIsValid) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setViewNotice("The session you were viewing isn't available anymore, so this shows the current session instead.");
+      setSelectedSessionId(null);
+    }
+  }, [selectedSessionId, sessions.length, selectedIsValid]);
+
+  // F06: mirror the viewed session into the URL (replace, so picking
+  // sessions doesn't flood history) and per-tab storage.
+  useEffect(() => {
+    if (!activeSessionId) return;
+    if (searchParams.get("session") !== activeSessionId) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("session", activeSessionId);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }
+    try {
+      sessionStorage.setItem(viewStorageKey, activeSessionId);
+    } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId]);
 
@@ -380,7 +468,7 @@ export default function CueSheetPage() {
     }, 5000);
     pendingDeleteTimers.current.set(key, timer);
 
-    toast.success(ids.length === 1 ? "Item deleted" : `${ids.length} items deleted`, {
+    toast.success(ids.length === 1 ? "Cue deleted" : `${ids.length} cues deleted`, {
       label: "Undo",
       onClick: () => {
         const pending = pendingDeleteTimers.current.get(key);
@@ -391,6 +479,23 @@ export default function CueSheetPage() {
         setRows((prev) => (prev ? [...prev, ...toRemove].sort((a, b) => a.sort_order - b.sort_order) : prev));
       },
     });
+  }
+
+  // R10: deleting from a row's menu removes the element that had focus.
+  // Move focus to the next surviving row (or the previous one, or Add cue
+  // when the list empties) after the row leaves the DOM. Delayed delete and
+  // Undo are unchanged.
+  function deleteRowKeepingFocus(row: ProgramRow) {
+    const order = filteredRows ?? rows ?? [];
+    const index = order.findIndex((r) => r.id === row.id);
+    const neighbor = order[index + 1] ?? order[index - 1] ?? null;
+    scheduleDelete([row]);
+    setTimeout(() => {
+      const target = neighbor
+        ? document.querySelector<HTMLElement>(`[data-row-id="${neighbor.id}"] button[title]`)
+        : document.querySelector<HTMLElement>('button[aria-label="Add cue"]');
+      target?.focus();
+    }, 0);
   }
 
   function handleDeleteConfirmed() {
@@ -422,8 +527,14 @@ export default function CueSheetPage() {
     const newIndex = group.rows.findIndex((r) => r.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
 
+    await persistMove(group, groupIndex, allGroups, oldIndex, newIndex);
+  }
+
+  // Shared by drag, keyboard drag and the Move up/down menu actions (F05:
+  // a click/tap alternative to dragging, WCAG 2.5.7) — one server path.
+  async function persistMove(group: PartitionGroup, groupIndex: number, allGroups: PartitionGroup[], oldIndex: number, newIndex: number) {
     const reordered = arrayMove(group.rows, oldIndex, newIndex);
-    const movedId = String(active.id);
+    const movedId = group.rows[oldIndex].id;
     const newPosInGroup = reordered.findIndex((r) => r.id === movedId);
     // Front of this partition's group — afterId is the last row of the
     // *previous* group (so the move still lands inside this partition's
@@ -484,7 +595,7 @@ export default function CueSheetPage() {
         body: JSON.stringify({ eventId, ids: Array.from(selected), field, value }),
       });
       if (res.ok) {
-        toast.success(`${selected.size} items updated`);
+        toast.success(`${selected.size} cue${selected.size === 1 ? "" : "s"} updated`);
         setBulkEditOpen(false);
         setSelected(new Set());
         loadRows(activeSessionId);
@@ -557,6 +668,14 @@ export default function CueSheetPage() {
   // session currently open here is that one. Viewing a different (planning-
   // only) session shows no live markers at all, same as if nothing were live.
   const isViewingLiveSession = !!state.activeSessionId && state.activeSessionId === activeSessionId;
+  // R7: being the *active* session is not the same as running. Show state
+  // comes from the shared derivation (lib/session-lifecycle.ts).
+  const activeSessionObj = sessions.find((x) => x.id === state.activeSessionId);
+  const activeLifecycle = deriveSessionLifecycle({
+    currentOrder: state.progressBySession[state.activeSessionId]?.currentOrder ?? null,
+    itemCount: activeSessionObj?.items.length ?? 0,
+    pausedAt: state.pausedAt,
+  });
   const liveCurrentOrder = isViewingLiveSession
     ? (state.progressBySession[state.activeSessionId]?.currentOrder ?? null)
     : null;
@@ -734,23 +853,54 @@ export default function CueSheetPage() {
                   description: s.eventName,
                 }))}
                 placeholder="Select a session…"
-                aria-label="Session"
-                className="w-40 sm:w-64"
+                aria-label="Viewing session"
+                className="w-36 sm:w-64"
               />
               {moreItems.length > 0 && <OverflowMenu items={moreItems} iconOnly label="Session actions" />}
+              {/* F06: say which session is live when it isn't the one being
+                  viewed, so nobody edits Day 2 believing it's on air. */}
+              {liveSessionInList && !isViewingLiveSession && (
+                // Narrow screens: a compact badge, so the "this isn't the
+                // active session" signal never disappears on phones.
+                <span
+                  className="md:hidden shrink-0 ml-1 rounded-chip border border-status-orange/40 px-1.5 py-0.5 text-console-meta text-status-orange"
+                  title="You're viewing a session that isn't the active session on the displays"
+                >
+                  Not active
+                </span>
+              )}
+              {liveSessionInList && (
+                <span className="hidden md:inline text-console-meta text-muted truncate ml-2">
+                  {isViewingLiveSession ? (
+                    <>
+                      Active session ·{" "}
+                      <span className={activeLifecycle === "live" ? "text-status-green" : activeLifecycle === "on-hold" ? "text-status-orange" : undefined}>
+                        {LIFECYCLE_LABEL[activeLifecycle]}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Viewing only · Active session:{" "}
+                      {activeSessionObj ? `${activeSessionObj.dayLabel} • ${activeSessionObj.sessionLabel}` : ""} (
+                      {LIFECYCLE_LABEL[activeLifecycle].toLowerCase()})
+                    </>
+                  )}
+                </span>
+              )}
             </div>
           )}
           <div className="flex items-center gap-2 shrink-0">
-            <OverflowMenu items={ioItems} label="Import / export" />
+            <OverflowMenu items={ioItems} label="Import / export" compactBelowSm triggerIcon={ArrowDownUp} />
             {canEdit && (
               <Button
                 variant="primary"
                 size="sm"
                 onClick={() => setPanel(panel === "create" ? "none" : "create")}
                 disabled={!activeSessionId}
+                aria-label="Add cue"
               >
                 <Plus className="h-4 w-4" strokeWidth={2} />
-                Add cue
+                <span className="hidden min-[400px]:inline">Add cue</span>
               </Button>
             )}
           </div>
@@ -758,6 +908,14 @@ export default function CueSheetPage() {
       </div>
 
       <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto flex flex-col gap-6">
+        {viewNotice && (
+          <div role="status" className="flex items-start justify-between gap-3 rounded-panel border border-line-soft bg-card px-4 py-3">
+            <p className="text-console-sm text-muted">{viewNotice}</p>
+            <Button variant="ghost" size="sm" onClick={() => setViewNotice(null)}>
+              Dismiss
+            </Button>
+          </div>
+        )}
 
         {/* Kramflow UI Shell v2 (Phase 6): a Sheet, not an inline swap that
             replaced the whole item list with a form card — creating or
@@ -878,7 +1036,7 @@ export default function CueSheetPage() {
         <Modal
           open={panel === "create" && !!activeSessionId}
           onClose={requestClosePanel}
-          title="Add Item"
+          title="Add cue"
           size="lg"
           scrollBody={false}
         >
@@ -892,11 +1050,16 @@ export default function CueSheetPage() {
               onSaved={() => {
                 setItemFormDirty(false);
                 setPanel("none");
-                toast.success("Item added");
+                toast.success("Cue added");
                 loadRows(activeSessionId);
               }}
               onCancel={requestClosePanel}
               onDirtyChange={setItemFormDirty}
+              // Refresh only if that session is still the one shown; an
+              // answer can arrive after the operator switched sessions.
+              onServerChanged={(sid) => {
+                if (sid === latestRequestedSessionId.current) loadRows(sid);
+              }}
             />
           )}
         </Modal>
@@ -904,7 +1067,7 @@ export default function CueSheetPage() {
         <Modal
           open={typeof panel === "object" && "edit" in panel}
           onClose={requestClosePanel}
-          title="Edit Item"
+          title="Edit cue"
           size="lg"
           scrollBody={false}
         >
@@ -921,11 +1084,16 @@ export default function CueSheetPage() {
               onSaved={() => {
                 setItemFormDirty(false);
                 setPanel("none");
-                toast.success("Item updated");
+                toast.success("Cue saved");
                 loadRows(activeSessionId);
               }}
               onCancel={requestClosePanel}
               onDirtyChange={setItemFormDirty}
+              // Refresh only if that session is still the one shown; an
+              // answer can arrive after the operator switched sessions.
+              onServerChanged={(sid) => {
+                if (sid === latestRequestedSessionId.current) loadRows(sid);
+              }}
             />
           )}
         </Modal>
@@ -934,7 +1102,7 @@ export default function CueSheetPage() {
           <div>
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-baseline gap-2.5 min-w-0 flex-wrap">
-                <h2 className="text-console-md text-primary">Items</h2>
+                <h2 className="text-console-md text-primary">Cue sheet</h2>
                 {/* Session-level "this is the one actually on air right
                     now" fact — the same canonical component Console uses
                     for the identical semantic (show-state, audience-
@@ -943,8 +1111,10 @@ export default function CueSheetPage() {
                     one per row: row-level position is carried by CURRENT/
                     NEXT/ON DECK labels below instead, so this doesn't
                     duplicate that fact, just frames the whole list. */}
-                {isViewingLiveSession && liveCurrentOrder !== null && (
-                  <OperationalStatus kind="live" label="Live now" />
+                {isViewingLiveSession && activeLifecycle === "live" && <OperationalStatus kind="live" label="Live now" />}
+                {isViewingLiveSession && activeLifecycle === "on-hold" && <OperationalStatus kind="hold" label="On hold" />}
+                {isViewingLiveSession && activeLifecycle === "finished" && (
+                  <span className="text-console-meta text-muted">Session finished</span>
                 )}
                 {rows && rows.length > 0 && (
                   <span className="tnum text-console-meta text-muted-2">
@@ -979,8 +1149,8 @@ export default function CueSheetPage() {
                       setSearch(e.target.value);
                       setSelected(new Set());
                     }}
-                    placeholder="Search…"
-                    aria-label="Search items or presenters"
+                    placeholder="Search cues or presenters"
+                    aria-label="Search cues or presenters"
                     className="min-w-0 flex-1 sm:flex-none sm:w-60"
                   />
                 )}
@@ -1112,7 +1282,7 @@ export default function CueSheetPage() {
                       livePosition={livePositionFor(row.sort_order, liveCurrentOrder)}
                       onToggleSelect={(checked, shiftKey) => toggleSelected(row.id, checked, shiftKey)}
                       onEdit={() => setPanel({ edit: row })}
-                      onDelete={() => scheduleDelete([row])}
+                      onDelete={() => deleteRowKeepingFocus(row)}
                     />
                   );
                 })}
@@ -1152,7 +1322,7 @@ export default function CueSheetPage() {
                       onDragCancel={() => setActiveDragId(null)}
                     >
                       <SortableContext items={group.rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-                        {group.rows.map((row) => {
+                        {group.rows.map((row, rowIndex) => {
                           const isSelected = selected.has(row.id);
                           return (
                           <SortableProgramRow
@@ -1163,7 +1333,17 @@ export default function CueSheetPage() {
                             livePosition={livePositionFor(row.sort_order, liveCurrentOrder)}
                             onToggleSelect={(checked, shiftKey) => toggleSelected(row.id, checked, shiftKey)}
                             onEdit={() => setPanel({ edit: row })}
-                            onDelete={() => scheduleDelete([row])}
+                            onDelete={() => deleteRowKeepingFocus(row)}
+                            onMoveUp={
+                              canEdit && rowIndex > 0
+                                ? () => persistMove(group, groupIndex, partitionGroups, rowIndex, rowIndex - 1)
+                                : undefined
+                            }
+                            onMoveDown={
+                              canEdit && rowIndex < group.rows.length - 1
+                                ? () => persistMove(group, groupIndex, partitionGroups, rowIndex, rowIndex + 1)
+                                : undefined
+                            }
                           />
                           );
                         })}
@@ -1280,6 +1460,8 @@ interface ProgramRowViewProps {
   onToggleSelect: (checked: boolean, shiftKey: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   dragHandle?: React.ReactNode;
   style?: React.CSSProperties;
   className?: string;
@@ -1296,6 +1478,8 @@ function ProgramRowView({
   onToggleSelect,
   onEdit,
   onDelete,
+  onMoveUp,
+  onMoveDown,
   dragHandle,
   style,
   className,
@@ -1309,6 +1493,7 @@ function ProgramRowView({
   return (
     <div
       ref={setNodeRef}
+      data-row-id={row.id}
       role="row"
       aria-label={`${row.name}${isCurrent ? " (current)" : livePosition === "next" ? " (next)" : livePosition === "on-deck" ? " (on deck)" : ""}`}
       style={style}
@@ -1412,17 +1597,29 @@ function ProgramRowView({
               Console's own rundown escalates its live row. Not just color:
               a colorblind operator or anyone on the stage-orange/red
               variants above still gets a real weight difference. */}
-          <p className={cn("text-console-row truncate", isCurrent ? "text-primary font-semibold" : "text-primary font-medium")}>
+          {/* F05: the title is the edit affordance (a real button, not
+              hover-only) and wraps to two lines on phones instead of
+              ellipsizing similar names into each other. Desktop keeps one
+              dense line; the full name is the button's accessible name. */}
+          <button
+            type="button"
+            onClick={onEdit}
+            title={row.name}
+            className={cn(
+              "min-w-0 text-left text-console-row line-clamp-2 break-words sm:line-clamp-1 sm:truncate cursor-pointer rounded-control hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+              isCurrent ? "text-primary font-semibold" : "text-primary font-medium"
+            )}
+          >
             {row.name}
-          </p>
+          </button>
           {/* CURRENT/NEXT/ON DECK — the exact words and the exact color
               pairing (status-green / status-blue / muted-2) Console's
               RunPosition and ProgramList already established, reused
               verbatim rather than inventing a second vocabulary for the
               planning view. Only one is ever true per row. */}
-          {isCurrent && <span className="text-console-label text-status-green shrink-0 uppercase">Current</span>}
-          {livePosition === "next" && <span className="text-console-label text-status-blue shrink-0 uppercase">Next</span>}
-          {livePosition === "on-deck" && <span className="text-console-label text-muted-2 shrink-0 uppercase">On deck</span>}
+          {isCurrent && <span className="hidden sm:inline text-console-label text-status-green shrink-0 uppercase">Current</span>}
+          {livePosition === "next" && <span className="hidden sm:inline text-console-label text-status-blue shrink-0 uppercase">Next</span>}
+          {livePosition === "on-deck" && <span className="hidden sm:inline text-console-label text-muted shrink-0 uppercase">On deck</span>}
           {row.status !== "confirmed" && (
             <span className="text-console-label text-muted-2 shrink-0 uppercase">{row.status}</span>
           )}
@@ -1448,7 +1645,10 @@ function ProgramRowView({
         </div>
         {/* Below 640px the numeric columns are gone, so start and duration
             ride here instead — a rundown row without its time is useless. */}
-        <p className="text-console-meta text-muted-2 truncate">
+        <p className="text-console-meta text-muted-2 sm:truncate">
+          {isCurrent && <span className="sm:hidden text-status-green font-medium uppercase">Current · </span>}
+          {livePosition === "next" && <span className="sm:hidden text-status-blue font-medium uppercase">Next · </span>}
+          {livePosition === "on-deck" && <span className="sm:hidden text-muted font-medium uppercase">On deck · </span>}
           <span className="tnum sm:hidden">
             {row.sort_order}
             {" · "}
@@ -1508,26 +1708,29 @@ function ProgramRowView({
           sighted mouse user" gap DESIGN.md's component table calls out for
           icon-only controls. */}
       <div role="cell" aria-label="Actions" className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-[110ms]">
+        {/* F05: Edit stays one visible tap on desktop (and the title edits
+            on every size); move and delete are grouped in one named menu,
+            which also gives reordering a click/tap path besides dragging. */}
         <Tooltip content={`Edit ${row.name}`}>
           <button
             type="button"
             aria-label={`Edit ${row.name}`}
             onClick={onEdit}
-            className="grid h-11 w-11 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-raised hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="hidden sm:grid h-11 w-11 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-raised hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </Tooltip>
-        <Tooltip content={`Delete ${row.name}`}>
-          <button
-            type="button"
-            aria-label={`Delete ${row.name}`}
-            onClick={onDelete}
-            className="grid h-11 w-11 place-items-center rounded-control text-muted-2 cursor-pointer transition-colors duration-[110ms] hover:bg-status-red/12 hover:text-status-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
-        </Tooltip>
+        <OverflowMenu
+          iconOnly
+          label={`Actions for ${row.name}`}
+          items={[
+            { label: "Edit cue", icon: Pencil, onClick: onEdit },
+            ...(onMoveUp ? [{ label: "Move up", icon: ArrowUp, onClick: onMoveUp }] : []),
+            ...(onMoveDown ? [{ label: "Move down", icon: ArrowDown, onClick: onMoveDown }] : []),
+            { label: "Delete cue", icon: Trash2, onClick: onDelete, tone: "danger" as const },
+          ]}
+        />
       </div>
     </div>
   );
@@ -1545,6 +1748,8 @@ function SortableProgramRow({
   onToggleSelect,
   onEdit,
   onDelete,
+  onMoveUp,
+  onMoveDown,
 }: {
   row: ProgramRow;
   selected: boolean;
@@ -1553,6 +1758,8 @@ function SortableProgramRow({
   onToggleSelect: (checked: boolean, shiftKey: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: row.id });
   const style: React.CSSProperties = {
@@ -1575,6 +1782,8 @@ function SortableProgramRow({
       onToggleSelect={onToggleSelect}
       onEdit={onEdit}
       onDelete={onDelete}
+      onMoveUp={onMoveUp}
+      onMoveDown={onMoveDown}
       setNodeRef={setNodeRef}
       style={style}
       className={isDragging ? "bg-raised rounded-control border-b-transparent" : undefined}

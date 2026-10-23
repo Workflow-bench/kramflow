@@ -81,7 +81,9 @@ export function EventShellHeader({
           {sessionContext}
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0 flex-wrap justify-end">
+        {/* max-w-full, not shrink-0: at 390px the group was wider than the
+            header and pushed Log out past the right edge instead of wrapping. */}
+        <div className="flex items-center gap-2.5 max-w-full flex-wrap justify-end">
           <div className="flex items-center gap-2 text-console-meta text-muted-2">
             <ConnectionBadge status={connectionStatus} variant="console" />
             {/* Deprioritized to lg: (was sm:) — the clock is the least
