@@ -205,6 +205,10 @@ function ensureBrowserListeners(inst: EventStoreInstance) {
 // arrives afterward and re-applies the identical state — a harmless
 // no-op, not a second source of truth.
 async function sendAction(eventId: string, body: Record<string, unknown>, attempt = 0): Promise<boolean> {
+  // Cleared first so a fetch that never gets a reply reports null rather
+  // than the previous call's status (lib/session-switch.ts treats null as
+  // "uncertain, don't resend").
+  getInstance(eventId).lastActionStatus = null;
   try {
     const res = await fetch("/api/live", {
       method: "PATCH",
