@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { supabaseBrowser, realtimeReady } from "./supabase/client";
 
@@ -17,6 +17,11 @@ export function useControllerName(eventId: string, controllerId: string | null):
   // is handled by the `controllerId ? name : null` return instead of a
   // synchronous reset here.
   const [name, setName] = useState<string | null>(null);
+  // Per-instance topic: supabase-js returns the same channel object for a
+  // repeated topic, so a second mounted consumer (ControlsPanel and the
+  // session picker both resolve the holder's name) used to throw "cannot
+  // add postgres_changes callbacks ... after subscribe()".
+  const instanceId = useId();
 
   useEffect(() => {
     if (!controllerId) return;
@@ -47,7 +52,7 @@ export function useControllerName(eventId: string, controllerId: string | null):
     realtimeReady().then(() => {
       if (cancelled) return;
       channel = client
-        .channel(`controller-name:${eventId}`)
+        .channel(`controller-name:${eventId}:${instanceId}`)
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "activity_log", filter: `event_id=eq.${eventId}` },
@@ -63,7 +68,7 @@ export function useControllerName(eventId: string, controllerId: string | null):
       cancelled = true;
       if (channel) client.removeChannel(channel);
     };
-  }, [eventId, controllerId]);
+  }, [eventId, controllerId, instanceId]);
 
   return controllerId ? name : null;
 }
